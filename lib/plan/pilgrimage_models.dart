@@ -36,12 +36,18 @@ class PilgrimagePoint {
 
 class PilgrimagePlan {
   const PilgrimagePlan({
+    required this.id,
     required this.work,
     required this.name,
     required this.points,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
+  final String id;
   final PilgrimageWork work;
   final String name;
   final List<PilgrimagePoint> points;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 }

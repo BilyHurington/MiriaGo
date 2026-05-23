@@ -50,4 +50,44 @@ void main() {
     expect(find.text('设为当前'), findsOneWidget);
     expect(find.text('标记完成'), findsWidgets);
   });
+
+  testWidgets('switches plans and shows empty plan add-points shell', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('切换计划'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('切换计划'), findsOneWidget);
+    expect(find.textContaining('京都空计划'), findsOneWidget);
+
+    await tester.tap(find.text('切换'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('京都空计划'), findsOneWidget);
+    expect(find.text('还没有点位'), findsOneWidget);
+    expect(find.text('添加第一个点位'), findsOneWidget);
+
+    await tester.tap(find.text('添加第一个点位'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('从 Anitabi 添加'), findsOneWidget);
+    expect(find.text('手动添加点位'), findsOneWidget);
+  });
+
+  testWidgets('creates a new plan from the plan manager', (tester) async {
+    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('切换计划'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建计划'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新巡礼计划 3'), findsOneWidget);
+    expect(find.textContaining('自定义巡礼'), findsOneWidget);
+  });
 }

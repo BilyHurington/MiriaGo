@@ -4,24 +4,23 @@ import 'pilgrimage_models.dart';
 
 class PilgrimagePlanController extends ChangeNotifier {
   PilgrimagePlanController({required PilgrimagePlan plan})
-    : assert(plan.points.isNotEmpty, 'A pilgrimage plan requires points.'),
-      _plan = plan,
-      _currentPointId = plan.points.first.id,
-      _selectedPointId = plan.points.first.id;
+    : _plan = plan,
+      _currentPointId = plan.points.firstOrNull?.id,
+      _selectedPointId = plan.points.firstOrNull?.id;
 
   final PilgrimagePlan _plan;
   final Set<String> _completedPointIds = {};
 
-  String _currentPointId;
-  String _selectedPointId;
+  String? _currentPointId;
+  String? _selectedPointId;
 
   PilgrimagePlan get plan => _plan;
 
   List<PilgrimagePoint> get points => _plan.points;
 
-  PilgrimagePoint get currentPoint => _pointById(_currentPointId);
+  PilgrimagePoint? get currentPoint => _pointById(_currentPointId);
 
-  PilgrimagePoint get selectedPoint => _pointById(_selectedPointId);
+  PilgrimagePoint? get selectedPoint => _pointById(_selectedPointId);
 
   List<PilgrimagePoint> get completedPoints => points
       .where((point) => _completedPointIds.contains(point.id))
@@ -32,6 +31,8 @@ class PilgrimagePlanController extends ChangeNotifier {
   int get totalCount => points.length;
 
   bool get isPlanComplete => completedCount == totalCount;
+
+  bool get hasPoints => points.isNotEmpty;
 
   VisitStatus statusFor(PilgrimagePoint point) {
     if (_completedPointIds.contains(point.id)) {
@@ -83,7 +84,11 @@ class PilgrimagePlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  PilgrimagePoint _pointById(String id) {
+  PilgrimagePoint? _pointById(String? id) {
+    if (id == null || points.isEmpty) {
+      return null;
+    }
+
     return points.firstWhere(
       (point) => point.id == id,
       orElse: () => points.first,

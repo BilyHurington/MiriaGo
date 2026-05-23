@@ -16,7 +16,7 @@ class SeichiJunreiHelperApp extends StatelessWidget {
       title: '圣地巡礼助手',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const AppShell(),
+      home: AppShell(),
     );
   }
 }

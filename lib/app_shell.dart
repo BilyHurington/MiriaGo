@@ -4,15 +4,15 @@ import 'app_theme.dart';
 import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
 import 'map/pilgrimage_map_screen.dart';
+import 'plan/add_points_screen.dart';
+import 'plan/plan_manager_screen.dart';
 import 'plan/pilgrimage_plan_controller.dart';
 import 'plan/plan_screen.dart';
 import 'records/records_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({
-    this.repository = const SamplePilgrimageRepository(),
-    super.key,
-  });
+  AppShell({PilgrimageRepository? repository, super.key})
+    : repository = repository ?? SamplePilgrimageRepository();
 
   final PilgrimageRepository repository;
 
@@ -69,6 +69,23 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
+  Future<void> _openPlanManager() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlanManagerScreen(repository: widget.repository),
+      ),
+    );
+    await _loadActivePlan();
+  }
+
+  Future<void> _openAddPoints() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AddPointsScreen(plan: _planController?.plan),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _planController;
@@ -84,7 +101,12 @@ class _AppShellState extends State<AppShell> {
           body: IndexedStack(
             index: _selectedIndex,
             children: [
-              PlanScreen(controller: controller, onOpenMap: _openMap),
+              PlanScreen(
+                controller: controller,
+                onOpenMap: _openMap,
+                onOpenPlanManager: _openPlanManager,
+                onOpenAddPoints: _openAddPoints,
+              ),
               PilgrimageMapScreen(controller: controller),
               RecordsScreen(controller: controller),
             ],

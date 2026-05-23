@@ -99,6 +99,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   void _moveToCurrentTarget() {
     final currentPoint = _controller.currentPoint;
+    if (currentPoint == null) {
+      _showSnackBar('当前计划还没有点位。');
+      return;
+    }
+
     _controller.selectPoint(currentPoint);
     _mapController.move(currentPoint.position, 16);
   }
@@ -134,6 +139,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedPoint = _controller.selectedPoint;
+    final initialCenter = _controller.currentPoint?.position ?? _fallbackCenter;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -162,7 +170,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _controller.currentPoint.position,
+              initialCenter: initialCenter,
               initialZoom: 15,
               minZoom: 4,
               maxZoom: 19,
@@ -183,7 +191,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                       width: 44,
                       height: 44,
                       child: _PointMarker(
-                        selected: point.id == _controller.selectedPoint.id,
+                        selected: point.id == selectedPoint?.id,
                         status: _controller.statusFor(point),
                         onTap: () => _selectPoint(point),
                       ),
@@ -214,32 +222,36 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
           ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: _PointCard(
-              point: _controller.selectedPoint,
-              status: _controller.statusFor(_controller.selectedPoint),
-              distanceMeters: _distanceToSelectedPoint(),
-              onSetCurrent: () =>
-                  _controller.setCurrentPoint(_controller.selectedPoint),
-              onOpenDetail: () => _showPointDetail(_controller.selectedPoint),
-              onOpenNavigation: () =>
-                  _openNavigation(_controller.selectedPoint),
-              onOpenCamera: () => _openCamera(_controller.selectedPoint),
-              onComplete: () =>
-                  _controller.completePoint(_controller.selectedPoint),
-            ),
+            child: selectedPoint == null
+                ? const _EmptyMapCard()
+                : _PointCard(
+                    point: selectedPoint,
+                    status: _controller.statusFor(selectedPoint),
+                    distanceMeters: _distanceToSelectedPoint(selectedPoint),
+                    onSetCurrent: () =>
+                        _controller.setCurrentPoint(selectedPoint),
+                    onOpenDetail: () => _showPointDetail(selectedPoint),
+                    onOpenNavigation: () => _openNavigation(selectedPoint),
+                    onOpenCamera: () => _openCamera(selectedPoint),
+                    onComplete: () => _controller.completePoint(selectedPoint),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  double? _distanceToSelectedPoint() {
+  LatLng get _fallbackCenter {
+    return const LatLng(34.9671, 135.7727);
+  }
+
+  double? _distanceToSelectedPoint(PilgrimagePoint point) {
     final currentLocation = _currentLocation;
     if (currentLocation == null) {
       return null;
     }
 
-    return _distance(currentLocation, _controller.selectedPoint.position);
+    return _distance(currentLocation, point.position);
   }
 }
 
@@ -428,6 +440,41 @@ class _PointCard extends StatelessWidget {
     }
 
     return '${point.subtitle} / ${distance.round()} m';
+  }
+}
+
+class _EmptyMapCard extends StatelessWidget {
+  const _EmptyMapCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.map_outlined, color: AppColors.accent),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '当前计划还没有点位。添加点位后会在地图上显示标记。',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -10,11 +10,15 @@ class PlanScreen extends StatelessWidget {
   const PlanScreen({
     required this.controller,
     required this.onOpenMap,
+    required this.onOpenPlanManager,
+    required this.onOpenAddPoints,
     super.key,
   });
 
   final PilgrimagePlanController controller;
   final VoidCallback onOpenMap;
+  final VoidCallback onOpenPlanManager;
+  final VoidCallback onOpenAddPoints;
 
   @override
   Widget build(BuildContext context) {
@@ -22,21 +26,38 @@ class PlanScreen extends StatelessWidget {
     final currentPoint = controller.currentPoint;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('计划')),
+      appBar: AppBar(
+        title: const Text('计划'),
+        actions: [
+          IconButton(
+            tooltip: '切换计划',
+            onPressed: onOpenPlanManager,
+            icon: const Icon(Icons.swap_horiz),
+          ),
+          IconButton(
+            tooltip: '添加点位',
+            onPressed: onOpenAddPoints,
+            icon: const Icon(Icons.add_location_alt_outlined),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _WorkHeader(plan: plan),
           const SizedBox(height: 16),
-          _CurrentTargetCard(
-            point: currentPoint,
-            completedCount: controller.completedCount,
-            totalCount: controller.totalCount,
-            onOpenMap: onOpenMap,
-            onOpenDetail: () => _showPointDetail(context, currentPoint),
-            onOpenCamera: () => _openCamera(context, currentPoint),
-            onComplete: () => controller.completePoint(currentPoint),
-          ),
+          if (currentPoint == null)
+            _EmptyPlanCard(onAddPoints: onOpenAddPoints)
+          else
+            _CurrentTargetCard(
+              point: currentPoint,
+              completedCount: controller.completedCount,
+              totalCount: controller.totalCount,
+              onOpenMap: onOpenMap,
+              onOpenDetail: () => _showPointDetail(context, currentPoint),
+              onOpenCamera: () => _openCamera(context, currentPoint),
+              onComplete: () => controller.completePoint(currentPoint),
+            ),
           const SizedBox(height: 18),
           const Text(
             '今日点位',
@@ -47,16 +68,19 @@ class PlanScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          for (final point in controller.points) ...[
-            _PlanPointTile(
-              point: point,
-              status: controller.statusFor(point),
-              onTap: () => _showPointDetail(context, point),
-              onOpenCamera: () => _openCamera(context, point),
-              onComplete: () => controller.completePoint(point),
-            ),
-            const SizedBox(height: 8),
-          ],
+          if (controller.points.isEmpty)
+            _EmptyPointList(onAddPoints: onOpenAddPoints)
+          else
+            for (final point in controller.points) ...[
+              _PlanPointTile(
+                point: point,
+                status: controller.statusFor(point),
+                onTap: () => _showPointDetail(context, point),
+                onOpenCamera: () => _openCamera(context, point),
+                onComplete: () => controller.completePoint(point),
+              ),
+              const SizedBox(height: 8),
+            ],
         ],
       ),
     );
@@ -78,6 +102,74 @@ class PlanScreen extends StatelessWidget {
       onSetCurrent: () => controller.setCurrentPoint(point),
       onOpenCamera: () => _openCamera(context, point),
       onComplete: () => controller.completePoint(point),
+    );
+  }
+}
+
+class _EmptyPlanCard extends StatelessWidget {
+  const _EmptyPlanCard({required this.onAddPoints});
+
+  final VoidCallback onAddPoints;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.route_outlined, color: AppColors.accent),
+              SizedBox(width: 8),
+              Text(
+                '还没有点位',
+                style: TextStyle(
+                  color: AppColors.accentDark,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '先从 Anitabi 或手动录入添加巡礼点，之后这里会显示当前目标和完成进度。',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: onAddPoints,
+            icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+            label: const Text('添加点位'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPointList extends StatelessWidget {
+  const _EmptyPointList({required this.onAddPoints});
+
+  final VoidCallback onAddPoints;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onAddPoints,
+      icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+      label: const Text('添加第一个点位'),
     );
   }
 }
