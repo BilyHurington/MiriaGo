@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Seichi Junrei Helper uses the camera to align real-world scenes with reference images.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Seichi Junrei Helper lets you choose reference images from your photo library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
