@@ -79,11 +79,17 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _openAddPoints() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AddPointsScreen(plan: _planController?.plan),
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AddPointsScreen(
+          plan: _planController?.plan,
+          repository: widget.repository,
+        ),
       ),
     );
+    if (didUpdate == true) {
+      await _loadActivePlan();
+    }
   }
 
   @override

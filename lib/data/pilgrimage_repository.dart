@@ -12,5 +12,10 @@ abstract interface class PilgrimageRepository {
     required PilgrimageWork work,
   });
 
+  Future<PilgrimagePlan> addPointToPlan({
+    required String planId,
+    required PilgrimagePoint point,
+  });
+
   Future<void> deletePlan(String id);
 }

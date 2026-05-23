@@ -50,4 +50,22 @@ class PilgrimagePlan {
   final List<PilgrimagePoint> points;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  PilgrimagePlan copyWith({
+    String? id,
+    PilgrimageWork? work,
+    String? name,
+    List<PilgrimagePoint>? points,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return PilgrimagePlan(
+      id: id ?? this.id,
+      work: work ?? this.work,
+      name: name ?? this.name,
+      points: points ?? this.points,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

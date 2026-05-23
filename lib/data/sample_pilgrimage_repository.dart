@@ -55,6 +55,25 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> addPointToPlan({
+    required String planId,
+    required PilgrimagePoint point,
+  }) async {
+    final index = _plans.indexWhere((plan) => plan.id == planId);
+    if (index == -1) {
+      throw ArgumentError.value(planId, 'planId', 'Plan does not exist.');
+    }
+
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      points: [...plan.points, point],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<void> deletePlan(String id) async {
     if (_plans.length == 1) {
       throw StateError('At least one plan is required.');

@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:seichi_junrei_helper/main.dart';
@@ -89,5 +89,39 @@ void main() {
 
     expect(find.text('新巡礼计划 3'), findsOneWidget);
     expect(find.textContaining('自定义巡礼'), findsOneWidget);
+  });
+
+  testWidgets('adds a manual point to an empty plan', (tester) async {
+    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('切换计划'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('切换'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加第一个点位'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('手动添加点位'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextFormField, '点位名称'), '鸭川三条');
+    await tester.enterText(find.widgetWithText(TextFormField, '位置说明'), '鸭川沿岸');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '集数/场景标签'),
+      '自定义场景 1',
+    );
+    await tester.enterText(find.widgetWithText(TextFormField, '参考来源'), '手动录入');
+    await tester.enterText(find.widgetWithText(TextFormField, '纬度'), '35.0089');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '经度'),
+      '135.7711',
+    );
+    await tester.ensureVisible(find.text('保存点位'));
+    await tester.tap(find.text('保存点位'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前目标 0/1'), findsOneWidget);
+    expect(find.text('鸭川三条'), findsWidgets);
+    expect(find.text('鸭川沿岸 / 自定义场景 1'), findsWidgets);
   });
 }
