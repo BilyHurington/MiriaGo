@@ -4,6 +4,8 @@
 *.pyc
 *.swp
 .DS_Store
+DESIGN_RULES.md
+PROJECT_MEMORY.md
 .atom/
 .build/
 .buildlog/
