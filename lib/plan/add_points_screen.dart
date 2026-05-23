@@ -90,6 +90,9 @@ class _ManualPointFormScreen extends StatefulWidget {
 
 class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _workTitleController = TextEditingController();
+  final _workSubtitleController = TextEditingController();
+  final _workCityController = TextEditingController();
   final _nameController = TextEditingController();
   final _subtitleController = TextEditingController();
   final _episodeController = TextEditingController();
@@ -100,6 +103,9 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
   @override
   void dispose() {
+    _workTitleController.dispose();
+    _workSubtitleController.dispose();
+    _workCityController.dispose();
     _nameController.dispose();
     _subtitleController.dispose();
     _episodeController.dispose();
@@ -121,8 +127,17 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
     try {
       final now = DateTime.now();
+      final workTitle = _workTitleController.text.trim();
+      final workSubtitle = _workSubtitleController.text.trim();
+      final workCity = _workCityController.text.trim();
       final point = PilgrimagePoint(
         id: 'manual-${now.microsecondsSinceEpoch}',
+        work: PilgrimageWork(
+          id: 'manual-work-${now.microsecondsSinceEpoch}',
+          title: workTitle,
+          subtitle: workSubtitle.isEmpty ? 'Manual Work' : workSubtitle,
+          city: workCity.isEmpty ? widget.plan.area : workCity,
+        ),
         name: _nameController.text.trim(),
         subtitle: _subtitleController.text.trim(),
         position: LatLng(
@@ -176,6 +191,35 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                 fontSize: 13,
                 letterSpacing: 0,
               ),
+            ),
+            const SizedBox(height: 12),
+            _FormSection(
+              children: [
+                TextFormField(
+                  controller: _workTitleController,
+                  decoration: const InputDecoration(labelText: '动画/作品名称'),
+                  textInputAction: TextInputAction.next,
+                  validator: _requiredText,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _workSubtitleController,
+                  decoration: const InputDecoration(
+                    labelText: '作品原名',
+                    hintText: '可选，例如 日文标题',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _workCityController,
+                  decoration: InputDecoration(
+                    labelText: '作品主要地区',
+                    hintText: '可选，默认 ${widget.plan.area}',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _FormSection(

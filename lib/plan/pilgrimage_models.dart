@@ -19,6 +19,7 @@ class PilgrimageWork {
 class PilgrimagePoint {
   const PilgrimagePoint({
     required this.id,
+    required this.work,
     required this.name,
     required this.subtitle,
     required this.position,
@@ -27,6 +28,7 @@ class PilgrimagePoint {
   });
 
   final String id;
+  final PilgrimageWork work;
   final String name;
   final String subtitle;
   final LatLng position;
@@ -37,32 +39,32 @@ class PilgrimagePoint {
 class PilgrimagePlan {
   const PilgrimagePlan({
     required this.id,
-    required this.work,
     required this.name,
+    required this.area,
     required this.points,
     required this.createdAt,
     required this.updatedAt,
   });
 
   final String id;
-  final PilgrimageWork work;
   final String name;
+  final String area;
   final List<PilgrimagePoint> points;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   PilgrimagePlan copyWith({
     String? id,
-    PilgrimageWork? work,
     String? name,
+    String? area,
     List<PilgrimagePoint>? points,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
     return PilgrimagePlan(
       id: id ?? this.id,
-      work: work ?? this.work,
       name: name ?? this.name,
+      area: area ?? this.area,
       points: points ?? this.points,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

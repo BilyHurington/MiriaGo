@@ -90,7 +90,7 @@ class PointDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${point.subtitle} / ${point.episodeLabel}',
+                        '${point.work.title} / ${point.subtitle}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -105,6 +105,18 @@ class PointDetailSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
+            _InfoRow(
+              icon: Icons.movie_filter_outlined,
+              label: '作品',
+              value: '${point.work.title} / ${point.work.subtitle}',
+            ),
+            const SizedBox(height: 8),
+            _InfoRow(
+              icon: Icons.local_movies_outlined,
+              label: '场景',
+              value: point.episodeLabel,
+            ),
+            const SizedBox(height: 8),
             _InfoRow(
               icon: Icons.location_on_outlined,
               label: '坐标',

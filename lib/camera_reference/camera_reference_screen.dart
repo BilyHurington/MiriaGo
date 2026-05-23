@@ -302,7 +302,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  point.referenceLabel,
+                  '${point.work.title} / ${point.referenceLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

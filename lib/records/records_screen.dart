@@ -70,7 +70,7 @@ class RecordsScreen extends StatelessWidget {
                   color: AppColors.accent,
                 ),
                 title: Text(point.name),
-                subtitle: Text(point.episodeLabel),
+                subtitle: Text('${point.work.title} / ${point.episodeLabel}'),
               ),
               const SizedBox(height: 8),
             ],

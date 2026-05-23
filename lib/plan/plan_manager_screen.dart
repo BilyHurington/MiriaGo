@@ -64,12 +64,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     final planNumber = (_plans?.length ?? 0) + 1;
     await widget.repository.createPlan(
       name: '新巡礼计划 $planNumber',
-      work: const PilgrimageWork(
-        id: 'manual-plan',
-        title: '自定义巡礼',
-        subtitle: 'Manual Plan',
-        city: '未设置城市',
-      ),
+      area: '未设置区域',
     );
     await _loadPlans();
   }
@@ -182,7 +177,7 @@ class _PlanCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${plan.work.title} / ${plan.work.city} / ${plan.points.length} 个点位',
+                  '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -205,6 +200,11 @@ class _PlanCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _workCountText(PilgrimagePlan plan) {
+    final count = plan.points.map((point) => point.work.id).toSet().length;
+    return '$count 部作品';
   }
 }
 

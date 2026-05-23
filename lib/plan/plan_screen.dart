@@ -208,7 +208,7 @@ class _WorkHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  plan.work.title,
+                  plan.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -219,7 +219,7 @@ class _WorkHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${plan.name} / ${plan.work.city}',
+                  '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -234,6 +234,11 @@ class _WorkHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _workCountText(PilgrimagePlan plan) {
+    final count = plan.points.map((point) => point.work.id).toSet().length;
+    return '$count 部作品';
   }
 }
 
@@ -294,7 +299,7 @@ class _CurrentTargetCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${point.subtitle} / ${point.episodeLabel}',
+            '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
@@ -406,7 +411,7 @@ class _PlanPointTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${point.subtitle} / ${point.episodeLabel}',
+                      '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

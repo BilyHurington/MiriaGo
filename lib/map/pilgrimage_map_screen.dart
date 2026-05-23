@@ -145,7 +145,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(_controller.plan.work.city),
+        title: Text(_controller.plan.area),
         actions: [
           IconButton(
             tooltip: '当前目标',
@@ -432,14 +432,14 @@ class _PointCard extends StatelessWidget {
         '${point.position.latitude.toStringAsFixed(4)}, ${point.position.longitude.toStringAsFixed(4)}';
 
     if (distance == null) {
-      return '${point.subtitle} / $coordinate';
+      return '${point.work.title} / ${point.subtitle} / $coordinate';
     }
 
     if (distance >= 1000) {
-      return '${point.subtitle} / ${(distance / 1000).toStringAsFixed(1)} km';
+      return '${point.work.title} / ${(distance / 1000).toStringAsFixed(1)} km';
     }
 
-    return '${point.subtitle} / ${distance.round()} m';
+    return '${point.work.title} / ${distance.round()} m';
   }
 }
 

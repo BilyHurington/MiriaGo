@@ -11,9 +11,10 @@ void main() {
     expect(find.text('计划'), findsWidgets);
     expect(find.text('地图'), findsWidgets);
     expect(find.text('记录'), findsWidgets);
-    expect(find.text('吹响吧！上低音号'), findsOneWidget);
-    expect(find.text('当前目标 0/3'), findsOneWidget);
+    expect(find.text('京都南部一日巡礼'), findsOneWidget);
+    expect(find.text('当前目标 0/4'), findsOneWidget);
     expect(find.text('宇治桥'), findsWidgets);
+    expect(find.textContaining('2 部作品'), findsOneWidget);
   });
 
   testWidgets('opens camera reference from current target', (tester) async {
@@ -25,7 +26,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('宇治桥'), findsWidgets);
-    expect(find.text('参考图待接入'), findsOneWidget);
+    expect(find.textContaining('参考图待接入'), findsOneWidget);
     expect(find.text('Split'), findsOneWidget);
     expect(find.text('Overlay'), findsOneWidget);
   });
@@ -88,7 +89,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('新巡礼计划 3'), findsOneWidget);
-    expect(find.textContaining('自定义巡礼'), findsOneWidget);
+    expect(find.textContaining('未设置区域'), findsOneWidget);
   });
 
   testWidgets('adds a manual point to an empty plan', (tester) async {
@@ -104,6 +105,10 @@ void main() {
     await tester.tap(find.text('手动添加点位'));
     await tester.pumpAndSettle();
 
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '动画/作品名称'),
+      '轻音少女',
+    );
     await tester.enterText(find.widgetWithText(TextFormField, '点位名称'), '鸭川三条');
     await tester.enterText(find.widgetWithText(TextFormField, '位置说明'), '鸭川沿岸');
     await tester.enterText(
@@ -111,6 +116,11 @@ void main() {
       '自定义场景 1',
     );
     await tester.enterText(find.widgetWithText(TextFormField, '参考来源'), '手动录入');
+    await tester.scrollUntilVisible(
+      find.widgetWithText(TextFormField, '纬度'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(find.widgetWithText(TextFormField, '纬度'), '35.0089');
     await tester.enterText(
       find.widgetWithText(TextFormField, '经度'),
@@ -122,6 +132,6 @@ void main() {
 
     expect(find.text('当前目标 0/1'), findsOneWidget);
     expect(find.text('鸭川三条'), findsWidgets);
-    expect(find.text('鸭川沿岸 / 自定义场景 1'), findsWidgets);
+    expect(find.text('轻音少女 / 鸭川沿岸 / 自定义场景 1'), findsWidgets);
   });
 }

@@ -37,13 +37,13 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<PilgrimagePlan> createPlan({
     required String name,
-    required PilgrimageWork work,
+    required String area,
   }) async {
     final now = DateTime.now();
     final plan = PilgrimagePlan(
       id: 'local-${now.microsecondsSinceEpoch}',
-      work: work,
       name: name,
+      area: area,
       points: const [],
       createdAt: now,
       updatedAt: now,
@@ -88,20 +88,30 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
 
 final _sampleCreatedAt = DateTime(2026, 5, 23, 9);
 
+const _hibikeWork = PilgrimageWork(
+  id: 'hibike-euphonium',
+  title: '吹响吧！上低音号',
+  subtitle: '響け！ユーフォニアム',
+  city: '宇治市',
+);
+
+const _tamakoWork = PilgrimageWork(
+  id: 'tamako-market',
+  title: '玉子市场',
+  subtitle: 'たまこまーけっと',
+  city: '京都市',
+);
+
 final samplePilgrimagePlan = PilgrimagePlan(
   id: 'sample-uji-hibike',
-  work: const PilgrimageWork(
-    id: 'hibike-euphonium',
-    title: '吹响吧！上低音号',
-    subtitle: '響け！ユーフォニアム',
-    city: '宇治市',
-  ),
-  name: '宇治示例巡礼',
+  name: '京都南部一日巡礼',
+  area: '宇治市 / 京都市',
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,
   points: const [
     PilgrimagePoint(
       id: 'uji-bridge',
+      work: _hibikeWork,
       name: '宇治桥',
       subtitle: '宇治川沿岸',
       position: LatLng(34.8917, 135.8077),
@@ -110,6 +120,7 @@ final samplePilgrimagePlan = PilgrimagePlan(
     ),
     PilgrimagePoint(
       id: 'agata-dori',
+      work: _hibikeWork,
       name: 'あがた通り',
       subtitle: '县神社方向街道',
       position: LatLng(34.8899, 135.8081),
@@ -118,10 +129,20 @@ final samplePilgrimagePlan = PilgrimagePlan(
     ),
     PilgrimagePoint(
       id: 'uji-station',
+      work: _hibikeWork,
       name: 'JR 宇治站',
       subtitle: 'JR 奈良线车站',
       position: LatLng(34.8905, 135.8008),
       episodeLabel: '示例点位 3',
+      referenceLabel: '参考图待接入',
+    ),
+    PilgrimagePoint(
+      id: 'demachi-masugata',
+      work: _tamakoWork,
+      name: '出町桝形商店街',
+      subtitle: '商店街入口',
+      position: LatLng(35.0306, 135.7721),
+      episodeLabel: '示例点位 4',
       referenceLabel: '参考图待接入',
     ),
   ],
@@ -129,13 +150,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
 
 final sampleEmptyPlan = PilgrimagePlan(
   id: 'sample-empty-kyoto',
-  work: const PilgrimageWork(
-    id: 'manual-kyoto',
-    title: '自定义京都巡礼',
-    subtitle: 'Manual Plan',
-    city: '京都市',
-  ),
   name: '京都空计划',
+  area: '京都市',
   points: const [],
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,

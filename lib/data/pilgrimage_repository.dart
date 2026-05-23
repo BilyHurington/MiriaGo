@@ -9,7 +9,7 @@ abstract interface class PilgrimageRepository {
 
   Future<PilgrimagePlan> createPlan({
     required String name,
-    required PilgrimageWork work,
+    required String area,
   });
 
   Future<PilgrimagePlan> addPointToPlan({
