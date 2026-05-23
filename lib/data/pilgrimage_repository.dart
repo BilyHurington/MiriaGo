@@ -27,5 +27,21 @@ abstract interface class PilgrimageRepository {
     required PilgrimageWork work,
   });
 
+  Future<void> setCurrentPoint({
+    required String planId,
+    required String pointId,
+  });
+
+  Future<void> completePoint({
+    required String planId,
+    required String pointId,
+    required String? nextCurrentPointId,
+  });
+
+  Future<void> reopenPoint({
+    required String planId,
+    required String pointId,
+  });
+
   Future<void> deletePlan(String id);
 }

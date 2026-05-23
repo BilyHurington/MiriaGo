@@ -42,6 +42,8 @@ class Points extends Table {
   TextColumn get referenceImageUrl => text().nullable()();
   TextColumn get sourceUrl => text().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isCurrent => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get completedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -52,5 +54,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.addColumn(points, points.isCurrent);
+        await migrator.addColumn(points, points.completedAt);
+      }
+    },
+  );
 }

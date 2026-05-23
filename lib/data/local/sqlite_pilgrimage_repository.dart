@@ -119,6 +119,70 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<void> setCurrentPoint({
+    required String planId,
+    required String pointId,
+  }) async {
+    await _database.transaction(() async {
+      await _clearCurrentPoint(planId);
+      await (_database.update(_database.points)
+            ..where(
+              (table) =>
+                  table.planId.equals(planId) & table.id.equals(pointId),
+            ))
+          .write(
+            const PointsCompanion(
+              isCurrent: Value(true),
+              completedAt: Value(null),
+            ),
+          );
+      await _touchPlan(planId);
+    });
+  }
+
+  @override
+  Future<void> completePoint({
+    required String planId,
+    required String pointId,
+    required String? nextCurrentPointId,
+  }) async {
+    await _database.transaction(() async {
+      await _clearCurrentPoint(planId);
+      await (_database.update(_database.points)
+            ..where(
+              (table) =>
+                  table.planId.equals(planId) & table.id.equals(pointId),
+            ))
+          .write(
+            PointsCompanion(
+              isCurrent: const Value(false),
+              completedAt: Value(DateTime.now()),
+            ),
+          );
+
+      if (nextCurrentPointId != null) {
+        await (_database.update(_database.points)
+              ..where(
+                (table) =>
+                    table.planId.equals(planId) &
+                    table.id.equals(nextCurrentPointId),
+              ))
+            .write(const PointsCompanion(isCurrent: Value(true)));
+      }
+
+      await _touchPlan(planId);
+    });
+  }
+
+  @override
+  Future<void> reopenPoint({
+    required String planId,
+    required String pointId,
+  }) {
+    return setCurrentPoint(planId: planId, pointId: pointId);
+  }
+
+  @override
   Future<void> deletePlan(String id) async {
     await _database.transaction(() async {
       final count = await _database.plans.count().getSingle();
@@ -232,6 +296,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceImageUrl: Value(point.referenceImageUrl),
       sourceUrl: Value(point.sourceUrl),
       sortOrder: Value(sortOrder),
+      isCurrent: const Value(false),
+      completedAt: const Value(null),
     );
   }
 
@@ -246,6 +312,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)]))
             .get();
 
+    final completedPointIds = {
+      for (final point in points)
+        if (point.completedAt != null) point.id,
+    };
+    final currentPointId = points
+        .where((point) => point.isCurrent && point.completedAt == null)
+        .firstOrNull
+        ?.id;
+
     return PilgrimagePlan(
       id: row.id,
       name: row.name,
@@ -256,6 +331,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           .toList(growable: false),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      currentPointId: currentPointId,
+      completedPointIds: completedPointIds,
     );
   }
 
@@ -320,5 +397,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return (_database.update(_database.plans)
           ..where((table) => table.id.equals(planId)))
         .write(PlansCompanion(updatedAt: Value(DateTime.now())));
+  }
+
+  Future<void> _clearCurrentPoint(String planId) {
+    return (_database.update(_database.points)
+          ..where((table) => table.planId.equals(planId)))
+        .write(const PointsCompanion(isCurrent: Value(false)));
   }
 }

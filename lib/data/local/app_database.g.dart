@@ -1015,6 +1015,32 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _isCurrentMeta = const VerificationMeta(
+    'isCurrent',
+  );
+  @override
+  late final GeneratedColumn<bool> isCurrent = GeneratedColumn<bool>(
+    'is_current',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_current" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1031,6 +1057,8 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     referenceImageUrl,
     sourceUrl,
     sortOrder,
+    isCurrent,
+    completedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1154,6 +1182,21 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('is_current')) {
+      context.handle(
+        _isCurrentMeta,
+        isCurrent.isAcceptableOrUnknown(data['is_current']!, _isCurrentMeta),
+      );
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1219,6 +1262,14 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      isCurrent: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_current'],
+      )!,
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      ),
     );
   }
 
@@ -1243,6 +1294,8 @@ class Point extends DataClass implements Insertable<Point> {
   final String? referenceImageUrl;
   final String? sourceUrl;
   final int sortOrder;
+  final bool isCurrent;
+  final DateTime? completedAt;
   const Point({
     required this.id,
     required this.planId,
@@ -1258,6 +1311,8 @@ class Point extends DataClass implements Insertable<Point> {
     this.referenceImageUrl,
     this.sourceUrl,
     required this.sortOrder,
+    required this.isCurrent,
+    this.completedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1282,6 +1337,10 @@ class Point extends DataClass implements Insertable<Point> {
       map['source_url'] = Variable<String>(sourceUrl);
     }
     map['sort_order'] = Variable<int>(sortOrder);
+    map['is_current'] = Variable<bool>(isCurrent);
+    if (!nullToAbsent || completedAt != null) {
+      map['completed_at'] = Variable<DateTime>(completedAt);
+    }
     return map;
   }
 
@@ -1307,6 +1366,10 @@ class Point extends DataClass implements Insertable<Point> {
           ? const Value.absent()
           : Value(sourceUrl),
       sortOrder: Value(sortOrder),
+      isCurrent: Value(isCurrent),
+      completedAt: completedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedAt),
     );
   }
 
@@ -1332,6 +1395,8 @@ class Point extends DataClass implements Insertable<Point> {
       ),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      isCurrent: serializer.fromJson<bool>(json['isCurrent']),
+      completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
     );
   }
   @override
@@ -1352,6 +1417,8 @@ class Point extends DataClass implements Insertable<Point> {
       'referenceImageUrl': serializer.toJson<String?>(referenceImageUrl),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'isCurrent': serializer.toJson<bool>(isCurrent),
+      'completedAt': serializer.toJson<DateTime?>(completedAt),
     };
   }
 
@@ -1370,6 +1437,8 @@ class Point extends DataClass implements Insertable<Point> {
     Value<String?> referenceImageUrl = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
     int? sortOrder,
+    bool? isCurrent,
+    Value<DateTime?> completedAt = const Value.absent(),
   }) => Point(
     id: id ?? this.id,
     planId: planId ?? this.planId,
@@ -1387,6 +1456,8 @@ class Point extends DataClass implements Insertable<Point> {
         : this.referenceImageUrl,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
     sortOrder: sortOrder ?? this.sortOrder,
+    isCurrent: isCurrent ?? this.isCurrent,
+    completedAt: completedAt.present ? completedAt.value : this.completedAt,
   );
   Point copyWithCompanion(PointsCompanion data) {
     return Point(
@@ -1410,6 +1481,10 @@ class Point extends DataClass implements Insertable<Point> {
           : this.referenceImageUrl,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      isCurrent: data.isCurrent.present ? data.isCurrent.value : this.isCurrent,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
     );
   }
 
@@ -1429,7 +1504,9 @@ class Point extends DataClass implements Insertable<Point> {
           ..write('sourceId: $sourceId, ')
           ..write('referenceImageUrl: $referenceImageUrl, ')
           ..write('sourceUrl: $sourceUrl, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isCurrent: $isCurrent, ')
+          ..write('completedAt: $completedAt')
           ..write(')'))
         .toString();
   }
@@ -1450,6 +1527,8 @@ class Point extends DataClass implements Insertable<Point> {
     referenceImageUrl,
     sourceUrl,
     sortOrder,
+    isCurrent,
+    completedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -1468,7 +1547,9 @@ class Point extends DataClass implements Insertable<Point> {
           other.sourceId == this.sourceId &&
           other.referenceImageUrl == this.referenceImageUrl &&
           other.sourceUrl == this.sourceUrl &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.isCurrent == this.isCurrent &&
+          other.completedAt == this.completedAt);
 }
 
 class PointsCompanion extends UpdateCompanion<Point> {
@@ -1486,6 +1567,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
   final Value<String?> referenceImageUrl;
   final Value<String?> sourceUrl;
   final Value<int> sortOrder;
+  final Value<bool> isCurrent;
+  final Value<DateTime?> completedAt;
   final Value<int> rowid;
   const PointsCompanion({
     this.id = const Value.absent(),
@@ -1502,6 +1585,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.referenceImageUrl = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.isCurrent = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PointsCompanion.insert({
@@ -1519,6 +1604,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.referenceImageUrl = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.isCurrent = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        planId = Value(planId),
@@ -1545,6 +1632,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Expression<String>? referenceImageUrl,
     Expression<String>? sourceUrl,
     Expression<int>? sortOrder,
+    Expression<bool>? isCurrent,
+    Expression<DateTime>? completedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1562,6 +1651,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
       if (referenceImageUrl != null) 'reference_image_url': referenceImageUrl,
       if (sourceUrl != null) 'source_url': sourceUrl,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (isCurrent != null) 'is_current': isCurrent,
+      if (completedAt != null) 'completed_at': completedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1581,6 +1672,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Value<String?>? referenceImageUrl,
     Value<String?>? sourceUrl,
     Value<int>? sortOrder,
+    Value<bool>? isCurrent,
+    Value<DateTime?>? completedAt,
     Value<int>? rowid,
   }) {
     return PointsCompanion(
@@ -1598,6 +1691,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
       referenceImageUrl: referenceImageUrl ?? this.referenceImageUrl,
       sourceUrl: sourceUrl ?? this.sourceUrl,
       sortOrder: sortOrder ?? this.sortOrder,
+      isCurrent: isCurrent ?? this.isCurrent,
+      completedAt: completedAt ?? this.completedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1647,6 +1742,12 @@ class PointsCompanion extends UpdateCompanion<Point> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (isCurrent.present) {
+      map['is_current'] = Variable<bool>(isCurrent.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1670,6 +1771,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
           ..write('referenceImageUrl: $referenceImageUrl, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('isCurrent: $isCurrent, ')
+          ..write('completedAt: $completedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2534,6 +2637,8 @@ typedef $$PointsTableCreateCompanionBuilder =
       Value<String?> referenceImageUrl,
       Value<String?> sourceUrl,
       Value<int> sortOrder,
+      Value<bool> isCurrent,
+      Value<DateTime?> completedAt,
       Value<int> rowid,
     });
 typedef $$PointsTableUpdateCompanionBuilder =
@@ -2552,6 +2657,8 @@ typedef $$PointsTableUpdateCompanionBuilder =
       Value<String?> referenceImageUrl,
       Value<String?> sourceUrl,
       Value<int> sortOrder,
+      Value<bool> isCurrent,
+      Value<DateTime?> completedAt,
       Value<int> rowid,
     });
 
@@ -2660,6 +2767,16 @@ class $$PointsTableFilterComposer
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCurrent => $composableBuilder(
+    column: $table.isCurrent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2779,6 +2896,16 @@ class $$PointsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isCurrent => $composableBuilder(
+    column: $table.isCurrent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$PlansTableOrderingComposer get planId {
     final $$PlansTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -2877,6 +3004,14 @@ class $$PointsTableAnnotationComposer
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 
+  GeneratedColumn<bool> get isCurrent =>
+      $composableBuilder(column: $table.isCurrent, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => column,
+  );
+
   $$PlansTableAnnotationComposer get planId {
     final $$PlansTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -2966,6 +3101,8 @@ class $$PointsTableTableManager
                 Value<String?> referenceImageUrl = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<bool> isCurrent = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PointsCompanion(
                 id: id,
@@ -2982,6 +3119,8 @@ class $$PointsTableTableManager
                 referenceImageUrl: referenceImageUrl,
                 sourceUrl: sourceUrl,
                 sortOrder: sortOrder,
+                isCurrent: isCurrent,
+                completedAt: completedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3000,6 +3139,8 @@ class $$PointsTableTableManager
                 Value<String?> referenceImageUrl = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<bool> isCurrent = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PointsCompanion.insert(
                 id: id,
@@ -3016,6 +3157,8 @@ class $$PointsTableTableManager
                 referenceImageUrl: referenceImageUrl,
                 sourceUrl: sourceUrl,
                 sortOrder: sortOrder,
+                isCurrent: isCurrent,
+                completedAt: completedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

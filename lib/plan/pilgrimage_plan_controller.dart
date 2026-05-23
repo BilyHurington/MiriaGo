@@ -1,15 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
 
 class PilgrimagePlanController extends ChangeNotifier {
-  PilgrimagePlanController({required PilgrimagePlan plan})
-    : _plan = plan,
-      _currentPointId = plan.points.firstOrNull?.id,
+  PilgrimagePlanController({
+    required PilgrimagePlan plan,
+    PilgrimageRepository? visitRepository,
+  }) : _repository = visitRepository,
+      _plan = plan,
+      _completedPointIds = {...plan.completedPointIds},
+      _currentPointId =
+          plan.currentPointId ??
+          plan.points
+              .where((point) => !plan.completedPointIds.contains(point.id))
+              .firstOrNull
+              ?.id,
       _selectedPointId = plan.points.firstOrNull?.id;
 
   final PilgrimagePlan _plan;
-  final Set<String> _completedPointIds = {};
+  final PilgrimageRepository? _repository;
+  final Set<String> _completedPointIds;
 
   String? _currentPointId;
   String? _selectedPointId;
@@ -58,6 +71,7 @@ class PilgrimagePlanController extends ChangeNotifier {
 
     _currentPointId = point.id;
     _selectedPointId = point.id;
+    _persistSetCurrent(point);
     notifyListeners();
   }
 
@@ -68,12 +82,11 @@ class PilgrimagePlanController extends ChangeNotifier {
       final nextPoint = points
           .where((candidate) => !_completedPointIds.contains(candidate.id))
           .firstOrNull;
-      if (nextPoint != null) {
-        _currentPointId = nextPoint.id;
-        _selectedPointId = nextPoint.id;
-      }
+      _currentPointId = nextPoint?.id;
+      _selectedPointId = nextPoint?.id ?? point.id;
     }
 
+    _persistComplete(point);
     notifyListeners();
   }
 
@@ -81,7 +94,43 @@ class PilgrimagePlanController extends ChangeNotifier {
     _completedPointIds.remove(point.id);
     _currentPointId = point.id;
     _selectedPointId = point.id;
+    _persistReopen(point);
     notifyListeners();
+  }
+
+  void _persistSetCurrent(PilgrimagePoint point) {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    unawaited(
+      repository.setCurrentPoint(planId: _plan.id, pointId: point.id),
+    );
+  }
+
+  void _persistComplete(PilgrimagePoint point) {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    unawaited(
+      repository.completePoint(
+        planId: _plan.id,
+        pointId: point.id,
+        nextCurrentPointId: _currentPointId,
+      ),
+    );
+  }
+
+  void _persistReopen(PilgrimagePoint point) {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    unawaited(repository.reopenPoint(planId: _plan.id, pointId: point.id));
   }
 
   PilgrimagePoint? _pointById(String? id) {

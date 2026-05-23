@@ -50,7 +50,10 @@ class _AppShellState extends State<AppShell> {
 
       _planController?.dispose();
       setState(() {
-        _planController = PilgrimagePlanController(plan: plan);
+        _planController = PilgrimagePlanController(
+          plan: plan,
+          visitRepository: widget.repository,
+        );
       });
     } catch (error) {
       if (!mounted) {

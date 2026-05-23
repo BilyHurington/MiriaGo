@@ -85,6 +85,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     final updatedPlan = plan.copyWith(
       works: works,
       points: [...plan.points, ...newPoints],
+      currentPointId: plan.currentPointId ?? newPoints.firstOrNull?.id,
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -122,6 +123,43 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
   }
 
+  @override
+  Future<void> setCurrentPoint({
+    required String planId,
+    required String pointId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    _plans[index] = plan.copyWith(
+      currentPointId: pointId,
+      completedPointIds: {...plan.completedPointIds}..remove(pointId),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> completePoint({
+    required String planId,
+    required String pointId,
+    required String? nextCurrentPointId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    _plans[index] = plan.copyWith(
+      currentPointId: nextCurrentPointId,
+      completedPointIds: {...plan.completedPointIds, pointId},
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> reopenPoint({
+    required String planId,
+    required String pointId,
+  }) async {
+    await setCurrentPoint(planId: planId, pointId: pointId);
+  }
+
   List<PilgrimageWork> _appendWorkIfMissing(
     List<PilgrimageWork> works,
     PilgrimageWork work,
@@ -132,6 +170,15 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     return [...works, work];
+  }
+
+  int _planIndex(String planId) {
+    final index = _plans.indexWhere((plan) => plan.id == planId);
+    if (index == -1) {
+      throw ArgumentError.value(planId, 'planId', 'Plan does not exist.');
+    }
+
+    return index;
   }
 }
 

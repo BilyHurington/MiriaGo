@@ -1,5 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
+const Object _unset = Object();
+
 enum VisitStatus { pending, current, completed }
 
 enum WorkSource { bangumi, manual }
@@ -61,6 +63,8 @@ class PilgrimagePlan {
     required this.points,
     required this.createdAt,
     required this.updatedAt,
+    this.currentPointId,
+    this.completedPointIds = const <String>{},
   });
 
   final String id;
@@ -70,6 +74,8 @@ class PilgrimagePlan {
   final List<PilgrimagePoint> points;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? currentPointId;
+  final Set<String> completedPointIds;
 
   PilgrimagePlan copyWith({
     String? id,
@@ -79,6 +85,8 @@ class PilgrimagePlan {
     List<PilgrimagePoint>? points,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Object? currentPointId = _unset,
+    Set<String>? completedPointIds,
   }) {
     return PilgrimagePlan(
       id: id ?? this.id,
@@ -88,6 +96,10 @@ class PilgrimagePlan {
       points: points ?? this.points,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      currentPointId: currentPointId == _unset
+          ? this.currentPointId
+          : currentPointId as String?,
+      completedPointIds: completedPointIds ?? this.completedPointIds,
     );
   }
 }
