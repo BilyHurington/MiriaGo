@@ -1,0 +1,113 @@
+import 'package:flutter/material.dart';
+
+class AppColors {
+  const AppColors._();
+
+  static const background = Color(0xFFF7F8FA);
+  static const surface = Color(0xFFFFFFFF);
+  static const surfaceMuted = Color(0xFFEEF1F4);
+  static const textPrimary = Color(0xFF111827);
+  static const textSecondary = Color(0xFF5B6472);
+  static const border = Color(0xFFD8DEE6);
+  static const accent = Color(0xFF0F8B8D);
+  static const accentDark = Color(0xFF0B6F72);
+  static const warning = Color(0xFFC87900);
+  static const error = Color(0xFFC2413A);
+  static const cameraDarkSurface = Color(0xFF101418);
+  static const cameraDarkOverlay = Color(0xFF171C21);
+}
+
+class AppTheme {
+  const AppTheme._();
+
+  static ThemeData get light {
+    const colorScheme = ColorScheme(
+      brightness: Brightness.light,
+      primary: AppColors.accent,
+      onPrimary: Colors.white,
+      secondary: AppColors.accentDark,
+      onSecondary: Colors.white,
+      error: AppColors.error,
+      onError: Colors.white,
+      surface: AppColors.surface,
+      onSurface: AppColors.textPrimary,
+    );
+
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: AppColors.background,
+      fontFamily: null,
+    );
+
+    return base.copyWith(
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
+      ),
+      textTheme: base.textTheme.apply(
+        bodyColor: AppColors.textPrimary,
+        displayColor: AppColors.textPrimary,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.surfaceMuted,
+          disabledForegroundColor: AppColors.textSecondary,
+          minimumSize: const Size(44, 44),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          minimumSize: const Size(44, 44),
+          side: const BorderSide(color: AppColors.border),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          minimumSize: const Size(44, 44),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      sliderTheme: base.sliderTheme.copyWith(
+        activeTrackColor: AppColors.accent,
+        inactiveTrackColor: AppColors.border,
+        thumbColor: AppColors.accent,
+        overlayColor: AppColors.accent.withValues(alpha: 0.12),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: AppColors.cameraDarkOverlay,
+        contentTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          letterSpacing: 0,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
