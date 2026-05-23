@@ -8,8 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../camera_reference/camera_reference_screen.dart';
+import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import 'map_navigation_launcher.dart';
 
 class PilgrimageMapScreen extends StatefulWidget {
   const PilgrimageMapScreen({required this.controller, super.key});
@@ -23,6 +25,8 @@ class PilgrimageMapScreen extends StatefulWidget {
 class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   final MapController _mapController = MapController();
   final Distance _distance = const Distance();
+  final MapNavigationLauncher _navigationLauncher =
+      const MapNavigationLauncher();
 
   LatLng? _currentLocation;
   bool _isLocating = false;
@@ -81,14 +85,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     }
   }
 
-  Future<void> _openGoogleMaps(PilgrimagePoint point) async {
-    final uri = Uri.https('www.google.com', '/maps/dir/', {
-      'api': '1',
-      'destination': '${point.position.latitude},${point.position.longitude}',
-      'travelmode': 'walking',
-    });
-
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _openNavigation(PilgrimagePoint point) async {
+    final opened = await _navigationLauncher.openGoogleMapsWalking(point);
     if (!opened) {
       _showSnackBar('无法打开 Google Maps。');
     }
@@ -110,6 +108,17 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       MaterialPageRoute<void>(
         builder: (_) => CameraReferenceScreen(point: point),
       ),
+    );
+  }
+
+  void _showPointDetail(PilgrimagePoint point) {
+    PointDetailSheet.show(
+      context,
+      point: point,
+      status: _controller.statusFor(point),
+      onSetCurrent: () => _controller.setCurrentPoint(point),
+      onOpenCamera: () => _openCamera(point),
+      onComplete: () => _controller.completePoint(point),
     );
   }
 
@@ -211,8 +220,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               distanceMeters: _distanceToSelectedPoint(),
               onSetCurrent: () =>
                   _controller.setCurrentPoint(_controller.selectedPoint),
+              onOpenDetail: () => _showPointDetail(_controller.selectedPoint),
               onOpenNavigation: () =>
-                  _openGoogleMaps(_controller.selectedPoint),
+                  _openNavigation(_controller.selectedPoint),
               onOpenCamera: () => _openCamera(_controller.selectedPoint),
               onComplete: () =>
                   _controller.completePoint(_controller.selectedPoint),
@@ -299,6 +309,7 @@ class _PointCard extends StatelessWidget {
     required this.status,
     required this.distanceMeters,
     required this.onSetCurrent,
+    required this.onOpenDetail,
     required this.onOpenNavigation,
     required this.onOpenCamera,
     required this.onComplete,
@@ -308,6 +319,7 @@ class _PointCard extends StatelessWidget {
   final VisitStatus status;
   final double? distanceMeters;
   final VoidCallback onSetCurrent;
+  final VoidCallback onOpenDetail;
   final VoidCallback onOpenNavigation;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
@@ -370,12 +382,18 @@ class _PointCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: onOpenCamera,
-                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                  label: const Text('拍摄'),
+                  onPressed: onOpenDetail,
+                  icon: const Icon(Icons.info_outline, size: 18),
+                  label: const Text('详情'),
                 ),
               ),
               const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: '拍摄参考',
+                onPressed: onOpenCamera,
+                icon: const Icon(Icons.photo_camera_outlined),
+              ),
+              const SizedBox(width: 4),
               IconButton.outlined(
                 tooltip: '标记完成',
                 onPressed: onComplete,

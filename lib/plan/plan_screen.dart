@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../camera_reference/camera_reference_screen.dart';
+import '../point_detail/point_detail_sheet.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
 
@@ -32,6 +33,7 @@ class PlanScreen extends StatelessWidget {
             completedCount: controller.completedCount,
             totalCount: controller.totalCount,
             onOpenMap: onOpenMap,
+            onOpenDetail: () => _showPointDetail(context, currentPoint),
             onOpenCamera: () => _openCamera(context, currentPoint),
             onComplete: () => controller.completePoint(currentPoint),
           ),
@@ -49,7 +51,7 @@ class PlanScreen extends StatelessWidget {
             _PlanPointTile(
               point: point,
               status: controller.statusFor(point),
-              onTap: () => controller.setCurrentPoint(point),
+              onTap: () => _showPointDetail(context, point),
               onOpenCamera: () => _openCamera(context, point),
               onComplete: () => controller.completePoint(point),
             ),
@@ -65,6 +67,17 @@ class PlanScreen extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => CameraReferenceScreen(point: point),
       ),
+    );
+  }
+
+  void _showPointDetail(BuildContext context, PilgrimagePoint point) {
+    PointDetailSheet.show(
+      context,
+      point: point,
+      status: controller.statusFor(point),
+      onSetCurrent: () => controller.setCurrentPoint(point),
+      onOpenCamera: () => _openCamera(context, point),
+      onComplete: () => controller.completePoint(point),
     );
   }
 }
@@ -138,6 +151,7 @@ class _CurrentTargetCard extends StatelessWidget {
     required this.completedCount,
     required this.totalCount,
     required this.onOpenMap,
+    required this.onOpenDetail,
     required this.onOpenCamera,
     required this.onComplete,
   });
@@ -146,6 +160,7 @@ class _CurrentTargetCard extends StatelessWidget {
   final int completedCount;
   final int totalCount;
   final VoidCallback onOpenMap;
+  final VoidCallback onOpenDetail;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
 
@@ -215,13 +230,24 @@ class _CurrentTargetCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onComplete,
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const Text('标记完成'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onOpenDetail,
+                  icon: const Icon(Icons.info_outline, size: 18),
+                  label: const Text('点位详情'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onComplete,
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('标记完成'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
