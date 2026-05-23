@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:seichi_junrei_helper/main.dart';
+import 'package:seichi_junrei_helper/data/sample_pilgrimage_repository.dart';
 
 void main() {
   testWidgets('shows the pilgrimage plan workflow shell', (tester) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     expect(find.text('计划'), findsWidgets);
@@ -18,7 +21,9 @@ void main() {
   });
 
   testWidgets('opens camera reference from current target', (tester) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     await tester.tap(find.text('拍摄参考'));
@@ -32,7 +37,9 @@ void main() {
   });
 
   testWidgets('opens shared point detail sheet from plan list', (tester) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     await tester.scrollUntilVisible(
@@ -55,7 +62,9 @@ void main() {
   testWidgets('switches plans and shows empty plan add-points shell', (
     tester,
   ) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     await tester.tap(find.byTooltip('切换计划'));
@@ -81,7 +90,9 @@ void main() {
   });
 
   testWidgets('creates a new plan from the plan manager', (tester) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     await tester.tap(find.byTooltip('切换计划'));
@@ -94,7 +105,9 @@ void main() {
   });
 
   testWidgets('adds a manual work to an empty plan', (tester) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     await tester.tap(find.byTooltip('切换计划'));
@@ -119,7 +132,9 @@ void main() {
   });
 
   testWidgets('adds a manual point to an empty plan', (tester) async {
-    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pump();
 
     await tester.tap(find.byTooltip('切换计划'));
