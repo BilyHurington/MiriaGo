@@ -130,11 +130,27 @@ class PointDetailSheet extends StatelessWidget {
               value: point.referenceLabel,
             ),
             const SizedBox(height: 8),
-            const _InfoRow(
+            _InfoRow(
               icon: Icons.source_outlined,
               label: '来源',
-              value: '示例数据，Anitabi attribution 待接入',
+              value: _sourceText,
             ),
+            if (point.sourceId != null) ...[
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.tag_outlined,
+                label: 'ID',
+                value: point.sourceId!,
+              ),
+            ],
+            if (point.sourceUrl != null) ...[
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.link_outlined,
+                label: '链接',
+                value: point.sourceUrl!,
+              ),
+            ],
             const SizedBox(height: 18),
             Row(
               children: [
@@ -190,6 +206,13 @@ class PointDetailSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String get _sourceText {
+    return switch (point.source) {
+      PointSource.anitabi => 'Anitabi / ${point.referenceLabel}',
+      PointSource.manual => '手动录入 / ${point.referenceLabel}',
+    };
   }
 }
 

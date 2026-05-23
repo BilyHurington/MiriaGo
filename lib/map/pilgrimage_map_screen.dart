@@ -353,34 +353,61 @@ class _PointCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StatusBadge(status: status),
-              const SizedBox(width: 8),
+              _PointThumbnail(point: point),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  point.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _StatusBadge(status: status),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            point.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _metaText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            _metaText,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-              letterSpacing: 0,
+          if (point.referenceImageUrl != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              point.episodeLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                letterSpacing: 0,
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -440,6 +467,29 @@ class _PointCard extends StatelessWidget {
     }
 
     return '${point.work.title} / ${distance.round()} m';
+  }
+}
+
+class _PointThumbnail extends StatelessWidget {
+  const _PointThumbnail({required this.point});
+
+  final PilgrimagePoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = point.referenceImageUrl;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 64,
+        height: 64,
+        color: AppColors.surfaceMuted,
+        child: imageUrl == null
+            ? const Icon(Icons.image_outlined, color: AppColors.accentDark)
+            : Image.network(imageUrl, fit: BoxFit.cover),
+      ),
+    );
   }
 }
 

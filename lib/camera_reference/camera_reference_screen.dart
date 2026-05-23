@@ -225,7 +225,7 @@ class _CameraReferenceScreenState extends State<CameraReferenceScreen>
           children: [
             _TopBar(
               point: widget.point,
-              hasReference: _referenceImage != null,
+              hasReference: _hasReference,
               onPickReference: _pickReferenceImage,
             ),
             Expanded(
@@ -233,6 +233,7 @@ class _CameraReferenceScreenState extends State<CameraReferenceScreen>
                 mode: _mode,
                 controller: hasReadyCamera ? controller : null,
                 referenceImage: _referenceImage,
+                referenceImageUrl: widget.point.referenceImageUrl,
                 overlayOpacity: _overlayOpacity,
                 isInitializingCamera: _isInitializingCamera,
                 cameraError: _cameraError,
@@ -256,6 +257,10 @@ class _CameraReferenceScreenState extends State<CameraReferenceScreen>
         ),
       ),
     );
+  }
+
+  bool get _hasReference {
+    return _referenceImage != null || widget.point.referenceImageUrl != null;
   }
 }
 
@@ -339,6 +344,7 @@ class _ReferenceWorkspace extends StatelessWidget {
     required this.mode,
     required this.controller,
     required this.referenceImage,
+    required this.referenceImageUrl,
     required this.overlayOpacity,
     required this.isInitializingCamera,
     required this.cameraError,
@@ -348,6 +354,7 @@ class _ReferenceWorkspace extends StatelessWidget {
   final ReferenceMode mode;
   final CameraController? controller;
   final XFile? referenceImage;
+  final String? referenceImageUrl;
   final double overlayOpacity;
   final bool isInitializingCamera;
   final String? cameraError;
@@ -359,6 +366,7 @@ class _ReferenceWorkspace extends StatelessWidget {
       return _OverlayWorkspace(
         controller: controller,
         referenceImage: referenceImage,
+        referenceImageUrl: referenceImageUrl,
         overlayOpacity: overlayOpacity,
         isInitializingCamera: isInitializingCamera,
         cameraError: cameraError,
@@ -369,6 +377,7 @@ class _ReferenceWorkspace extends StatelessWidget {
     return _SplitWorkspace(
       controller: controller,
       referenceImage: referenceImage,
+      referenceImageUrl: referenceImageUrl,
       isInitializingCamera: isInitializingCamera,
       cameraError: cameraError,
       onRetryCamera: onRetryCamera,
@@ -380,6 +389,7 @@ class _SplitWorkspace extends StatelessWidget {
   const _SplitWorkspace({
     required this.controller,
     required this.referenceImage,
+    required this.referenceImageUrl,
     required this.isInitializingCamera,
     required this.cameraError,
     required this.onRetryCamera,
@@ -387,6 +397,7 @@ class _SplitWorkspace extends StatelessWidget {
 
   final CameraController? controller;
   final XFile? referenceImage;
+  final String? referenceImageUrl;
   final bool isInitializingCamera;
   final String? cameraError;
   final VoidCallback onRetryCamera;
@@ -395,7 +406,12 @@ class _SplitWorkspace extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Expanded(child: _ReferenceImagePanel(referenceImage: referenceImage)),
+        Expanded(
+          child: _ReferenceImagePanel(
+            referenceImage: referenceImage,
+            referenceImageUrl: referenceImageUrl,
+          ),
+        ),
         const Divider(height: 1, color: Color(0xFF27313A)),
         Expanded(
           child: _CameraPreviewPanel(
@@ -414,6 +430,7 @@ class _OverlayWorkspace extends StatelessWidget {
   const _OverlayWorkspace({
     required this.controller,
     required this.referenceImage,
+    required this.referenceImageUrl,
     required this.overlayOpacity,
     required this.isInitializingCamera,
     required this.cameraError,
@@ -422,6 +439,7 @@ class _OverlayWorkspace extends StatelessWidget {
 
   final CameraController? controller;
   final XFile? referenceImage;
+  final String? referenceImageUrl;
   final double overlayOpacity;
   final bool isInitializingCamera;
   final String? cameraError;
@@ -438,12 +456,13 @@ class _OverlayWorkspace extends StatelessWidget {
           cameraError: cameraError,
           onRetryCamera: onRetryCamera,
         ),
-        if (referenceImage != null)
+        if (referenceImage != null || referenceImageUrl != null)
           IgnorePointer(
             child: Opacity(
               opacity: overlayOpacity,
-              child: _ImageFileView(
-                path: referenceImage!.path,
+              child: _ReferenceImageView(
+                image: referenceImage,
+                imageUrl: referenceImageUrl,
                 fit: BoxFit.contain,
               ),
             ),
@@ -456,21 +475,76 @@ class _OverlayWorkspace extends StatelessWidget {
 }
 
 class _ReferenceImagePanel extends StatelessWidget {
-  const _ReferenceImagePanel({required this.referenceImage});
+  const _ReferenceImagePanel({
+    required this.referenceImage,
+    required this.referenceImageUrl,
+  });
 
   final XFile? referenceImage;
+  final String? referenceImageUrl;
 
   @override
   Widget build(BuildContext context) {
-    if (referenceImage == null) {
+    if (referenceImage == null && referenceImageUrl == null) {
       return const _EmptyPanel(
         icon: Icons.image_outlined,
         title: '还没有参考图',
-        body: '先从相册选择一张参考图。',
+        body: '从 Anitabi 导入的点位会自动显示参考图，也可以从相册选择。',
       );
     }
 
-    return _ImageFileView(path: referenceImage!.path, fit: BoxFit.contain);
+    return _ReferenceImageView(
+      image: referenceImage,
+      imageUrl: referenceImageUrl,
+      fit: BoxFit.contain,
+    );
+  }
+}
+
+class _ReferenceImageView extends StatelessWidget {
+  const _ReferenceImageView({
+    required this.image,
+    required this.imageUrl,
+    required this.fit,
+  });
+
+  final XFile? image;
+  final String? imageUrl;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = image;
+    if (file != null) {
+      return _ImageFileView(path: file.path, fit: fit);
+    }
+
+    final url = imageUrl;
+    if (url != null) {
+      return Container(
+        color: AppColors.cameraDarkSurface,
+        alignment: Alignment.center,
+        child: Image.network(
+          url,
+          fit: fit,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return const _EmptyPanel(
+              icon: Icons.broken_image_outlined,
+              title: '参考图无法加载',
+              body: '可以从相册选择一张参考图替换。',
+            );
+          },
+        ),
+      );
+    }
+
+    return const _EmptyPanel(
+      icon: Icons.image_outlined,
+      title: '还没有参考图',
+      body: '先从相册选择一张参考图。',
+    );
   }
 }
 
