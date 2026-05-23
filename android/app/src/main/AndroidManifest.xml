@@ -5,7 +5,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
     <application
-        android:label="Seichi Junrei Helper"
+        android:label="圣地巡礼助手"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

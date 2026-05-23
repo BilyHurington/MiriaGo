@@ -1,11 +1,11 @@
 {
-    "name": "seichi_junrei_helper",
-    "short_name": "seichi_junrei_helper",
+    "name": "圣地巡礼助手",
+    "short_name": "圣地巡礼助手",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "圣地巡礼助手 / Seichi Junrei Helper",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

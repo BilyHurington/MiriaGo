@@ -13,7 +13,7 @@ class SeichiJunreiHelperApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Seichi Junrei Helper',
+      title: '圣地巡礼助手',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: const CameraReferenceScreen(),
