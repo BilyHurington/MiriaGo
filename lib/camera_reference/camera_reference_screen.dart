@@ -7,11 +7,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../app_theme.dart';
+import '../plan/pilgrimage_models.dart';
 
 enum ReferenceMode { split, overlay }
 
 class CameraReferenceScreen extends StatefulWidget {
-  const CameraReferenceScreen({super.key});
+  const CameraReferenceScreen({required this.point, super.key});
+
+  final PilgrimagePoint point;
 
   @override
   State<CameraReferenceScreen> createState() => _CameraReferenceScreenState();
@@ -221,6 +224,7 @@ class _CameraReferenceScreenState extends State<CameraReferenceScreen>
         child: Column(
           children: [
             _TopBar(
+              point: widget.point,
               hasReference: _referenceImage != null,
               onPickReference: _pickReferenceImage,
             ),
@@ -256,8 +260,13 @@ class _CameraReferenceScreenState extends State<CameraReferenceScreen>
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.hasReference, required this.onPickReference});
+  const _TopBar({
+    required this.point,
+    required this.hasReference,
+    required this.onPickReference,
+  });
 
+  final PilgrimagePoint point;
   final bool hasReference;
   final VoidCallback onPickReference;
 
@@ -269,17 +278,40 @@ class _TopBar extends StatelessWidget {
       color: AppColors.cameraDarkOverlay,
       child: Row(
         children: [
-          const Expanded(
-            child: Text(
-              'Reference Camera',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
+          IconButton(
+            tooltip: '返回',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  point.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  point.referenceLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -289,7 +321,7 @@ class _TopBar extends StatelessWidget {
               hasReference ? Icons.image : Icons.image_outlined,
               size: 20,
             ),
-            label: Text(hasReference ? 'Change' : 'Reference'),
+            label: Text(hasReference ? '更换' : '参考图'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Color(0xFF35404A)),
@@ -433,8 +465,8 @@ class _ReferenceImagePanel extends StatelessWidget {
     if (referenceImage == null) {
       return const _EmptyPanel(
         icon: Icons.image_outlined,
-        title: 'No reference selected',
-        body: 'Choose an image to compare with the camera view.',
+        title: '还没有参考图',
+        body: '先从相册选择一张参考图。',
       );
     }
 
@@ -508,8 +540,8 @@ class _LoadingPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _EmptyPanel(
       icon: Icons.photo_camera_outlined,
-      title: 'Starting camera',
-      body: 'Preparing the live preview.',
+      title: '正在启动相机',
+      body: '准备实时预览。',
       showProgress: true,
     );
   }
@@ -642,7 +674,7 @@ class _OverlayEmptyReference extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Text(
-              'Choose a reference image for overlay mode.',
+              '为当前点位选择参考图后可使用重叠模式。',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,

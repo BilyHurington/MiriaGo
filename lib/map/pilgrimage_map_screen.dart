@@ -7,44 +7,14 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
-
-class PilgrimagePoint {
-  const PilgrimagePoint({
-    required this.id,
-    required this.name,
-    required this.subtitle,
-    required this.position,
-  });
-
-  final String id;
-  final String name;
-  final String subtitle;
-  final LatLng position;
-}
-
-const _samplePoints = [
-  PilgrimagePoint(
-    id: 'uji-bridge',
-    name: '宇治桥',
-    subtitle: '示例点位 / Uji, Kyoto',
-    position: LatLng(34.8917, 135.8077),
-  ),
-  PilgrimagePoint(
-    id: 'agata-dori',
-    name: 'あがた通り',
-    subtitle: '示例点位 / Uji, Kyoto',
-    position: LatLng(34.8899, 135.8081),
-  ),
-  PilgrimagePoint(
-    id: 'uji-station',
-    name: 'JR 宇治站',
-    subtitle: '示例点位 / Uji, Kyoto',
-    position: LatLng(34.8905, 135.8008),
-  ),
-];
+import '../camera_reference/camera_reference_screen.dart';
+import '../plan/pilgrimage_models.dart';
+import '../plan/pilgrimage_plan_controller.dart';
 
 class PilgrimageMapScreen extends StatefulWidget {
-  const PilgrimageMapScreen({super.key});
+  const PilgrimageMapScreen({required this.controller, super.key});
+
+  final PilgrimagePlanController controller;
 
   @override
   State<PilgrimageMapScreen> createState() => _PilgrimageMapScreenState();
@@ -54,9 +24,10 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   final MapController _mapController = MapController();
   final Distance _distance = const Distance();
 
-  PilgrimagePoint _selectedPoint = _samplePoints.first;
   LatLng? _currentLocation;
   bool _isLocating = false;
+
+  PilgrimagePlanController get _controller => widget.controller;
 
   Future<void> _locateUser() async {
     setState(() {
@@ -124,10 +95,22 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   }
 
   void _selectPoint(PilgrimagePoint point) {
-    setState(() {
-      _selectedPoint = point;
-    });
+    _controller.selectPoint(point);
     _mapController.move(point.position, 16);
+  }
+
+  void _moveToCurrentTarget() {
+    final currentPoint = _controller.currentPoint;
+    _controller.selectPoint(currentPoint);
+    _mapController.move(currentPoint.position, 16);
+  }
+
+  void _openCamera(PilgrimagePoint point) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CameraReferenceScreen(point: point),
+      ),
+    );
   }
 
   void _showSnackBar(String message) {
@@ -145,8 +128,13 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('地图'),
+        title: Text(_controller.plan.work.city),
         actions: [
+          IconButton(
+            tooltip: '当前目标',
+            onPressed: _moveToCurrentTarget,
+            icon: const Icon(Icons.flag_outlined),
+          ),
           IconButton(
             tooltip: '定位',
             onPressed: _isLocating ? null : _locateUser,
@@ -165,7 +153,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _selectedPoint.position,
+              initialCenter: _controller.currentPoint.position,
               initialZoom: 15,
               minZoom: 4,
               maxZoom: 19,
@@ -180,13 +168,14 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  for (final point in _samplePoints)
+                  for (final point in _controller.points)
                     Marker(
                       point: point.position,
                       width: 44,
                       height: 44,
                       child: _PointMarker(
-                        selected: point.id == _selectedPoint.id,
+                        selected: point.id == _controller.selectedPoint.id,
+                        status: _controller.statusFor(point),
                         onTap: () => _selectPoint(point),
                       ),
                     ),
@@ -217,9 +206,16 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: _PointCard(
-              point: _selectedPoint,
+              point: _controller.selectedPoint,
+              status: _controller.statusFor(_controller.selectedPoint),
               distanceMeters: _distanceToSelectedPoint(),
-              onOpenNavigation: () => _openGoogleMaps(_selectedPoint),
+              onSetCurrent: () =>
+                  _controller.setCurrentPoint(_controller.selectedPoint),
+              onOpenNavigation: () =>
+                  _openGoogleMaps(_controller.selectedPoint),
+              onOpenCamera: () => _openCamera(_controller.selectedPoint),
+              onComplete: () =>
+                  _controller.completePoint(_controller.selectedPoint),
             ),
           ),
         ],
@@ -233,27 +229,47 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       return null;
     }
 
-    return _distance(currentLocation, _selectedPoint.position);
+    return _distance(currentLocation, _controller.selectedPoint.position);
   }
 }
 
 class _PointMarker extends StatelessWidget {
-  const _PointMarker({required this.selected, required this.onTap});
+  const _PointMarker({
+    required this.selected,
+    required this.status,
+    required this.onTap,
+  });
 
   final bool selected;
+  final VisitStatus status;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final markerColors = switch (status) {
+      VisitStatus.current => (AppColors.accent, Colors.white),
+      VisitStatus.completed => (
+        AppColors.surfaceMuted,
+        AppColors.textSecondary,
+      ),
+      VisitStatus.pending => (AppColors.surface, AppColors.accentDark),
+    };
+
     return IconButton(
       tooltip: '巡礼点',
       onPressed: onTap,
       style: IconButton.styleFrom(
-        backgroundColor: selected ? AppColors.accent : AppColors.surface,
-        foregroundColor: selected ? Colors.white : AppColors.accentDark,
-        side: const BorderSide(color: AppColors.border),
+        backgroundColor: markerColors.$1,
+        foregroundColor: markerColors.$2,
+        side: BorderSide(
+          color: selected ? AppColors.warning : AppColors.border,
+          width: selected ? 2 : 1,
+        ),
       ),
-      icon: const Icon(Icons.place, size: 24),
+      icon: Icon(
+        status == VisitStatus.completed ? Icons.check : Icons.place,
+        size: 24,
+      ),
     );
   }
 }
@@ -280,13 +296,21 @@ class _CurrentLocationMarker extends StatelessWidget {
 class _PointCard extends StatelessWidget {
   const _PointCard({
     required this.point,
+    required this.status,
     required this.distanceMeters,
+    required this.onSetCurrent,
     required this.onOpenNavigation,
+    required this.onOpenCamera,
+    required this.onComplete,
   });
 
   final PilgrimagePoint point;
+  final VisitStatus status;
   final double? distanceMeters;
+  final VoidCallback onSetCurrent;
   final VoidCallback onOpenNavigation;
+  final VoidCallback onOpenCamera;
+  final VoidCallback onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -300,56 +324,72 @@ class _PointCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.place_outlined,
-              color: AppColors.accentDark,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              _StatusBadge(status: status),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
                   point.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _metaText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _metaText,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              letterSpacing: 0,
             ),
           ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: onOpenNavigation,
-            icon: const Icon(Icons.near_me_outlined, size: 18),
-            label: const Text('导航'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onOpenNavigation,
+                  icon: const Icon(Icons.near_me_outlined, size: 18),
+                  label: const Text('导航'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onOpenCamera,
+                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                  label: const Text('拍摄'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: '标记完成',
+                onPressed: onComplete,
+                icon: const Icon(Icons.check_outlined),
+              ),
+              if (status != VisitStatus.current) ...[
+                const SizedBox(width: 4),
+                IconButton.outlined(
+                  tooltip: '设为当前目标',
+                  onPressed: onSetCurrent,
+                  icon: const Icon(Icons.flag_outlined),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -370,5 +410,43 @@ class _PointCard extends StatelessWidget {
     }
 
     return '${point.subtitle} / ${distance.round()} m';
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
+
+  final VisitStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = switch (status) {
+      VisitStatus.current => '当前',
+      VisitStatus.completed => '完成',
+      VisitStatus.pending => '待访',
+    };
+
+    final color = switch (status) {
+      VisitStatus.current => AppColors.accent,
+      VisitStatus.completed => AppColors.textSecondary,
+      VisitStatus.pending => AppColors.warning,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+    );
   }
 }
