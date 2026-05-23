@@ -3,8 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'pilgrimage_models.dart';
 
 class PilgrimagePlanController extends ChangeNotifier {
-  PilgrimagePlanController({PilgrimagePlan plan = samplePilgrimagePlan})
-    : _plan = plan,
+  PilgrimagePlanController({required PilgrimagePlan plan})
+    : assert(plan.points.isNotEmpty, 'A pilgrimage plan requires points.'),
+      _plan = plan,
       _currentPointId = plan.points.first.id,
       _selectedPointId = plan.points.first.id;
 
