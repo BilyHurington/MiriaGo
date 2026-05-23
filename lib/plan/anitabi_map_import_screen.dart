@@ -26,6 +26,7 @@ class AnitabiMapImportScreen extends StatefulWidget {
 
 class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   final MapController _mapController = MapController();
+  late final Set<String> _importedPointIds;
   PilgrimageWork? _selectedWork;
   AnitabiBangumiLite? _lite;
   List<AnitabiPoint> _points = const [];
@@ -33,17 +34,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Object? _error;
   bool _isLoading = false;
   bool _isImporting = false;
+  bool _didImportPoints = false;
 
   List<PilgrimageWork> get _bangumiWorks => widget.plan.works
       .where((work) => work.bangumiId != null)
       .toList(growable: false);
 
-  Set<String> get _importedPointIds =>
-      widget.plan.points.map((point) => point.id).toSet();
-
   @override
   void initState() {
     super.initState();
+    _importedPointIds = widget.plan.points.map((point) => point.id).toSet();
     final works = _bangumiWorks;
     if (works.isNotEmpty) {
       _selectedWork = works.first;
@@ -127,7 +127,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         return;
       }
 
-      Navigator.of(context).pop(true);
+      setState(() {
+        _importedPointIds.add(pilgrimagePoint.id);
+        _didImportPoints = true;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已加入计划，可继续选择点位。')));
     } catch (_) {
       if (!mounted) {
         return;
@@ -150,131 +156,141 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     final works = _bangumiWorks;
     final selectedPoint = _selectedPoint;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('从作品地图导入'),
-        bottom: works.isEmpty
-            ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(58),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: DropdownButtonFormField<PilgrimageWork>(
-                    initialValue: _selectedWork,
-                    decoration: const InputDecoration(labelText: '作品'),
-                    items: [
-                      for (final work in works)
-                        DropdownMenuItem<PilgrimageWork>(
-                          value: work,
-                          child: Text(work.title),
-                        ),
-                    ],
-                    onChanged: (work) {
-                      if (work != null) {
-                        _loadPoints(work);
-                      }
-                    },
-                  ),
-                ),
-              ),
-      ),
-      body: Builder(
-        builder: (context) {
-          if (works.isEmpty) {
-            return const _EmptyImportState();
-          }
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
 
-          if (_error != null) {
-            return _ImportErrorState(onRetry: () => _loadPoints(works.first));
-          }
-
-          return Stack(
-            children: [
-              FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: _lite?.center ?? const LatLng(35.0, 135.0),
-                  initialZoom: _lite?.zoom ?? 12,
-                  minZoom: 4,
-                  maxZoom: 19,
-                  interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                  ),
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName:
-                        'app.seichijunrei.seichi_junrei_helper',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      for (final point in _points)
-                        Marker(
-                          point: point.position,
-                          width: 40,
-                          height: 40,
-                          child: _ImportMarker(
-                            selected: selectedPoint?.id == point.id,
-                            imported: _importedPointIds.contains(
-                              point.toPilgrimagePoint(_selectedWork!).id,
-                            ),
-                            onTap: () => _selectPoint(point),
+        Navigator.of(context).pop(_didImportPoints);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('从作品地图导入'),
+          bottom: works.isEmpty
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(58),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: DropdownButtonFormField<PilgrimageWork>(
+                      initialValue: _selectedWork,
+                      decoration: const InputDecoration(labelText: '作品'),
+                      items: [
+                        for (final work in works)
+                          DropdownMenuItem<PilgrimageWork>(
+                            value: work,
+                            child: Text(work.title),
                           ),
-                        ),
-                    ],
+                      ],
+                      onChanged: (work) {
+                        if (work != null) {
+                          _loadPoints(work);
+                        }
+                      },
+                    ),
                   ),
-                  RichAttributionWidget(
-                    attributions: [
-                      TextSourceAttribution(
-                        'OpenStreetMap contributors',
-                        onTap: () {
-                          launchUrl(
-                            Uri.parse(
-                              'https://www.openstreetmap.org/copyright',
-                            ),
-                            mode: LaunchMode.externalApplication,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Positioned(
-                top: 12,
-                left: 16,
-                right: 16,
-                child: _ImportSummary(
-                  isLoading: _isLoading,
-                  importedCount: _points
-                      .where(
-                        (point) => _importedPointIds.contains(
-                          point.toPilgrimagePoint(_selectedWork!).id,
-                        ),
-                      )
-                      .length,
-                  totalCount: _points.length,
-                  expectedCount: _lite?.pointsLength,
                 ),
-              ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: selectedPoint == null
-                    ? const _NoPointSelectedCard()
-                    : _AnitabiPointCard(
-                        point: selectedPoint,
-                        imported: _importedPointIds.contains(
-                          selectedPoint.toPilgrimagePoint(_selectedWork!).id,
+        ),
+        body: Builder(
+          builder: (context) {
+            if (works.isEmpty) {
+              return const _EmptyImportState();
+            }
+
+            if (_error != null) {
+              return _ImportErrorState(onRetry: () => _loadPoints(works.first));
+            }
+
+            return Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _lite?.center ?? const LatLng(35.0, 135.0),
+                    initialZoom: _lite?.zoom ?? 12,
+                    minZoom: 4,
+                    maxZoom: 19,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName:
+                          'app.seichijunrei.seichi_junrei_helper',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        for (final point in _points)
+                          Marker(
+                            point: point.position,
+                            width: 40,
+                            height: 40,
+                            child: _ImportMarker(
+                              selected: selectedPoint?.id == point.id,
+                              imported: _importedPointIds.contains(
+                                point.toPilgrimagePoint(_selectedWork!).id,
+                              ),
+                              onTap: () => _selectPoint(point),
+                            ),
+                          ),
+                      ],
+                    ),
+                    RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution(
+                          'OpenStreetMap contributors',
+                          onTap: () {
+                            launchUrl(
+                              Uri.parse(
+                                'https://www.openstreetmap.org/copyright',
+                              ),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
                         ),
-                        isImporting: _isImporting,
-                        onImport: _importSelectedPoint,
-                      ),
-              ),
-            ],
-          );
-        },
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: 12,
+                  left: 16,
+                  right: 16,
+                  child: _ImportSummary(
+                    isLoading: _isLoading,
+                    importedCount: _points
+                        .where(
+                          (point) => _importedPointIds.contains(
+                            point.toPilgrimagePoint(_selectedWork!).id,
+                          ),
+                        )
+                        .length,
+                    totalCount: _points.length,
+                    expectedCount: _lite?.pointsLength,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: selectedPoint == null
+                      ? const _NoPointSelectedCard()
+                      : _AnitabiPointCard(
+                          point: selectedPoint,
+                          imported: _importedPointIds.contains(
+                            selectedPoint.toPilgrimagePoint(_selectedWork!).id,
+                          ),
+                          isImporting: _isImporting,
+                          onImport: _importSelectedPoint,
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
