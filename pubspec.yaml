@@ -42,6 +42,7 @@ dependencies:
   latlong2: ^0.9.1
   geolocator: ^14.0.2
   url_launcher: ^6.3.2
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

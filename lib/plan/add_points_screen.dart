@@ -2,25 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
 
 class AddPointsScreen extends StatelessWidget {
-  const AddPointsScreen({
+  AddPointsScreen({
     required this.plan,
     required this.repository,
+    BangumiApiClient? bangumiApiClient,
     super.key,
-  });
+  }) : bangumiApiClient = bangumiApiClient ?? BangumiApiClient();
 
   final PilgrimagePlan? plan;
   final PilgrimageRepository repository;
+  final BangumiApiClient bangumiApiClient;
 
   @override
   Widget build(BuildContext context) {
     final currentPlan = plan;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('添加点位')),
+      appBar: AppBar(title: const Text('添加内容')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -35,19 +38,34 @@ class AddPointsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
+          _WorkSummary(plan: currentPlan),
+          const SizedBox(height: 12),
           _AddSourceCard(
-            icon: Icons.travel_explore,
-            title: '从 Anitabi 添加',
-            body: '输入 Bangumi / Anitabi ID，拉取作品点位后选择加入计划。',
-            enabled: false,
-            actionLabel: '待实现',
-            onTap: null,
+            icon: Icons.search,
+            title: '搜索 Bangumi 添加作品',
+            body: '用 Bangumi ID 关联作品，后续可从 Anitabi 快速拉取作品点位。',
+            enabled: currentPlan != null,
+            actionLabel: currentPlan == null ? '不可用' : '搜索',
+            onTap: currentPlan == null
+                ? null
+                : () => _openBangumiSearch(context, currentPlan),
+          ),
+          const SizedBox(height: 8),
+          _AddSourceCard(
+            icon: Icons.edit_note,
+            title: '手动添加作品',
+            body: '适合 Bangumi 上没有的作品，或先临时整理原创/小众点位。',
+            enabled: currentPlan != null,
+            actionLabel: currentPlan == null ? '不可用' : '添加',
+            onTap: currentPlan == null
+                ? null
+                : () => _openManualWorkForm(context, currentPlan),
           ),
           const SizedBox(height: 8),
           _AddSourceCard(
             icon: Icons.add_location_alt_outlined,
             title: '手动添加点位',
-            body: '输入名称和坐标，创建自定义巡礼点。',
+            body: '选择已添加作品，再输入名称、坐标和场景信息。',
             enabled: currentPlan != null,
             actionLabel: currentPlan == null ? '不可用' : '添加',
             onTap: currentPlan == null
@@ -57,6 +75,43 @@ class AddPointsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openBangumiSearch(
+    BuildContext context,
+    PilgrimagePlan plan,
+  ) async {
+    final didAdd = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => _BangumiWorkSearchScreen(
+          plan: plan,
+          repository: repository,
+          bangumiApiClient: bangumiApiClient,
+        ),
+      ),
+    );
+    if (!context.mounted || didAdd != true) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _openManualWorkForm(
+    BuildContext context,
+    PilgrimagePlan plan,
+  ) async {
+    final didAdd = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            _ManualWorkFormScreen(plan: plan, repository: repository),
+      ),
+    );
+    if (!context.mounted || didAdd != true) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
   }
 
   Future<void> _openManualPointForm(
@@ -69,12 +124,310 @@ class AddPointsScreen extends StatelessWidget {
             _ManualPointFormScreen(plan: plan, repository: repository),
       ),
     );
-
     if (!context.mounted || didAdd != true) {
       return;
     }
 
     Navigator.of(context).pop(true);
+  }
+}
+
+class _BangumiWorkSearchScreen extends StatefulWidget {
+  const _BangumiWorkSearchScreen({
+    required this.plan,
+    required this.repository,
+    required this.bangumiApiClient,
+  });
+
+  final PilgrimagePlan plan;
+  final PilgrimageRepository repository;
+  final BangumiApiClient bangumiApiClient;
+
+  @override
+  State<_BangumiWorkSearchScreen> createState() =>
+      _BangumiWorkSearchScreenState();
+}
+
+class _BangumiWorkSearchScreenState extends State<_BangumiWorkSearchScreen> {
+  final _queryController = TextEditingController();
+  List<PilgrimageWork> _results = const [];
+  Object? _error;
+  bool _isSearching = false;
+  bool _isAdding = false;
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _queryController.text.trim();
+    if (query.isEmpty || _isSearching) {
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _error = null;
+    });
+
+    try {
+      final results = await widget.bangumiApiClient.searchAnime(query);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _results = results;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = error;
+        _results = const [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _addWork(PilgrimageWork work) async {
+    if (_isAdding) {
+      return;
+    }
+
+    setState(() {
+      _isAdding = true;
+    });
+
+    try {
+      await widget.repository.addWorkToPlan(planId: widget.plan.id, work: work);
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('作品添加失败，请稍后重试。')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAdding = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('搜索 Bangumi')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          _FormSection(
+            children: [
+              TextField(
+                controller: _queryController,
+                decoration: const InputDecoration(
+                  labelText: '作品名称',
+                  hintText: '例如 轻音少女',
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _search(),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _isSearching ? null : _search,
+                icon: _isSearching
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.search, size: 18),
+                label: Text(_isSearching ? '搜索中' : '搜索作品'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_error != null)
+            const _MessageCard(
+              icon: Icons.error_outline,
+              text: 'Bangumi 搜索失败，请检查网络后重试。',
+            )
+          else if (_results.isEmpty)
+            const _MessageCard(
+              icon: Icons.info_outline,
+              text: '输入作品名后搜索，选择结果即可加入当前计划。',
+            )
+          else
+            for (final work in _results) ...[
+              _WorkResultCard(
+                work: work,
+                disabled: _isAdding || _hasWork(widget.plan, work),
+                onAdd: () => _addWork(work),
+              ),
+              const SizedBox(height: 8),
+            ],
+        ],
+      ),
+    );
+  }
+
+  bool _hasWork(PilgrimagePlan plan, PilgrimageWork work) {
+    return plan.works.any((candidate) => candidate.id == work.id);
+  }
+}
+
+class _ManualWorkFormScreen extends StatefulWidget {
+  const _ManualWorkFormScreen({required this.plan, required this.repository});
+
+  final PilgrimagePlan plan;
+  final PilgrimageRepository repository;
+
+  @override
+  State<_ManualWorkFormScreen> createState() => _ManualWorkFormScreenState();
+}
+
+class _ManualWorkFormScreenState extends State<_ManualWorkFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _subtitleController = TextEditingController();
+  final _cityController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _subtitleController.dispose();
+    _cityController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveWork() async {
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid || _isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final now = DateTime.now();
+      final title = _titleController.text.trim();
+      final subtitle = _subtitleController.text.trim();
+      final city = _cityController.text.trim();
+      final work = PilgrimageWork(
+        id: 'manual-work-${now.microsecondsSinceEpoch}',
+        title: title,
+        subtitle: subtitle.isEmpty ? 'Manual Work' : subtitle,
+        city: city.isEmpty ? widget.plan.area : city,
+        source: WorkSource.manual,
+      );
+
+      await widget.repository.addWorkToPlan(planId: widget.plan.id, work: work);
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('作品保存失败，请稍后重试。')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('手动添加作品')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _FormSection(
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(labelText: '作品名称'),
+                  textInputAction: TextInputAction.next,
+                  validator: _requiredText,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _subtitleController,
+                  decoration: const InputDecoration(
+                    labelText: '作品原名',
+                    hintText: '可选',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _cityController,
+                  decoration: InputDecoration(
+                    labelText: '主要地区',
+                    hintText: '可选，默认 ${widget.plan.area}',
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _saveWork(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _isSaving ? null : _saveWork,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check_outlined, size: 18),
+              label: Text(_isSaving ? '保存中' : '保存作品'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _requiredText(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return '请填写此项';
+    }
+
+    return null;
   }
 }
 
@@ -90,22 +443,29 @@ class _ManualPointFormScreen extends StatefulWidget {
 
 class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _workTitleController = TextEditingController();
-  final _workSubtitleController = TextEditingController();
-  final _workCityController = TextEditingController();
+  final _fallbackWorkTitleController = TextEditingController();
+  final _fallbackWorkSubtitleController = TextEditingController();
+  final _fallbackWorkCityController = TextEditingController();
   final _nameController = TextEditingController();
   final _subtitleController = TextEditingController();
   final _episodeController = TextEditingController();
   final _referenceController = TextEditingController();
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
+  PilgrimageWork? _selectedWork;
   bool _isSaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedWork = widget.plan.works.firstOrNull;
+  }
+
+  @override
   void dispose() {
-    _workTitleController.dispose();
-    _workSubtitleController.dispose();
-    _workCityController.dispose();
+    _fallbackWorkTitleController.dispose();
+    _fallbackWorkSubtitleController.dispose();
+    _fallbackWorkCityController.dispose();
     _nameController.dispose();
     _subtitleController.dispose();
     _episodeController.dispose();
@@ -127,17 +487,10 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
     try {
       final now = DateTime.now();
-      final workTitle = _workTitleController.text.trim();
-      final workSubtitle = _workSubtitleController.text.trim();
-      final workCity = _workCityController.text.trim();
+      final work = _selectedWork ?? _fallbackWork(now);
       final point = PilgrimagePoint(
         id: 'manual-${now.microsecondsSinceEpoch}',
-        work: PilgrimageWork(
-          id: 'manual-work-${now.microsecondsSinceEpoch}',
-          title: workTitle,
-          subtitle: workSubtitle.isEmpty ? 'Manual Work' : workSubtitle,
-          city: workCity.isEmpty ? widget.plan.area : workCity,
-        ),
+        work: work,
         name: _nameController.text.trim(),
         subtitle: _subtitleController.text.trim(),
         position: LatLng(
@@ -152,7 +505,6 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
         planId: widget.plan.id,
         point: point,
       );
-
       if (!mounted) {
         return;
       }
@@ -175,8 +527,23 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     }
   }
 
+  PilgrimageWork _fallbackWork(DateTime now) {
+    final title = _fallbackWorkTitleController.text.trim();
+    final subtitle = _fallbackWorkSubtitleController.text.trim();
+    final city = _fallbackWorkCityController.text.trim();
+    return PilgrimageWork(
+      id: 'manual-work-${now.microsecondsSinceEpoch}',
+      title: title,
+      subtitle: subtitle.isEmpty ? 'Manual Work' : subtitle,
+      city: city.isEmpty ? widget.plan.area : city,
+      source: WorkSource.manual,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasPlanWorks = widget.plan.works.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(title: const Text('手动添加点位')),
       body: Form(
@@ -195,30 +562,50 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
             const SizedBox(height: 12),
             _FormSection(
               children: [
-                TextFormField(
-                  controller: _workTitleController,
-                  decoration: const InputDecoration(labelText: '动画/作品名称'),
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredText,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _workSubtitleController,
-                  decoration: const InputDecoration(
-                    labelText: '作品原名',
-                    hintText: '可选，例如 日文标题',
+                if (hasPlanWorks)
+                  DropdownButtonFormField<PilgrimageWork>(
+                    initialValue: _selectedWork,
+                    decoration: const InputDecoration(labelText: '所属作品'),
+                    items: [
+                      for (final work in widget.plan.works)
+                        DropdownMenuItem<PilgrimageWork>(
+                          value: work,
+                          child: Text(work.title),
+                        ),
+                    ],
+                    onChanged: (work) {
+                      setState(() {
+                        _selectedWork = work;
+                      });
+                    },
+                    validator: (work) => work == null ? '请选择作品' : null,
+                  )
+                else ...[
+                  TextFormField(
+                    controller: _fallbackWorkTitleController,
+                    decoration: const InputDecoration(labelText: '动画/作品名称'),
+                    textInputAction: TextInputAction.next,
+                    validator: _requiredText,
                   ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _workCityController,
-                  decoration: InputDecoration(
-                    labelText: '作品主要地区',
-                    hintText: '可选，默认 ${widget.plan.area}',
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _fallbackWorkSubtitleController,
+                    decoration: const InputDecoration(
+                      labelText: '作品原名',
+                      hintText: '可选',
+                    ),
+                    textInputAction: TextInputAction.next,
                   ),
-                  textInputAction: TextInputAction.next,
-                ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _fallbackWorkCityController,
+                    decoration: InputDecoration(
+                      labelText: '作品主要地区',
+                      hintText: '可选，默认 ${widget.plan.area}',
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -343,6 +730,142 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     }
 
     return null;
+  }
+}
+
+class _WorkSummary extends StatelessWidget {
+  const _WorkSummary({required this.plan});
+
+  final PilgrimagePlan? plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final works = plan?.works ?? const <PilgrimageWork>[];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              works.isEmpty
+                  ? '当前计划还没有作品。先添加作品，后续可按作品导入点位。'
+                  : '当前计划已有 ${works.length} 部作品：${works.map((work) => work.title).join('、')}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkResultCard extends StatelessWidget {
+  const _WorkResultCard({
+    required this.work,
+    required this.disabled,
+    required this.onAdd,
+  });
+
+  final PilgrimageWork work;
+  final bool disabled;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  work.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${work.subtitle} / Bangumi #${work.bangumiId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          TextButton(
+            onPressed: disabled ? null : onAdd,
+            child: Text(disabled ? '已添加' : '加入'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageCard extends StatelessWidget {
+  const _MessageCard({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

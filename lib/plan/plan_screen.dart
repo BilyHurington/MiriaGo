@@ -237,7 +237,9 @@ class _WorkHeader extends StatelessWidget {
   }
 
   String _workCountText(PilgrimagePlan plan) {
-    final count = plan.points.map((point) => point.work.id).toSet().length;
+    final count = plan.works.isNotEmpty
+        ? plan.works.length
+        : plan.points.map((point) => point.work.id).toSet().length;
     return '$count 部作品';
   }
 }

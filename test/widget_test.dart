@@ -74,8 +74,9 @@ void main() {
     await tester.tap(find.text('添加第一个点位'));
     await tester.pumpAndSettle();
 
-    expect(find.text('添加点位'), findsOneWidget);
-    expect(find.text('从 Anitabi 添加'), findsOneWidget);
+    expect(find.text('添加内容'), findsOneWidget);
+    expect(find.text('搜索 Bangumi 添加作品'), findsOneWidget);
+    expect(find.text('手动添加作品'), findsOneWidget);
     expect(find.text('手动添加点位'), findsOneWidget);
   });
 
@@ -90,6 +91,31 @@ void main() {
 
     expect(find.text('新巡礼计划 3'), findsOneWidget);
     expect(find.textContaining('未设置区域'), findsOneWidget);
+  });
+
+  testWidgets('adds a manual work to an empty plan', (tester) async {
+    await tester.pumpWidget(const SeichiJunreiHelperApp());
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('切换计划'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('切换'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加第一个点位'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('手动添加作品'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextFormField, '作品名称'), '原创短片');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '作品原名'),
+      'Original',
+    );
+    await tester.enterText(find.widgetWithText(TextFormField, '主要地区'), '京都市');
+    await tester.tap(find.text('保存作品'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1 部作品'), findsOneWidget);
   });
 
   testWidgets('adds a manual point to an empty plan', (tester) async {

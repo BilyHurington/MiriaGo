@@ -44,6 +44,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       id: 'local-${now.microsecondsSinceEpoch}',
       name: name,
       area: area,
+      works: const [],
       points: const [],
       createdAt: now,
       updatedAt: now,
@@ -65,8 +66,29 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     final plan = _plans[index];
+    final works = _appendWorkIfMissing(plan.works, point.work);
     final updatedPlan = plan.copyWith(
+      works: works,
       points: [...plan.points, point],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> addWorkToPlan({
+    required String planId,
+    required PilgrimageWork work,
+  }) async {
+    final index = _plans.indexWhere((plan) => plan.id == planId);
+    if (index == -1) {
+      throw ArgumentError.value(planId, 'planId', 'Plan does not exist.');
+    }
+
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      works: _appendWorkIfMissing(plan.works, work),
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -84,28 +106,45 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       _activePlanId = _plans.first.id;
     }
   }
+
+  List<PilgrimageWork> _appendWorkIfMissing(
+    List<PilgrimageWork> works,
+    PilgrimageWork work,
+  ) {
+    final exists = works.any((candidate) => candidate.id == work.id);
+    if (exists) {
+      return works;
+    }
+
+    return [...works, work];
+  }
 }
 
 final _sampleCreatedAt = DateTime(2026, 5, 23, 9);
 
 const _hibikeWork = PilgrimageWork(
   id: 'hibike-euphonium',
+  bangumiId: 1067,
   title: '吹响吧！上低音号',
   subtitle: '響け！ユーフォニアム',
   city: '宇治市',
+  source: WorkSource.bangumi,
 );
 
 const _tamakoWork = PilgrimageWork(
   id: 'tamako-market',
+  bangumiId: 55113,
   title: '玉子市场',
   subtitle: 'たまこまーけっと',
   city: '京都市',
+  source: WorkSource.bangumi,
 );
 
 final samplePilgrimagePlan = PilgrimagePlan(
   id: 'sample-uji-hibike',
   name: '京都南部一日巡礼',
   area: '宇治市 / 京都市',
+  works: const [_hibikeWork, _tamakoWork],
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,
   points: const [
@@ -152,6 +191,7 @@ final sampleEmptyPlan = PilgrimagePlan(
   id: 'sample-empty-kyoto',
   name: '京都空计划',
   area: '京都市',
+  works: const [],
   points: const [],
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,
