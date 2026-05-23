@@ -28,6 +28,8 @@
 	<string>Seichi Junrei Helper uses the camera to align real-world scenes with reference images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Seichi Junrei Helper lets you choose reference images from your photo library.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Seichi Junrei Helper uses your location to show nearby pilgrimage points on the map.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

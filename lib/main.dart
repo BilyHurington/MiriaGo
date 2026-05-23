@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_shell.dart';
 import 'app_theme.dart';
-import 'camera_reference/camera_reference_screen.dart';
 
 void main() {
   runApp(const SeichiJunreiHelperApp());
@@ -16,7 +16,7 @@ class SeichiJunreiHelperApp extends StatelessWidget {
       title: '圣地巡礼助手',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const CameraReferenceScreen(),
+      home: const AppShell(),
     );
   }
 }

@@ -581,12 +581,13 @@ class _EmptyPanel extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.cameraDarkSurface,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(12),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white70, size: 44),
-          const SizedBox(height: 12),
+          Icon(icon, color: Colors.white70, size: 34),
+          const SizedBox(height: 8),
           Text(
             title,
             textAlign: TextAlign.center,
@@ -597,21 +598,23 @@ class _EmptyPanel extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             body,
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 14,
+              fontSize: 13,
               letterSpacing: 0,
             ),
           ),
           if (showProgress) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
             const SizedBox(
-              width: 22,
-              height: 22,
+              width: 18,
+              height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           ],
