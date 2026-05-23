@@ -70,7 +70,7 @@ class PointDetailSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                _ReferencePlaceholder(status: status),
+                _ReferencePreview(point: point, status: status),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -193,9 +193,10 @@ class PointDetailSheet extends StatelessWidget {
   }
 }
 
-class _ReferencePlaceholder extends StatelessWidget {
-  const _ReferencePlaceholder({required this.status});
+class _ReferencePreview extends StatelessWidget {
+  const _ReferencePreview({required this.point, required this.status});
 
+  final PilgrimagePoint point;
   final VisitStatus status;
 
   @override
@@ -206,15 +207,21 @@ class _ReferencePlaceholder extends StatelessWidget {
       VisitStatus.pending => AppColors.accentDark,
     };
 
-    return Container(
-      width: 76,
-      height: 76,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+    final imageUrl = point.referenceImageUrl;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 76,
+        height: 76,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceMuted,
+          border: Border.all(color: AppColors.border),
+        ),
+        child: imageUrl == null
+            ? Icon(Icons.image_outlined, color: color, size: 28)
+            : Image.network(imageUrl, fit: BoxFit.cover),
       ),
-      child: Icon(Icons.image_outlined, color: color, size: 28),
     );
   }
 }

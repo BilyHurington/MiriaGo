@@ -4,6 +4,8 @@ enum VisitStatus { pending, current, completed }
 
 enum WorkSource { bangumi, manual }
 
+enum PointSource { manual, anitabi }
+
 class PilgrimageWork {
   const PilgrimageWork({
     required this.id,
@@ -31,6 +33,10 @@ class PilgrimagePoint {
     required this.position,
     required this.episodeLabel,
     required this.referenceLabel,
+    this.source = PointSource.manual,
+    this.sourceId,
+    this.referenceImageUrl,
+    this.sourceUrl,
   });
 
   final String id;
@@ -40,6 +46,10 @@ class PilgrimagePoint {
   final LatLng position;
   final String episodeLabel;
   final String referenceLabel;
+  final PointSource source;
+  final String? sourceId;
+  final String? referenceImageUrl;
+  final String? sourceUrl;
 }
 
 class PilgrimagePlan {

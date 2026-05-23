@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../app_theme.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
+import 'anitabi_map_import_screen.dart';
 import 'pilgrimage_models.dart';
 
 class AddPointsScreen extends StatelessWidget {
@@ -40,6 +41,17 @@ class AddPointsScreen extends StatelessWidget {
           ],
           _WorkSummary(plan: currentPlan),
           const SizedBox(height: 12),
+          _AddSourceCard(
+            icon: Icons.map_outlined,
+            title: '从作品地图导入点位',
+            body: '在 Anitabi 地图上查看作品点位，点击缩略图详情后加入计划。',
+            enabled: _hasBangumiWork(currentPlan),
+            actionLabel: _hasBangumiWork(currentPlan) ? '打开' : '需作品',
+            onTap: currentPlan == null
+                ? null
+                : () => _openAnitabiMapImport(context, currentPlan),
+          ),
+          const SizedBox(height: 8),
           _AddSourceCard(
             icon: Icons.search,
             title: '搜索 Bangumi 添加作品',
@@ -97,6 +109,23 @@ class AddPointsScreen extends StatelessWidget {
     Navigator.of(context).pop(true);
   }
 
+  Future<void> _openAnitabiMapImport(
+    BuildContext context,
+    PilgrimagePlan plan,
+  ) async {
+    final didAdd = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            AnitabiMapImportScreen(plan: plan, repository: repository),
+      ),
+    );
+    if (!context.mounted || didAdd != true) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+  }
+
   Future<void> _openManualWorkForm(
     BuildContext context,
     PilgrimagePlan plan,
@@ -129,6 +158,10 @@ class AddPointsScreen extends StatelessWidget {
     }
 
     Navigator.of(context).pop(true);
+  }
+
+  bool _hasBangumiWork(PilgrimagePlan? plan) {
+    return plan?.works.any((work) => work.bangumiId != null) ?? false;
   }
 }
 

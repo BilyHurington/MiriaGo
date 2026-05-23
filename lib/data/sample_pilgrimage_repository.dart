@@ -60,16 +60,31 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required PilgrimagePoint point,
   }) async {
+    return addPointsToPlan(planId: planId, points: [point]);
+  }
+
+  @override
+  Future<PilgrimagePlan> addPointsToPlan({
+    required String planId,
+    required List<PilgrimagePoint> points,
+  }) async {
     final index = _plans.indexWhere((plan) => plan.id == planId);
     if (index == -1) {
       throw ArgumentError.value(planId, 'planId', 'Plan does not exist.');
     }
 
     final plan = _plans[index];
-    final works = _appendWorkIfMissing(plan.works, point.work);
+    var works = plan.works;
+    for (final point in points) {
+      works = _appendWorkIfMissing(works, point.work);
+    }
+    final existingIds = plan.points.map((point) => point.id).toSet();
+    final newPoints = points
+        .where((point) => !existingIds.contains(point.id))
+        .toList(growable: false);
     final updatedPlan = plan.copyWith(
       works: works,
-      points: [...plan.points, point],
+      points: [...plan.points, ...newPoints],
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -124,7 +139,7 @@ final _sampleCreatedAt = DateTime(2026, 5, 23, 9);
 
 const _hibikeWork = PilgrimageWork(
   id: 'hibike-euphonium',
-  bangumiId: 1067,
+  bangumiId: 115908,
   title: '吹响吧！上低音号',
   subtitle: '響け！ユーフォニアム',
   city: '宇治市',
