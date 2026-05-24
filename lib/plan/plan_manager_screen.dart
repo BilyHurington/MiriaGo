@@ -113,16 +113,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     final plans = _plans;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('切换计划'),
-        actions: [
-          IconButton(
-            tooltip: '新建计划',
-            onPressed: _createEmptyPlan,
-            icon: const Icon(Icons.add),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('切换计划')),
       body: Builder(
         builder: (context) {
           if (_error != null) {
@@ -136,7 +127,11 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             itemBuilder: (context, index) {
-              final plan = plans[index];
+              if (index == 0) {
+                return _CreatePlanButton(onPressed: _createEmptyPlan);
+              }
+
+              final plan = plans[index - 1];
               return _PlanCard(
                 plan: plan,
                 selected: plan.id == _activePlan?.id,
@@ -147,10 +142,25 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
               );
             },
             separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemCount: plans.length,
+            itemCount: plans.length + 1,
           );
         },
       ),
+    );
+  }
+}
+
+class _CreatePlanButton extends StatelessWidget {
+  const _CreatePlanButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.add, size: 18),
+      label: const Text('新建计划'),
     );
   }
 }
@@ -174,6 +184,9 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusText = selected ? '当前计划' : '可切换';
+    final statusColor = selected ? AppColors.accent : AppColors.textSecondary;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -183,62 +196,64 @@ class _PlanCard extends StatelessWidget {
           color: selected ? AppColors.accent : AppColors.border,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: selected ? AppColors.accent : AppColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              selected ? Icons.check : Icons.route_outlined,
-              color: selected ? Colors.white : AppColors.accentDark,
+          Text(
+            plan.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  plan.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
+          const SizedBox(height: 5),
+          Text(
+            '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                selected ? Icons.check_circle : Icons.route_outlined,
+                color: statusColor,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                statusText,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                  ),
+              ),
+              const Spacer(),
+              if (!selected)
+                TextButton(onPressed: onSwitch, child: const Text('切换')),
+              IconButton(
+                tooltip: '重命名计划',
+                onPressed: onRename,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              if (canDelete)
+                IconButton(
+                  tooltip: '删除计划',
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
                 ),
-              ],
-            ),
+            ],
           ),
-          IconButton(
-            tooltip: '重命名计划',
-            onPressed: onRename,
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          if (!selected)
-            TextButton(onPressed: onSwitch, child: const Text('切换')),
-          if (canDelete)
-            IconButton(
-              tooltip: '删除计划',
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline),
-            ),
         ],
       ),
     );

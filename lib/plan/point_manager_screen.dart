@@ -737,7 +737,7 @@ class _PointManagerTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         onTap: selectionMode && !isBusy ? onToggleSelected : null,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
           decoration: BoxDecoration(
             border: Border.all(
               color: selected ? AppColors.accent : AppColors.border,
@@ -745,6 +745,7 @@ class _PointManagerTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _PointLeadingControl(
                 index: index,
@@ -779,46 +780,53 @@ class _PointManagerTile extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (!selectionMode) ...[
+                          IconButton(
+                            tooltip: status == VisitStatus.completed
+                                ? '重新打开'
+                                : '标记完成',
+                            onPressed: isBusy
+                                ? null
+                                : status == VisitStatus.completed
+                                ? onReopen
+                                : onComplete,
+                            icon: Icon(
+                              status == VisitStatus.completed
+                                  ? Icons.restart_alt
+                                  : Icons.check_outlined,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '设为当前',
+                            onPressed: isBusy || status == VisitStatus.current
+                                ? null
+                                : onSetCurrent,
+                            icon: const Icon(Icons.flag_outlined),
+                          ),
+                          IconButton(
+                            tooltip: '删除点位',
+                            onPressed: isBusy ? null : onDelete,
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                statusText,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
-              ),
-              if (!selectionMode) ...[
-                IconButton(
-                  tooltip: status == VisitStatus.completed ? '重新打开' : '标记完成',
-                  onPressed: isBusy
-                      ? null
-                      : status == VisitStatus.completed
-                      ? onReopen
-                      : onComplete,
-                  icon: Icon(
-                    status == VisitStatus.completed
-                        ? Icons.restart_alt
-                        : Icons.check_outlined,
-                  ),
-                ),
-                IconButton(
-                  tooltip: '设为当前',
-                  onPressed: isBusy || status == VisitStatus.current
-                      ? null
-                      : onSetCurrent,
-                  icon: const Icon(Icons.flag_outlined),
-                ),
-                IconButton(
-                  tooltip: '删除点位',
-                  onPressed: isBusy ? null : onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
             ],
           ),
         ),

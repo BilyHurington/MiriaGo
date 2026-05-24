@@ -125,7 +125,7 @@ void main() {
 
     await tester.tap(find.byTooltip('切换计划'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建计划'));
+    await tester.tap(find.text('新建计划'));
     await tester.pumpAndSettle();
 
     expect(find.text('新巡礼计划 3'), findsOneWidget);
