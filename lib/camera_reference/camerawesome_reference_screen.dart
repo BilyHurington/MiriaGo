@@ -28,6 +28,7 @@ class _CamerawesomeReferenceScreenState
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   double _overlayOpacity = 0.46;
+  double _zoom = 0;
 
   Future<CaptureRequest> _buildPhotoPath(List<Sensor> sensors) async {
     final path = await camera_storage.buildReferencePhotoPath();
@@ -77,6 +78,12 @@ class _CamerawesomeReferenceScreenState
     ).showSnackBar(SnackBar(content: Text('照片已保存：$path')));
   }
 
+  void _setZoom(CameraState state, double value) {
+    final nextZoom = value.clamp(0.0, 1.0);
+    setState(() => _zoom = nextZoom);
+    state.sensorConfig.setZoom(nextZoom);
+  }
+
   @override
   Widget build(BuildContext context) {
     final reference = _ReferenceImageSource(
@@ -105,9 +112,9 @@ class _CamerawesomeReferenceScreenState
                 sensor: Sensor.position(SensorPosition.back),
                 flashMode: FlashMode.auto,
                 aspectRatio: CameraAspectRatios.ratio_4_3,
-                zoom: 0,
+                zoom: _zoom,
               ),
-              previewFit: CameraPreviewFit.cover,
+              previewFit: CameraPreviewFit.contain,
               enablePhysicalButton: true,
               onMediaCaptureEvent: _handleCaptureEvent,
               builder: (cameraState, preview) {
@@ -118,9 +125,11 @@ class _CamerawesomeReferenceScreenState
                   galleryImage: _galleryImage,
                   mode: _mode,
                   overlayOpacity: _overlayOpacity,
+                  zoom: _zoom,
                   onModeChanged: (mode) => setState(() => _mode = mode),
                   onOpacityChanged: (value) =>
                       setState(() => _overlayOpacity = value),
+                  onZoomChanged: (value) => _setZoom(cameraState, value),
                   onPickReference: _pickReferenceImage,
                   onPickGallery: _pickGalleryImage,
                 );
@@ -138,8 +147,10 @@ class _ReferenceCameraOverlay extends StatelessWidget {
     required this.galleryImage,
     required this.mode,
     required this.overlayOpacity,
+    required this.zoom,
     required this.onModeChanged,
     required this.onOpacityChanged,
+    required this.onZoomChanged,
     required this.onPickReference,
     required this.onPickGallery,
   });
@@ -150,8 +161,10 @@ class _ReferenceCameraOverlay extends StatelessWidget {
   final XFile? galleryImage;
   final AwesomeReferenceMode mode;
   final double overlayOpacity;
+  final double zoom;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
+  final ValueChanged<double> onZoomChanged;
   final VoidCallback onPickReference;
   final VoidCallback onPickGallery;
 
@@ -181,10 +194,12 @@ class _ReferenceCameraOverlay extends StatelessWidget {
                 state: state,
                 mode: mode,
                 overlayOpacity: overlayOpacity,
+                zoom: zoom,
                 isLandscape: isLandscape,
                 galleryImage: galleryImage,
                 onModeChanged: onModeChanged,
                 onOpacityChanged: onOpacityChanged,
+                onZoomChanged: onZoomChanged,
                 onPickGallery: onPickGallery,
               ),
             ],
@@ -318,10 +333,64 @@ class _CameraTopBar extends StatelessWidget {
             onPressed: onPickReference,
             icon: const Icon(Icons.image_outlined),
           ),
-          AwesomeFlashButton(state: state),
-          AwesomeCameraSwitchButton(state: state),
+          _CompactFlashButton(state: state),
+          _CompactCameraSwitchButton(state: state),
         ],
       ),
+    );
+  }
+}
+
+class _CompactFlashButton extends StatelessWidget {
+  const _CompactFlashButton({required this.state});
+
+  final CameraState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SensorConfig>(
+      stream: state.sensorConfig$,
+      initialData: state.sensorConfig,
+      builder: (context, snapshot) {
+        final sensorConfig = snapshot.data ?? state.sensorConfig;
+        return StreamBuilder<FlashMode>(
+          stream: sensorConfig.flashMode$,
+          initialData: sensorConfig.flashMode,
+          builder: (context, flashSnapshot) {
+            final flashMode = flashSnapshot.data ?? sensorConfig.flashMode;
+            final icon = switch (flashMode) {
+              FlashMode.none => Icons.flash_off,
+              FlashMode.on => Icons.flash_on,
+              FlashMode.auto => Icons.flash_auto,
+              FlashMode.always => Icons.flashlight_on,
+            };
+
+            return IconButton(
+              tooltip: '闪光灯',
+              onPressed: sensorConfig.switchCameraFlash,
+              icon: Icon(icon),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _CompactCameraSwitchButton extends StatelessWidget {
+  const _CompactCameraSwitchButton({required this.state});
+
+  final CameraState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: '切换摄像头',
+      onPressed: () => state.switchCameraSensor(
+        zoom: state.sensorConfig.zoom,
+        flash: state.sensorConfig.flashMode,
+      ),
+      icon: const Icon(Icons.cameraswitch_outlined),
     );
   }
 }
@@ -331,20 +400,24 @@ class _CameraBottomPanel extends StatelessWidget {
     required this.state,
     required this.mode,
     required this.overlayOpacity,
+    required this.zoom,
     required this.isLandscape,
     required this.galleryImage,
     required this.onModeChanged,
     required this.onOpacityChanged,
+    required this.onZoomChanged,
     required this.onPickGallery,
   });
 
   final CameraState state;
   final AwesomeReferenceMode mode;
   final double overlayOpacity;
+  final double zoom;
   final bool isLandscape;
   final XFile? galleryImage;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
+  final ValueChanged<double> onZoomChanged;
   final VoidCallback onPickGallery;
 
   @override
@@ -363,8 +436,9 @@ class _CameraBottomPanel extends StatelessWidget {
           _ModeSelector(mode: mode, onChanged: onModeChanged),
           const SizedBox(height: 8),
           _ZoomAndOpacityControls(
-            state: state,
+            zoom: zoom,
             overlayOpacity: overlayOpacity,
+            onZoomChanged: onZoomChanged,
             onOpacityChanged: onOpacityChanged,
           ),
           const SizedBox(height: 10),
@@ -380,7 +454,7 @@ class _CameraBottomPanel extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              AwesomeCaptureButton(state: state),
+              _ReferenceCaptureButton(state: state),
               const Spacer(),
               IconButton.outlined(
                 tooltip: '检查照片',
@@ -436,39 +510,69 @@ class _ModeSelector extends StatelessWidget {
 
 class _ZoomAndOpacityControls extends StatelessWidget {
   const _ZoomAndOpacityControls({
-    required this.state,
+    required this.zoom,
     required this.overlayOpacity,
+    required this.onZoomChanged,
     required this.onOpacityChanged,
   });
 
-  final CameraState state;
+  final double zoom;
   final double overlayOpacity;
+  final ValueChanged<double> onZoomChanged;
   final ValueChanged<double> onOpacityChanged;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<SensorConfig>(
-      stream: state.sensorConfig$,
-      initialData: state.sensorConfig,
-      builder: (context, snapshot) {
-        final sensorConfig = snapshot.data ?? state.sensorConfig;
-        return Column(
-          children: [
-            _SliderRow(
-              icon: Icons.zoom_in_outlined,
-              value: sensorConfig.zoom,
-              label: '${(1 + sensorConfig.zoom * 4).toStringAsFixed(1)}x',
-              onChanged: sensorConfig.setZoom,
-            ),
-            _SliderRow(
-              icon: Icons.opacity,
-              value: overlayOpacity,
-              label: '${(overlayOpacity * 100).round()}%',
-              onChanged: onOpacityChanged,
-            ),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        _SliderRow(
+          icon: Icons.zoom_in_outlined,
+          value: zoom,
+          label: '${(1 + zoom * 4).toStringAsFixed(1)}x',
+          onChanged: onZoomChanged,
+        ),
+        _SliderRow(
+          icon: Icons.opacity,
+          value: overlayOpacity,
+          label: '${(overlayOpacity * 100).round()}%',
+          onChanged: onOpacityChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _ReferenceCaptureButton extends StatelessWidget {
+  const _ReferenceCaptureButton({required this.state});
+
+  final CameraState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.accent,
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => state.when(onPhotoMode: (photoState) {
+          photoState.takePhoto();
+        }),
+        child: Container(
+          width: 76,
+          height: 76,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.surface, width: 5),
+          ),
+          child: const Icon(
+            Icons.photo_camera,
+            color: AppColors.surface,
+            size: 30,
+          ),
+        ),
+      ),
     );
   }
 }
