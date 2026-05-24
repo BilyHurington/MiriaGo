@@ -168,9 +168,14 @@ class PlanScreen extends StatelessWidget {
         referenceFullImagePath: path,
       );
       cached += 1;
+      messenger.showSnackBar(
+        SnackBar(content: Text('正在缓存完整参考图 $cached/${points.length}')),
+      );
     }
 
-    messenger.showSnackBar(SnackBar(content: Text('已缓存 $cached 张完整参考图')));
+    messenger.showSnackBar(
+      SnackBar(content: Text('已缓存 $cached/${points.length} 张完整参考图')),
+    );
   }
 }
 

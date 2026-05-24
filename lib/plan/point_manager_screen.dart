@@ -574,25 +574,32 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       if (path == null) {
         continue;
       }
-      await widget.repository.updatePointImageCache(
+      final updatedPlan = await widget.repository.updatePointImageCache(
         planId: _plan.id,
         pointId: point.id,
         referenceThumbnailPath: point.referenceThumbnailPath,
         referenceFullImagePath: path,
       );
       cached += 1;
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _plan = updatedPlan;
+        _didUpdate = true;
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text('正在缓存完整参考图 $cached/${fullPoints.length}')),
+      );
     }
 
-    final updatedPlan = await widget.repository.loadActivePlan();
     if (!mounted) {
       return;
     }
 
-    setState(() {
-      _plan = updatedPlan;
-      _didUpdate = true;
-    });
-    messenger.showSnackBar(SnackBar(content: Text('已缓存 $cached 张完整参考图')));
+    messenger.showSnackBar(
+      SnackBar(content: Text('已缓存 $cached/${fullPoints.length} 张完整参考图')),
+    );
   }
 }
 
@@ -915,12 +922,7 @@ class _PointManagerTile extends StatelessWidget {
 
   String _cacheStatusText(PilgrimagePoint point) {
     final fullCached = point.referenceFullImagePath != null;
-    final thumbCached = point.referenceThumbnailPath != null;
-    return fullCached
-        ? '缓存：完整参考图已缓存'
-        : thumbCached
-        ? '缓存：缩略图已缓存'
-        : '缓存：未缓存';
+    return fullCached ? '缓存：已缓存' : '缓存：未缓存';
   }
 }
 
@@ -932,17 +934,8 @@ class _CacheStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fullCached = point.referenceFullImagePath != null;
-    final thumbCached = point.referenceThumbnailPath != null;
-    final label = fullCached
-        ? '完整已缓存'
-        : thumbCached
-        ? '缩略图已缓存'
-        : '未缓存';
-    final color = fullCached
-        ? AppColors.accent
-        : thumbCached
-        ? AppColors.textSecondary
-        : AppColors.accentDark;
+    final label = fullCached ? '已缓存' : '未缓存';
+    final color = fullCached ? AppColors.accent : AppColors.accentDark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),

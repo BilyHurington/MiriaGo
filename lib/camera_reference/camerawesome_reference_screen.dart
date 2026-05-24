@@ -506,24 +506,30 @@ class _CameraTopBar extends StatelessWidget {
           _CameraCircleButton(
             tooltip: '返回',
             icon: Icons.arrow_back,
+            rotateForLandscape: isLandscapeUi,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const Spacer(),
           _CameraCircleButton(
             tooltip: '参考图',
             icon: Icons.image_outlined,
+            rotateForLandscape: isLandscapeUi,
             onPressed: onPickReference,
           ),
           const SizedBox(width: 8),
           _CameraCircleButton(
             tooltip: isLandscapeUi ? '切换竖屏 UI' : '切换横屏 UI',
             icon: Icons.screen_rotation_alt_outlined,
+            rotateForLandscape: isLandscapeUi,
             onPressed: onToggleOrientation,
           ),
           const SizedBox(width: 8),
-          _CompactFlashButton(state: state),
+          _CompactFlashButton(state: state, rotateForLandscape: isLandscapeUi),
           const SizedBox(width: 8),
-          _CompactCameraSwitchButton(state: state),
+          _CompactCameraSwitchButton(
+            state: state,
+            rotateForLandscape: isLandscapeUi,
+          ),
         ],
       ),
     );
@@ -576,28 +582,46 @@ class _LandscapeCameraLayout extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: _LandscapeControlPanel(
-                  state: state,
-                  mode: mode,
-                  overlayOpacity: overlayOpacity,
-                  zoom: zoom,
-                  settings: settings,
-                  onModeChanged: onModeChanged,
-                  onOpacityChanged: onOpacityChanged,
-                  onZoomChanged: onZoomChanged,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: _LandscapeUiRotation(
+                    child: _LandscapeControlPanel(
+                      state: state,
+                      mode: mode,
+                      overlayOpacity: overlayOpacity,
+                      zoom: zoom,
+                      settings: settings,
+                      onModeChanged: onModeChanged,
+                      onOpacityChanged: onOpacityChanged,
+                      onZoomChanged: onZoomChanged,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
-              _LandscapeCaptureRail(
-                state: state,
-                galleryImage: galleryImage,
-                onPickGallery: onPickGallery,
+              _LandscapeUiRotation(
+                child: _LandscapeCaptureRail(
+                  state: state,
+                  galleryImage: galleryImage,
+                  onPickGallery: onPickGallery,
+                ),
               ),
             ],
           ),
         ),
       ],
     );
+  }
+}
+
+class _LandscapeUiRotation extends StatelessWidget {
+  const _LandscapeUiRotation({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RotatedBox(quarterTurns: 1, child: child);
   }
 }
 
@@ -706,11 +730,13 @@ class _CameraCircleButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.rotateForLandscape = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback onPressed;
+  final bool rotateForLandscape;
 
   @override
   Widget build(BuildContext context) {
@@ -723,15 +749,23 @@ class _CameraCircleButton extends StatelessWidget {
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: Icon(icon, size: 21),
+      icon: _LandscapeAwareIcon(
+        icon: icon,
+        size: 21,
+        rotate: rotateForLandscape,
+      ),
     );
   }
 }
 
 class _CompactFlashButton extends StatelessWidget {
-  const _CompactFlashButton({required this.state});
+  const _CompactFlashButton({
+    required this.state,
+    required this.rotateForLandscape,
+  });
 
   final CameraState state;
+  final bool rotateForLandscape;
 
   @override
   Widget build(BuildContext context) {
@@ -755,6 +789,7 @@ class _CompactFlashButton extends StatelessWidget {
             return _CameraCircleButton(
               tooltip: '闪光灯',
               icon: icon,
+              rotateForLandscape: rotateForLandscape,
               onPressed: sensorConfig.switchCameraFlash,
             );
           },
@@ -765,20 +800,43 @@ class _CompactFlashButton extends StatelessWidget {
 }
 
 class _CompactCameraSwitchButton extends StatelessWidget {
-  const _CompactCameraSwitchButton({required this.state});
+  const _CompactCameraSwitchButton({
+    required this.state,
+    required this.rotateForLandscape,
+  });
 
   final CameraState state;
+  final bool rotateForLandscape;
 
   @override
   Widget build(BuildContext context) {
     return _CameraCircleButton(
       tooltip: '切换摄像头',
       icon: Icons.cameraswitch_outlined,
+      rotateForLandscape: rotateForLandscape,
       onPressed: () => state.switchCameraSensor(
         zoom: state.sensorConfig.zoom,
         flash: state.sensorConfig.flashMode,
       ),
     );
+  }
+}
+
+class _LandscapeAwareIcon extends StatelessWidget {
+  const _LandscapeAwareIcon({
+    required this.icon,
+    required this.size,
+    required this.rotate,
+  });
+
+  final IconData icon;
+  final double size;
+  final bool rotate;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Icon(icon, size: size);
+    return rotate ? RotatedBox(quarterTurns: 1, child: child) : child;
   }
 }
 
