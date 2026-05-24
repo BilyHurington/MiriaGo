@@ -51,6 +51,7 @@ class _CamerawesomeReferenceScreenState
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   bool _landscapeLocked = false;
+  int _cameraSession = 0;
 
   @override
   void initState() {
@@ -143,9 +144,6 @@ class _CamerawesomeReferenceScreenState
 
   Future<void> _toggleOrientation() async {
     final nextLandscapeLocked = !_landscapeLocked;
-    setState(() {
-      _landscapeLocked = nextLandscapeLocked;
-    });
 
     await SystemChrome.setPreferredOrientations(
       nextLandscapeLocked
@@ -155,6 +153,15 @@ class _CamerawesomeReferenceScreenState
             ]
           : const [DeviceOrientation.portraitUp],
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _landscapeLocked = nextLandscapeLocked;
+      _cameraSession += 1;
+    });
   }
 
   @override
@@ -163,8 +170,6 @@ class _CamerawesomeReferenceScreenState
       bytes: _localReferenceBytes,
       url: widget.point.referenceImageUrl,
     );
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -180,40 +185,41 @@ class _CamerawesomeReferenceScreenState
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
             )
-          : CameraAwesomeBuilder.custom(
-              saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
-              sensorConfig: SensorConfig.single(
-                sensor: Sensor.position(SensorPosition.back),
-                flashMode: FlashMode.auto,
-                aspectRatio: _cameraAspectRatio(
-                  widget.settings.cameraAspectRatio,
+          : KeyedSubtree(
+              key: ValueKey(_cameraSession),
+              child: CameraAwesomeBuilder.custom(
+                saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
+                sensorConfig: SensorConfig.single(
+                  sensor: Sensor.position(SensorPosition.back),
+                  flashMode: FlashMode.auto,
+                  aspectRatio: _cameraAspectRatio(
+                    widget.settings.cameraAspectRatio,
+                  ),
+                  zoom: _zoom.value,
                 ),
-                zoom: _zoom.value,
+                previewFit: CameraPreviewFit.contain,
+                previewAlignment: Alignment.center,
+                enablePhysicalButton: true,
+                onMediaCaptureEvent: _handleCaptureEvent,
+                builder: (cameraState, preview) {
+                  return _ReferenceCameraOverlay(
+                    point: widget.point,
+                    state: cameraState,
+                    reference: reference,
+                    galleryImage: _galleryImage,
+                    mode: _mode,
+                    overlayOpacity: _overlayOpacity,
+                    zoom: _zoom,
+                    landscapeLocked: _landscapeLocked,
+                    onModeChanged: (mode) => setState(() => _mode = mode),
+                    onOpacityChanged: (value) => _overlayOpacity.value = value,
+                    onZoomChanged: (value) => _setZoom(cameraState, value),
+                    onPickReference: _pickReferenceImage,
+                    onPickGallery: _pickGalleryImage,
+                    onToggleOrientation: _toggleOrientation,
+                  );
+                },
               ),
-              previewFit: isLandscape
-                  ? CameraPreviewFit.cover
-                  : CameraPreviewFit.contain,
-              previewAlignment: Alignment.center,
-              enablePhysicalButton: true,
-              onMediaCaptureEvent: _handleCaptureEvent,
-              builder: (cameraState, preview) {
-                return _ReferenceCameraOverlay(
-                  point: widget.point,
-                  state: cameraState,
-                  reference: reference,
-                  galleryImage: _galleryImage,
-                  mode: _mode,
-                  overlayOpacity: _overlayOpacity,
-                  zoom: _zoom,
-                  landscapeLocked: _landscapeLocked,
-                  onModeChanged: (mode) => setState(() => _mode = mode),
-                  onOpacityChanged: (value) => _overlayOpacity.value = value,
-                  onZoomChanged: (value) => _setZoom(cameraState, value),
-                  onPickReference: _pickReferenceImage,
-                  onPickGallery: _pickGalleryImage,
-                  onToggleOrientation: _toggleOrientation,
-                );
-              },
             ),
     );
   }
