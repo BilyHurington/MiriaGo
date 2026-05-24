@@ -6,7 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import 'camera_storage_stub.dart'
-    if (dart.library.io) 'camera_storage_io.dart' as camera_storage;
+    if (dart.library.io) 'camera_storage_io.dart'
+    as camera_storage;
 
 enum AwesomeReferenceMode { overlay, split, pinned }
 
@@ -184,11 +185,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
         SafeArea(
           child: Column(
             children: [
-              _CameraTopBar(
-                point: point,
-                state: state,
-                onPickReference: onPickReference,
-              ),
+              _CameraTopBar(state: state, onPickReference: onPickReference),
               const Spacer(),
               _CameraBottomPanel(
                 state: state,
@@ -239,12 +236,12 @@ class _ReferenceModeLayer extends StatelessWidget {
         child: SafeArea(
           bottom: false,
           child: Container(
-            height: MediaQuery.sizeOf(context).height * 0.36,
-            margin: const EdgeInsets.fromLTRB(12, 64, 12, 0),
+            height: MediaQuery.sizeOf(context).height * 0.34,
+            margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Colors.black.withValues(alpha: 0.42),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Colors.white24),
             ),
             clipBehavior: Clip.antiAlias,
             child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
@@ -255,13 +252,13 @@ class _ReferenceModeLayer extends StatelessWidget {
         alignment: Alignment.topLeft,
         child: SafeArea(
           child: Container(
-            width: 132,
-            height: 176,
-            margin: const EdgeInsets.fromLTRB(16, 76, 0, 0),
+            width: 116,
+            height: 154,
+            margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Colors.black.withValues(alpha: 0.42),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Colors.white24),
             ),
             clipBehavior: Clip.antiAlias,
             child: _ReferenceImageView(source: reference, fit: BoxFit.cover),
@@ -273,70 +270,61 @@ class _ReferenceModeLayer extends StatelessWidget {
 }
 
 class _CameraTopBar extends StatelessWidget {
-  const _CameraTopBar({
-    required this.point,
-    required this.state,
-    required this.onPickReference,
-  });
+  const _CameraTopBar({required this.state, required this.onPickReference});
 
-  final PilgrimagePoint point;
   final CameraState state;
   final VoidCallback onPickReference;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
       child: Row(
         children: [
-          IconButton(
+          _CameraCircleButton(
             tooltip: '返回',
+            icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  point.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-                Text(
-                  '${point.work.title} / ${point.referenceLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
+          const Spacer(),
+          _CameraCircleButton(
             tooltip: '参考图',
+            icon: Icons.image_outlined,
             onPressed: onPickReference,
-            icon: const Icon(Icons.image_outlined),
           ),
+          const SizedBox(width: 8),
           _CompactFlashButton(state: state),
+          const SizedBox(width: 8),
           _CompactCameraSwitchButton(state: state),
         ],
       ),
+    );
+  }
+}
+
+class _CameraCircleButton extends StatelessWidget {
+  const _CameraCircleButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filled(
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.black.withValues(alpha: 0.38),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(44, 44),
+        shape: const CircleBorder(),
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon, size: 21),
     );
   }
 }
@@ -365,10 +353,10 @@ class _CompactFlashButton extends StatelessWidget {
               FlashMode.always => Icons.flashlight_on,
             };
 
-            return IconButton(
+            return _CameraCircleButton(
               tooltip: '闪光灯',
+              icon: icon,
               onPressed: sensorConfig.switchCameraFlash,
-              icon: Icon(icon),
             );
           },
         );
@@ -384,13 +372,13 @@ class _CompactCameraSwitchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    return _CameraCircleButton(
       tooltip: '切换摄像头',
+      icon: Icons.cameraswitch_outlined,
       onPressed: () => state.switchCameraSensor(
         zoom: state.sensorConfig.zoom,
         flash: state.sensorConfig.flashMode,
       ),
-      icon: const Icon(Icons.cameraswitch_outlined),
     );
   }
 }
@@ -423,43 +411,42 @@ class _CameraBottomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(12, 0, 12, isLandscape ? 12 : 16),
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      margin: EdgeInsets.fromLTRB(0, 0, 0, isLandscape ? 0 : 6),
+      padding: EdgeInsets.fromLTRB(20, 14, 20, isLandscape ? 14 : 18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        color: Colors.black.withValues(alpha: 0.58),
+        border: const Border(top: BorderSide(color: Colors.white12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _ModeSelector(mode: mode, onChanged: onModeChanged),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _ZoomAndOpacityControls(
             zoom: zoom,
             overlayOpacity: overlayOpacity,
             onZoomChanged: onZoomChanged,
             onOpacityChanged: onOpacityChanged,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              IconButton.outlined(
+              _CameraActionButton(
                 tooltip: '相册导入',
+                icon: galleryImage == null
+                    ? Icons.photo_library_outlined
+                    : Icons.photo_library,
                 onPressed: onPickGallery,
-                icon: Icon(
-                  galleryImage == null
-                      ? Icons.photo_library_outlined
-                      : Icons.photo_library,
-                ),
               ),
               const Spacer(),
               _ReferenceCaptureButton(state: state),
               const Spacer(),
-              IconButton.outlined(
+              _CameraActionButton(
                 tooltip: '检查照片',
+                icon: Icons.fact_check_outlined,
                 onPressed: galleryImage == null ? null : () {},
-                icon: const Icon(Icons.fact_check_outlined),
               ),
             ],
           ),
@@ -477,31 +464,83 @@ class _ModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<AwesomeReferenceMode>(
-      segments: const [
-        ButtonSegment(
-          value: AwesomeReferenceMode.overlay,
-          icon: Icon(Icons.layers_outlined, size: 18),
-          label: Text('叠影'),
+    const modes = [
+      (AwesomeReferenceMode.overlay, Icons.layers_outlined, '叠影'),
+      (AwesomeReferenceMode.split, Icons.splitscreen_outlined, '上下'),
+      (
+        AwesomeReferenceMode.pinned,
+        Icons.picture_in_picture_alt_outlined,
+        '小窗',
+      ),
+    ];
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final entry in modes)
+            _ModeChip(
+              selected: mode == entry.$1,
+              icon: entry.$2,
+              label: entry.$3,
+              onTap: () => onChanged(entry.$1),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      customBorder: const StadiumBorder(),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
         ),
-        ButtonSegment(
-          value: AwesomeReferenceMode.split,
-          icon: Icon(Icons.splitscreen_outlined, size: 18),
-          label: Text('上下'),
-        ),
-        ButtonSegment(
-          value: AwesomeReferenceMode.pinned,
-          icon: Icon(Icons.picture_in_picture_alt_outlined, size: 18),
-          label: Text('小窗'),
-        ),
-      ],
-      selected: {mode},
-      onSelectionChanged: (selection) => onChanged(selection.first),
-      showSelectedIcon: false,
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        textStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? AppColors.textPrimary : Colors.white70,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? AppColors.textPrimary : Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -550,29 +589,62 @@ class _ReferenceCaptureButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.accent,
+      color: Colors.white.withValues(alpha: 0.32),
       shape: const CircleBorder(),
-      elevation: 2,
+      elevation: 0,
       child: InkWell(
         customBorder: const CircleBorder(),
-        onTap: () => state.when(onPhotoMode: (photoState) {
-          photoState.takePhoto();
-        }),
+        onTap: () => state.when(
+          onPhotoMode: (photoState) {
+            photoState.takePhoto();
+          },
+        ),
         child: Container(
-          width: 76,
-          height: 76,
+          width: 72,
+          height: 72,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.surface, width: 5),
+            border: Border.all(color: Colors.white, width: 4),
           ),
-          child: const Icon(
-            Icons.photo_camera,
-            color: AppColors.surface,
-            size: 30,
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CameraActionButton extends StatelessWidget {
+  const _CameraActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        foregroundColor: onPressed == null ? Colors.white30 : Colors.white,
+        backgroundColor: Colors.white.withValues(alpha: 0.12),
+        disabledBackgroundColor: Colors.white.withValues(alpha: 0.06),
+        minimumSize: const Size(50, 50),
+        shape: const CircleBorder(),
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon, size: 24),
     );
   }
 }
@@ -594,9 +666,18 @@ class _SliderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.textSecondary),
+        Icon(icon, size: 16, color: Colors.white70),
         Expanded(
-          child: Slider(value: value.clamp(0, 1), onChanged: onChanged),
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.white,
+              inactiveTrackColor: Colors.white24,
+              thumbColor: Colors.white,
+              overlayColor: Colors.white12,
+              trackHeight: 3,
+            ),
+            child: Slider(value: value.clamp(0, 1), onChanged: onChanged),
+          ),
         ),
         SizedBox(
           width: 44,
@@ -604,7 +685,7 @@ class _SliderRow extends StatelessWidget {
             label,
             textAlign: TextAlign.right,
             style: const TextStyle(
-              color: AppColors.textSecondary,
+              color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0,
@@ -668,17 +749,17 @@ class _WebCameraFallback extends StatelessWidget {
             ),
           ),
           Container(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
+              color: Colors.black.withValues(alpha: 0.78),
+              border: const Border(top: BorderSide(color: Colors.white12)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _ModeSelector(mode: mode, onChanged: onModeChanged),
+                const SizedBox(height: 6),
                 _SliderRow(
                   icon: Icons.opacity,
                   value: overlayOpacity,
@@ -687,17 +768,19 @@ class _WebCameraFallback extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    IconButton.outlined(
+                    _CameraActionButton(
                       tooltip: '相册导入',
+                      icon: galleryImage == null
+                          ? Icons.photo_library_outlined
+                          : Icons.photo_library,
                       onPressed: onPickGallery,
-                      icon: Icon(
-                        galleryImage == null
-                            ? Icons.photo_library_outlined
-                            : Icons.photo_library,
-                      ),
                     ),
                     const Spacer(),
-                    const Icon(Icons.photo_camera_outlined),
+                    const Icon(
+                      Icons.photo_camera_outlined,
+                      color: Colors.white,
+                      size: 36,
+                    ),
                     const Spacer(),
                     const SizedBox(width: 48),
                   ],
