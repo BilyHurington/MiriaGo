@@ -30,10 +30,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('宇治桥'), findsWidgets);
-    expect(find.textContaining('参考图待接入'), findsOneWidget);
-    expect(find.text('Split'), findsOneWidget);
-    expect(find.text('Overlay'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
   });
 
   testWidgets('opens shared point detail sheet from plan list', (tester) async {

@@ -7,7 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
-import '../camera_reference/camera_reference_screen.dart';
+import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
@@ -132,7 +132,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   void _openCamera(PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CameraReferenceScreen(point: point),
+        builder: (_) => CamerawesomeReferenceScreen(point: point),
       ),
     );
   }

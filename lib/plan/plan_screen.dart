@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
-import '../camera_reference/camera_reference_screen.dart';
+import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
@@ -104,7 +104,7 @@ class PlanScreen extends StatelessWidget {
   void _openCamera(BuildContext context, PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CameraReferenceScreen(point: point),
+        builder: (_) => CamerawesomeReferenceScreen(point: point),
       ),
     );
   }
