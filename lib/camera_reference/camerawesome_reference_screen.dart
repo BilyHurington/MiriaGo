@@ -24,12 +24,26 @@ class CamerawesomeReferenceScreen extends StatefulWidget {
 class _CamerawesomeReferenceScreenState
     extends State<CamerawesomeReferenceScreen> {
   final ImagePicker _imagePicker = ImagePicker();
+  late final ValueNotifier<double> _overlayOpacity;
+  late final ValueNotifier<double> _zoom;
 
-  XFile? _localReferenceImage;
+  Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
-  double _overlayOpacity = 0.46;
-  double _zoom = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _overlayOpacity = ValueNotifier<double>(0.46);
+    _zoom = ValueNotifier<double>(0);
+  }
+
+  @override
+  void dispose() {
+    _overlayOpacity.dispose();
+    _zoom.dispose();
+    super.dispose();
+  }
 
   Future<CaptureRequest> _buildPhotoPath(List<Sensor> sensors) async {
     final path = await camera_storage.buildReferencePhotoPath();
@@ -42,8 +56,13 @@ class _CamerawesomeReferenceScreenState
       return;
     }
 
+    final bytes = await picked.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
-      _localReferenceImage = picked;
+      _localReferenceBytes = bytes;
     });
   }
 
@@ -81,14 +100,14 @@ class _CamerawesomeReferenceScreenState
 
   void _setZoom(CameraState state, double value) {
     final nextZoom = value.clamp(0.0, 1.0);
-    setState(() => _zoom = nextZoom);
+    _zoom.value = nextZoom;
     state.sensorConfig.setZoom(nextZoom);
   }
 
   @override
   Widget build(BuildContext context) {
     final reference = _ReferenceImageSource(
-      file: _localReferenceImage,
+      bytes: _localReferenceBytes,
       url: widget.point.referenceImageUrl,
     );
 
@@ -100,10 +119,9 @@ class _CamerawesomeReferenceScreenState
               reference: reference,
               galleryImage: _galleryImage,
               mode: _mode,
-              overlayOpacity: _overlayOpacity,
+              overlayOpacity: _overlayOpacity.value,
               onModeChanged: (mode) => setState(() => _mode = mode),
-              onOpacityChanged: (value) =>
-                  setState(() => _overlayOpacity = value),
+              onOpacityChanged: (value) => _overlayOpacity.value = value,
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
             )
@@ -113,7 +131,7 @@ class _CamerawesomeReferenceScreenState
                 sensor: Sensor.position(SensorPosition.back),
                 flashMode: FlashMode.auto,
                 aspectRatio: CameraAspectRatios.ratio_4_3,
-                zoom: _zoom,
+                zoom: _zoom.value,
               ),
               previewFit: CameraPreviewFit.contain,
               enablePhysicalButton: true,
@@ -128,8 +146,7 @@ class _CamerawesomeReferenceScreenState
                   overlayOpacity: _overlayOpacity,
                   zoom: _zoom,
                   onModeChanged: (mode) => setState(() => _mode = mode),
-                  onOpacityChanged: (value) =>
-                      setState(() => _overlayOpacity = value),
+                  onOpacityChanged: (value) => _overlayOpacity.value = value,
                   onZoomChanged: (value) => _setZoom(cameraState, value),
                   onPickReference: _pickReferenceImage,
                   onPickGallery: _pickGalleryImage,
@@ -161,8 +178,8 @@ class _ReferenceCameraOverlay extends StatelessWidget {
   final _ReferenceImageSource reference;
   final XFile? galleryImage;
   final AwesomeReferenceMode mode;
-  final double overlayOpacity;
-  final double zoom;
+  final ValueListenable<double> overlayOpacity;
+  final ValueListenable<double> zoom;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
   final ValueChanged<double> onZoomChanged;
@@ -177,10 +194,15 @@ class _ReferenceCameraOverlay extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _ReferenceModeLayer(
-          mode: mode,
-          reference: reference,
-          overlayOpacity: overlayOpacity,
+        ValueListenableBuilder<double>(
+          valueListenable: overlayOpacity,
+          builder: (context, opacity, child) {
+            return _ReferenceModeLayer(
+              mode: mode,
+              reference: reference,
+              overlayOpacity: opacity,
+            );
+          },
         ),
         SafeArea(
           child: Column(
@@ -399,8 +421,8 @@ class _CameraBottomPanel extends StatelessWidget {
 
   final CameraState state;
   final AwesomeReferenceMode mode;
-  final double overlayOpacity;
-  final double zoom;
+  final ValueListenable<double> overlayOpacity;
+  final ValueListenable<double> zoom;
   final bool isLandscape;
   final XFile? galleryImage;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
@@ -424,6 +446,7 @@ class _CameraBottomPanel extends StatelessWidget {
           _ModeSelector(mode: mode, onChanged: onModeChanged),
           const SizedBox(height: 6),
           _ZoomAndOpacityControls(
+            state: state,
             zoom: zoom,
             overlayOpacity: overlayOpacity,
             onZoomChanged: onZoomChanged,
@@ -549,14 +572,16 @@ class _ModeChip extends StatelessWidget {
 
 class _ZoomAndOpacityControls extends StatelessWidget {
   const _ZoomAndOpacityControls({
+    required this.state,
     required this.zoom,
     required this.overlayOpacity,
     required this.onZoomChanged,
     required this.onOpacityChanged,
   });
 
-  final double zoom;
-  final double overlayOpacity;
+  final CameraState state;
+  final ValueListenable<double> zoom;
+  final ValueListenable<double> overlayOpacity;
   final ValueChanged<double> onZoomChanged;
   final ValueChanged<double> onOpacityChanged;
 
@@ -564,21 +589,115 @@ class _ZoomAndOpacityControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _SliderRow(
-          icon: Icons.zoom_in_outlined,
-          value: zoom,
-          label: '${(1 + zoom * 4).toStringAsFixed(1)}x',
-          onChanged: onZoomChanged,
-        ),
-        _SliderRow(
-          icon: Icons.opacity,
-          value: overlayOpacity,
-          label: '${(overlayOpacity * 100).round()}%',
-          onChanged: onOpacityChanged,
+        _CameraZoomSlider(state: state, zoom: zoom, onChanged: onZoomChanged),
+        ValueListenableBuilder<double>(
+          valueListenable: overlayOpacity,
+          builder: (context, opacity, child) {
+            return _SliderRow(
+              icon: Icons.opacity,
+              value: opacity,
+              label: '${(opacity * 100).round()}%',
+              onChanged: onOpacityChanged,
+            );
+          },
         ),
       ],
     );
   }
+}
+
+class _CameraZoomSlider extends StatefulWidget {
+  const _CameraZoomSlider({
+    required this.state,
+    required this.zoom,
+    required this.onChanged,
+  });
+
+  final CameraState state;
+  final ValueListenable<double> zoom;
+  final ValueChanged<double> onChanged;
+
+  @override
+  State<_CameraZoomSlider> createState() => _CameraZoomSliderState();
+}
+
+class _CameraZoomSliderState extends State<_CameraZoomSlider> {
+  double? _minZoom;
+  double? _maxZoom;
+  bool _defaultZoomApplied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZoomRange();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CameraZoomSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state) {
+      _defaultZoomApplied = false;
+      _loadZoomRange();
+    }
+  }
+
+  Future<void> _loadZoomRange() async {
+    final double? minZoom;
+    final double? maxZoom;
+    try {
+      minZoom = await CamerawesomePlugin.getMinZoom();
+      maxZoom = await CamerawesomePlugin.getMaxZoom();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || minZoom == null || maxZoom == null) {
+      return;
+    }
+
+    setState(() {
+      _minZoom = minZoom;
+      _maxZoom = maxZoom;
+    });
+    _applyDefaultMainLensZoom(minZoom, maxZoom);
+  }
+
+  void _applyDefaultMainLensZoom(double minZoom, double maxZoom) {
+    if (_defaultZoomApplied || minZoom >= 1 || maxZoom <= minZoom) {
+      return;
+    }
+
+    final normalizedOneX = ((1 - minZoom) / (maxZoom - minZoom)).clamp(
+      0.0,
+      1.0,
+    );
+    _defaultZoomApplied = true;
+    widget.onChanged(normalizedOneX);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: widget.zoom,
+      builder: (context, normalizedZoom, child) {
+        final minZoom = _minZoom;
+        final maxZoom = _maxZoom;
+        final label = minZoom == null || maxZoom == null
+            ? '${(normalizedZoom * 100).round()}%'
+            : _formatRealZoom(minZoom, maxZoom, normalizedZoom);
+        return _SliderRow(
+          icon: Icons.zoom_in_outlined,
+          value: normalizedZoom,
+          label: label,
+          onChanged: widget.onChanged,
+        );
+      },
+    );
+  }
+}
+
+String _formatRealZoom(double minZoom, double maxZoom, double normalizedZoom) {
+  final realZoom = minZoom + (maxZoom - minZoom) * normalizedZoom;
+  return '${realZoom.toStringAsFixed(realZoom < 10 ? 1 : 0)}x';
 }
 
 class _ReferenceCaptureButton extends StatelessWidget {
@@ -869,12 +988,12 @@ class _FallbackPreview extends StatelessWidget {
 }
 
 class _ReferenceImageSource {
-  const _ReferenceImageSource({required this.file, required this.url});
+  const _ReferenceImageSource({required this.bytes, required this.url});
 
-  final XFile? file;
+  final Uint8List? bytes;
   final String? url;
 
-  bool get hasImage => file != null || url != null;
+  bool get hasImage => bytes != null || url != null;
 }
 
 class _ReferenceImageView extends StatelessWidget {
@@ -885,23 +1004,14 @@ class _ReferenceImageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = source.file;
-    if (file != null) {
-      return FutureBuilder<Uint8List>(
-        future: file.readAsBytes(),
-        builder: (context, snapshot) {
-          final bytes = snapshot.data;
-          if (bytes == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          return Image.memory(
-            bytes,
-            width: double.infinity,
-            height: double.infinity,
-            fit: fit,
-          );
-        },
+    final bytes = source.bytes;
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        width: double.infinity,
+        height: double.infinity,
+        fit: fit,
+        gaplessPlayback: true,
       );
     }
 
@@ -912,6 +1022,7 @@ class _ReferenceImageView extends StatelessWidget {
         width: double.infinity,
         height: double.infinity,
         fit: fit,
+        gaplessPlayback: true,
         errorBuilder: (context, error, stackTrace) {
           return const _ReferenceError();
         },
