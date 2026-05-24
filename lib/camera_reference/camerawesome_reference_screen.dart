@@ -1,6 +1,7 @@
 import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../app_theme.dart';
@@ -49,6 +50,7 @@ class _CamerawesomeReferenceScreenState
   Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
+  bool _landscapeLocked = false;
 
   @override
   void initState() {
@@ -59,6 +61,7 @@ class _CamerawesomeReferenceScreenState
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations(const []);
     _overlayOpacity.dispose();
     _zoom.dispose();
     super.dispose();
@@ -138,6 +141,22 @@ class _CamerawesomeReferenceScreenState
     state.sensorConfig.setZoom(nextZoom);
   }
 
+  Future<void> _toggleOrientation() async {
+    final nextLandscapeLocked = !_landscapeLocked;
+    setState(() {
+      _landscapeLocked = nextLandscapeLocked;
+    });
+
+    await SystemChrome.setPreferredOrientations(
+      nextLandscapeLocked
+          ? const [
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]
+          : const [DeviceOrientation.portraitUp],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reference = _ReferenceImageSource(
@@ -181,11 +200,13 @@ class _CamerawesomeReferenceScreenState
                   mode: _mode,
                   overlayOpacity: _overlayOpacity,
                   zoom: _zoom,
+                  landscapeLocked: _landscapeLocked,
                   onModeChanged: (mode) => setState(() => _mode = mode),
                   onOpacityChanged: (value) => _overlayOpacity.value = value,
                   onZoomChanged: (value) => _setZoom(cameraState, value),
                   onPickReference: _pickReferenceImage,
                   onPickGallery: _pickGalleryImage,
+                  onToggleOrientation: _toggleOrientation,
                 );
               },
             ),
@@ -210,11 +231,13 @@ class _ReferenceCameraOverlay extends StatelessWidget {
     required this.mode,
     required this.overlayOpacity,
     required this.zoom,
+    required this.landscapeLocked,
     required this.onModeChanged,
     required this.onOpacityChanged,
     required this.onZoomChanged,
     required this.onPickReference,
     required this.onPickGallery,
+    required this.onToggleOrientation,
   });
 
   final PilgrimagePoint point;
@@ -224,11 +247,13 @@ class _ReferenceCameraOverlay extends StatelessWidget {
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
   final ValueListenable<double> zoom;
+  final bool landscapeLocked;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
   final ValueChanged<double> onZoomChanged;
   final VoidCallback onPickReference;
   final VoidCallback onPickGallery;
+  final VoidCallback onToggleOrientation;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +283,9 @@ class _ReferenceCameraOverlay extends StatelessWidget {
                         alignment: Alignment.topLeft,
                         child: _CameraTopBar(
                           state: state,
+                          landscapeLocked: landscapeLocked,
                           onPickReference: onPickReference,
+                          onToggleOrientation: onToggleOrientation,
                         ),
                       ),
                     ),
@@ -283,7 +310,9 @@ class _ReferenceCameraOverlay extends StatelessWidget {
                   children: [
                     _CameraTopBar(
                       state: state,
+                      landscapeLocked: landscapeLocked,
                       onPickReference: onPickReference,
+                      onToggleOrientation: onToggleOrientation,
                     ),
                     const Spacer(),
                     _CameraBottomPanel(
@@ -369,10 +398,17 @@ class _ReferenceModeLayer extends StatelessWidget {
 }
 
 class _CameraTopBar extends StatelessWidget {
-  const _CameraTopBar({required this.state, required this.onPickReference});
+  const _CameraTopBar({
+    required this.state,
+    required this.landscapeLocked,
+    required this.onPickReference,
+    required this.onToggleOrientation,
+  });
 
   final CameraState state;
+  final bool landscapeLocked;
   final VoidCallback onPickReference;
+  final VoidCallback onToggleOrientation;
 
   @override
   Widget build(BuildContext context) {
@@ -390,6 +426,12 @@ class _CameraTopBar extends StatelessWidget {
             tooltip: '参考图',
             icon: Icons.image_outlined,
             onPressed: onPickReference,
+          ),
+          const SizedBox(width: 8),
+          _CameraCircleButton(
+            tooltip: landscapeLocked ? '切换竖屏' : '切换横屏',
+            icon: Icons.screen_rotation_alt_outlined,
+            onPressed: onToggleOrientation,
           ),
           const SizedBox(width: 8),
           _CompactFlashButton(state: state),
