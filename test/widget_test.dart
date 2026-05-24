@@ -59,6 +59,38 @@ void main() {
     expect(find.text('标记完成'), findsWidgets);
   });
 
+  testWidgets('shows work filters on the map for multi-work plans', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('地图'));
+    await tester.pump();
+
+    expect(find.text('全部'), findsOneWidget);
+    expect(find.text('吹响吧！上低音号'), findsOneWidget);
+    expect(find.text('玉子市场'), findsOneWidget);
+  });
+
+  testWidgets('shows work filters in point manager for multi-work plans', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('管理点位'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部作品'), findsOneWidget);
+    expect(find.text('吹响吧！上低音号'), findsOneWidget);
+    expect(find.text('玉子市场'), findsOneWidget);
+  });
+
   testWidgets('switches plans and shows empty plan add-points shell', (
     tester,
   ) async {

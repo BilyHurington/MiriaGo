@@ -21,9 +21,21 @@ class PointManagerScreen extends StatefulWidget {
 class _PointManagerScreenState extends State<PointManagerScreen> {
   late PilgrimagePlan _plan = widget.plan;
   final Set<String> _selectedPointIds = {};
+  String? _selectedWorkId;
   var _didUpdate = false;
   var _isSaving = false;
   var _selectionMode = false;
+
+  List<PilgrimagePoint> get _visiblePoints {
+    final selectedWorkId = _selectedWorkId;
+    if (selectedWorkId == null) {
+      return _plan.points;
+    }
+
+    return _plan.points
+        .where((point) => point.work.id == selectedWorkId)
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +89,8 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                       child: _BatchActionBar(
                         selectedCount: _selectedPointIds.length,
                         allSelected:
-                            _selectedPointIds.length == _plan.points.length,
+                            _visiblePoints.isNotEmpty &&
+                            _selectedPointIds.length == _visiblePoints.length,
                         isBusy: _isSaving,
                         onSelectAll: _selectAll,
                         onClear: _clearSelection,
@@ -93,14 +106,56 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Widget _buildReorderList() {
+    final visiblePoints = _visiblePoints;
+    final canReorder = _selectedWorkId == null;
+
+    if (!canReorder) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        itemCount: visiblePoints.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _PointManagerHeader(
+              plan: _plan,
+              selectedWorkId: _selectedWorkId,
+              onWorkSelected: _selectWorkFilter,
+            );
+          }
+
+          final point = visiblePoints[index - 1];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _PointManagerTile(
+              index: index - 1,
+              point: point,
+              status: _statusFor(point),
+              isBusy: _isSaving,
+              selectionMode: false,
+              selected: false,
+              canDrag: false,
+              onToggleSelected: () => _togglePointSelection(point),
+              onSetCurrent: () => _setCurrent(point),
+              onComplete: () => _complete(point),
+              onReopen: () => _reopen(point),
+              onDelete: () => _confirmDelete(point),
+            ),
+          );
+        },
+      );
+    }
+
     return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      header: _PointManagerHeader(plan: _plan),
-      itemCount: _plan.points.length,
+      header: _PointManagerHeader(
+        plan: _plan,
+        selectedWorkId: _selectedWorkId,
+        onWorkSelected: _selectWorkFilter,
+      ),
+      itemCount: visiblePoints.length,
       buildDefaultDragHandles: false,
       onReorderItem: _handleReorder,
       itemBuilder: (context, index) {
-        final point = _plan.points[index];
+        final point = visiblePoints[index];
         return Padding(
           key: ValueKey(point.id),
           padding: const EdgeInsets.only(bottom: 8),
@@ -111,6 +166,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             isBusy: _isSaving,
             selectionMode: false,
             selected: false,
+            canDrag: true,
             onToggleSelected: () => _togglePointSelection(point),
             onSetCurrent: () => _setCurrent(point),
             onComplete: () => _complete(point),
@@ -123,15 +179,21 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Widget _buildSelectionList() {
+    final visiblePoints = _visiblePoints;
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 92),
-      itemCount: _plan.points.length + 1,
+      itemCount: visiblePoints.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _PointManagerHeader(plan: _plan);
+          return _PointManagerHeader(
+            plan: _plan,
+            selectedWorkId: _selectedWorkId,
+            onWorkSelected: _selectWorkFilter,
+          );
         }
 
-        final point = _plan.points[index - 1];
+        final point = visiblePoints[index - 1];
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: _PointManagerTile(
@@ -141,6 +203,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             isBusy: _isSaving,
             selectionMode: true,
             selected: _selectedPointIds.contains(point.id),
+            canDrag: false,
             onToggleSelected: () => _togglePointSelection(point),
             onSetCurrent: () => _setCurrent(point),
             onComplete: () => _complete(point),
@@ -164,6 +227,15 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     return VisitStatus.pending;
   }
 
+  void _selectWorkFilter(String? workId) {
+    setState(() {
+      _selectedWorkId = workId;
+      _selectedPointIds.removeWhere(
+        (pointId) => !_visiblePoints.any((point) => point.id == pointId),
+      );
+    });
+  }
+
   void _toggleSelectionMode() {
     setState(() {
       _selectionMode = !_selectionMode;
@@ -185,7 +257,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     setState(() {
       _selectedPointIds
         ..clear()
-        ..addAll(_plan.points.map((point) => point.id));
+        ..addAll(_visiblePoints.map((point) => point.id));
     });
   }
 
@@ -481,13 +553,20 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
 }
 
 class _PointManagerHeader extends StatelessWidget {
-  const _PointManagerHeader({required this.plan});
+  const _PointManagerHeader({
+    required this.plan,
+    required this.selectedWorkId,
+    required this.onWorkSelected,
+  });
 
   final PilgrimagePlan plan;
+  final String? selectedWorkId;
+  final ValueChanged<String?> onWorkSelected;
 
   @override
   Widget build(BuildContext context) {
     final completedCount = plan.completedPointIds.length;
+    final works = _worksForPlan(plan);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -498,39 +577,113 @@ class _PointManagerHeader extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.border),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.route_outlined, color: AppColors.accentDark),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plan.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
+            Row(
+              children: [
+                const Icon(Icons.route_outlined, color: AppColors.accentDark),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plan.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${plan.points.length} 个点位 / 已完成 $completedCount',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${plan.points.length} 个点位 / 已完成 $completedCount',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (works.length > 1) ...[
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _WorkFilterChip(
+                      label: '全部作品',
+                      selected: selectedWorkId == null,
+                      onSelected: () => onWorkSelected(null),
+                    ),
+                    for (final work in works) ...[
+                      const SizedBox(width: 8),
+                      _WorkFilterChip(
+                        label: work.title,
+                        selected: selectedWorkId == work.id,
+                        onSelected: () => onWorkSelected(work.id),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  List<PilgrimageWork> _worksForPlan(PilgrimagePlan plan) {
+    final worksById = <String, PilgrimageWork>{};
+    for (final work in plan.works) {
+      worksById[work.id] = work;
+    }
+    for (final point in plan.points) {
+      worksById[point.work.id] = point.work;
+    }
+
+    return worksById.values.toList(growable: false);
+  }
+}
+
+class _WorkFilterChip extends StatelessWidget {
+  const _WorkFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: selected ? Colors.white : AppColors.textPrimary,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
+      ),
+      selected: selected,
+      selectedColor: AppColors.accent,
+      backgroundColor: AppColors.surfaceMuted,
+      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onSelected: (_) => onSelected(),
     );
   }
 }
@@ -543,6 +696,7 @@ class _PointManagerTile extends StatelessWidget {
     required this.isBusy,
     required this.selectionMode,
     required this.selected,
+    required this.canDrag,
     required this.onToggleSelected,
     required this.onSetCurrent,
     required this.onComplete,
@@ -556,6 +710,7 @@ class _PointManagerTile extends StatelessWidget {
   final bool isBusy;
   final bool selectionMode;
   final bool selected;
+  final bool canDrag;
   final VoidCallback onToggleSelected;
   final VoidCallback onSetCurrent;
   final VoidCallback onComplete;
@@ -591,57 +746,27 @@ class _PointManagerTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              if (selectionMode)
-                SizedBox(
-                  width: 38,
-                  height: 44,
-                  child: Checkbox(
-                    value: selected,
-                    onChanged: isBusy ? null : (_) => onToggleSelected(),
-                  ),
-                )
-              else
-                ReorderableDragStartListener(
-                  index: index,
-                  enabled: !isBusy,
-                  child: const SizedBox(
-                    width: 38,
-                    height: 44,
-                    child: Icon(
-                      Icons.drag_indicator,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
+              _PointLeadingControl(
+                index: index,
+                isBusy: isBusy,
+                selectionMode: selectionMode,
+                selected: selected,
+                canDrag: canDrag,
+                onToggleSelected: onToggleSelected,
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            point.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          statusText,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      point.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -655,6 +780,16 @@ class _PointManagerTile extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                statusText,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
                 ),
               ),
               if (!selectionMode) ...[
@@ -687,6 +822,52 @@ class _PointManagerTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PointLeadingControl extends StatelessWidget {
+  const _PointLeadingControl({
+    required this.index,
+    required this.isBusy,
+    required this.selectionMode,
+    required this.selected,
+    required this.canDrag,
+    required this.onToggleSelected,
+  });
+
+  final int index;
+  final bool isBusy;
+  final bool selectionMode;
+  final bool selected;
+  final bool canDrag;
+  final VoidCallback onToggleSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selectionMode) {
+      return SizedBox(
+        width: 38,
+        height: 44,
+        child: Checkbox(
+          value: selected,
+          onChanged: isBusy ? null : (_) => onToggleSelected(),
+        ),
+      );
+    }
+
+    if (!canDrag) {
+      return const SizedBox(width: 38, height: 44);
+    }
+
+    return ReorderableDragStartListener(
+      index: index,
+      enabled: !isBusy,
+      child: const SizedBox(
+        width: 38,
+        height: 44,
+        child: Icon(Icons.drag_indicator, color: AppColors.textSecondary),
       ),
     );
   }

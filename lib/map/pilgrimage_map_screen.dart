@@ -30,8 +30,20 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   LatLng? _currentLocation;
   bool _isLocating = false;
+  String? _selectedWorkId;
 
   PilgrimagePlanController get _controller => widget.controller;
+
+  List<PilgrimagePoint> get _visiblePoints {
+    final selectedWorkId = _selectedWorkId;
+    if (selectedWorkId == null) {
+      return _controller.points;
+    }
+
+    return _controller.points
+        .where((point) => point.work.id == selectedWorkId)
+        .toList(growable: false);
+  }
 
   Future<void> _locateUser() async {
     setState(() {
@@ -97,6 +109,12 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     _mapController.move(point.position, 16);
   }
 
+  void _selectWorkFilter(String? workId) {
+    setState(() {
+      _selectedWorkId = workId;
+    });
+  }
+
   void _moveToCurrentTarget() {
     final currentPoint = _controller.currentPoint;
     if (currentPoint == null) {
@@ -104,6 +122,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       return;
     }
 
+    setState(() {
+      _selectedWorkId = null;
+    });
     _controller.selectPoint(currentPoint);
     _mapController.move(currentPoint.position, 16);
   }
@@ -139,7 +160,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedPoint = _controller.selectedPoint;
+    final visiblePoints = _visiblePoints;
+    final selectedPoint =
+        visiblePoints.any((point) => point.id == _controller.selectedPoint?.id)
+        ? _controller.selectedPoint
+        : null;
     final initialCenter = _controller.currentPoint?.position ?? _fallbackCenter;
 
     return Scaffold(
@@ -185,7 +210,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  for (final point in _controller.points)
+                  for (final point in visiblePoints)
                     Marker(
                       point: point.position,
                       width: 44,
@@ -220,6 +245,18 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
             ],
           ),
+          if (_worksForPlan(_controller.plan).length > 1)
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 12,
+              child: _MapWorkFilterBar(
+                works: _worksForPlan(_controller.plan),
+                selectedWorkId: _selectedWorkId,
+                visiblePointCount: visiblePoints.length,
+                onWorkSelected: _selectWorkFilter,
+              ),
+            ),
           Align(
             alignment: Alignment.bottomCenter,
             child: selectedPoint == null
@@ -245,6 +282,18 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     return const LatLng(34.9671, 135.7727);
   }
 
+  List<PilgrimageWork> _worksForPlan(PilgrimagePlan plan) {
+    final worksById = <String, PilgrimageWork>{};
+    for (final work in plan.works) {
+      worksById[work.id] = work;
+    }
+    for (final point in plan.points) {
+      worksById[point.work.id] = point.work;
+    }
+
+    return worksById.values.toList(growable: false);
+  }
+
   double? _distanceToSelectedPoint(PilgrimagePoint point) {
     final currentLocation = _currentLocation;
     if (currentLocation == null) {
@@ -252,6 +301,102 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     }
 
     return _distance(currentLocation, point.position);
+  }
+}
+
+class _MapWorkFilterBar extends StatelessWidget {
+  const _MapWorkFilterBar({
+    required this.works,
+    required this.selectedWorkId,
+    required this.visiblePointCount,
+    required this.onWorkSelected,
+  });
+
+  final List<PilgrimageWork> works;
+  final String? selectedWorkId;
+  final int visiblePointCount;
+  final ValueChanged<String?> onWorkSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _MapFilterChip(
+                    label: '全部',
+                    selected: selectedWorkId == null,
+                    onSelected: () => onWorkSelected(null),
+                  ),
+                  for (final work in works) ...[
+                    const SizedBox(width: 8),
+                    _MapFilterChip(
+                      label: work.title,
+                      selected: selectedWorkId == work.id,
+                      onSelected: () => onWorkSelected(work.id),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$visiblePointCount 点',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapFilterChip extends StatelessWidget {
+  const _MapFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: selected ? Colors.white : AppColors.textPrimary,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+      selected: selected,
+      selectedColor: AppColors.accent,
+      backgroundColor: AppColors.surfaceMuted,
+      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onSelected: (_) => onSelected(),
+    );
   }
 }
 
