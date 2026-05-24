@@ -250,6 +250,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    final usesLandscapeUi = landscapeLocked || isLandscape;
     final landscapePanelWidth = (MediaQuery.sizeOf(context).width * 0.34).clamp(
       300.0,
       380.0,
@@ -265,13 +266,13 @@ class _ReferenceCameraOverlay extends StatelessWidget {
               mode: mode,
               reference: reference,
               overlayOpacity: opacity,
-              isLandscape: isLandscape,
+              isLandscape: usesLandscapeUi,
             );
           },
         ),
-        if (landscapeLocked && !isLandscape) const _LandscapeCompositionGuide(),
+        if (usesLandscapeUi && !isLandscape) const _LandscapeCompositionGuide(),
         SafeArea(
-          child: isLandscape
+          child: usesLandscapeUi
               ? Stack(
                   children: [
                     Positioned(
@@ -285,24 +286,43 @@ class _ReferenceCameraOverlay extends StatelessWidget {
                         onToggleOrientation: onToggleOrientation,
                       ),
                     ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      width: landscapePanelWidth,
-                      child: _CameraBottomPanel(
-                        state: state,
-                        mode: mode,
-                        overlayOpacity: overlayOpacity,
-                        zoom: zoom,
-                        isLandscape: true,
-                        galleryImage: galleryImage,
-                        onModeChanged: onModeChanged,
-                        onOpacityChanged: onOpacityChanged,
-                        onZoomChanged: onZoomChanged,
-                        onPickGallery: onPickGallery,
+                    if (isLandscape)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: landscapePanelWidth,
+                        child: _CameraBottomPanel(
+                          state: state,
+                          mode: mode,
+                          overlayOpacity: overlayOpacity,
+                          zoom: zoom,
+                          isLandscape: true,
+                          galleryImage: galleryImage,
+                          onModeChanged: onModeChanged,
+                          onOpacityChanged: onOpacityChanged,
+                          onZoomChanged: onZoomChanged,
+                          onPickGallery: onPickGallery,
+                        ),
+                      )
+                    else
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _CameraBottomPanel(
+                          state: state,
+                          mode: mode,
+                          overlayOpacity: overlayOpacity,
+                          zoom: zoom,
+                          isLandscape: true,
+                          galleryImage: galleryImage,
+                          onModeChanged: onModeChanged,
+                          onOpacityChanged: onOpacityChanged,
+                          onZoomChanged: onZoomChanged,
+                          onPickGallery: onPickGallery,
+                        ),
                       ),
-                    ),
                   ],
                 )
               : Column(
@@ -529,7 +549,7 @@ class _CameraTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _CameraCircleButton(
-            tooltip: landscapeLocked ? '关闭横向构图' : '横向构图',
+            tooltip: landscapeLocked ? '切换竖屏 UI' : '切换横屏 UI',
             icon: Icons.screen_rotation_alt_outlined,
             onPressed: onToggleOrientation,
           ),
@@ -575,7 +595,7 @@ class _LandscapeCameraToolbar extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _CameraCircleButton(
-              tooltip: landscapeLocked ? '关闭横向构图' : '横向构图',
+              tooltip: landscapeLocked ? '切换竖屏 UI' : '切换横屏 UI',
               icon: Icons.screen_rotation_alt_outlined,
               onPressed: onToggleOrientation,
             ),
