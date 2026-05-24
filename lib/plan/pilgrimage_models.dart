@@ -15,6 +15,8 @@ class PilgrimageVisitRecord {
     required this.pointId,
     required this.workId,
     required this.photoPath,
+    this.referenceImagePath,
+    this.referenceImageUrl,
     required this.referenceMode,
     required this.capturedAt,
   });
@@ -24,6 +26,8 @@ class PilgrimageVisitRecord {
   final String pointId;
   final String workId;
   final String photoPath;
+  final String? referenceImagePath;
+  final String? referenceImageUrl;
   final String referenceMode;
   final DateTime capturedAt;
 }

@@ -9,6 +9,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
+import 'visit_record_confirmation_screen.dart';
 
 enum AwesomeReferenceMode { overlay, split, pinned }
 
@@ -91,9 +92,7 @@ class _CamerawesomeReferenceScreenState
     setState(() {
       _galleryImage = picked;
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已导入相册图片')));
+    await _openConfirmation(picked.path);
   }
 
   Future<void> _handleCaptureEvent(MediaCapture event) async {
@@ -109,27 +108,24 @@ class _CamerawesomeReferenceScreenState
       return;
     }
 
-    final controller = widget.controller;
-    if (controller != null) {
-      await controller.createVisitRecord(
-        point: widget.point,
-        photoPath: path,
-        referenceMode: _mode.label,
-      );
-    }
+    await _openConfirmation(path);
+  }
+
+  Future<void> _openConfirmation(String photoPath) async {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(controller == null ? '照片已保存：$path' : '已保存巡礼记录'),
-        action: controller == null
-            ? null
-            : SnackBarAction(
-                label: '标记完成',
-                onPressed: () => controller.completePoint(widget.point),
-              ),
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitRecordConfirmationScreen(
+          point: widget.point,
+          controller: widget.controller,
+          photoPath: photoPath,
+          referenceMode: _mode.label,
+          referenceBytes: _localReferenceBytes,
+          referenceImageUrl: widget.point.referenceImageUrl,
+        ),
       ),
     );
   }

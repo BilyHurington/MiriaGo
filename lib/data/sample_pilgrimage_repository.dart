@@ -283,6 +283,8 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     required String pointId,
     required String workId,
     required String photoPath,
+    String? referenceImagePath,
+    String? referenceImageUrl,
     required String referenceMode,
   }) async {
     final now = DateTime.now();
@@ -292,6 +294,8 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       pointId: pointId,
       workId: workId,
       photoPath: photoPath,
+      referenceImagePath: referenceImagePath,
+      referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
       capturedAt: now,
     );

@@ -35,12 +35,9 @@ class VisitRecordDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          AspectRatio(
-            aspectRatio: 4 / 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: VisitRecordPhoto(path: record.photoPath),
-            ),
+          _RecordComparisonPanel(
+            record: record,
+            fallbackReferenceUrl: resolvedPoint?.referenceImageUrl,
           ),
           const SizedBox(height: 16),
           Text(
@@ -80,6 +77,13 @@ class VisitRecordDetailScreen extends StatelessWidget {
                 label: '照片路径',
                 value: record.photoPath,
               ),
+              if (record.referenceImagePath != null ||
+                  record.referenceImageUrl != null)
+                _DetailRow(
+                  icon: Icons.image_outlined,
+                  label: '参考图',
+                  value: record.referenceImagePath ?? record.referenceImageUrl!,
+                ),
               if (resolvedPoint != null) ...[
                 _DetailRow(
                   icon: Icons.movie_filter_outlined,
@@ -135,6 +139,116 @@ class VisitRecordDetailScreen extends StatelessWidget {
       return;
     }
     Navigator.of(context).pop();
+  }
+}
+
+class _RecordComparisonPanel extends StatelessWidget {
+  const _RecordComparisonPanel({
+    required this.record,
+    required this.fallbackReferenceUrl,
+  });
+
+  final PilgrimageVisitRecord record;
+  final String? fallbackReferenceUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _RecordImageTile(
+            label: '参考图',
+            child: _RecordReferencePhoto(
+              path: record.referenceImagePath,
+              url: record.referenceImageUrl ?? fallbackReferenceUrl,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _RecordImageTile(
+            label: '巡礼图',
+            child: VisitRecordPhoto(path: record.photoPath),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecordImageTile extends StatelessWidget {
+  const _RecordImageTile({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AspectRatio(
+          aspectRatio: 3 / 4,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: child,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecordReferencePhoto extends StatelessWidget {
+  const _RecordReferencePhoto({required this.path, required this.url});
+
+  final String? path;
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final localPath = path;
+    if (localPath != null) {
+      return VisitRecordPhoto(path: localPath);
+    }
+
+    final imageUrl = url;
+    if (imageUrl != null) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const _RecordReferencePlaceholder();
+        },
+      );
+    }
+
+    return const _RecordReferencePlaceholder();
+  }
+}
+
+class _RecordReferencePlaceholder extends StatelessWidget {
+  const _RecordReferencePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.surfaceMuted,
+      child: Center(
+        child: Icon(Icons.image_outlined, color: AppColors.accentDark),
+      ),
+    );
   }
 }
 

@@ -55,6 +55,8 @@ class VisitRecords extends Table {
   TextColumn get pointId => text()();
   TextColumn get workId => text()();
   TextColumn get photoPath => text()();
+  TextColumn get referenceImagePath => text().nullable()();
+  TextColumn get referenceImageUrl => text().nullable()();
   TextColumn get referenceMode => text()();
   DateTimeColumn get capturedAt => dateTime()();
 
@@ -67,7 +69,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +80,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await migrator.createTable(visitRecords);
+      } else if (from < 4) {
+        await migrator.addColumn(visitRecords, visitRecords.referenceImagePath);
+        await migrator.addColumn(visitRecords, visitRecords.referenceImageUrl);
       }
     },
   );

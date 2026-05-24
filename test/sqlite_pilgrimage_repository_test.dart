@@ -106,6 +106,8 @@ void main() {
       pointId: point.id,
       workId: point.work.id,
       photoPath: '/tmp/photo.jpg',
+      referenceImagePath: '/tmp/reference.jpg',
+      referenceImageUrl: 'https://example.com/reference.jpg',
       referenceMode: '叠影',
     );
 
@@ -115,6 +117,11 @@ void main() {
     expect(records.single.id, record.id);
     expect(records.single.pointId, point.id);
     expect(records.single.photoPath, '/tmp/photo.jpg');
+    expect(records.single.referenceImagePath, '/tmp/reference.jpg');
+    expect(
+      records.single.referenceImageUrl,
+      'https://example.com/reference.jpg',
+    );
     expect(records.single.referenceMode, '叠影');
   });
 

@@ -72,6 +72,8 @@ abstract interface class PilgrimageRepository {
     required String pointId,
     required String workId,
     required String photoPath,
+    String? referenceImagePath,
+    String? referenceImageUrl,
     required String referenceMode,
   });
 

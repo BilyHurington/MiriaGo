@@ -122,6 +122,8 @@ class PilgrimagePlanController extends ChangeNotifier {
   Future<PilgrimageVisitRecord?> createVisitRecord({
     required PilgrimagePoint point,
     required String photoPath,
+    String? referenceImagePath,
+    String? referenceImageUrl,
     required String referenceMode,
   }) async {
     final repository = _repository;
@@ -134,6 +136,8 @@ class PilgrimagePlanController extends ChangeNotifier {
       pointId: point.id,
       workId: point.work.id,
       photoPath: photoPath,
+      referenceImagePath: referenceImagePath,
+      referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
     );
     _visitRecords = [record, ..._visitRecords];

@@ -1834,6 +1834,29 @@ class $VisitRecordsTable extends VisitRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _referenceImagePathMeta =
+      const VerificationMeta('referenceImagePath');
+  @override
+  late final GeneratedColumn<String> referenceImagePath =
+      GeneratedColumn<String>(
+        'reference_image_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _referenceImageUrlMeta = const VerificationMeta(
+    'referenceImageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> referenceImageUrl =
+      GeneratedColumn<String>(
+        'reference_image_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _referenceModeMeta = const VerificationMeta(
     'referenceMode',
   );
@@ -1863,6 +1886,8 @@ class $VisitRecordsTable extends VisitRecords
     pointId,
     workId,
     photoPath,
+    referenceImagePath,
+    referenceImageUrl,
     referenceMode,
     capturedAt,
   ];
@@ -1915,6 +1940,24 @@ class $VisitRecordsTable extends VisitRecords
     } else if (isInserting) {
       context.missing(_photoPathMeta);
     }
+    if (data.containsKey('reference_image_path')) {
+      context.handle(
+        _referenceImagePathMeta,
+        referenceImagePath.isAcceptableOrUnknown(
+          data['reference_image_path']!,
+          _referenceImagePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reference_image_url')) {
+      context.handle(
+        _referenceImageUrlMeta,
+        referenceImageUrl.isAcceptableOrUnknown(
+          data['reference_image_url']!,
+          _referenceImageUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('reference_mode')) {
       context.handle(
         _referenceModeMeta,
@@ -1963,6 +2006,14 @@ class $VisitRecordsTable extends VisitRecords
         DriftSqlType.string,
         data['${effectivePrefix}photo_path'],
       )!,
+      referenceImagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference_image_path'],
+      ),
+      referenceImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference_image_url'],
+      ),
       referenceMode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}reference_mode'],
@@ -1986,6 +2037,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
   final String pointId;
   final String workId;
   final String photoPath;
+  final String? referenceImagePath;
+  final String? referenceImageUrl;
   final String referenceMode;
   final DateTime capturedAt;
   const VisitRecord({
@@ -1994,6 +2047,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     required this.pointId,
     required this.workId,
     required this.photoPath,
+    this.referenceImagePath,
+    this.referenceImageUrl,
     required this.referenceMode,
     required this.capturedAt,
   });
@@ -2005,6 +2060,12 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     map['point_id'] = Variable<String>(pointId);
     map['work_id'] = Variable<String>(workId);
     map['photo_path'] = Variable<String>(photoPath);
+    if (!nullToAbsent || referenceImagePath != null) {
+      map['reference_image_path'] = Variable<String>(referenceImagePath);
+    }
+    if (!nullToAbsent || referenceImageUrl != null) {
+      map['reference_image_url'] = Variable<String>(referenceImageUrl);
+    }
     map['reference_mode'] = Variable<String>(referenceMode);
     map['captured_at'] = Variable<DateTime>(capturedAt);
     return map;
@@ -2017,6 +2078,12 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       pointId: Value(pointId),
       workId: Value(workId),
       photoPath: Value(photoPath),
+      referenceImagePath: referenceImagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(referenceImagePath),
+      referenceImageUrl: referenceImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(referenceImageUrl),
       referenceMode: Value(referenceMode),
       capturedAt: Value(capturedAt),
     );
@@ -2033,6 +2100,12 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       pointId: serializer.fromJson<String>(json['pointId']),
       workId: serializer.fromJson<String>(json['workId']),
       photoPath: serializer.fromJson<String>(json['photoPath']),
+      referenceImagePath: serializer.fromJson<String?>(
+        json['referenceImagePath'],
+      ),
+      referenceImageUrl: serializer.fromJson<String?>(
+        json['referenceImageUrl'],
+      ),
       referenceMode: serializer.fromJson<String>(json['referenceMode']),
       capturedAt: serializer.fromJson<DateTime>(json['capturedAt']),
     );
@@ -2046,6 +2119,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       'pointId': serializer.toJson<String>(pointId),
       'workId': serializer.toJson<String>(workId),
       'photoPath': serializer.toJson<String>(photoPath),
+      'referenceImagePath': serializer.toJson<String?>(referenceImagePath),
+      'referenceImageUrl': serializer.toJson<String?>(referenceImageUrl),
       'referenceMode': serializer.toJson<String>(referenceMode),
       'capturedAt': serializer.toJson<DateTime>(capturedAt),
     };
@@ -2057,6 +2132,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     String? pointId,
     String? workId,
     String? photoPath,
+    Value<String?> referenceImagePath = const Value.absent(),
+    Value<String?> referenceImageUrl = const Value.absent(),
     String? referenceMode,
     DateTime? capturedAt,
   }) => VisitRecord(
@@ -2065,6 +2142,12 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     pointId: pointId ?? this.pointId,
     workId: workId ?? this.workId,
     photoPath: photoPath ?? this.photoPath,
+    referenceImagePath: referenceImagePath.present
+        ? referenceImagePath.value
+        : this.referenceImagePath,
+    referenceImageUrl: referenceImageUrl.present
+        ? referenceImageUrl.value
+        : this.referenceImageUrl,
     referenceMode: referenceMode ?? this.referenceMode,
     capturedAt: capturedAt ?? this.capturedAt,
   );
@@ -2075,6 +2158,12 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       pointId: data.pointId.present ? data.pointId.value : this.pointId,
       workId: data.workId.present ? data.workId.value : this.workId,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
+      referenceImagePath: data.referenceImagePath.present
+          ? data.referenceImagePath.value
+          : this.referenceImagePath,
+      referenceImageUrl: data.referenceImageUrl.present
+          ? data.referenceImageUrl.value
+          : this.referenceImageUrl,
       referenceMode: data.referenceMode.present
           ? data.referenceMode.value
           : this.referenceMode,
@@ -2092,6 +2181,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
           ..write('pointId: $pointId, ')
           ..write('workId: $workId, ')
           ..write('photoPath: $photoPath, ')
+          ..write('referenceImagePath: $referenceImagePath, ')
+          ..write('referenceImageUrl: $referenceImageUrl, ')
           ..write('referenceMode: $referenceMode, ')
           ..write('capturedAt: $capturedAt')
           ..write(')'))
@@ -2105,6 +2196,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     pointId,
     workId,
     photoPath,
+    referenceImagePath,
+    referenceImageUrl,
     referenceMode,
     capturedAt,
   );
@@ -2117,6 +2210,8 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
           other.pointId == this.pointId &&
           other.workId == this.workId &&
           other.photoPath == this.photoPath &&
+          other.referenceImagePath == this.referenceImagePath &&
+          other.referenceImageUrl == this.referenceImageUrl &&
           other.referenceMode == this.referenceMode &&
           other.capturedAt == this.capturedAt);
 }
@@ -2127,6 +2222,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
   final Value<String> pointId;
   final Value<String> workId;
   final Value<String> photoPath;
+  final Value<String?> referenceImagePath;
+  final Value<String?> referenceImageUrl;
   final Value<String> referenceMode;
   final Value<DateTime> capturedAt;
   final Value<int> rowid;
@@ -2136,6 +2233,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     this.pointId = const Value.absent(),
     this.workId = const Value.absent(),
     this.photoPath = const Value.absent(),
+    this.referenceImagePath = const Value.absent(),
+    this.referenceImageUrl = const Value.absent(),
     this.referenceMode = const Value.absent(),
     this.capturedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2146,6 +2245,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     required String pointId,
     required String workId,
     required String photoPath,
+    this.referenceImagePath = const Value.absent(),
+    this.referenceImageUrl = const Value.absent(),
     required String referenceMode,
     required DateTime capturedAt,
     this.rowid = const Value.absent(),
@@ -2162,6 +2263,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     Expression<String>? pointId,
     Expression<String>? workId,
     Expression<String>? photoPath,
+    Expression<String>? referenceImagePath,
+    Expression<String>? referenceImageUrl,
     Expression<String>? referenceMode,
     Expression<DateTime>? capturedAt,
     Expression<int>? rowid,
@@ -2172,6 +2275,9 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
       if (pointId != null) 'point_id': pointId,
       if (workId != null) 'work_id': workId,
       if (photoPath != null) 'photo_path': photoPath,
+      if (referenceImagePath != null)
+        'reference_image_path': referenceImagePath,
+      if (referenceImageUrl != null) 'reference_image_url': referenceImageUrl,
       if (referenceMode != null) 'reference_mode': referenceMode,
       if (capturedAt != null) 'captured_at': capturedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2184,6 +2290,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     Value<String>? pointId,
     Value<String>? workId,
     Value<String>? photoPath,
+    Value<String?>? referenceImagePath,
+    Value<String?>? referenceImageUrl,
     Value<String>? referenceMode,
     Value<DateTime>? capturedAt,
     Value<int>? rowid,
@@ -2194,6 +2302,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
       pointId: pointId ?? this.pointId,
       workId: workId ?? this.workId,
       photoPath: photoPath ?? this.photoPath,
+      referenceImagePath: referenceImagePath ?? this.referenceImagePath,
+      referenceImageUrl: referenceImageUrl ?? this.referenceImageUrl,
       referenceMode: referenceMode ?? this.referenceMode,
       capturedAt: capturedAt ?? this.capturedAt,
       rowid: rowid ?? this.rowid,
@@ -2218,6 +2328,12 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     if (photoPath.present) {
       map['photo_path'] = Variable<String>(photoPath.value);
     }
+    if (referenceImagePath.present) {
+      map['reference_image_path'] = Variable<String>(referenceImagePath.value);
+    }
+    if (referenceImageUrl.present) {
+      map['reference_image_url'] = Variable<String>(referenceImageUrl.value);
+    }
     if (referenceMode.present) {
       map['reference_mode'] = Variable<String>(referenceMode.value);
     }
@@ -2238,6 +2354,8 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
           ..write('pointId: $pointId, ')
           ..write('workId: $workId, ')
           ..write('photoPath: $photoPath, ')
+          ..write('referenceImagePath: $referenceImagePath, ')
+          ..write('referenceImageUrl: $referenceImageUrl, ')
           ..write('referenceMode: $referenceMode, ')
           ..write('capturedAt: $capturedAt, ')
           ..write('rowid: $rowid')
@@ -3719,6 +3837,8 @@ typedef $$VisitRecordsTableCreateCompanionBuilder =
       required String pointId,
       required String workId,
       required String photoPath,
+      Value<String?> referenceImagePath,
+      Value<String?> referenceImageUrl,
       required String referenceMode,
       required DateTime capturedAt,
       Value<int> rowid,
@@ -3730,6 +3850,8 @@ typedef $$VisitRecordsTableUpdateCompanionBuilder =
       Value<String> pointId,
       Value<String> workId,
       Value<String> photoPath,
+      Value<String?> referenceImagePath,
+      Value<String?> referenceImageUrl,
       Value<String> referenceMode,
       Value<DateTime> capturedAt,
       Value<int> rowid,
@@ -3766,6 +3888,16 @@ class $$VisitRecordsTableFilterComposer
 
   ColumnFilters<String> get photoPath => $composableBuilder(
     column: $table.photoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get referenceImagePath => $composableBuilder(
+    column: $table.referenceImagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get referenceImageUrl => $composableBuilder(
+    column: $table.referenceImageUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3814,6 +3946,16 @@ class $$VisitRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get referenceImagePath => $composableBuilder(
+    column: $table.referenceImagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get referenceImageUrl => $composableBuilder(
+    column: $table.referenceImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get referenceMode => $composableBuilder(
     column: $table.referenceMode,
     builder: (column) => ColumnOrderings(column),
@@ -3848,6 +3990,16 @@ class $$VisitRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get photoPath =>
       $composableBuilder(column: $table.photoPath, builder: (column) => column);
+
+  GeneratedColumn<String> get referenceImagePath => $composableBuilder(
+    column: $table.referenceImagePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get referenceImageUrl => $composableBuilder(
+    column: $table.referenceImageUrl,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get referenceMode => $composableBuilder(
     column: $table.referenceMode,
@@ -3896,6 +4048,8 @@ class $$VisitRecordsTableTableManager
                 Value<String> pointId = const Value.absent(),
                 Value<String> workId = const Value.absent(),
                 Value<String> photoPath = const Value.absent(),
+                Value<String?> referenceImagePath = const Value.absent(),
+                Value<String?> referenceImageUrl = const Value.absent(),
                 Value<String> referenceMode = const Value.absent(),
                 Value<DateTime> capturedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3905,6 +4059,8 @@ class $$VisitRecordsTableTableManager
                 pointId: pointId,
                 workId: workId,
                 photoPath: photoPath,
+                referenceImagePath: referenceImagePath,
+                referenceImageUrl: referenceImageUrl,
                 referenceMode: referenceMode,
                 capturedAt: capturedAt,
                 rowid: rowid,
@@ -3916,6 +4072,8 @@ class $$VisitRecordsTableTableManager
                 required String pointId,
                 required String workId,
                 required String photoPath,
+                Value<String?> referenceImagePath = const Value.absent(),
+                Value<String?> referenceImageUrl = const Value.absent(),
                 required String referenceMode,
                 required DateTime capturedAt,
                 Value<int> rowid = const Value.absent(),
@@ -3925,6 +4083,8 @@ class $$VisitRecordsTableTableManager
                 pointId: pointId,
                 workId: workId,
                 photoPath: photoPath,
+                referenceImagePath: referenceImagePath,
+                referenceImageUrl: referenceImageUrl,
                 referenceMode: referenceMode,
                 capturedAt: capturedAt,
                 rowid: rowid,

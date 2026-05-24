@@ -271,6 +271,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String pointId,
     required String workId,
     required String photoPath,
+    String? referenceImagePath,
+    String? referenceImageUrl,
     required String referenceMode,
   }) async {
     final now = DateTime.now();
@@ -280,6 +282,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       pointId: pointId,
       workId: workId,
       photoPath: photoPath,
+      referenceImagePath: referenceImagePath,
+      referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
       capturedAt: now,
     );
@@ -292,6 +296,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             pointId: record.pointId,
             workId: record.workId,
             photoPath: record.photoPath,
+            referenceImagePath: Value(record.referenceImagePath),
+            referenceImageUrl: Value(record.referenceImageUrl),
             referenceMode: record.referenceMode,
             capturedAt: record.capturedAt,
           ),
@@ -356,6 +362,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       pointId: row.pointId,
       workId: row.workId,
       photoPath: row.photoPath,
+      referenceImagePath: row.referenceImagePath,
+      referenceImageUrl: row.referenceImageUrl,
       referenceMode: row.referenceMode,
       capturedAt: row.capturedAt,
     );
