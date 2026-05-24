@@ -46,6 +46,10 @@ class PilgrimagePlanController extends ChangeNotifier {
 
   List<PilgrimageVisitRecord> get visitRecords => _visitRecords;
 
+  List<PilgrimageVisitRecord> recordsForPoint(String pointId) => _visitRecords
+      .where((record) => record.pointId == pointId)
+      .toList(growable: false);
+
   int get completedCount => _completedPointIds.length;
 
   int get totalCount => points.length;
@@ -135,6 +139,19 @@ class PilgrimagePlanController extends ChangeNotifier {
     _visitRecords = [record, ..._visitRecords];
     notifyListeners();
     return record;
+  }
+
+  Future<void> deleteVisitRecord(PilgrimageVisitRecord record) async {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    await repository.deleteVisitRecord(planId: _plan.id, recordId: record.id);
+    _visitRecords = _visitRecords
+        .where((candidate) => candidate.id != record.id)
+        .toList(growable: false);
+    notifyListeners();
   }
 
   void _persistSetCurrent(PilgrimagePoint point) {

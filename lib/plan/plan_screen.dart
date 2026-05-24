@@ -118,6 +118,7 @@ class PlanScreen extends StatelessWidget {
       onSetCurrent: () => controller.setCurrentPoint(point),
       onOpenCamera: () => _openCamera(context, point),
       onComplete: () => controller.completePoint(point),
+      records: controller.recordsForPoint(point.id),
     );
   }
 }

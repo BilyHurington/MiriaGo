@@ -118,6 +118,35 @@ void main() {
     expect(records.single.referenceMode, '叠影');
   });
 
+  test('deletes visit records without changing point completion', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+
+    final record = await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: '/tmp/photo.jpg',
+      referenceMode: '小窗',
+    );
+    await repository.completePoint(
+      planId: plan.id,
+      pointId: point.id,
+      nextCurrentPointId: plan.points[1].id,
+    );
+    await repository.deleteVisitRecord(planId: plan.id, recordId: record.id);
+
+    final records = await repository.loadVisitRecords(plan.id);
+    final reloadedPlan = await repository.loadActivePlan();
+
+    expect(records, isEmpty);
+    expect(reloadedPlan.completedPointIds, contains(point.id));
+  });
+
   test('bulk completes points and promotes next pending target', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);

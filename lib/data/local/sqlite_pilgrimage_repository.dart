@@ -301,6 +301,18 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<void> deleteVisitRecord({
+    required String planId,
+    required String recordId,
+  }) async {
+    await (_database.delete(_database.visitRecords)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(recordId),
+        ))
+        .go();
+    await _touchPlan(planId);
+  }
+
+  @override
   Future<void> deletePlan(String id) async {
     await _database.transaction(() async {
       final count = await _database.plans.count().getSingle();

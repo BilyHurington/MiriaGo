@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import 'visit_record_detail_screen.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
 
@@ -38,10 +39,23 @@ class RecordsScreen extends StatelessWidget {
               _VisitRecordCard(
                 record: record,
                 point: controller.pointById(record.pointId),
+                onTap: () => _openRecordDetail(context, record),
               ),
               const SizedBox(height: 10),
             ],
         ],
+      ),
+    );
+  }
+
+  void _openRecordDetail(BuildContext context, PilgrimageVisitRecord record) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitRecordDetailScreen(
+          record: record,
+          point: controller.pointById(record.pointId),
+          onDelete: () => controller.deleteVisitRecord(record),
+        ),
       ),
     );
   }
@@ -100,77 +114,89 @@ class _RecordsSummary extends StatelessWidget {
 }
 
 class _VisitRecordCard extends StatelessWidget {
-  const _VisitRecordCard({required this.record, required this.point});
+  const _VisitRecordCard({
+    required this.record,
+    required this.point,
+    required this.onTap,
+  });
 
   final PilgrimageVisitRecord record;
   final PilgrimagePoint? point;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final resolvedPoint = point;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 104,
-            height: 104,
-            child: VisitRecordPhoto(path: record.photoPath),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    resolvedPoint?.name ?? '已删除点位',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    resolvedPoint == null
-                        ? record.workId
-                        : '${resolvedPoint.work.title} / ${resolvedPoint.episodeLabel}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _RecordChip(
-                        icon: Icons.layers_outlined,
-                        label: record.referenceMode,
+      child: InkWell(
+        onTap: onTap,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 104,
+              height: 104,
+              child: VisitRecordPhoto(path: record.photoPath),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      resolvedPoint?.name ?? '已删除点位',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
-                      _RecordChip(
-                        icon: Icons.schedule,
-                        label: _formatCapturedAt(record.capturedAt),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      resolvedPoint == null
+                          ? record.workId
+                          : '${resolvedPoint.work.title} / ${resolvedPoint.episodeLabel}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        letterSpacing: 0,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _RecordChip(
+                          icon: Icons.layers_outlined,
+                          label: record.referenceMode,
+                        ),
+                        _RecordChip(
+                          icon: Icons.schedule,
+                          label: _formatCapturedAt(record.capturedAt),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            const Padding(
+              padding: EdgeInsets.only(right: 10),
+              child: Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
       ),
     );
   }

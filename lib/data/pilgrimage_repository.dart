@@ -75,5 +75,10 @@ abstract interface class PilgrimageRepository {
     required String referenceMode,
   });
 
+  Future<void> deleteVisitRecord({
+    required String planId,
+    required String recordId,
+  });
+
   Future<void> deletePlan(String id);
 }

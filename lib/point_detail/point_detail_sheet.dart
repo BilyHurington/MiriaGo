@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
+import '../records/visit_record_photo_stub.dart'
+    if (dart.library.io) '../records/visit_record_photo_io.dart';
 
 class PointDetailSheet extends StatelessWidget {
   const PointDetailSheet({
@@ -11,6 +13,7 @@ class PointDetailSheet extends StatelessWidget {
     required this.onSetCurrent,
     required this.onOpenCamera,
     required this.onComplete,
+    this.records = const [],
     this.navigationLauncher = const MapNavigationLauncher(),
     super.key,
   });
@@ -20,6 +23,7 @@ class PointDetailSheet extends StatelessWidget {
   final VoidCallback onSetCurrent;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
+  final List<PilgrimageVisitRecord> records;
   final MapNavigationLauncher navigationLauncher;
 
   static Future<void> show(
@@ -29,6 +33,7 @@ class PointDetailSheet extends StatelessWidget {
     required VoidCallback onSetCurrent,
     required VoidCallback onOpenCamera,
     required VoidCallback onComplete,
+    List<PilgrimageVisitRecord> records = const [],
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -42,6 +47,7 @@ class PointDetailSheet extends StatelessWidget {
           onSetCurrent: onSetCurrent,
           onOpenCamera: onOpenCamera,
           onComplete: onComplete,
+          records: records,
         );
       },
     );
@@ -62,147 +68,153 @@ class PointDetailSheet extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _ReferencePreview(point: point, status: status),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _StatusBadge(status: status),
-                      const SizedBox(height: 8),
-                      Text(
-                        point.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _ReferencePreview(point: point, status: status),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _StatusBadge(status: status),
+                        const SizedBox(height: 8),
+                        Text(
+                          point.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${point.work.title} / ${point.subtitle}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          letterSpacing: 0,
+                        const SizedBox(height: 4),
+                        Text(
+                          '${point.work.title} / ${point.subtitle}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            letterSpacing: 0,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _InfoRow(
-              icon: Icons.movie_filter_outlined,
-              label: '作品',
-              value: '${point.work.title} / ${point.work.subtitle}',
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.local_movies_outlined,
-              label: '场景',
-              value: point.episodeLabel,
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.location_on_outlined,
-              label: '坐标',
-              value:
-                  '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.image_outlined,
-              label: '参考',
-              value: point.referenceLabel,
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              icon: Icons.source_outlined,
-              label: '来源',
-              value: _sourceText,
-            ),
-            if (point.sourceId != null) ...[
+                ],
+              ),
+              const SizedBox(height: 16),
+              _InfoRow(
+                icon: Icons.movie_filter_outlined,
+                label: '作品',
+                value: '${point.work.title} / ${point.work.subtitle}',
+              ),
               const SizedBox(height: 8),
               _InfoRow(
-                icon: Icons.tag_outlined,
-                label: 'ID',
-                value: point.sourceId!,
+                icon: Icons.local_movies_outlined,
+                label: '场景',
+                value: point.episodeLabel,
               ),
-            ],
-            if (point.sourceUrl != null) ...[
               const SizedBox(height: 8),
               _InfoRow(
-                icon: Icons.link_outlined,
-                label: '链接',
-                value: point.sourceUrl!,
+                icon: Icons.location_on_outlined,
+                label: '坐标',
+                value:
+                    '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.image_outlined,
+                label: '参考',
+                value: point.referenceLabel,
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.source_outlined,
+                label: '来源',
+                value: _sourceText,
+              ),
+              if (point.sourceId != null) ...[
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.tag_outlined,
+                  label: 'ID',
+                  value: point.sourceId!,
+                ),
+              ],
+              if (point.sourceUrl != null) ...[
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.link_outlined,
+                  label: '链接',
+                  value: point.sourceUrl!,
+                ),
+              ],
+              if (records.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _PointRecordsPreview(records: records),
+              ],
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _openNavigation(context),
+                      icon: const Icon(Icons.near_me_outlined, size: 18),
+                      label: const Text('导航'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        onOpenCamera();
+                      },
+                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                      label: const Text('拍摄参考'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: status == VisitStatus.current
+                          ? null
+                          : () {
+                              Navigator.of(context).pop();
+                              onSetCurrent();
+                            },
+                      icon: const Icon(Icons.flag_outlined, size: 18),
+                      label: const Text('设为当前'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        onComplete();
+                      },
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      label: const Text('标记完成'),
+                    ),
+                  ),
+                ],
               ),
             ],
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _openNavigation(context),
-                    icon: const Icon(Icons.near_me_outlined, size: 18),
-                    label: const Text('导航'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onOpenCamera();
-                    },
-                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                    label: const Text('拍摄参考'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: status == VisitStatus.current
-                        ? null
-                        : () {
-                            Navigator.of(context).pop();
-                            onSetCurrent();
-                          },
-                    icon: const Icon(Icons.flag_outlined, size: 18),
-                    label: const Text('设为当前'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onComplete();
-                    },
-                    icon: const Icon(Icons.check_circle_outline, size: 18),
-                    label: const Text('标记完成'),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -326,6 +338,80 @@ class _InfoRow extends StatelessWidget {
               fontSize: 13,
               letterSpacing: 0,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PointRecordsPreview extends StatelessWidget {
+  const _PointRecordsPreview({required this.records});
+
+  final List<PilgrimageVisitRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final recentRecords = records.take(6).toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.collections_bookmark_outlined,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '本点记录 ${records.length}',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 92,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (context, index) {
+              final record = recentRecords[index];
+              return SizedBox(
+                width: 92,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: VisitRecordPhoto(path: record.photoPath),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      record.referenceMode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemCount: recentRecords.length,
           ),
         ),
       ],

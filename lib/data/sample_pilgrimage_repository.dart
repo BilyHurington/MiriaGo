@@ -299,6 +299,16 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     return record;
   }
 
+  @override
+  Future<void> deleteVisitRecord({
+    required String planId,
+    required String recordId,
+  }) async {
+    _visitRecords.removeWhere(
+      (record) => record.planId == planId && record.id == recordId,
+    );
+  }
+
   List<PilgrimageWork> _appendWorkIfMissing(
     List<PilgrimageWork> works,
     PilgrimageWork work,

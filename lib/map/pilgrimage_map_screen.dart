@@ -146,6 +146,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       onSetCurrent: () => _controller.setCurrentPoint(point),
       onOpenCamera: () => _openCamera(point),
       onComplete: () => _controller.completePoint(point),
+      records: _controller.recordsForPoint(point.id),
     );
   }
 
