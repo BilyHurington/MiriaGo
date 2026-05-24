@@ -66,4 +66,30 @@ void main() {
 
     expect(reloadedPlan.points.map((point) => point.id), reorderedIds);
   });
+
+  test('reopens completed point as current target', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+
+    await repository.completePoint(
+      planId: plan.id,
+      pointId: plan.points.first.id,
+      nextCurrentPointId: plan.points[1].id,
+    );
+    await repository.reopenPoint(
+      planId: plan.id,
+      pointId: plan.points.first.id,
+    );
+
+    final reloadedPlan = await repository.loadActivePlan();
+
+    expect(
+      reloadedPlan.completedPointIds,
+      isNot(contains(plan.points.first.id)),
+    );
+    expect(reloadedPlan.currentPointId, plan.points.first.id);
+  });
 }

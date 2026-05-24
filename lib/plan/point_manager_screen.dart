@@ -72,6 +72,9 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                       point: point,
                       status: _statusFor(point),
                       isBusy: _isSaving,
+                      onSetCurrent: () => _setCurrent(point),
+                      onComplete: () => _complete(point),
+                      onReopen: () => _reopen(point),
                       onDelete: () => _confirmDelete(point),
                     ),
                   );
@@ -192,6 +195,81 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       ).showSnackBar(const SnackBar(content: Text('点位删除失败')));
     }
   }
+
+  Future<void> _setCurrent(PilgrimagePoint point) async {
+    await _saveStatusChange(
+      action: () => widget.repository.setCurrentPoint(
+        planId: _plan.id,
+        pointId: point.id,
+      ),
+      failureMessage: '当前目标保存失败',
+    );
+  }
+
+  Future<void> _complete(PilgrimagePoint point) async {
+    final completedPointIds = {..._plan.completedPointIds, point.id};
+    final nextCurrentPointId = _plan.currentPointId == point.id
+        ? _plan.points
+              .where((candidate) => !completedPointIds.contains(candidate.id))
+              .firstOrNull
+              ?.id
+        : _plan.currentPointId;
+
+    await _saveStatusChange(
+      action: () => widget.repository.completePoint(
+        planId: _plan.id,
+        pointId: point.id,
+        nextCurrentPointId: nextCurrentPointId,
+      ),
+      failureMessage: '完成状态保存失败',
+    );
+  }
+
+  Future<void> _reopen(PilgrimagePoint point) async {
+    await _saveStatusChange(
+      action: () =>
+          widget.repository.reopenPoint(planId: _plan.id, pointId: point.id),
+      failureMessage: '点位状态保存失败',
+    );
+  }
+
+  Future<void> _saveStatusChange({
+    required Future<void> Function() action,
+    required String failureMessage,
+  }) async {
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await action();
+      final updatedPlan = await widget.repository.loadActivePlan();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _plan = updatedPlan;
+        _didUpdate = true;
+        _isSaving = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failureMessage)));
+    }
+  }
 }
 
 class _PointManagerHeader extends StatelessWidget {
@@ -255,6 +333,9 @@ class _PointManagerTile extends StatelessWidget {
     required this.point,
     required this.status,
     required this.isBusy,
+    required this.onSetCurrent,
+    required this.onComplete,
+    required this.onReopen,
     required this.onDelete,
   });
 
@@ -262,6 +343,9 @@ class _PointManagerTile extends StatelessWidget {
   final PilgrimagePoint point;
   final VisitStatus status;
   final bool isBusy;
+  final VoidCallback onSetCurrent;
+  final VoidCallback onComplete;
+  final VoidCallback onReopen;
   final VoidCallback onDelete;
 
   @override
@@ -343,6 +427,26 @@ class _PointManagerTile extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            IconButton(
+              tooltip: status == VisitStatus.completed ? '重新打开' : '标记完成',
+              onPressed: isBusy
+                  ? null
+                  : status == VisitStatus.completed
+                  ? onReopen
+                  : onComplete,
+              icon: Icon(
+                status == VisitStatus.completed
+                    ? Icons.restart_alt
+                    : Icons.check_outlined,
+              ),
+            ),
+            IconButton(
+              tooltip: '设为当前',
+              onPressed: isBusy || status == VisitStatus.current
+                  ? null
+                  : onSetCurrent,
+              icon: const Icon(Icons.flag_outlined),
             ),
             IconButton(
               tooltip: '删除点位',
