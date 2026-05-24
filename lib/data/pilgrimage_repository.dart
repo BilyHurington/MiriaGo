@@ -27,6 +27,16 @@ abstract interface class PilgrimageRepository {
     required PilgrimageWork work,
   });
 
+  Future<PilgrimagePlan> deletePointFromPlan({
+    required String planId,
+    required String pointId,
+  });
+
+  Future<PilgrimagePlan> reorderPoints({
+    required String planId,
+    required List<String> pointIds,
+  });
+
   Future<void> setCurrentPoint({
     required String planId,
     required String pointId,
@@ -38,10 +48,7 @@ abstract interface class PilgrimageRepository {
     required String? nextCurrentPointId,
   });
 
-  Future<void> reopenPoint({
-    required String planId,
-    required String pointId,
-  });
+  Future<void> reopenPoint({required String planId, required String pointId});
 
   Future<void> deletePlan(String id);
 }

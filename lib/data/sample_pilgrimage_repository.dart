@@ -124,6 +124,55 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> deletePointFromPlan({
+    required String planId,
+    required String pointId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final points = plan.points
+        .where((point) => point.id != pointId)
+        .toList(growable: false);
+    final completedPointIds = {...plan.completedPointIds}..remove(pointId);
+    final currentPointId = plan.currentPointId == pointId
+        ? points
+              .where((point) => !completedPointIds.contains(point.id))
+              .firstOrNull
+              ?.id
+        : plan.currentPointId;
+    final updatedPlan = plan.copyWith(
+      points: points,
+      currentPointId: currentPointId,
+      completedPointIds: completedPointIds,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> reorderPoints({
+    required String planId,
+    required List<String> pointIds,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final pointById = {for (final point in plan.points) point.id: point};
+    final orderedPoints = [
+      for (final pointId in pointIds)
+        if (pointById[pointId] != null) pointById[pointId]!,
+      for (final point in plan.points)
+        if (!pointIds.contains(point.id)) point,
+    ];
+    final updatedPlan = plan.copyWith(
+      points: orderedPoints,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<void> setCurrentPoint({
     required String planId,
     required String pointId,

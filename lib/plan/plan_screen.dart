@@ -12,6 +12,7 @@ class PlanScreen extends StatelessWidget {
     required this.onOpenMap,
     required this.onOpenPlanManager,
     required this.onOpenAddPoints,
+    required this.onOpenPointManager,
     super.key,
   });
 
@@ -19,6 +20,7 @@ class PlanScreen extends StatelessWidget {
   final VoidCallback onOpenMap;
   final VoidCallback onOpenPlanManager;
   final VoidCallback onOpenAddPoints;
+  final VoidCallback onOpenPointManager;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +40,11 @@ class PlanScreen extends StatelessWidget {
             tooltip: '添加点位',
             onPressed: onOpenAddPoints,
             icon: const Icon(Icons.add_location_alt_outlined),
+          ),
+          IconButton(
+            tooltip: '管理点位',
+            onPressed: controller.points.isEmpty ? null : onOpenPointManager,
+            icon: const Icon(Icons.tune_outlined),
           ),
         ],
       ),
@@ -65,6 +72,14 @@ class PlanScreen extends StatelessWidget {
               fontSize: 17,
               fontWeight: FontWeight.w800,
               letterSpacing: 0,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: controller.points.isEmpty ? null : onOpenPointManager,
+              icon: const Icon(Icons.tune_outlined, size: 18),
+              label: const Text('管理点位'),
             ),
           ),
           const SizedBox(height: 8),

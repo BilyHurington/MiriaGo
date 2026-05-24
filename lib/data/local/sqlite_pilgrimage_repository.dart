@@ -125,11 +125,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     await _database.transaction(() async {
       await _clearCurrentPoint(planId);
-      await (_database.update(_database.points)
-            ..where(
-              (table) =>
-                  table.planId.equals(planId) & table.id.equals(pointId),
-            ))
+      await (_database.update(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(pointId),
+          ))
           .write(
             const PointsCompanion(
               isCurrent: Value(true),
@@ -148,11 +146,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     await _database.transaction(() async {
       await _clearCurrentPoint(planId);
-      await (_database.update(_database.points)
-            ..where(
-              (table) =>
-                  table.planId.equals(planId) & table.id.equals(pointId),
-            ))
+      await (_database.update(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(pointId),
+          ))
           .write(
             PointsCompanion(
               isCurrent: const Value(false),
@@ -161,12 +157,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           );
 
       if (nextCurrentPointId != null) {
-        await (_database.update(_database.points)
-              ..where(
-                (table) =>
-                    table.planId.equals(planId) &
-                    table.id.equals(nextCurrentPointId),
-              ))
+        await (_database.update(_database.points)..where(
+              (table) =>
+                  table.planId.equals(planId) &
+                  table.id.equals(nextCurrentPointId),
+            ))
             .write(const PointsCompanion(isCurrent: Value(true)));
       }
 
@@ -175,10 +170,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
-  Future<void> reopenPoint({
-    required String planId,
-    required String pointId,
-  }) {
+  Future<void> reopenPoint({required String planId, required String pointId}) {
     return setCurrentPoint(planId: planId, pointId: pointId);
   }
 
@@ -214,6 +206,57 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             .write(const PlansCompanion(active: Value(true)));
       }
     });
+  }
+
+  @override
+  Future<PilgrimagePlan> deletePointFromPlan({
+    required String planId,
+    required String pointId,
+  }) async {
+    await _database.transaction(() async {
+      final deletedPoint =
+          await (_database.select(_database.points)
+                ..where(
+                  (table) =>
+                      table.planId.equals(planId) & table.id.equals(pointId),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+
+      await (_database.delete(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(pointId),
+          ))
+          .go();
+
+      if (deletedPoint?.isCurrent ?? false) {
+        await _setFirstPendingPointCurrent(planId);
+      }
+
+      await _touchPlan(planId);
+    });
+
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> reorderPoints({
+    required String planId,
+    required List<String> pointIds,
+  }) async {
+    await _database.transaction(() async {
+      for (var index = 0; index < pointIds.length; index += 1) {
+        await (_database.update(_database.points)..where(
+              (table) =>
+                  table.planId.equals(planId) &
+                  table.id.equals(pointIds[index]),
+            ))
+            .write(PointsCompanion(sortOrder: Value(index)));
+      }
+
+      await _touchPlan(planId);
+    });
+
+    return _planFromRow(await _planRowById(planId));
   }
 
   Future<void> _seedIfNeeded() async {
@@ -403,5 +446,26 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return (_database.update(_database.points)
           ..where((table) => table.planId.equals(planId)))
         .write(const PointsCompanion(isCurrent: Value(false)));
+  }
+
+  Future<void> _setFirstPendingPointCurrent(String planId) async {
+    await _clearCurrentPoint(planId);
+    final nextPoint =
+        await (_database.select(_database.points)
+              ..where(
+                (table) =>
+                    table.planId.equals(planId) & table.completedAt.isNull(),
+              )
+              ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)])
+              ..limit(1))
+            .getSingleOrNull();
+
+    if (nextPoint == null) {
+      return;
+    }
+
+    await (_database.update(_database.points)
+          ..where((table) => table.id.equals(nextPoint.id)))
+        .write(const PointsCompanion(isCurrent: Value(true)));
   }
 }

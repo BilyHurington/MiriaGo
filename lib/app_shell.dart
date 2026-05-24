@@ -8,6 +8,7 @@ import 'plan/add_points_screen.dart';
 import 'plan/plan_manager_screen.dart';
 import 'plan/pilgrimage_plan_controller.dart';
 import 'plan/plan_screen.dart';
+import 'plan/point_manager_screen.dart';
 import 'records/records_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -95,6 +96,23 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  Future<void> _openPointManager() async {
+    final plan = _planController?.plan;
+    if (plan == null) {
+      return;
+    }
+
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            PointManagerScreen(plan: plan, repository: widget.repository),
+      ),
+    );
+    if (didUpdate == true) {
+      await _loadActivePlan();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _planController;
@@ -115,6 +133,7 @@ class _AppShellState extends State<AppShell> {
                 onOpenMap: _openMap,
                 onOpenPlanManager: _openPlanManager,
                 onOpenAddPoints: _openAddPoints,
+                onOpenPointManager: _openPointManager,
               ),
               PilgrimageMapScreen(controller: controller),
               RecordsScreen(controller: controller),
