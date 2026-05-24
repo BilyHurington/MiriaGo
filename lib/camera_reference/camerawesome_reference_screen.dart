@@ -163,6 +163,8 @@ class _CamerawesomeReferenceScreenState
       bytes: _localReferenceBytes,
       url: widget.point.referenceImageUrl,
     );
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -188,7 +190,10 @@ class _CamerawesomeReferenceScreenState
                 ),
                 zoom: _zoom.value,
               ),
-              previewFit: CameraPreviewFit.contain,
+              previewFit: isLandscape
+                  ? CameraPreviewFit.cover
+                  : CameraPreviewFit.contain,
+              previewAlignment: Alignment.center,
               enablePhysicalButton: true,
               onMediaCaptureEvent: _handleCaptureEvent,
               builder: (cameraState, preview) {
