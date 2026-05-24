@@ -51,7 +51,6 @@ class _CamerawesomeReferenceScreenState
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   bool _landscapeLocked = false;
-  int _cameraSession = 0;
 
   @override
   void initState() {
@@ -142,25 +141,9 @@ class _CamerawesomeReferenceScreenState
     state.sensorConfig.setZoom(nextZoom);
   }
 
-  Future<void> _toggleOrientation() async {
-    final nextLandscapeLocked = !_landscapeLocked;
-
-    await SystemChrome.setPreferredOrientations(
-      nextLandscapeLocked
-          ? const [
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]
-          : const [DeviceOrientation.portraitUp],
-    );
-
-    if (!mounted) {
-      return;
-    }
-
+  void _toggleOrientation() {
     setState(() {
-      _landscapeLocked = nextLandscapeLocked;
-      _cameraSession += 1;
+      _landscapeLocked = !_landscapeLocked;
     });
   }
 
@@ -185,41 +168,38 @@ class _CamerawesomeReferenceScreenState
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
             )
-          : KeyedSubtree(
-              key: ValueKey(_cameraSession),
-              child: CameraAwesomeBuilder.custom(
-                saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
-                sensorConfig: SensorConfig.single(
-                  sensor: Sensor.position(SensorPosition.back),
-                  flashMode: FlashMode.auto,
-                  aspectRatio: _cameraAspectRatio(
-                    widget.settings.cameraAspectRatio,
-                  ),
-                  zoom: _zoom.value,
+          : CameraAwesomeBuilder.custom(
+              saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
+              sensorConfig: SensorConfig.single(
+                sensor: Sensor.position(SensorPosition.back),
+                flashMode: FlashMode.auto,
+                aspectRatio: _cameraAspectRatio(
+                  widget.settings.cameraAspectRatio,
                 ),
-                previewFit: CameraPreviewFit.contain,
-                previewAlignment: Alignment.center,
-                enablePhysicalButton: true,
-                onMediaCaptureEvent: _handleCaptureEvent,
-                builder: (cameraState, preview) {
-                  return _ReferenceCameraOverlay(
-                    point: widget.point,
-                    state: cameraState,
-                    reference: reference,
-                    galleryImage: _galleryImage,
-                    mode: _mode,
-                    overlayOpacity: _overlayOpacity,
-                    zoom: _zoom,
-                    landscapeLocked: _landscapeLocked,
-                    onModeChanged: (mode) => setState(() => _mode = mode),
-                    onOpacityChanged: (value) => _overlayOpacity.value = value,
-                    onZoomChanged: (value) => _setZoom(cameraState, value),
-                    onPickReference: _pickReferenceImage,
-                    onPickGallery: _pickGalleryImage,
-                    onToggleOrientation: _toggleOrientation,
-                  );
-                },
+                zoom: _zoom.value,
               ),
+              previewFit: CameraPreviewFit.contain,
+              previewAlignment: Alignment.center,
+              enablePhysicalButton: true,
+              onMediaCaptureEvent: _handleCaptureEvent,
+              builder: (cameraState, preview) {
+                return _ReferenceCameraOverlay(
+                  point: widget.point,
+                  state: cameraState,
+                  reference: reference,
+                  galleryImage: _galleryImage,
+                  mode: _mode,
+                  overlayOpacity: _overlayOpacity,
+                  zoom: _zoom,
+                  landscapeLocked: _landscapeLocked,
+                  onModeChanged: (mode) => setState(() => _mode = mode),
+                  onOpacityChanged: (value) => _overlayOpacity.value = value,
+                  onZoomChanged: (value) => _setZoom(cameraState, value),
+                  onPickReference: _pickReferenceImage,
+                  onPickGallery: _pickGalleryImage,
+                  onToggleOrientation: _toggleOrientation,
+                );
+              },
             ),
     );
   }
@@ -289,6 +269,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
             );
           },
         ),
+        if (landscapeLocked && !isLandscape) const _LandscapeCompositionGuide(),
         SafeArea(
           child: isLandscape
               ? Stack(
@@ -447,6 +428,75 @@ class _ReferenceModeLayer extends StatelessWidget {
   }
 }
 
+class _LandscapeCompositionGuide extends StatelessWidget {
+  const _LandscapeCompositionGuide();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = (constraints.maxWidth - 32).clamp(0.0, 520.0);
+          final height = width * 9 / 16;
+
+          return Center(
+            child: Container(
+              width: width,
+              height: height,
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  width: 1.4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: CustomPaint(painter: _CompositionGridPainter()),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CompositionGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.34)
+      ..strokeWidth = 0.8;
+
+    canvas.drawLine(
+      Offset(size.width / 3, 0),
+      Offset(size.width / 3, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 2 / 3, 0),
+      Offset(size.width * 2 / 3, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height / 3),
+      Offset(size.width, size.height / 3),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height * 2 / 3),
+      Offset(size.width, size.height * 2 / 3),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class _CameraTopBar extends StatelessWidget {
   const _CameraTopBar({
     required this.state,
@@ -479,7 +529,7 @@ class _CameraTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _CameraCircleButton(
-            tooltip: landscapeLocked ? '切换竖屏' : '切换横屏',
+            tooltip: landscapeLocked ? '关闭横向构图' : '横向构图',
             icon: Icons.screen_rotation_alt_outlined,
             onPressed: onToggleOrientation,
           ),
@@ -525,7 +575,7 @@ class _LandscapeCameraToolbar extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _CameraCircleButton(
-              tooltip: landscapeLocked ? '切换竖屏' : '切换横屏',
+              tooltip: landscapeLocked ? '关闭横向构图' : '横向构图',
               icon: Icons.screen_rotation_alt_outlined,
               onPressed: onToggleOrientation,
             ),
