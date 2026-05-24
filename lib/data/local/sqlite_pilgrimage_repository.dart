@@ -38,6 +38,23 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<AppSettings> loadAppSettings() async {
+    final row =
+        await (_database.select(_database.appSettingsEntries)
+              ..where((table) => table.id.equals('default'))
+              ..limit(1))
+            .getSingleOrNull();
+    if (row == null) {
+      return const AppSettings();
+    }
+
+    return AppSettings(
+      uiScale: row.uiScale.clamp(0.5, 2.0),
+      cameraAspectRatio: _cameraAspectRatioFromName(row.cameraAspectRatio),
+    );
+  }
+
+  @override
   Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
     await _seedIfNeeded();
     final rows =
@@ -85,6 +102,19 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> renamePlan({
+    required String planId,
+    required String name,
+  }) async {
+    await (_database.update(
+      _database.plans,
+    )..where((table) => table.id.equals(planId))).write(
+      PlansCompanion(name: Value(name), updatedAt: Value(DateTime.now())),
+    );
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
   Future<PilgrimagePlan> addPointToPlan({
     required String planId,
     required PilgrimagePoint point,
@@ -126,6 +156,48 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       await _upsertWork(planId: planId, work: work);
       await _touchPlan(planId);
     });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> deleteWorkFromPlan({
+    required String planId,
+    required String workId,
+  }) async {
+    await _database.transaction(() async {
+      final pointRows =
+          await (_database.select(_database.points)..where(
+                (table) =>
+                    table.planId.equals(planId) & table.workId.equals(workId),
+              ))
+              .get();
+      final pointIds = pointRows.map((point) => point.id).toSet();
+      final deletedCurrentPoint = pointRows.any((point) => point.isCurrent);
+
+      if (pointIds.isNotEmpty) {
+        await (_database.delete(_database.visitRecords)..where(
+              (table) =>
+                  table.planId.equals(planId) & table.pointId.isIn(pointIds),
+            ))
+            .go();
+        await (_database.delete(_database.points)..where(
+              (table) =>
+                  table.planId.equals(planId) & table.workId.equals(workId),
+            ))
+            .go();
+      }
+
+      await (_database.delete(_database.works)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(workId),
+          ))
+          .go();
+
+      if (deletedCurrentPoint) {
+        await _setFirstPendingPointCurrent(planId);
+      }
+      await _touchPlan(planId);
+    });
+
     return _planFromRow(await _planRowById(planId));
   }
 
@@ -353,6 +425,19 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             .write(const PlansCompanion(active: Value(true)));
       }
     });
+  }
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    await _database
+        .into(_database.appSettingsEntries)
+        .insertOnConflictUpdate(
+          AppSettingsEntriesCompanion.insert(
+            id: 'default',
+            uiScale: Value(settings.uiScale.clamp(0.5, 2.0)),
+            cameraAspectRatio: Value(settings.cameraAspectRatio.name),
+          ),
+        );
   }
 
   PilgrimageVisitRecord _visitRecordFromRow(VisitRecord row) {
@@ -608,6 +693,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return PointSource.values.firstWhere(
       (source) => source.name == name,
       orElse: () => PointSource.manual,
+    );
+  }
+
+  CameraPhotoAspectRatio _cameraAspectRatioFromName(String name) {
+    return CameraPhotoAspectRatio.values.firstWhere(
+      (ratio) => ratio.name == name,
+      orElse: () => CameraPhotoAspectRatio.landscape16x9,
     );
   }
 

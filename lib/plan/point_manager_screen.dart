@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
+import 'work_manager_screen.dart';
 
 class PointManagerScreen extends StatefulWidget {
   const PointManagerScreen({
@@ -59,6 +60,12 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             _selectionMode ? '已选 ${_selectedPointIds.length}' : '管理点位',
           ),
           actions: [
+            if (!_selectionMode && !_isSaving)
+              IconButton(
+                tooltip: '管理作品',
+                onPressed: _openWorkManager,
+                icon: const Icon(Icons.movie_filter_outlined),
+              ),
             if (_isSaving)
               const Padding(
                 padding: EdgeInsets.only(right: 16),
@@ -103,6 +110,34 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               ),
       ),
     );
+  }
+
+  Future<void> _openWorkManager() async {
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            WorkManagerScreen(plan: _plan, repository: widget.repository),
+      ),
+    );
+    if (didUpdate != true || !mounted) {
+      return;
+    }
+
+    final plans = await widget.repository.loadPlans();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _plan = plans.firstWhere((plan) => plan.id == _plan.id);
+      _selectedWorkId = _plan.works.any((work) => work.id == _selectedWorkId)
+          ? _selectedWorkId
+          : null;
+      _selectedPointIds.removeWhere(
+        (pointId) => !_plan.points.any((point) => point.id == pointId),
+      );
+      _didUpdate = true;
+    });
   }
 
   Widget _buildReorderList() {
@@ -963,7 +998,7 @@ class _EmptyPointManager extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(
       child: Text(
-        '还没有可以管理的点位',
+        '还没有可以管理的点位。可先从右上角进入作品管理。',
         style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 15,

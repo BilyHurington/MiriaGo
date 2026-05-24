@@ -95,7 +95,7 @@ class AddPointsScreen extends StatelessWidget {
   ) async {
     final didAdd = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => _BangumiWorkSearchScreen(
+        builder: (_) => BangumiWorkSearchScreen(
           plan: plan,
           repository: repository,
           bangumiApiClient: bangumiApiClient,
@@ -133,7 +133,7 @@ class AddPointsScreen extends StatelessWidget {
     final didAdd = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
-            _ManualWorkFormScreen(plan: plan, repository: repository),
+            ManualWorkFormScreen(plan: plan, repository: repository),
       ),
     );
     if (!context.mounted || didAdd != true) {
@@ -165,11 +165,12 @@ class AddPointsScreen extends StatelessWidget {
   }
 }
 
-class _BangumiWorkSearchScreen extends StatefulWidget {
-  const _BangumiWorkSearchScreen({
+class BangumiWorkSearchScreen extends StatefulWidget {
+  const BangumiWorkSearchScreen({
     required this.plan,
     required this.repository,
     required this.bangumiApiClient,
+    super.key,
   });
 
   final PilgrimagePlan plan;
@@ -177,11 +178,11 @@ class _BangumiWorkSearchScreen extends StatefulWidget {
   final BangumiApiClient bangumiApiClient;
 
   @override
-  State<_BangumiWorkSearchScreen> createState() =>
-      _BangumiWorkSearchScreenState();
+  State<BangumiWorkSearchScreen> createState() =>
+      BangumiWorkSearchScreenState();
 }
 
-class _BangumiWorkSearchScreenState extends State<_BangumiWorkSearchScreen> {
+class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
   final _queryController = TextEditingController();
   List<PilgrimageWork> _results = const [];
   Object? _error;
@@ -327,17 +328,21 @@ class _BangumiWorkSearchScreenState extends State<_BangumiWorkSearchScreen> {
   }
 }
 
-class _ManualWorkFormScreen extends StatefulWidget {
-  const _ManualWorkFormScreen({required this.plan, required this.repository});
+class ManualWorkFormScreen extends StatefulWidget {
+  const ManualWorkFormScreen({
+    required this.plan,
+    required this.repository,
+    super.key,
+  });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
 
   @override
-  State<_ManualWorkFormScreen> createState() => _ManualWorkFormScreenState();
+  State<ManualWorkFormScreen> createState() => ManualWorkFormScreenState();
 }
 
-class _ManualWorkFormScreenState extends State<_ManualWorkFormScreen> {
+class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _subtitleController = TextEditingController();

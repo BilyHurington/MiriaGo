@@ -74,6 +74,40 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     await _loadPlans();
   }
 
+  Future<void> _renamePlan(PilgrimagePlan plan) async {
+    final controller = TextEditingController(text: plan.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('重命名计划'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: '计划名称'),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty || name == plan.name) {
+      return;
+    }
+
+    await widget.repository.renamePlan(planId: plan.id, name: name);
+    await _loadPlans();
+  }
+
   @override
   Widget build(BuildContext context) {
     final plans = _plans;
@@ -108,6 +142,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                 selected: plan.id == _activePlan?.id,
                 canDelete: plans.length > 1 && plan.id != _activePlan?.id,
                 onSwitch: () => _switchPlan(plan),
+                onRename: () => _renamePlan(plan),
                 onDelete: () => _deletePlan(plan),
               );
             },
@@ -126,6 +161,7 @@ class _PlanCard extends StatelessWidget {
     required this.selected,
     required this.canDelete,
     required this.onSwitch,
+    required this.onRename,
     required this.onDelete,
   });
 
@@ -133,6 +169,7 @@ class _PlanCard extends StatelessWidget {
   final bool selected;
   final bool canDelete;
   final VoidCallback onSwitch;
+  final VoidCallback onRename;
   final VoidCallback onDelete;
 
   @override
@@ -188,6 +225,11 @@ class _PlanCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: '重命名计划',
+            onPressed: onRename,
+            icon: const Icon(Icons.edit_outlined),
           ),
           if (!selected)
             TextButton(onPressed: onSwitch, child: const Text('切换')),

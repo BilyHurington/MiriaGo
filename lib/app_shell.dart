@@ -6,10 +6,12 @@ import 'data/sample_pilgrimage_repository.dart';
 import 'map/pilgrimage_map_screen.dart';
 import 'plan/add_points_screen.dart';
 import 'plan/plan_manager_screen.dart';
+import 'plan/pilgrimage_models.dart';
 import 'plan/pilgrimage_plan_controller.dart';
 import 'plan/plan_screen.dart';
 import 'plan/point_manager_screen.dart';
 import 'records/records_screen.dart';
+import 'settings/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
   AppShell({PilgrimageRepository? repository, super.key})
@@ -23,6 +25,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   PilgrimagePlanController? _planController;
+  AppSettings _settings = const AppSettings();
   Object? _loadError;
   int _selectedIndex = 0;
 
@@ -45,6 +48,7 @@ class _AppShellState extends State<AppShell> {
 
     try {
       final plan = await widget.repository.loadActivePlan();
+      final settings = await widget.repository.loadAppSettings();
       if (!mounted) {
         return;
       }
@@ -55,6 +59,7 @@ class _AppShellState extends State<AppShell> {
           plan: plan,
           visitRepository: widget.repository,
         );
+        _settings = settings;
       });
     } catch (error) {
       if (!mounted) {
@@ -113,6 +118,13 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  Future<void> _saveSettings(AppSettings settings) async {
+    setState(() {
+      _settings = settings;
+    });
+    await widget.repository.saveAppSettings(settings);
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _planController;
@@ -124,74 +136,89 @@ class _AppShellState extends State<AppShell> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return Scaffold(
-          body: IndexedStack(
-            index: _selectedIndex,
-            children: [
-              PlanScreen(
-                controller: controller,
-                onOpenMap: _openMap,
-                onOpenPlanManager: _openPlanManager,
-                onOpenAddPoints: _openAddPoints,
-                onOpenPointManager: _openPointManager,
-              ),
-              PilgrimageMapScreen(controller: controller),
-              RecordsScreen(controller: controller),
-            ],
-          ),
-          bottomNavigationBar: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              indicatorColor: AppColors.accent,
-              iconTheme: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return const IconThemeData(color: Colors.white);
-                }
+        return MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(_settings.uiScale)),
+          child: Scaffold(
+            body: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                PlanScreen(
+                  controller: controller,
+                  settings: _settings,
+                  onOpenMap: _openMap,
+                  onOpenPlanManager: _openPlanManager,
+                  onOpenAddPoints: _openAddPoints,
+                  onOpenPointManager: _openPointManager,
+                ),
+                PilgrimageMapScreen(
+                  controller: controller,
+                  settings: _settings,
+                ),
+                RecordsScreen(controller: controller),
+                SettingsScreen(settings: _settings, onChanged: _saveSettings),
+              ],
+            ),
+            bottomNavigationBar: NavigationBarTheme(
+              data: NavigationBarThemeData(
+                indicatorColor: AppColors.accent,
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const IconThemeData(color: Colors.white);
+                  }
 
-                return const IconThemeData(color: AppColors.textPrimary);
-              }),
-              labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) {
+                  return const IconThemeData(color: AppColors.textPrimary);
+                }),
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const TextStyle(
+                      color: AppColors.accentDark,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    );
+                  }
+
                   return const TextStyle(
-                    color: AppColors.accentDark,
+                    color: AppColors.textPrimary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0,
                   );
-                }
-
-                return const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
-                );
-              }),
-            ),
-            child: NavigationBar(
-              selectedIndex: _selectedIndex,
-              backgroundColor: AppColors.surface,
-              onDestinationSelected: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.checklist_outlined),
-                  selectedIcon: Icon(Icons.checklist),
-                  label: '计划',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.map_outlined),
-                  selectedIcon: Icon(Icons.map),
-                  label: '地图',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.collections_bookmark_outlined),
-                  selectedIcon: Icon(Icons.collections_bookmark),
-                  label: '记录',
-                ),
-              ],
+                }),
+              ),
+              child: NavigationBar(
+                selectedIndex: _selectedIndex,
+                backgroundColor: AppColors.surface,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.checklist_outlined),
+                    selectedIcon: Icon(Icons.checklist),
+                    label: '计划',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map),
+                    label: '地图',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.collections_bookmark_outlined),
+                    selectedIcon: Icon(Icons.collections_bookmark),
+                    label: '记录',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.settings_outlined),
+                    selectedIcon: Icon(Icons.settings),
+                    label: '设置',
+                  ),
+                ],
+              ),
             ),
           ),
         );

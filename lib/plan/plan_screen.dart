@@ -9,6 +9,7 @@ import 'pilgrimage_plan_controller.dart';
 class PlanScreen extends StatelessWidget {
   const PlanScreen({
     required this.controller,
+    required this.settings,
     required this.onOpenMap,
     required this.onOpenPlanManager,
     required this.onOpenAddPoints,
@@ -17,6 +18,7 @@ class PlanScreen extends StatelessWidget {
   });
 
   final PilgrimagePlanController controller;
+  final AppSettings settings;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenPlanManager;
   final VoidCallback onOpenAddPoints;
@@ -43,7 +45,7 @@ class PlanScreen extends StatelessWidget {
           ),
           IconButton(
             tooltip: '管理点位',
-            onPressed: controller.points.isEmpty ? null : onOpenPointManager,
+            onPressed: onOpenPointManager,
             icon: const Icon(Icons.tune_outlined),
           ),
         ],
@@ -77,7 +79,7 @@ class PlanScreen extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: controller.points.isEmpty ? null : onOpenPointManager,
+              onPressed: onOpenPointManager,
               icon: const Icon(Icons.tune_outlined, size: 18),
               label: const Text('管理点位'),
             ),
@@ -105,8 +107,11 @@ class PlanScreen extends StatelessWidget {
   void _openCamera(BuildContext context, PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            CamerawesomeReferenceScreen(point: point, controller: controller),
+        builder: (_) => CamerawesomeReferenceScreen(
+          point: point,
+          controller: controller,
+          settings: settings,
+        ),
       ),
     );
   }

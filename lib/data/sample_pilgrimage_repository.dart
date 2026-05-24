@@ -7,10 +7,12 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   SamplePilgrimageRepository()
     : _plans = [samplePilgrimagePlan, sampleEmptyPlan],
       _visitRecords = [],
+      _settings = const AppSettings(),
       _activePlanId = samplePilgrimagePlan.id;
 
   final List<PilgrimagePlan> _plans;
   final List<PilgrimageVisitRecord> _visitRecords;
+  AppSettings _settings;
   String _activePlanId;
 
   @override
@@ -24,6 +26,11 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       (plan) => plan.id == _activePlanId,
       orElse: () => _plans.first,
     );
+  }
+
+  @override
+  Future<AppSettings> loadAppSettings() async {
+    return _settings;
   }
 
   @override
@@ -64,6 +71,20 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     _plans.add(plan);
     _activePlanId = plan.id;
     return plan;
+  }
+
+  @override
+  Future<PilgrimagePlan> renamePlan({
+    required String planId,
+    required String name,
+  }) async {
+    final index = _planIndex(planId);
+    final updatedPlan = _plans[index].copyWith(
+      name: name,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
   }
 
   @override
@@ -119,6 +140,48 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> deleteWorkFromPlan({
+    required String planId,
+    required String workId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final removedPointIds = plan.points
+        .where((point) => point.work.id == workId)
+        .map((point) => point.id)
+        .toSet();
+    final points = plan.points
+        .where((point) => point.work.id != workId)
+        .toList(growable: false);
+    final completedPointIds = {...plan.completedPointIds}
+      ..removeAll(removedPointIds);
+    final currentPointId =
+        plan.currentPointId != null &&
+            removedPointIds.contains(plan.currentPointId)
+        ? points
+              .where((point) => !completedPointIds.contains(point.id))
+              .firstOrNull
+              ?.id
+        : plan.currentPointId;
+    final updatedPlan = plan.copyWith(
+      works: plan.works
+          .where((work) => work.id != workId)
+          .toList(growable: false),
+      points: points,
+      currentPointId: currentPointId,
+      completedPointIds: completedPointIds,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    _visitRecords.removeWhere(
+      (record) =>
+          record.planId == planId &&
+          (record.workId == workId || removedPointIds.contains(record.pointId)),
+    );
     return updatedPlan;
   }
 
@@ -311,6 +374,11 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     _visitRecords.removeWhere(
       (record) => record.planId == planId && record.id == recordId,
     );
+  }
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    _settings = settings.copyWith(uiScale: settings.uiScale.clamp(0.5, 2.0));
   }
 
   List<PilgrimageWork> _appendWorkIfMissing(

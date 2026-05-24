@@ -8,6 +8,38 @@ enum WorkSource { bangumi, manual }
 
 enum PointSource { manual, anitabi }
 
+enum CameraPhotoAspectRatio { landscape16x9, standard4x3, square1x1 }
+
+extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
+  String get label {
+    return switch (this) {
+      CameraPhotoAspectRatio.landscape16x9 => '16:9',
+      CameraPhotoAspectRatio.standard4x3 => '4:3',
+      CameraPhotoAspectRatio.square1x1 => '1:1',
+    };
+  }
+}
+
+class AppSettings {
+  const AppSettings({
+    this.uiScale = 1,
+    this.cameraAspectRatio = CameraPhotoAspectRatio.landscape16x9,
+  });
+
+  final double uiScale;
+  final CameraPhotoAspectRatio cameraAspectRatio;
+
+  AppSettings copyWith({
+    double? uiScale,
+    CameraPhotoAspectRatio? cameraAspectRatio,
+  }) {
+    return AppSettings(
+      uiScale: uiScale ?? this.uiScale,
+      cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+    );
+  }
+}
+
 class PilgrimageVisitRecord {
   const PilgrimageVisitRecord({
     required this.id,

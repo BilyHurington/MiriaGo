@@ -64,12 +64,22 @@ class VisitRecords extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Plans, Works, Points, VisitRecords])
+class AppSettingsEntries extends Table {
+  TextColumn get id => text()();
+  RealColumn get uiScale => real().withDefault(const Constant(1.0))();
+  TextColumn get cameraAspectRatio =>
+      text().withDefault(const Constant('landscape16x9'))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Plans, Works, Points, VisitRecords, AppSettingsEntries])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -83,6 +93,9 @@ class AppDatabase extends _$AppDatabase {
       } else if (from < 4) {
         await migrator.addColumn(visitRecords, visitRecords.referenceImagePath);
         await migrator.addColumn(visitRecords, visitRecords.referenceImageUrl);
+      }
+      if (from < 5) {
+        await migrator.createTable(appSettingsEntries);
       }
     },
   );

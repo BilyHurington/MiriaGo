@@ -14,9 +14,14 @@ import '../plan/pilgrimage_plan_controller.dart';
 import 'map_navigation_launcher.dart';
 
 class PilgrimageMapScreen extends StatefulWidget {
-  const PilgrimageMapScreen({required this.controller, super.key});
+  const PilgrimageMapScreen({
+    required this.controller,
+    required this.settings,
+    super.key,
+  });
 
   final PilgrimagePlanController controller;
+  final AppSettings settings;
 
   @override
   State<PilgrimageMapScreen> createState() => _PilgrimageMapScreenState();
@@ -132,8 +137,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   void _openCamera(PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            CamerawesomeReferenceScreen(point: point, controller: _controller),
+        builder: (_) => CamerawesomeReferenceScreen(
+          point: point,
+          controller: _controller,
+          settings: widget.settings,
+        ),
       ),
     );
   }

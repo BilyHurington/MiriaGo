@@ -26,11 +26,13 @@ extension AwesomeReferenceModeLabel on AwesomeReferenceMode {
 class CamerawesomeReferenceScreen extends StatefulWidget {
   const CamerawesomeReferenceScreen({
     required this.point,
+    required this.settings,
     this.controller,
     super.key,
   });
 
   final PilgrimagePoint point;
+  final AppSettings settings;
   final PilgrimagePlanController? controller;
 
   @override
@@ -162,7 +164,9 @@ class _CamerawesomeReferenceScreenState
               sensorConfig: SensorConfig.single(
                 sensor: Sensor.position(SensorPosition.back),
                 flashMode: FlashMode.auto,
-                aspectRatio: CameraAspectRatios.ratio_4_3,
+                aspectRatio: _cameraAspectRatio(
+                  widget.settings.cameraAspectRatio,
+                ),
                 zoom: _zoom.value,
               ),
               previewFit: CameraPreviewFit.contain,
@@ -187,6 +191,14 @@ class _CamerawesomeReferenceScreenState
             ),
     );
   }
+}
+
+CameraAspectRatios _cameraAspectRatio(CameraPhotoAspectRatio ratio) {
+  return switch (ratio) {
+    CameraPhotoAspectRatio.landscape16x9 => CameraAspectRatios.ratio_16_9,
+    CameraPhotoAspectRatio.standard4x3 => CameraAspectRatios.ratio_4_3,
+    CameraPhotoAspectRatio.square1x1 => CameraAspectRatios.ratio_1_1,
+  };
 }
 
 class _ReferenceCameraOverlay extends StatelessWidget {
@@ -237,24 +249,57 @@ class _ReferenceCameraOverlay extends StatelessWidget {
           },
         ),
         SafeArea(
-          child: Column(
-            children: [
-              _CameraTopBar(state: state, onPickReference: onPickReference),
-              const Spacer(),
-              _CameraBottomPanel(
-                state: state,
-                mode: mode,
-                overlayOpacity: overlayOpacity,
-                zoom: zoom,
-                isLandscape: isLandscape,
-                galleryImage: galleryImage,
-                onModeChanged: onModeChanged,
-                onOpacityChanged: onOpacityChanged,
-                onZoomChanged: onZoomChanged,
-                onPickGallery: onPickGallery,
-              ),
-            ],
-          ),
+          child: isLandscape
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: _CameraTopBar(
+                          state: state,
+                          onPickReference: onPickReference,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      child: _CameraBottomPanel(
+                        state: state,
+                        mode: mode,
+                        overlayOpacity: overlayOpacity,
+                        zoom: zoom,
+                        isLandscape: true,
+                        galleryImage: galleryImage,
+                        onModeChanged: onModeChanged,
+                        onOpacityChanged: onOpacityChanged,
+                        onZoomChanged: onZoomChanged,
+                        onPickGallery: onPickGallery,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    _CameraTopBar(
+                      state: state,
+                      onPickReference: onPickReference,
+                    ),
+                    const Spacer(),
+                    _CameraBottomPanel(
+                      state: state,
+                      mode: mode,
+                      overlayOpacity: overlayOpacity,
+                      zoom: zoom,
+                      isLandscape: false,
+                      galleryImage: galleryImage,
+                      onModeChanged: onModeChanged,
+                      onOpacityChanged: onOpacityChanged,
+                      onZoomChanged: onZoomChanged,
+                      onPickGallery: onPickGallery,
+                    ),
+                  ],
+                ),
         ),
       ],
     );

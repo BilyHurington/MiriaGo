@@ -2364,6 +2364,273 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
   }
 }
 
+class $AppSettingsEntriesTable extends AppSettingsEntries
+    with TableInfo<$AppSettingsEntriesTable, AppSettingsEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppSettingsEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _uiScaleMeta = const VerificationMeta(
+    'uiScale',
+  );
+  @override
+  late final GeneratedColumn<double> uiScale = GeneratedColumn<double>(
+    'ui_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _cameraAspectRatioMeta = const VerificationMeta(
+    'cameraAspectRatio',
+  );
+  @override
+  late final GeneratedColumn<String> cameraAspectRatio =
+      GeneratedColumn<String>(
+        'camera_aspect_ratio',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('landscape16x9'),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [id, uiScale, cameraAspectRatio];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_settings_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppSettingsEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('ui_scale')) {
+      context.handle(
+        _uiScaleMeta,
+        uiScale.isAcceptableOrUnknown(data['ui_scale']!, _uiScaleMeta),
+      );
+    }
+    if (data.containsKey('camera_aspect_ratio')) {
+      context.handle(
+        _cameraAspectRatioMeta,
+        cameraAspectRatio.isAcceptableOrUnknown(
+          data['camera_aspect_ratio']!,
+          _cameraAspectRatioMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppSettingsEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppSettingsEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      uiScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ui_scale'],
+      )!,
+      cameraAspectRatio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}camera_aspect_ratio'],
+      )!,
+    );
+  }
+
+  @override
+  $AppSettingsEntriesTable createAlias(String alias) {
+    return $AppSettingsEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class AppSettingsEntry extends DataClass
+    implements Insertable<AppSettingsEntry> {
+  final String id;
+  final double uiScale;
+  final String cameraAspectRatio;
+  const AppSettingsEntry({
+    required this.id,
+    required this.uiScale,
+    required this.cameraAspectRatio,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['ui_scale'] = Variable<double>(uiScale);
+    map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio);
+    return map;
+  }
+
+  AppSettingsEntriesCompanion toCompanion(bool nullToAbsent) {
+    return AppSettingsEntriesCompanion(
+      id: Value(id),
+      uiScale: Value(uiScale),
+      cameraAspectRatio: Value(cameraAspectRatio),
+    );
+  }
+
+  factory AppSettingsEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppSettingsEntry(
+      id: serializer.fromJson<String>(json['id']),
+      uiScale: serializer.fromJson<double>(json['uiScale']),
+      cameraAspectRatio: serializer.fromJson<String>(json['cameraAspectRatio']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'uiScale': serializer.toJson<double>(uiScale),
+      'cameraAspectRatio': serializer.toJson<String>(cameraAspectRatio),
+    };
+  }
+
+  AppSettingsEntry copyWith({
+    String? id,
+    double? uiScale,
+    String? cameraAspectRatio,
+  }) => AppSettingsEntry(
+    id: id ?? this.id,
+    uiScale: uiScale ?? this.uiScale,
+    cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+  );
+  AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
+    return AppSettingsEntry(
+      id: data.id.present ? data.id.value : this.id,
+      uiScale: data.uiScale.present ? data.uiScale.value : this.uiScale,
+      cameraAspectRatio: data.cameraAspectRatio.present
+          ? data.cameraAspectRatio.value
+          : this.cameraAspectRatio,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsEntry(')
+          ..write('id: $id, ')
+          ..write('uiScale: $uiScale, ')
+          ..write('cameraAspectRatio: $cameraAspectRatio')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, uiScale, cameraAspectRatio);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppSettingsEntry &&
+          other.id == this.id &&
+          other.uiScale == this.uiScale &&
+          other.cameraAspectRatio == this.cameraAspectRatio);
+}
+
+class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
+  final Value<String> id;
+  final Value<double> uiScale;
+  final Value<String> cameraAspectRatio;
+  final Value<int> rowid;
+  const AppSettingsEntriesCompanion({
+    this.id = const Value.absent(),
+    this.uiScale = const Value.absent(),
+    this.cameraAspectRatio = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppSettingsEntriesCompanion.insert({
+    required String id,
+    this.uiScale = const Value.absent(),
+    this.cameraAspectRatio = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<AppSettingsEntry> custom({
+    Expression<String>? id,
+    Expression<double>? uiScale,
+    Expression<String>? cameraAspectRatio,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uiScale != null) 'ui_scale': uiScale,
+      if (cameraAspectRatio != null) 'camera_aspect_ratio': cameraAspectRatio,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppSettingsEntriesCompanion copyWith({
+    Value<String>? id,
+    Value<double>? uiScale,
+    Value<String>? cameraAspectRatio,
+    Value<int>? rowid,
+  }) {
+    return AppSettingsEntriesCompanion(
+      id: id ?? this.id,
+      uiScale: uiScale ?? this.uiScale,
+      cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (uiScale.present) {
+      map['ui_scale'] = Variable<double>(uiScale.value);
+    }
+    if (cameraAspectRatio.present) {
+      map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('uiScale: $uiScale, ')
+          ..write('cameraAspectRatio: $cameraAspectRatio, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2371,6 +2638,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $WorksTable works = $WorksTable(this);
   late final $PointsTable points = $PointsTable(this);
   late final $VisitRecordsTable visitRecords = $VisitRecordsTable(this);
+  late final $AppSettingsEntriesTable appSettingsEntries =
+      $AppSettingsEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2380,6 +2649,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     works,
     points,
     visitRecords,
+    appSettingsEntries,
   ];
 }
 
@@ -4114,6 +4384,183 @@ typedef $$VisitRecordsTableProcessedTableManager =
       VisitRecord,
       PrefetchHooks Function()
     >;
+typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
+    AppSettingsEntriesCompanion Function({
+      required String id,
+      Value<double> uiScale,
+      Value<String> cameraAspectRatio,
+      Value<int> rowid,
+    });
+typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
+    AppSettingsEntriesCompanion Function({
+      Value<String> id,
+      Value<double> uiScale,
+      Value<String> cameraAspectRatio,
+      Value<int> rowid,
+    });
+
+class $$AppSettingsEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $AppSettingsEntriesTable> {
+  $$AppSettingsEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get uiScale => $composableBuilder(
+    column: $table.uiScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cameraAspectRatio => $composableBuilder(
+    column: $table.cameraAspectRatio,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppSettingsEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppSettingsEntriesTable> {
+  $$AppSettingsEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get uiScale => $composableBuilder(
+    column: $table.uiScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cameraAspectRatio => $composableBuilder(
+    column: $table.cameraAspectRatio,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppSettingsEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppSettingsEntriesTable> {
+  $$AppSettingsEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get uiScale =>
+      $composableBuilder(column: $table.uiScale, builder: (column) => column);
+
+  GeneratedColumn<String> get cameraAspectRatio => $composableBuilder(
+    column: $table.cameraAspectRatio,
+    builder: (column) => column,
+  );
+}
+
+class $$AppSettingsEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppSettingsEntriesTable,
+          AppSettingsEntry,
+          $$AppSettingsEntriesTableFilterComposer,
+          $$AppSettingsEntriesTableOrderingComposer,
+          $$AppSettingsEntriesTableAnnotationComposer,
+          $$AppSettingsEntriesTableCreateCompanionBuilder,
+          $$AppSettingsEntriesTableUpdateCompanionBuilder,
+          (
+            AppSettingsEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $AppSettingsEntriesTable,
+              AppSettingsEntry
+            >,
+          ),
+          AppSettingsEntry,
+          PrefetchHooks Function()
+        > {
+  $$AppSettingsEntriesTableTableManager(
+    _$AppDatabase db,
+    $AppSettingsEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSettingsEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSettingsEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSettingsEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<double> uiScale = const Value.absent(),
+                Value<String> cameraAspectRatio = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsEntriesCompanion(
+                id: id,
+                uiScale: uiScale,
+                cameraAspectRatio: cameraAspectRatio,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<double> uiScale = const Value.absent(),
+                Value<String> cameraAspectRatio = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsEntriesCompanion.insert(
+                id: id,
+                uiScale: uiScale,
+                cameraAspectRatio: cameraAspectRatio,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppSettingsEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppSettingsEntriesTable,
+      AppSettingsEntry,
+      $$AppSettingsEntriesTableFilterComposer,
+      $$AppSettingsEntriesTableOrderingComposer,
+      $$AppSettingsEntriesTableAnnotationComposer,
+      $$AppSettingsEntriesTableCreateCompanionBuilder,
+      $$AppSettingsEntriesTableUpdateCompanionBuilder,
+      (
+        AppSettingsEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $AppSettingsEntriesTable,
+          AppSettingsEntry
+        >,
+      ),
+      AppSettingsEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4126,4 +4573,6 @@ class $AppDatabaseManager {
       $$PointsTableTableManager(_db, _db.points);
   $$VisitRecordsTableTableManager get visitRecords =>
       $$VisitRecordsTableTableManager(_db, _db.visitRecords);
+  $$AppSettingsEntriesTableTableManager get appSettingsEntries =>
+      $$AppSettingsEntriesTableTableManager(_db, _db.appSettingsEntries);
 }

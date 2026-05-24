@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:seichi_junrei_helper/data/local/app_database.dart';
 import 'package:seichi_junrei_helper/data/local/sqlite_pilgrimage_repository.dart';
+import 'package:seichi_junrei_helper/plan/pilgrimage_models.dart';
 
 void main() {
   test('persists completed point and next current target', () async {
@@ -65,6 +66,60 @@ void main() {
     final reloadedPlan = await repository.loadActivePlan();
 
     expect(reloadedPlan.points.map((point) => point.id), reorderedIds);
+  });
+
+  test('renames plans and persists app settings', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+
+    await repository.renamePlan(planId: plan.id, name: '改名后的计划');
+    await repository.saveAppSettings(
+      const AppSettings(
+        uiScale: 1.5,
+        cameraAspectRatio: CameraPhotoAspectRatio.square1x1,
+      ),
+    );
+
+    final reloadedPlan = await repository.loadActivePlan();
+    final settings = await repository.loadAppSettings();
+
+    expect(reloadedPlan.name, '改名后的计划');
+    expect(settings.uiScale, 1.5);
+    expect(settings.cameraAspectRatio, CameraPhotoAspectRatio.square1x1);
+  });
+
+  test('deletes work with related points and visit records', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final work = plan.works.first;
+    final point = plan.points.firstWhere((point) => point.work.id == work.id);
+
+    await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: work.id,
+      photoPath: '/tmp/photo.jpg',
+      referenceMode: '小窗',
+    );
+
+    final updatedPlan = await repository.deleteWorkFromPlan(
+      planId: plan.id,
+      workId: work.id,
+    );
+    final records = await repository.loadVisitRecords(plan.id);
+
+    expect(updatedPlan.works.map((work) => work.id), isNot(contains(work.id)));
+    expect(
+      updatedPlan.points.map((point) => point.work.id),
+      isNot(contains(work.id)),
+    );
+    expect(records, isEmpty);
   });
 
   test('reopens completed point as current target', () async {
