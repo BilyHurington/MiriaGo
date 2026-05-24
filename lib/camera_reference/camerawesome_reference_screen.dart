@@ -260,13 +260,9 @@ class _ReferenceCameraOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape =
+    final usesLandscapeUi =
+        landscapeLocked ||
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    final usesLandscapeUi = landscapeLocked || isLandscape;
-    final landscapePanelWidth = (MediaQuery.sizeOf(context).width * 0.34).clamp(
-      300.0,
-      380.0,
-    );
 
     return Stack(
       fit: StackFit.expand,
@@ -282,68 +278,27 @@ class _ReferenceCameraOverlay extends StatelessWidget {
             );
           },
         ),
-        if (usesLandscapeUi && !isLandscape) const _LandscapeCompositionGuide(),
         SafeArea(
           child: usesLandscapeUi
-              ? Stack(
-                  children: [
-                    Positioned(
-                      left: 12,
-                      top: 12,
-                      bottom: 12,
-                      child: _LandscapeCameraToolbar(
-                        state: state,
-                        landscapeLocked: landscapeLocked,
-                        onPickReference: onPickReference,
-                        onToggleOrientation: onToggleOrientation,
-                      ),
-                    ),
-                    if (isLandscape)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                        width: landscapePanelWidth,
-                        child: _CameraBottomPanel(
-                          state: state,
-                          mode: mode,
-                          overlayOpacity: overlayOpacity,
-                          zoom: zoom,
-                          settings: settings,
-                          isLandscape: true,
-                          galleryImage: galleryImage,
-                          onModeChanged: onModeChanged,
-                          onOpacityChanged: onOpacityChanged,
-                          onZoomChanged: onZoomChanged,
-                          onPickGallery: onPickGallery,
-                        ),
-                      )
-                    else
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: _CameraBottomPanel(
-                          state: state,
-                          mode: mode,
-                          overlayOpacity: overlayOpacity,
-                          zoom: zoom,
-                          settings: settings,
-                          isLandscape: true,
-                          galleryImage: galleryImage,
-                          onModeChanged: onModeChanged,
-                          onOpacityChanged: onOpacityChanged,
-                          onZoomChanged: onZoomChanged,
-                          onPickGallery: onPickGallery,
-                        ),
-                      ),
-                  ],
+              ? _LandscapeCameraLayout(
+                  state: state,
+                  mode: mode,
+                  overlayOpacity: overlayOpacity,
+                  zoom: zoom,
+                  settings: settings,
+                  galleryImage: galleryImage,
+                  onModeChanged: onModeChanged,
+                  onOpacityChanged: onOpacityChanged,
+                  onZoomChanged: onZoomChanged,
+                  onPickReference: onPickReference,
+                  onPickGallery: onPickGallery,
+                  onToggleOrientation: onToggleOrientation,
                 )
               : Column(
                   children: [
                     _CameraTopBar(
                       state: state,
-                      landscapeLocked: landscapeLocked,
+                      isLandscapeUi: false,
                       onPickReference: onPickReference,
                       onToggleOrientation: onToggleOrientation,
                     ),
@@ -388,25 +343,18 @@ class _ReferenceModeLayer extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    if (isLandscape) {
+      return _LandscapeReferenceModeLayer(
+        mode: mode,
+        reference: reference,
+        overlayOpacity: overlayOpacity,
+      );
+    }
+
     return switch (mode) {
       AwesomeReferenceMode.overlay => IgnorePointer(
         child: Opacity(
           opacity: overlayOpacity,
-          child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
-        ),
-      ),
-      AwesomeReferenceMode.split when isLandscape => Positioned(
-        left: 82,
-        top: 14,
-        width: 220,
-        height: 124,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white24),
-          ),
-          clipBehavior: Clip.antiAlias,
           child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
         ),
       ),
@@ -425,21 +373,6 @@ class _ReferenceModeLayer extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
           ),
-        ),
-      ),
-      AwesomeReferenceMode.pinned when isLandscape => Positioned(
-        left: 82,
-        top: 14,
-        width: 116,
-        height: 154,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white24),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: _ReferenceImageView(source: reference, fit: BoxFit.cover),
         ),
       ),
       AwesomeReferenceMode.pinned => Align(
@@ -463,85 +396,104 @@ class _ReferenceModeLayer extends StatelessWidget {
   }
 }
 
-class _LandscapeCompositionGuide extends StatelessWidget {
-  const _LandscapeCompositionGuide();
+class _LandscapeReferenceModeLayer extends StatelessWidget {
+  const _LandscapeReferenceModeLayer({
+    required this.mode,
+    required this.reference,
+    required this.overlayOpacity,
+  });
+
+  final AwesomeReferenceMode mode;
+  final _ReferenceImageSource reference;
+  final double overlayOpacity;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = (constraints.maxWidth - 32).clamp(0.0, 520.0);
-          final height = width * 9 / 16;
-
-          return Center(
-            child: Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.86),
-                  width: 1.4,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
-              child: CustomPaint(painter: _CompositionGridPainter()),
-            ),
-          );
-        },
+    return switch (mode) {
+      AwesomeReferenceMode.overlay => IgnorePointer(
+        child: Opacity(
+          opacity: overlayOpacity,
+          child: _RotatedLandscapeReference(
+            reference: reference,
+            fit: BoxFit.contain,
+          ),
+        ),
       ),
+      AwesomeReferenceMode.split => Positioned(
+        left: 14,
+        right: 104,
+        top: 70,
+        height: 136,
+        child: _LandscapeReferenceFrame(
+          child: _RotatedLandscapeReference(
+            reference: reference,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+      AwesomeReferenceMode.pinned => Positioned(
+        left: 14,
+        top: 74,
+        width: 172,
+        height: 96,
+        child: _LandscapeReferenceFrame(
+          child: _RotatedLandscapeReference(
+            reference: reference,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    };
+  }
+}
+
+class _LandscapeReferenceFrame extends StatelessWidget {
+  const _LandscapeReferenceFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
   }
 }
 
-class _CompositionGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.34)
-      ..strokeWidth = 0.8;
+class _RotatedLandscapeReference extends StatelessWidget {
+  const _RotatedLandscapeReference({
+    required this.reference,
+    required this.fit,
+  });
 
-    canvas.drawLine(
-      Offset(size.width / 3, 0),
-      Offset(size.width / 3, size.height),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 2 / 3, 0),
-      Offset(size.width * 2 / 3, size.height),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(0, size.height / 3),
-      Offset(size.width, size.height / 3),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(0, size.height * 2 / 3),
-      Offset(size.width, size.height * 2 / 3),
-      paint,
+  final _ReferenceImageSource reference;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    return RotatedBox(
+      quarterTurns: 1,
+      child: _ReferenceImageView(source: reference, fit: fit),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _CameraTopBar extends StatelessWidget {
   const _CameraTopBar({
     required this.state,
-    required this.landscapeLocked,
+    required this.isLandscapeUi,
     required this.onPickReference,
     required this.onToggleOrientation,
   });
 
   final CameraState state;
-  final bool landscapeLocked;
+  final bool isLandscapeUi;
   final VoidCallback onPickReference;
   final VoidCallback onToggleOrientation;
 
@@ -564,7 +516,7 @@ class _CameraTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _CameraCircleButton(
-            tooltip: landscapeLocked ? '切换竖屏 UI' : '切换横屏 UI',
+            tooltip: isLandscapeUi ? '切换竖屏 UI' : '切换横屏 UI',
             icon: Icons.screen_rotation_alt_outlined,
             onPressed: onToggleOrientation,
           ),
@@ -578,50 +530,173 @@ class _CameraTopBar extends StatelessWidget {
   }
 }
 
-class _LandscapeCameraToolbar extends StatelessWidget {
-  const _LandscapeCameraToolbar({
+class _LandscapeCameraLayout extends StatelessWidget {
+  const _LandscapeCameraLayout({
     required this.state,
-    required this.landscapeLocked,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.zoom,
+    required this.settings,
+    required this.galleryImage,
+    required this.onModeChanged,
+    required this.onOpacityChanged,
+    required this.onZoomChanged,
     required this.onPickReference,
+    required this.onPickGallery,
     required this.onToggleOrientation,
   });
 
   final CameraState state;
-  final bool landscapeLocked;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final ValueListenable<double> zoom;
+  final AppSettings settings;
+  final XFile? galleryImage;
+  final ValueChanged<AwesomeReferenceMode> onModeChanged;
+  final ValueChanged<double> onOpacityChanged;
+  final ValueChanged<double> onZoomChanged;
   final VoidCallback onPickReference;
+  final VoidCallback onPickGallery;
   final VoidCallback onToggleOrientation;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _CameraCircleButton(
-          tooltip: '返回',
-          icon: Icons.arrow_back,
-          onPressed: () => Navigator.of(context).maybePop(),
+        _CameraTopBar(
+          state: state,
+          isLandscapeUi: true,
+          onPickReference: onPickReference,
+          onToggleOrientation: onToggleOrientation,
         ),
-        Column(
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: _LandscapeControlPanel(
+                  state: state,
+                  mode: mode,
+                  overlayOpacity: overlayOpacity,
+                  zoom: zoom,
+                  settings: settings,
+                  onModeChanged: onModeChanged,
+                  onOpacityChanged: onOpacityChanged,
+                  onZoomChanged: onZoomChanged,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _LandscapeCaptureRail(
+                state: state,
+                galleryImage: galleryImage,
+                onPickGallery: onPickGallery,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LandscapeControlPanel extends StatelessWidget {
+  const _LandscapeControlPanel({
+    required this.state,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.zoom,
+    required this.settings,
+    required this.onModeChanged,
+    required this.onOpacityChanged,
+    required this.onZoomChanged,
+  });
+
+  final CameraState state;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final ValueListenable<double> zoom;
+  final AppSettings settings;
+  final ValueChanged<AwesomeReferenceMode> onModeChanged;
+  final ValueChanged<double> onOpacityChanged;
+  final ValueChanged<double> onZoomChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _CameraCircleButton(
-              tooltip: '参考图',
-              icon: Icons.image_outlined,
-              onPressed: onPickReference,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _ModeSelector(mode: mode, onChanged: onModeChanged),
             ),
-            const SizedBox(height: 10),
-            _CameraCircleButton(
-              tooltip: landscapeLocked ? '切换竖屏 UI' : '切换横屏 UI',
-              icon: Icons.screen_rotation_alt_outlined,
-              onPressed: onToggleOrientation,
+            const SizedBox(height: 4),
+            _ZoomAndOpacityControls(
+              state: state,
+              zoom: zoom,
+              settings: settings,
+              overlayOpacity: overlayOpacity,
+              onZoomChanged: onZoomChanged,
+              onOpacityChanged: onOpacityChanged,
             ),
-            const SizedBox(height: 10),
-            _CompactFlashButton(state: state),
-            const SizedBox(height: 10),
-            _CompactCameraSwitchButton(state: state),
           ],
         ),
-        const SizedBox(width: 44, height: 44),
-      ],
+      ),
+    );
+  }
+}
+
+class _LandscapeCaptureRail extends StatelessWidget {
+  const _LandscapeCaptureRail({
+    required this.state,
+    required this.galleryImage,
+    required this.onPickGallery,
+  });
+
+  final CameraState state;
+  final XFile? galleryImage;
+  final VoidCallback onPickGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CameraActionButton(
+              tooltip: '相册导入',
+              icon: galleryImage == null
+                  ? Icons.photo_library_outlined
+                  : Icons.photo_library,
+              onPressed: onPickGallery,
+            ),
+            const SizedBox(height: 14),
+            _ReferenceCaptureButton(state: state, compact: true),
+            const SizedBox(height: 14),
+            _CameraActionButton(
+              tooltip: '检查照片',
+              icon: Icons.fact_check_outlined,
+              onPressed: galleryImage == null ? null : () {},
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -939,6 +1014,7 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
   double? _minZoom;
   double? _maxZoom;
   bool _defaultZoomApplied = false;
+  var _zoomCalibrationGeneration = 0;
 
   @override
   void initState() {
@@ -953,6 +1029,7 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
         oldWidget.settings.cameraMinZoom != widget.settings.cameraMinZoom ||
         oldWidget.settings.cameraMaxZoom != widget.settings.cameraMaxZoom) {
       _defaultZoomApplied = false;
+      _zoomCalibrationGeneration += 1;
       _loadZoomRange();
     }
   }
@@ -974,10 +1051,14 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
       _minZoom = minZoom;
       _maxZoom = maxZoom;
     });
-    _applyDefaultMainLensZoom(minZoom, maxZoom);
+    _applyDefaultMainLensZoom(minZoom, maxZoom, delayed: false);
   }
 
-  void _applyDefaultMainLensZoom(double minZoom, double maxZoom) {
+  void _applyDefaultMainLensZoom(
+    double minZoom,
+    double maxZoom, {
+    required bool delayed,
+  }) {
     if (_defaultZoomApplied || maxZoom <= minZoom) {
       return;
     }
@@ -991,6 +1072,25 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
     );
     _defaultZoomApplied = true;
     widget.onChanged(normalizedOneX);
+    if (!delayed) {
+      _scheduleMainLensZoomCalibration(normalizedOneX);
+    }
+  }
+
+  void _scheduleMainLensZoomCalibration(double normalizedOneX) {
+    final generation = ++_zoomCalibrationGeneration;
+    Future<void>.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted || generation != _zoomCalibrationGeneration) {
+        return;
+      }
+      widget.onChanged(normalizedOneX);
+    });
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted || generation != _zoomCalibrationGeneration) {
+        return;
+      }
+      widget.onChanged(normalizedOneX);
+    });
   }
 
   @override
@@ -1102,9 +1202,10 @@ String _formatRealZoom(double realZoom) {
 }
 
 class _ReferenceCaptureButton extends StatelessWidget {
-  const _ReferenceCaptureButton({required this.state});
+  const _ReferenceCaptureButton({required this.state, this.compact = false});
 
   final CameraState state;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1120,16 +1221,16 @@ class _ReferenceCaptureButton extends StatelessWidget {
           },
         ),
         child: Container(
-          width: 72,
-          height: 72,
+          width: compact ? 62 : 72,
+          height: compact ? 62 : 72,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 4),
+            border: Border.all(color: Colors.white, width: compact ? 3 : 4),
           ),
           child: Container(
-            width: 52,
-            height: 52,
+            width: compact ? 44 : 52,
+            height: compact ? 44 : 52,
             decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
