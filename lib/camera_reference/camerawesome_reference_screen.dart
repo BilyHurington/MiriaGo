@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../app_theme.dart';
+import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import 'camera_storage_stub.dart'
@@ -129,7 +130,9 @@ class _CamerawesomeReferenceScreenState
           photoPath: photoPath,
           referenceMode: _mode.label,
           referenceBytes: _localReferenceBytes,
-          referenceImageUrl: widget.point.referenceImageUrl,
+          referenceImageUrl: anitabiFullResolutionImageUrl(
+            widget.point.referenceImageUrl,
+          ),
         ),
       ),
     );
@@ -151,7 +154,7 @@ class _CamerawesomeReferenceScreenState
   Widget build(BuildContext context) {
     final reference = _ReferenceImageSource(
       bytes: _localReferenceBytes,
-      url: widget.point.referenceImageUrl,
+      url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
     );
 
     return Scaffold(

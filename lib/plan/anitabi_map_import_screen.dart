@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_client.dart';
+import '../data/anitabi_image_url.dart';
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
 
@@ -395,7 +396,7 @@ class _AnitabiPointCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final imageUrl = point.referenceImageUrl;
+    final imageUrl = _anitabiThumbnailUrl(point.referenceImageUrl);
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
@@ -508,6 +509,22 @@ class _NoPointSelectedCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _anitabiThumbnailUrl(String? url) {
+  final fullUrl = anitabiFullResolutionImageUrl(url);
+  if (fullUrl == null || fullUrl.isEmpty) {
+    return fullUrl;
+  }
+
+  final uri = Uri.tryParse(fullUrl);
+  if (uri == null || uri.host != 'image.anitabi.cn') {
+    return fullUrl;
+  }
+
+  return uri
+      .replace(queryParameters: {...uri.queryParameters, 'plan': 'h160'})
+      .toString();
 }
 
 class _EmptyImportState extends StatelessWidget {

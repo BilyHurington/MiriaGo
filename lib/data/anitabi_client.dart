@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../plan/pilgrimage_models.dart';
+import 'anitabi_image_url.dart';
 
 class AnitabiClient {
   AnitabiClient({http.Client? httpClient})
@@ -104,7 +105,9 @@ class AnitabiPoint {
       subtitle: name,
       position: LatLng((geo[0] as num).toDouble(), (geo[1] as num).toDouble()),
       episodeLabel: _episodeLabel(ep, second),
-      referenceImageUrl: json['image'] as String?,
+      referenceImageUrl: anitabiFullResolutionImageUrl(
+        json['image'] as String?,
+      ),
       origin: json['origin'] as String? ?? 'Anitabi',
       originUrl: json['originURL'] as String?,
     );
