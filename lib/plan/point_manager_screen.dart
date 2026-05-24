@@ -156,23 +156,20 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       onReorderItem: _handleReorder,
       itemBuilder: (context, index) {
         final point = visiblePoints[index];
-        return Padding(
+        return _PointManagerTile(
           key: ValueKey(point.id),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _PointManagerTile(
-            index: index,
-            point: point,
-            status: _statusFor(point),
-            isBusy: _isSaving,
-            selectionMode: false,
-            selected: false,
-            canDrag: true,
-            onToggleSelected: () => _togglePointSelection(point),
-            onSetCurrent: () => _setCurrent(point),
-            onComplete: () => _complete(point),
-            onReopen: () => _reopen(point),
-            onDelete: () => _confirmDelete(point),
-          ),
+          index: index,
+          point: point,
+          status: _statusFor(point),
+          isBusy: _isSaving,
+          selectionMode: false,
+          selected: false,
+          canDrag: true,
+          onToggleSelected: () => _togglePointSelection(point),
+          onSetCurrent: () => _setCurrent(point),
+          onComplete: () => _complete(point),
+          onReopen: () => _reopen(point),
+          onDelete: () => _confirmDelete(point),
         );
       },
     );
@@ -702,6 +699,7 @@ class _PointManagerTile extends StatelessWidget {
     required this.onComplete,
     required this.onReopen,
     required this.onDelete,
+    super.key,
   });
 
   final int index;
@@ -744,94 +742,100 @@ class _PointManagerTile extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PointLeadingControl(
-                index: index,
-                isBusy: isBusy,
-                selectionMode: selectionMode,
-                selected: selected,
-                canDrag: canDrag,
-                onToggleSelected: onToggleSelected,
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      point.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _PointLeadingControl(
+                  index: index,
+                  isBusy: isBusy,
+                  selectionMode: selectionMode,
+                  selected: selected,
+                  canDrag: canDrag,
+                  onToggleSelected: onToggleSelected,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        point.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        letterSpacing: 0,
+                      const SizedBox(height: 4),
+                      Text(
+                        '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          letterSpacing: 0,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    SizedBox(
-                      height: 32,
-                      child: Row(
-                        children: [
-                          Text(
-                            statusText,
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (!selectionMode) ...[
-                            _CompactTileButton(
-                              tooltip: status == VisitStatus.completed
-                                  ? '重新打开'
-                                  : '标记完成',
-                              onPressed: isBusy
-                                  ? null
-                                  : status == VisitStatus.completed
-                                  ? onReopen
-                                  : onComplete,
-                              icon: Icon(
-                                status == VisitStatus.completed
-                                    ? Icons.restart_alt
-                                    : Icons.check_outlined,
-                                size: 22,
+                      const SizedBox(height: 5),
+                      SizedBox(
+                        height: 32,
+                        child: Row(
+                          children: [
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
                               ),
                             ),
-                            _CompactTileButton(
-                              tooltip: '设为当前',
-                              onPressed: isBusy || status == VisitStatus.current
-                                  ? null
-                                  : onSetCurrent,
-                              icon: const Icon(Icons.flag_outlined, size: 22),
-                            ),
-                            _CompactTileButton(
-                              tooltip: '删除点位',
-                              onPressed: isBusy ? null : onDelete,
-                              icon: const Icon(Icons.delete_outline, size: 22),
-                            ),
+                            const Spacer(),
+                            if (!selectionMode) ...[
+                              _CompactTileButton(
+                                tooltip: status == VisitStatus.completed
+                                    ? '重新打开'
+                                    : '标记完成',
+                                onPressed: isBusy
+                                    ? null
+                                    : status == VisitStatus.completed
+                                    ? onReopen
+                                    : onComplete,
+                                icon: Icon(
+                                  status == VisitStatus.completed
+                                      ? Icons.restart_alt
+                                      : Icons.check_outlined,
+                                  size: 22,
+                                ),
+                              ),
+                              _CompactTileButton(
+                                tooltip: '设为当前',
+                                onPressed:
+                                    isBusy || status == VisitStatus.current
+                                    ? null
+                                    : onSetCurrent,
+                                icon: const Icon(Icons.flag_outlined, size: 22),
+                              ),
+                              _CompactTileButton(
+                                tooltip: '删除点位',
+                                onPressed: isBusy ? null : onDelete,
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 22,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -884,26 +888,28 @@ class _PointLeadingControl extends StatelessWidget {
   Widget build(BuildContext context) {
     if (selectionMode) {
       return SizedBox(
-        width: 38,
-        height: 44,
-        child: Checkbox(
-          value: selected,
-          onChanged: isBusy ? null : (_) => onToggleSelected(),
+        width: 54,
+        child: Center(
+          child: Checkbox(
+            value: selected,
+            onChanged: isBusy ? null : (_) => onToggleSelected(),
+          ),
         ),
       );
     }
 
     if (!canDrag) {
-      return const SizedBox(width: 38, height: 44);
+      return const SizedBox(width: 54);
     }
 
     return ReorderableDragStartListener(
       index: index,
       enabled: !isBusy,
       child: const SizedBox(
-        width: 38,
-        height: 44,
-        child: Icon(Icons.drag_indicator, color: AppColors.textSecondary),
+        width: 54,
+        child: Center(
+          child: Icon(Icons.drag_indicator, color: AppColors.textSecondary),
+        ),
       ),
     );
   }
