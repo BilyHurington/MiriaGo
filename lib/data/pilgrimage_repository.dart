@@ -5,6 +5,8 @@ abstract interface class PilgrimageRepository {
 
   Future<PilgrimagePlan> loadActivePlan();
 
+  Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId);
+
   Future<void> setActivePlan(String id);
 
   Future<PilgrimagePlan> createPlan({
@@ -63,6 +65,14 @@ abstract interface class PilgrimageRepository {
   Future<void> reopenPoints({
     required String planId,
     required Set<String> pointIds,
+  });
+
+  Future<PilgrimageVisitRecord> createVisitRecord({
+    required String planId,
+    required String pointId,
+    required String workId,
+    required String photoPath,
+    required String referenceMode,
   });
 
   Future<void> deletePlan(String id);

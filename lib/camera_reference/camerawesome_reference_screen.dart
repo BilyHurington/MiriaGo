@@ -5,16 +5,32 @@ import 'package:image_picker/image_picker.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/pilgrimage_plan_controller.dart';
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
 
 enum AwesomeReferenceMode { overlay, split, pinned }
 
+extension AwesomeReferenceModeLabel on AwesomeReferenceMode {
+  String get label {
+    return switch (this) {
+      AwesomeReferenceMode.overlay => '叠影',
+      AwesomeReferenceMode.split => '上下',
+      AwesomeReferenceMode.pinned => '小窗',
+    };
+  }
+}
+
 class CamerawesomeReferenceScreen extends StatefulWidget {
-  const CamerawesomeReferenceScreen({required this.point, super.key});
+  const CamerawesomeReferenceScreen({
+    required this.point,
+    this.controller,
+    super.key,
+  });
 
   final PilgrimagePoint point;
+  final PilgrimagePlanController? controller;
 
   @override
   State<CamerawesomeReferenceScreen> createState() =>
@@ -80,7 +96,7 @@ class _CamerawesomeReferenceScreenState
     ).showSnackBar(const SnackBar(content: Text('已导入相册图片')));
   }
 
-  void _handleCaptureEvent(MediaCapture event) {
+  Future<void> _handleCaptureEvent(MediaCapture event) async {
     if (!event.isPicture || event.status != MediaCaptureStatus.success) {
       return;
     }
@@ -93,9 +109,29 @@ class _CamerawesomeReferenceScreenState
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('照片已保存：$path')));
+    final controller = widget.controller;
+    if (controller != null) {
+      await controller.createVisitRecord(
+        point: widget.point,
+        photoPath: path,
+        referenceMode: _mode.label,
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(controller == null ? '照片已保存：$path' : '已保存巡礼记录'),
+        action: controller == null
+            ? null
+            : SnackBarAction(
+                label: '标记完成',
+                onPressed: () => controller.completePoint(widget.point),
+              ),
+      ),
+    );
   }
 
   void _setZoom(CameraState state, double value) {

@@ -8,6 +8,26 @@ enum WorkSource { bangumi, manual }
 
 enum PointSource { manual, anitabi }
 
+class PilgrimageVisitRecord {
+  const PilgrimageVisitRecord({
+    required this.id,
+    required this.planId,
+    required this.pointId,
+    required this.workId,
+    required this.photoPath,
+    required this.referenceMode,
+    required this.capturedAt,
+  });
+
+  final String id;
+  final String planId;
+  final String pointId;
+  final String workId;
+  final String photoPath;
+  final String referenceMode;
+  final DateTime capturedAt;
+}
+
 class PilgrimageWork {
   const PilgrimageWork({
     required this.id,

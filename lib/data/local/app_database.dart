@@ -49,12 +49,25 @@ class Points extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Plans, Works, Points])
+class VisitRecords extends Table {
+  TextColumn get id => text()();
+  TextColumn get planId => text()();
+  TextColumn get pointId => text()();
+  TextColumn get workId => text()();
+  TextColumn get photoPath => text()();
+  TextColumn get referenceMode => text()();
+  DateTimeColumn get capturedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Plans, Works, Points, VisitRecords])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -62,6 +75,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await migrator.addColumn(points, points.isCurrent);
         await migrator.addColumn(points, points.completedAt);
+      }
+      if (from < 3) {
+        await migrator.createTable(visitRecords);
       }
     },
   );

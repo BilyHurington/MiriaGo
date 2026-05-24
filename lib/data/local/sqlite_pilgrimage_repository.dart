@@ -38,6 +38,17 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
+    await _seedIfNeeded();
+    final rows =
+        await (_database.select(_database.visitRecords)
+              ..where((table) => table.planId.equals(planId))
+              ..orderBy([(table) => OrderingTerm.desc(table.capturedAt)]))
+            .get();
+    return rows.map(_visitRecordFromRow).toList(growable: false);
+  }
+
+  @override
   Future<void> setActivePlan(String id) async {
     await _database.transaction(() async {
       await _database
@@ -255,6 +266,41 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimageVisitRecord> createVisitRecord({
+    required String planId,
+    required String pointId,
+    required String workId,
+    required String photoPath,
+    required String referenceMode,
+  }) async {
+    final now = DateTime.now();
+    final record = PilgrimageVisitRecord(
+      id: 'record-${now.microsecondsSinceEpoch}',
+      planId: planId,
+      pointId: pointId,
+      workId: workId,
+      photoPath: photoPath,
+      referenceMode: referenceMode,
+      capturedAt: now,
+    );
+    await _database
+        .into(_database.visitRecords)
+        .insert(
+          VisitRecordsCompanion.insert(
+            id: record.id,
+            planId: record.planId,
+            pointId: record.pointId,
+            workId: record.workId,
+            photoPath: record.photoPath,
+            referenceMode: record.referenceMode,
+            capturedAt: record.capturedAt,
+          ),
+        );
+    await _touchPlan(planId);
+    return record;
+  }
+
+  @override
   Future<void> deletePlan(String id) async {
     await _database.transaction(() async {
       final count = await _database.plans.count().getSingle();
@@ -262,6 +308,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         throw StateError('At least one plan is required.');
       }
 
+      await (_database.delete(
+        _database.visitRecords,
+      )..where((table) => table.planId.equals(id))).go();
       await (_database.delete(
         _database.points,
       )..where((table) => table.planId.equals(id))).go();
@@ -286,6 +335,18 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             .write(const PlansCompanion(active: Value(true)));
       }
     });
+  }
+
+  PilgrimageVisitRecord _visitRecordFromRow(VisitRecord row) {
+    return PilgrimageVisitRecord(
+      id: row.id,
+      planId: row.planId,
+      pointId: row.pointId,
+      workId: row.workId,
+      photoPath: row.photoPath,
+      referenceMode: row.referenceMode,
+      capturedAt: row.capturedAt,
+    );
   }
 
   @override
@@ -320,6 +381,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
       await (_database.delete(_database.points)..where(
             (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
+          ))
+          .go();
+      await (_database.delete(_database.visitRecords)..where(
+            (table) =>
+                table.planId.equals(planId) & table.pointId.isIn(pointIds),
           ))
           .go();
 

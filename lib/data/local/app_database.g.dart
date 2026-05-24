@@ -1779,17 +1779,490 @@ class PointsCompanion extends UpdateCompanion<Point> {
   }
 }
 
+class $VisitRecordsTable extends VisitRecords
+    with TableInfo<$VisitRecordsTable, VisitRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VisitRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _planIdMeta = const VerificationMeta('planId');
+  @override
+  late final GeneratedColumn<String> planId = GeneratedColumn<String>(
+    'plan_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pointIdMeta = const VerificationMeta(
+    'pointId',
+  );
+  @override
+  late final GeneratedColumn<String> pointId = GeneratedColumn<String>(
+    'point_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _workIdMeta = const VerificationMeta('workId');
+  @override
+  late final GeneratedColumn<String> workId = GeneratedColumn<String>(
+    'work_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _photoPathMeta = const VerificationMeta(
+    'photoPath',
+  );
+  @override
+  late final GeneratedColumn<String> photoPath = GeneratedColumn<String>(
+    'photo_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _referenceModeMeta = const VerificationMeta(
+    'referenceMode',
+  );
+  @override
+  late final GeneratedColumn<String> referenceMode = GeneratedColumn<String>(
+    'reference_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _capturedAtMeta = const VerificationMeta(
+    'capturedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> capturedAt = GeneratedColumn<DateTime>(
+    'captured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    planId,
+    pointId,
+    workId,
+    photoPath,
+    referenceMode,
+    capturedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'visit_records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VisitRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('plan_id')) {
+      context.handle(
+        _planIdMeta,
+        planId.isAcceptableOrUnknown(data['plan_id']!, _planIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_planIdMeta);
+    }
+    if (data.containsKey('point_id')) {
+      context.handle(
+        _pointIdMeta,
+        pointId.isAcceptableOrUnknown(data['point_id']!, _pointIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pointIdMeta);
+    }
+    if (data.containsKey('work_id')) {
+      context.handle(
+        _workIdMeta,
+        workId.isAcceptableOrUnknown(data['work_id']!, _workIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_workIdMeta);
+    }
+    if (data.containsKey('photo_path')) {
+      context.handle(
+        _photoPathMeta,
+        photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_photoPathMeta);
+    }
+    if (data.containsKey('reference_mode')) {
+      context.handle(
+        _referenceModeMeta,
+        referenceMode.isAcceptableOrUnknown(
+          data['reference_mode']!,
+          _referenceModeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_referenceModeMeta);
+    }
+    if (data.containsKey('captured_at')) {
+      context.handle(
+        _capturedAtMeta,
+        capturedAt.isAcceptableOrUnknown(data['captured_at']!, _capturedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_capturedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  VisitRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VisitRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      planId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plan_id'],
+      )!,
+      pointId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}point_id'],
+      )!,
+      workId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}work_id'],
+      )!,
+      photoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_path'],
+      )!,
+      referenceMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference_mode'],
+      )!,
+      capturedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}captured_at'],
+      )!,
+    );
+  }
+
+  @override
+  $VisitRecordsTable createAlias(String alias) {
+    return $VisitRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class VisitRecord extends DataClass implements Insertable<VisitRecord> {
+  final String id;
+  final String planId;
+  final String pointId;
+  final String workId;
+  final String photoPath;
+  final String referenceMode;
+  final DateTime capturedAt;
+  const VisitRecord({
+    required this.id,
+    required this.planId,
+    required this.pointId,
+    required this.workId,
+    required this.photoPath,
+    required this.referenceMode,
+    required this.capturedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['plan_id'] = Variable<String>(planId);
+    map['point_id'] = Variable<String>(pointId);
+    map['work_id'] = Variable<String>(workId);
+    map['photo_path'] = Variable<String>(photoPath);
+    map['reference_mode'] = Variable<String>(referenceMode);
+    map['captured_at'] = Variable<DateTime>(capturedAt);
+    return map;
+  }
+
+  VisitRecordsCompanion toCompanion(bool nullToAbsent) {
+    return VisitRecordsCompanion(
+      id: Value(id),
+      planId: Value(planId),
+      pointId: Value(pointId),
+      workId: Value(workId),
+      photoPath: Value(photoPath),
+      referenceMode: Value(referenceMode),
+      capturedAt: Value(capturedAt),
+    );
+  }
+
+  factory VisitRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VisitRecord(
+      id: serializer.fromJson<String>(json['id']),
+      planId: serializer.fromJson<String>(json['planId']),
+      pointId: serializer.fromJson<String>(json['pointId']),
+      workId: serializer.fromJson<String>(json['workId']),
+      photoPath: serializer.fromJson<String>(json['photoPath']),
+      referenceMode: serializer.fromJson<String>(json['referenceMode']),
+      capturedAt: serializer.fromJson<DateTime>(json['capturedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'planId': serializer.toJson<String>(planId),
+      'pointId': serializer.toJson<String>(pointId),
+      'workId': serializer.toJson<String>(workId),
+      'photoPath': serializer.toJson<String>(photoPath),
+      'referenceMode': serializer.toJson<String>(referenceMode),
+      'capturedAt': serializer.toJson<DateTime>(capturedAt),
+    };
+  }
+
+  VisitRecord copyWith({
+    String? id,
+    String? planId,
+    String? pointId,
+    String? workId,
+    String? photoPath,
+    String? referenceMode,
+    DateTime? capturedAt,
+  }) => VisitRecord(
+    id: id ?? this.id,
+    planId: planId ?? this.planId,
+    pointId: pointId ?? this.pointId,
+    workId: workId ?? this.workId,
+    photoPath: photoPath ?? this.photoPath,
+    referenceMode: referenceMode ?? this.referenceMode,
+    capturedAt: capturedAt ?? this.capturedAt,
+  );
+  VisitRecord copyWithCompanion(VisitRecordsCompanion data) {
+    return VisitRecord(
+      id: data.id.present ? data.id.value : this.id,
+      planId: data.planId.present ? data.planId.value : this.planId,
+      pointId: data.pointId.present ? data.pointId.value : this.pointId,
+      workId: data.workId.present ? data.workId.value : this.workId,
+      photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
+      referenceMode: data.referenceMode.present
+          ? data.referenceMode.value
+          : this.referenceMode,
+      capturedAt: data.capturedAt.present
+          ? data.capturedAt.value
+          : this.capturedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VisitRecord(')
+          ..write('id: $id, ')
+          ..write('planId: $planId, ')
+          ..write('pointId: $pointId, ')
+          ..write('workId: $workId, ')
+          ..write('photoPath: $photoPath, ')
+          ..write('referenceMode: $referenceMode, ')
+          ..write('capturedAt: $capturedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    planId,
+    pointId,
+    workId,
+    photoPath,
+    referenceMode,
+    capturedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VisitRecord &&
+          other.id == this.id &&
+          other.planId == this.planId &&
+          other.pointId == this.pointId &&
+          other.workId == this.workId &&
+          other.photoPath == this.photoPath &&
+          other.referenceMode == this.referenceMode &&
+          other.capturedAt == this.capturedAt);
+}
+
+class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
+  final Value<String> id;
+  final Value<String> planId;
+  final Value<String> pointId;
+  final Value<String> workId;
+  final Value<String> photoPath;
+  final Value<String> referenceMode;
+  final Value<DateTime> capturedAt;
+  final Value<int> rowid;
+  const VisitRecordsCompanion({
+    this.id = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.pointId = const Value.absent(),
+    this.workId = const Value.absent(),
+    this.photoPath = const Value.absent(),
+    this.referenceMode = const Value.absent(),
+    this.capturedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VisitRecordsCompanion.insert({
+    required String id,
+    required String planId,
+    required String pointId,
+    required String workId,
+    required String photoPath,
+    required String referenceMode,
+    required DateTime capturedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       planId = Value(planId),
+       pointId = Value(pointId),
+       workId = Value(workId),
+       photoPath = Value(photoPath),
+       referenceMode = Value(referenceMode),
+       capturedAt = Value(capturedAt);
+  static Insertable<VisitRecord> custom({
+    Expression<String>? id,
+    Expression<String>? planId,
+    Expression<String>? pointId,
+    Expression<String>? workId,
+    Expression<String>? photoPath,
+    Expression<String>? referenceMode,
+    Expression<DateTime>? capturedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (planId != null) 'plan_id': planId,
+      if (pointId != null) 'point_id': pointId,
+      if (workId != null) 'work_id': workId,
+      if (photoPath != null) 'photo_path': photoPath,
+      if (referenceMode != null) 'reference_mode': referenceMode,
+      if (capturedAt != null) 'captured_at': capturedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VisitRecordsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? planId,
+    Value<String>? pointId,
+    Value<String>? workId,
+    Value<String>? photoPath,
+    Value<String>? referenceMode,
+    Value<DateTime>? capturedAt,
+    Value<int>? rowid,
+  }) {
+    return VisitRecordsCompanion(
+      id: id ?? this.id,
+      planId: planId ?? this.planId,
+      pointId: pointId ?? this.pointId,
+      workId: workId ?? this.workId,
+      photoPath: photoPath ?? this.photoPath,
+      referenceMode: referenceMode ?? this.referenceMode,
+      capturedAt: capturedAt ?? this.capturedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (planId.present) {
+      map['plan_id'] = Variable<String>(planId.value);
+    }
+    if (pointId.present) {
+      map['point_id'] = Variable<String>(pointId.value);
+    }
+    if (workId.present) {
+      map['work_id'] = Variable<String>(workId.value);
+    }
+    if (photoPath.present) {
+      map['photo_path'] = Variable<String>(photoPath.value);
+    }
+    if (referenceMode.present) {
+      map['reference_mode'] = Variable<String>(referenceMode.value);
+    }
+    if (capturedAt.present) {
+      map['captured_at'] = Variable<DateTime>(capturedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VisitRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('planId: $planId, ')
+          ..write('pointId: $pointId, ')
+          ..write('workId: $workId, ')
+          ..write('photoPath: $photoPath, ')
+          ..write('referenceMode: $referenceMode, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $PlansTable plans = $PlansTable(this);
   late final $WorksTable works = $WorksTable(this);
   late final $PointsTable points = $PointsTable(this);
+  late final $VisitRecordsTable visitRecords = $VisitRecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [plans, works, points];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    plans,
+    works,
+    points,
+    visitRecords,
+  ];
 }
 
 typedef $$PlansTableCreateCompanionBuilder =
@@ -3239,6 +3712,248 @@ typedef $$PointsTableProcessedTableManager =
       Point,
       PrefetchHooks Function({bool planId, bool workId})
     >;
+typedef $$VisitRecordsTableCreateCompanionBuilder =
+    VisitRecordsCompanion Function({
+      required String id,
+      required String planId,
+      required String pointId,
+      required String workId,
+      required String photoPath,
+      required String referenceMode,
+      required DateTime capturedAt,
+      Value<int> rowid,
+    });
+typedef $$VisitRecordsTableUpdateCompanionBuilder =
+    VisitRecordsCompanion Function({
+      Value<String> id,
+      Value<String> planId,
+      Value<String> pointId,
+      Value<String> workId,
+      Value<String> photoPath,
+      Value<String> referenceMode,
+      Value<DateTime> capturedAt,
+      Value<int> rowid,
+    });
+
+class $$VisitRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $VisitRecordsTable> {
+  $$VisitRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pointId => $composableBuilder(
+    column: $table.pointId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workId => $composableBuilder(
+    column: $table.workId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get referenceMode => $composableBuilder(
+    column: $table.referenceMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VisitRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $VisitRecordsTable> {
+  $$VisitRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pointId => $composableBuilder(
+    column: $table.pointId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workId => $composableBuilder(
+    column: $table.workId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get referenceMode => $composableBuilder(
+    column: $table.referenceMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VisitRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VisitRecordsTable> {
+  $$VisitRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get planId =>
+      $composableBuilder(column: $table.planId, builder: (column) => column);
+
+  GeneratedColumn<String> get pointId =>
+      $composableBuilder(column: $table.pointId, builder: (column) => column);
+
+  GeneratedColumn<String> get workId =>
+      $composableBuilder(column: $table.workId, builder: (column) => column);
+
+  GeneratedColumn<String> get photoPath =>
+      $composableBuilder(column: $table.photoPath, builder: (column) => column);
+
+  GeneratedColumn<String> get referenceMode => $composableBuilder(
+    column: $table.referenceMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$VisitRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VisitRecordsTable,
+          VisitRecord,
+          $$VisitRecordsTableFilterComposer,
+          $$VisitRecordsTableOrderingComposer,
+          $$VisitRecordsTableAnnotationComposer,
+          $$VisitRecordsTableCreateCompanionBuilder,
+          $$VisitRecordsTableUpdateCompanionBuilder,
+          (
+            VisitRecord,
+            BaseReferences<_$AppDatabase, $VisitRecordsTable, VisitRecord>,
+          ),
+          VisitRecord,
+          PrefetchHooks Function()
+        > {
+  $$VisitRecordsTableTableManager(_$AppDatabase db, $VisitRecordsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VisitRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VisitRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VisitRecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> planId = const Value.absent(),
+                Value<String> pointId = const Value.absent(),
+                Value<String> workId = const Value.absent(),
+                Value<String> photoPath = const Value.absent(),
+                Value<String> referenceMode = const Value.absent(),
+                Value<DateTime> capturedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VisitRecordsCompanion(
+                id: id,
+                planId: planId,
+                pointId: pointId,
+                workId: workId,
+                photoPath: photoPath,
+                referenceMode: referenceMode,
+                capturedAt: capturedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String planId,
+                required String pointId,
+                required String workId,
+                required String photoPath,
+                required String referenceMode,
+                required DateTime capturedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => VisitRecordsCompanion.insert(
+                id: id,
+                planId: planId,
+                pointId: pointId,
+                workId: workId,
+                photoPath: photoPath,
+                referenceMode: referenceMode,
+                capturedAt: capturedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VisitRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VisitRecordsTable,
+      VisitRecord,
+      $$VisitRecordsTableFilterComposer,
+      $$VisitRecordsTableOrderingComposer,
+      $$VisitRecordsTableAnnotationComposer,
+      $$VisitRecordsTableCreateCompanionBuilder,
+      $$VisitRecordsTableUpdateCompanionBuilder,
+      (
+        VisitRecord,
+        BaseReferences<_$AppDatabase, $VisitRecordsTable, VisitRecord>,
+      ),
+      VisitRecord,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3249,4 +3964,6 @@ class $AppDatabaseManager {
       $$WorksTableTableManager(_db, _db.works);
   $$PointsTableTableManager get points =>
       $$PointsTableTableManager(_db, _db.points);
+  $$VisitRecordsTableTableManager get visitRecords =>
+      $$VisitRecordsTableTableManager(_db, _db.visitRecords);
 }

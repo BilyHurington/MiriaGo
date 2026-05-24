@@ -93,6 +93,31 @@ void main() {
     expect(reloadedPlan.currentPointId, plan.points.first.id);
   });
 
+  test('persists visit records for captured photos', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+
+    final record = await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: '/tmp/photo.jpg',
+      referenceMode: '叠影',
+    );
+
+    final records = await repository.loadVisitRecords(plan.id);
+
+    expect(records, hasLength(1));
+    expect(records.single.id, record.id);
+    expect(records.single.pointId, point.id);
+    expect(records.single.photoPath, '/tmp/photo.jpg');
+    expect(records.single.referenceMode, '叠影');
+  });
+
   test('bulk completes points and promotes next pending target', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);

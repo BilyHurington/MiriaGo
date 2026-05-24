@@ -104,7 +104,8 @@ class PlanScreen extends StatelessWidget {
   void _openCamera(BuildContext context, PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CamerawesomeReferenceScreen(point: point),
+        builder: (_) =>
+            CamerawesomeReferenceScreen(point: point, controller: controller),
       ),
     );
   }

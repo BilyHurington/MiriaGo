@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import 'visit_record_photo_stub.dart'
+    if (dart.library.io) 'visit_record_photo_io.dart';
 
 class RecordsScreen extends StatelessWidget {
   const RecordsScreen({required this.controller, super.key});
@@ -10,44 +13,17 @@ class RecordsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completedPoints = controller.completedPoints;
+    final records = controller.visitRecords;
 
     return Scaffold(
       appBar: AppBar(title: const Text('记录')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.collections_bookmark_outlined,
-                  color: AppColors.accent,
-                  size: 30,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '今日完成 ${controller.completedCount}/${controller.totalCount}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _RecordsSummary(controller: controller),
           const SizedBox(height: 16),
           const Text(
-            '已完成点位',
+            '巡礼照片',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -55,25 +31,179 @@ class RecordsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          if (completedPoints.isEmpty)
+          if (records.isEmpty)
             const _EmptyRecords()
           else
-            for (final point in completedPoints) ...[
-              ListTile(
-                tileColor: AppColors.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: AppColors.border),
-                ),
-                leading: const Icon(
-                  Icons.check_circle_outline,
-                  color: AppColors.accent,
-                ),
-                title: Text(point.name),
-                subtitle: Text('${point.work.title} / ${point.episodeLabel}'),
+            for (final record in records) ...[
+              _VisitRecordCard(
+                record: record,
+                point: controller.pointById(record.pointId),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
             ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordsSummary extends StatelessWidget {
+  const _RecordsSummary({required this.controller});
+
+  final PilgrimagePlanController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.collections_bookmark_outlined,
+            color: AppColors.accent,
+            size: 30,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${controller.visitRecords.length} 条巡礼记录',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '完成 ${controller.completedCount}/${controller.totalCount}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VisitRecordCard extends StatelessWidget {
+  const _VisitRecordCard({required this.record, required this.point});
+
+  final PilgrimageVisitRecord record;
+  final PilgrimagePoint? point;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedPoint = point;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 104,
+            height: 104,
+            child: VisitRecordPhoto(path: record.photoPath),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    resolvedPoint?.name ?? '已删除点位',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    resolvedPoint == null
+                        ? record.workId
+                        : '${resolvedPoint.work.title} / ${resolvedPoint.episodeLabel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _RecordChip(
+                        icon: Icons.layers_outlined,
+                        label: record.referenceMode,
+                      ),
+                      _RecordChip(
+                        icon: Icons.schedule,
+                        label: _formatCapturedAt(record.capturedAt),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordChip extends StatelessWidget {
+  const _RecordChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
         ],
       ),
     );
@@ -98,7 +228,7 @@ class _EmptyRecords extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              '还没有完成的巡礼点。',
+              '还没有巡礼记录。拍摄成功后会自动出现在这里。',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
@@ -110,4 +240,12 @@ class _EmptyRecords extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatCapturedAt(DateTime capturedAt) {
+  final month = capturedAt.month.toString().padLeft(2, '0');
+  final day = capturedAt.day.toString().padLeft(2, '0');
+  final hour = capturedAt.hour.toString().padLeft(2, '0');
+  final minute = capturedAt.minute.toString().padLeft(2, '0');
+  return '$month-$day $hour:$minute';
 }

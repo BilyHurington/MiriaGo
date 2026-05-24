@@ -132,7 +132,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   void _openCamera(PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CamerawesomeReferenceScreen(point: point),
+        builder: (_) =>
+            CamerawesomeReferenceScreen(point: point, controller: _controller),
       ),
     );
   }

@@ -6,9 +6,11 @@ import 'pilgrimage_repository.dart';
 class SamplePilgrimageRepository implements PilgrimageRepository {
   SamplePilgrimageRepository()
     : _plans = [samplePilgrimagePlan, sampleEmptyPlan],
+      _visitRecords = [],
       _activePlanId = samplePilgrimagePlan.id;
 
   final List<PilgrimagePlan> _plans;
+  final List<PilgrimageVisitRecord> _visitRecords;
   String _activePlanId;
 
   @override
@@ -22,6 +24,15 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       (plan) => plan.id == _activePlanId,
       orElse: () => _plans.first,
     );
+  }
+
+  @override
+  Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
+    return _visitRecords
+        .where((record) => record.planId == planId)
+        .toList(growable: false)
+        .reversed
+        .toList(growable: false);
   }
 
   @override
@@ -118,6 +129,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     _plans.removeWhere((plan) => plan.id == id);
+    _visitRecords.removeWhere((record) => record.planId == id);
     if (_activePlanId == id) {
       _activePlanId = _plans.first.id;
     }
@@ -156,6 +168,9 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
+    _visitRecords.removeWhere(
+      (record) => record.planId == planId && pointIds.contains(record.pointId),
+    );
     return updatedPlan;
   }
 
@@ -260,6 +275,28 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       completedPointIds: {...plan.completedPointIds}..removeAll(pointIds),
       updatedAt: DateTime.now(),
     );
+  }
+
+  @override
+  Future<PilgrimageVisitRecord> createVisitRecord({
+    required String planId,
+    required String pointId,
+    required String workId,
+    required String photoPath,
+    required String referenceMode,
+  }) async {
+    final now = DateTime.now();
+    final record = PilgrimageVisitRecord(
+      id: 'record-${now.microsecondsSinceEpoch}',
+      planId: planId,
+      pointId: pointId,
+      workId: workId,
+      photoPath: photoPath,
+      referenceMode: referenceMode,
+      capturedAt: now,
+    );
+    _visitRecords.add(record);
+    return record;
   }
 
   List<PilgrimageWork> _appendWorkIfMissing(

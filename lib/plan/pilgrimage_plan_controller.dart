@@ -10,19 +10,22 @@ class PilgrimagePlanController extends ChangeNotifier {
     required PilgrimagePlan plan,
     PilgrimageRepository? visitRepository,
   }) : _repository = visitRepository,
-      _plan = plan,
-      _completedPointIds = {...plan.completedPointIds},
-      _currentPointId =
-          plan.currentPointId ??
-          plan.points
-              .where((point) => !plan.completedPointIds.contains(point.id))
-              .firstOrNull
-              ?.id,
-      _selectedPointId = plan.points.firstOrNull?.id;
+       _plan = plan,
+       _completedPointIds = {...plan.completedPointIds},
+       _currentPointId =
+           plan.currentPointId ??
+           plan.points
+               .where((point) => !plan.completedPointIds.contains(point.id))
+               .firstOrNull
+               ?.id,
+       _selectedPointId = plan.points.firstOrNull?.id {
+    unawaited(loadVisitRecords());
+  }
 
   final PilgrimagePlan _plan;
   final PilgrimageRepository? _repository;
   final Set<String> _completedPointIds;
+  List<PilgrimageVisitRecord> _visitRecords = const [];
 
   String? _currentPointId;
   String? _selectedPointId;
@@ -35,9 +38,13 @@ class PilgrimagePlanController extends ChangeNotifier {
 
   PilgrimagePoint? get selectedPoint => _pointById(_selectedPointId);
 
+  PilgrimagePoint? pointById(String id) => _pointById(id);
+
   List<PilgrimagePoint> get completedPoints => points
       .where((point) => _completedPointIds.contains(point.id))
       .toList(growable: false);
+
+  List<PilgrimageVisitRecord> get visitRecords => _visitRecords;
 
   int get completedCount => _completedPointIds.length;
 
@@ -98,15 +105,45 @@ class PilgrimagePlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadVisitRecords() async {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    _visitRecords = await repository.loadVisitRecords(_plan.id);
+    notifyListeners();
+  }
+
+  Future<PilgrimageVisitRecord?> createVisitRecord({
+    required PilgrimagePoint point,
+    required String photoPath,
+    required String referenceMode,
+  }) async {
+    final repository = _repository;
+    if (repository == null) {
+      return null;
+    }
+
+    final record = await repository.createVisitRecord(
+      planId: _plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: photoPath,
+      referenceMode: referenceMode,
+    );
+    _visitRecords = [record, ..._visitRecords];
+    notifyListeners();
+    return record;
+  }
+
   void _persistSetCurrent(PilgrimagePoint point) {
     final repository = _repository;
     if (repository == null) {
       return;
     }
 
-    unawaited(
-      repository.setCurrentPoint(planId: _plan.id, pointId: point.id),
-    );
+    unawaited(repository.setCurrentPoint(planId: _plan.id, pointId: point.id));
   }
 
   void _persistComplete(PilgrimagePoint point) {
