@@ -266,6 +266,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                 : _PointCard(
                     point: selectedPoint,
                     status: _controller.statusFor(selectedPoint),
+                    recordCount: _controller
+                        .recordsForPoint(selectedPoint.id)
+                        .length,
                     distanceMeters: _distanceToSelectedPoint(selectedPoint),
                     onSetCurrent: () =>
                         _controller.setCurrentPoint(selectedPoint),
@@ -466,6 +469,7 @@ class _PointCard extends StatelessWidget {
   const _PointCard({
     required this.point,
     required this.status,
+    required this.recordCount,
     required this.distanceMeters,
     required this.onSetCurrent,
     required this.onOpenDetail,
@@ -476,6 +480,7 @@ class _PointCard extends StatelessWidget {
 
   final PilgrimagePoint point;
   final VisitStatus status;
+  final int recordCount;
   final double? distanceMeters;
   final VoidCallback onSetCurrent;
   final VoidCallback onOpenDetail;
@@ -554,6 +559,10 @@ class _PointCard extends StatelessWidget {
                 letterSpacing: 0,
               ),
             ),
+          ],
+          if (recordCount > 0) ...[
+            const SizedBox(height: 8),
+            _MapRecordBadge(count: recordCount),
           ],
           const SizedBox(height: 12),
           Row(
@@ -635,6 +644,43 @@ class _PointThumbnail extends StatelessWidget {
         child: imageUrl == null
             ? const Icon(Icons.image_outlined, color: AppColors.accentDark)
             : Image.network(imageUrl, fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+
+class _MapRecordBadge extends StatelessWidget {
+  const _MapRecordBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.photo_library_outlined,
+            size: 15,
+            color: AppColors.accentDark,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '已拍 $count',
+            style: const TextStyle(
+              color: AppColors.accentDark,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
       ),
     );
   }

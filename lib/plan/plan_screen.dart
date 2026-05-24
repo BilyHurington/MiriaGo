@@ -90,6 +90,7 @@ class PlanScreen extends StatelessWidget {
               _PlanPointTile(
                 point: point,
                 status: controller.statusFor(point),
+                recordCount: controller.recordsForPoint(point.id).length,
                 onTap: () => _showPointDetail(context, point),
                 onOpenCamera: () => _openCamera(context, point),
                 onComplete: () => controller.completePoint(point),
@@ -375,6 +376,7 @@ class _PlanPointTile extends StatelessWidget {
   const _PlanPointTile({
     required this.point,
     required this.status,
+    required this.recordCount,
     required this.onTap,
     required this.onOpenCamera,
     required this.onComplete,
@@ -382,6 +384,7 @@ class _PlanPointTile extends StatelessWidget {
 
   final PilgrimagePoint point;
   final VisitStatus status;
+  final int recordCount;
   final VoidCallback onTap;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
@@ -439,6 +442,10 @@ class _PlanPointTile extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
+                    if (recordCount > 0) ...[
+                      const SizedBox(height: 6),
+                      _PointRecordBadge(count: recordCount),
+                    ],
                   ],
                 ),
               ),
@@ -480,6 +487,43 @@ class _PlanPointTile extends StatelessWidget {
         icon: Icons.place_outlined,
       ),
     };
+  }
+}
+
+class _PointRecordBadge extends StatelessWidget {
+  const _PointRecordBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.photo_library_outlined,
+            size: 13,
+            color: AppColors.accentDark,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '已拍 $count',
+            style: const TextStyle(
+              color: AppColors.accentDark,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
