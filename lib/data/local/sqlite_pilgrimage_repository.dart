@@ -170,8 +170,88 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<void> completePoints({
+    required String planId,
+    required Set<String> pointIds,
+  }) async {
+    if (pointIds.isEmpty) {
+      return;
+    }
+
+    await _database.transaction(() async {
+      final completedCurrentPoint =
+          await (_database.select(_database.points)
+                ..where(
+                  (table) =>
+                      table.planId.equals(planId) &
+                      table.id.isIn(pointIds) &
+                      table.isCurrent.equals(true),
+                )
+                ..limit(1))
+              .getSingleOrNull() !=
+          null;
+
+      await (_database.update(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
+          ))
+          .write(
+            PointsCompanion(
+              isCurrent: const Value(false),
+              completedAt: Value(DateTime.now()),
+            ),
+          );
+
+      if (completedCurrentPoint) {
+        await _setFirstPendingPointCurrent(planId);
+      }
+
+      await _touchPlan(planId);
+    });
+  }
+
+  @override
   Future<void> reopenPoint({required String planId, required String pointId}) {
     return setCurrentPoint(planId: planId, pointId: pointId);
+  }
+
+  @override
+  Future<void> reopenPoints({
+    required String planId,
+    required Set<String> pointIds,
+  }) async {
+    if (pointIds.isEmpty) {
+      return;
+    }
+
+    await _database.transaction(() async {
+      await _clearCurrentPoint(planId);
+      await (_database.update(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
+          ))
+          .write(
+            const PointsCompanion(
+              isCurrent: Value(false),
+              completedAt: Value(null),
+            ),
+          );
+
+      final firstSelectedPoint =
+          await (_database.select(_database.points)
+                ..where(
+                  (table) =>
+                      table.planId.equals(planId) & table.id.isIn(pointIds),
+                )
+                ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)])
+                ..limit(1))
+              .getSingleOrNull();
+      if (firstSelectedPoint != null) {
+        await (_database.update(_database.points)
+              ..where((table) => table.id.equals(firstSelectedPoint.id)))
+            .write(const PointsCompanion(isCurrent: Value(true)));
+      }
+
+      await _touchPlan(planId);
+    });
   }
 
   @override
@@ -213,22 +293,37 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String pointId,
   }) async {
+    return deletePointsFromPlan(planId: planId, pointIds: {pointId});
+  }
+
+  @override
+  Future<PilgrimagePlan> deletePointsFromPlan({
+    required String planId,
+    required Set<String> pointIds,
+  }) async {
+    if (pointIds.isEmpty) {
+      return _planFromRow(await _planRowById(planId));
+    }
+
     await _database.transaction(() async {
-      final deletedPoint =
+      final deletedCurrentPoint =
           await (_database.select(_database.points)
                 ..where(
                   (table) =>
-                      table.planId.equals(planId) & table.id.equals(pointId),
+                      table.planId.equals(planId) &
+                      table.id.isIn(pointIds) &
+                      table.isCurrent.equals(true),
                 )
                 ..limit(1))
-              .getSingleOrNull();
+              .getSingleOrNull() !=
+          null;
 
       await (_database.delete(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.equals(pointId),
+            (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
           ))
           .go();
 
-      if (deletedPoint?.isCurrent ?? false) {
+      if (deletedCurrentPoint) {
         await _setFirstPendingPointCurrent(planId);
       }
 

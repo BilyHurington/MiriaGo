@@ -128,13 +128,22 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String pointId,
   }) async {
+    return deletePointsFromPlan(planId: planId, pointIds: {pointId});
+  }
+
+  @override
+  Future<PilgrimagePlan> deletePointsFromPlan({
+    required String planId,
+    required Set<String> pointIds,
+  }) async {
     final index = _planIndex(planId);
     final plan = _plans[index];
     final points = plan.points
-        .where((point) => point.id != pointId)
+        .where((point) => !pointIds.contains(point.id))
         .toList(growable: false);
-    final completedPointIds = {...plan.completedPointIds}..remove(pointId);
-    final currentPointId = plan.currentPointId == pointId
+    final completedPointIds = {...plan.completedPointIds}..removeAll(pointIds);
+    final currentPointId =
+        plan.currentPointId != null && pointIds.contains(plan.currentPointId)
         ? points
               .where((point) => !completedPointIds.contains(point.id))
               .firstOrNull
@@ -202,11 +211,55 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<void> completePoints({
+    required String planId,
+    required Set<String> pointIds,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final completedPointIds = {...plan.completedPointIds, ...pointIds};
+    final currentPointId =
+        plan.currentPointId != null && pointIds.contains(plan.currentPointId)
+        ? plan.points
+              .where((point) => !completedPointIds.contains(point.id))
+              .firstOrNull
+              ?.id
+        : plan.currentPointId;
+    _plans[index] = plan.copyWith(
+      currentPointId: currentPointId,
+      completedPointIds: completedPointIds,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
   Future<void> reopenPoint({
     required String planId,
     required String pointId,
   }) async {
     await setCurrentPoint(planId: planId, pointId: pointId);
+  }
+
+  @override
+  Future<void> reopenPoints({
+    required String planId,
+    required Set<String> pointIds,
+  }) async {
+    if (pointIds.isEmpty) {
+      return;
+    }
+
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final currentPointId = plan.points
+        .where((point) => pointIds.contains(point.id))
+        .firstOrNull
+        ?.id;
+    _plans[index] = plan.copyWith(
+      currentPointId: currentPointId,
+      completedPointIds: {...plan.completedPointIds}..removeAll(pointIds),
+      updatedAt: DateTime.now(),
+    );
   }
 
   List<PilgrimageWork> _appendWorkIfMissing(

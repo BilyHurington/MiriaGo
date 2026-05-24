@@ -92,4 +92,70 @@ void main() {
     );
     expect(reloadedPlan.currentPointId, plan.points.first.id);
   });
+
+  test('bulk completes points and promotes next pending target', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final completedIds = {plan.points[0].id, plan.points[1].id};
+
+    await repository.setCurrentPoint(
+      planId: plan.id,
+      pointId: plan.points.first.id,
+    );
+    await repository.completePoints(planId: plan.id, pointIds: completedIds);
+
+    final reloadedPlan = await repository.loadActivePlan();
+
+    expect(reloadedPlan.completedPointIds, containsAll(completedIds));
+    expect(reloadedPlan.currentPointId, plan.points[2].id);
+  });
+
+  test('bulk deletes points and promotes next pending target', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final deletedIds = {plan.points[0].id, plan.points[1].id};
+
+    await repository.setCurrentPoint(
+      planId: plan.id,
+      pointId: plan.points.first.id,
+    );
+    final updatedPlan = await repository.deletePointsFromPlan(
+      planId: plan.id,
+      pointIds: deletedIds,
+    );
+
+    expect(
+      updatedPlan.points.map((point) => point.id),
+      isNot(contains(plan.points[0].id)),
+    );
+    expect(
+      updatedPlan.points.map((point) => point.id),
+      isNot(contains(plan.points[1].id)),
+    );
+    expect(updatedPlan.currentPointId, plan.points[2].id);
+  });
+
+  test('bulk reopens points and uses first selected point as target', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final reopenedIds = {plan.points[0].id, plan.points[1].id};
+
+    await repository.completePoints(planId: plan.id, pointIds: reopenedIds);
+    await repository.reopenPoints(planId: plan.id, pointIds: reopenedIds);
+
+    final reloadedPlan = await repository.loadActivePlan();
+
+    expect(reloadedPlan.completedPointIds, isNot(contains(plan.points[0].id)));
+    expect(reloadedPlan.completedPointIds, isNot(contains(plan.points[1].id)));
+    expect(reloadedPlan.currentPointId, plan.points.first.id);
+  });
 }
