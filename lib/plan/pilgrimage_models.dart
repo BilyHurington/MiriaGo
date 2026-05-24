@@ -24,18 +24,26 @@ class AppSettings {
   const AppSettings({
     this.uiScale = 1,
     this.cameraAspectRatio = CameraPhotoAspectRatio.landscape16x9,
+    this.cameraMinZoom = 0.6,
+    this.cameraMaxZoom = 5,
   });
 
   final double uiScale;
   final CameraPhotoAspectRatio cameraAspectRatio;
+  final double cameraMinZoom;
+  final double cameraMaxZoom;
 
   AppSettings copyWith({
     double? uiScale,
     CameraPhotoAspectRatio? cameraAspectRatio,
+    double? cameraMinZoom,
+    double? cameraMaxZoom,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
       cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+      cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
+      cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
     );
   }
 }
@@ -94,6 +102,8 @@ class PilgrimagePoint {
     this.source = PointSource.manual,
     this.sourceId,
     this.referenceImageUrl,
+    this.referenceThumbnailPath,
+    this.referenceFullImagePath,
     this.sourceUrl,
   });
 
@@ -107,7 +117,32 @@ class PilgrimagePoint {
   final PointSource source;
   final String? sourceId;
   final String? referenceImageUrl;
+  final String? referenceThumbnailPath;
+  final String? referenceFullImagePath;
   final String? sourceUrl;
+
+  PilgrimagePoint copyWith({
+    String? referenceThumbnailPath,
+    String? referenceFullImagePath,
+  }) {
+    return PilgrimagePoint(
+      id: id,
+      work: work,
+      name: name,
+      subtitle: subtitle,
+      position: position,
+      episodeLabel: episodeLabel,
+      referenceLabel: referenceLabel,
+      source: source,
+      sourceId: sourceId,
+      referenceImageUrl: referenceImageUrl,
+      referenceThumbnailPath:
+          referenceThumbnailPath ?? this.referenceThumbnailPath,
+      referenceFullImagePath:
+          referenceFullImagePath ?? this.referenceFullImagePath,
+      sourceUrl: sourceUrl,
+    );
+  }
 }
 
 class PilgrimagePlan {

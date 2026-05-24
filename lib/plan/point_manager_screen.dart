@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../data/reference_image_cache_stub.dart'
+    if (dart.library.io) '../data/reference_image_cache_io.dart'
+    as reference_image_cache;
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
 
@@ -119,6 +122,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               plan: _plan,
               selectedWorkId: _selectedWorkId,
               onWorkSelected: _selectWorkFilter,
+              onCacheFullReferences: _cacheFullReferenceImages,
             );
           }
 
@@ -150,6 +154,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         plan: _plan,
         selectedWorkId: _selectedWorkId,
         onWorkSelected: _selectWorkFilter,
+        onCacheFullReferences: _cacheFullReferenceImages,
       ),
       itemCount: visiblePoints.length,
       buildDefaultDragHandles: false,
@@ -187,6 +192,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             plan: _plan,
             selectedWorkId: _selectedWorkId,
             onWorkSelected: _selectWorkFilter,
+            onCacheFullReferences: _cacheFullReferenceImages,
           );
         }
 
@@ -547,6 +553,47 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       ).showSnackBar(SnackBar(content: Text(failureMessage)));
     }
   }
+
+  Future<void> _cacheFullReferenceImages() async {
+    final fullPoints = _plan.points
+        .where((point) => point.referenceImageUrl != null)
+        .toList(growable: false);
+    if (fullPoints.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('当前计划没有参考图可缓存')));
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
+
+    var cached = 0;
+    for (final point in fullPoints) {
+      final path = await reference_image_cache.cacheReferenceFullImage(point);
+      if (path == null) {
+        continue;
+      }
+      await widget.repository.updatePointImageCache(
+        planId: _plan.id,
+        pointId: point.id,
+        referenceThumbnailPath: point.referenceThumbnailPath,
+        referenceFullImagePath: path,
+      );
+      cached += 1;
+    }
+
+    final updatedPlan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _plan = updatedPlan;
+      _didUpdate = true;
+    });
+    messenger.showSnackBar(SnackBar(content: Text('已缓存 $cached 张完整参考图')));
+  }
 }
 
 class _PointManagerHeader extends StatelessWidget {
@@ -554,11 +601,13 @@ class _PointManagerHeader extends StatelessWidget {
     required this.plan,
     required this.selectedWorkId,
     required this.onWorkSelected,
+    required this.onCacheFullReferences,
   });
 
   final PilgrimagePlan plan;
   final String? selectedWorkId;
   final ValueChanged<String?> onWorkSelected;
+  final Future<void> Function() onCacheFullReferences;
 
   @override
   Widget build(BuildContext context) {
@@ -632,6 +681,15 @@ class _PointManagerHeader extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => onCacheFullReferences(),
+                icon: const Icon(Icons.download_for_offline_outlined, size: 18),
+                label: const Text('缓存完整参考图'),
+              ),
+            ),
           ],
         ),
       ),
@@ -779,6 +837,17 @@ class _PointManagerTile extends StatelessWidget {
                           letterSpacing: 0,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _cacheStatusText(point),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          letterSpacing: 0,
+                        ),
+                      ),
                       const SizedBox(height: 5),
                       SizedBox(
                         height: 32,
@@ -793,6 +862,8 @@ class _PointManagerTile extends StatelessWidget {
                                 letterSpacing: 0,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            _CacheStatusPill(point: point),
                             const Spacer(),
                             if (!selectionMode) ...[
                               _CompactTileButton(
@@ -837,6 +908,55 @@ class _PointManagerTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  String _cacheStatusText(PilgrimagePoint point) {
+    final fullCached = point.referenceFullImagePath != null;
+    final thumbCached = point.referenceThumbnailPath != null;
+    return fullCached
+        ? '缓存：完整参考图已缓存'
+        : thumbCached
+        ? '缓存：缩略图已缓存'
+        : '缓存：未缓存';
+  }
+}
+
+class _CacheStatusPill extends StatelessWidget {
+  const _CacheStatusPill({required this.point});
+
+  final PilgrimagePoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    final fullCached = point.referenceFullImagePath != null;
+    final thumbCached = point.referenceThumbnailPath != null;
+    final label = fullCached
+        ? '完整已缓存'
+        : thumbCached
+        ? '缩略图已缓存'
+        : '未缓存';
+    final color = fullCached
+        ? AppColors.accent
+        : thumbCached
+        ? AppColors.textSecondary
+        : AppColors.accentDark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
         ),
       ),
     );

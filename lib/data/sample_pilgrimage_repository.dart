@@ -125,6 +125,31 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePointImageCache({
+    required String planId,
+    required String pointId,
+    String? referenceThumbnailPath,
+    String? referenceFullImagePath,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      points: [
+        for (final point in plan.points)
+          point.id == pointId
+              ? point.copyWith(
+                  referenceThumbnailPath: referenceThumbnailPath,
+                  referenceFullImagePath: referenceFullImagePath,
+                )
+              : point,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<PilgrimagePlan> addWorkToPlan({
     required String planId,
     required PilgrimageWork work,
@@ -378,7 +403,11 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
 
   @override
   Future<void> saveAppSettings(AppSettings settings) async {
-    _settings = settings.copyWith(uiScale: settings.uiScale.clamp(0.5, 2.0));
+    _settings = settings.copyWith(
+      uiScale: settings.uiScale.clamp(0.5, 2.0),
+      cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 10.0),
+      cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
+    );
   }
 
   List<PilgrimageWork> _appendWorkIfMissing(

@@ -52,6 +52,47 @@ class SettingsScreen extends StatelessWidget {
                   onChanged(settings.copyWith(uiScale: value));
                 },
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.zoom_in_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '相机缩放 ${settings.cameraMinZoom.toStringAsFixed(1)}x - ${settings.cameraMaxZoom.toStringAsFixed(1)}x',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              RangeSlider(
+                min: 0.1,
+                max: 20,
+                divisions: 199,
+                values: RangeValues(
+                  settings.cameraMinZoom.clamp(0.1, settings.cameraMaxZoom),
+                  settings.cameraMaxZoom.clamp(settings.cameraMinZoom, 20.0),
+                ),
+                labels: RangeLabels(
+                  '${settings.cameraMinZoom.toStringAsFixed(1)}x',
+                  '${settings.cameraMaxZoom.toStringAsFixed(1)}x',
+                ),
+                onChanged: (values) {
+                  onChanged(
+                    settings.copyWith(
+                      cameraMinZoom: values.start,
+                      cameraMaxZoom: values.end,
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           const SizedBox(height: 12),

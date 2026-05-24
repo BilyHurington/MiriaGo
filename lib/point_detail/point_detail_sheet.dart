@@ -5,6 +5,8 @@ import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
 class PointDetailSheet extends StatelessWidget {
   const PointDetailSheet({
@@ -242,8 +244,6 @@ class _ReferencePreview extends StatelessWidget {
       VisitStatus.pending => AppColors.accentDark,
     };
 
-    final imageUrl = point.referenceImageUrl;
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -253,9 +253,12 @@ class _ReferencePreview extends StatelessWidget {
           color: AppColors.surfaceMuted,
           border: Border.all(color: AppColors.border),
         ),
-        child: imageUrl == null
-            ? Icon(Icons.image_outlined, color: color, size: 28)
-            : Image.network(imageUrl, fit: BoxFit.cover),
+        child: ReferenceThumbnail(
+          localPath: point.referenceThumbnailPath,
+          imageUrl: point.referenceImageUrl,
+          fit: BoxFit.cover,
+          placeholder: Icon(Icons.image_outlined, color: color, size: 28),
+        ),
       ),
     );
   }

@@ -992,6 +992,28 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _referenceThumbnailPathMeta =
+      const VerificationMeta('referenceThumbnailPath');
+  @override
+  late final GeneratedColumn<String> referenceThumbnailPath =
+      GeneratedColumn<String>(
+        'reference_thumbnail_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _referenceFullImagePathMeta =
+      const VerificationMeta('referenceFullImagePath');
+  @override
+  late final GeneratedColumn<String> referenceFullImagePath =
+      GeneratedColumn<String>(
+        'reference_full_image_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
     'sourceUrl',
   );
@@ -1055,6 +1077,8 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     source,
     sourceId,
     referenceImageUrl,
+    referenceThumbnailPath,
+    referenceFullImagePath,
     sourceUrl,
     sortOrder,
     isCurrent,
@@ -1170,6 +1194,24 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         ),
       );
     }
+    if (data.containsKey('reference_thumbnail_path')) {
+      context.handle(
+        _referenceThumbnailPathMeta,
+        referenceThumbnailPath.isAcceptableOrUnknown(
+          data['reference_thumbnail_path']!,
+          _referenceThumbnailPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reference_full_image_path')) {
+      context.handle(
+        _referenceFullImagePathMeta,
+        referenceFullImagePath.isAcceptableOrUnknown(
+          data['reference_full_image_path']!,
+          _referenceFullImagePathMeta,
+        ),
+      );
+    }
     if (data.containsKey('source_url')) {
       context.handle(
         _sourceUrlMeta,
@@ -1254,6 +1296,14 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         DriftSqlType.string,
         data['${effectivePrefix}reference_image_url'],
       ),
+      referenceThumbnailPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference_thumbnail_path'],
+      ),
+      referenceFullImagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference_full_image_path'],
+      ),
       sourceUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_url'],
@@ -1292,6 +1342,8 @@ class Point extends DataClass implements Insertable<Point> {
   final String source;
   final String? sourceId;
   final String? referenceImageUrl;
+  final String? referenceThumbnailPath;
+  final String? referenceFullImagePath;
   final String? sourceUrl;
   final int sortOrder;
   final bool isCurrent;
@@ -1309,6 +1361,8 @@ class Point extends DataClass implements Insertable<Point> {
     required this.source,
     this.sourceId,
     this.referenceImageUrl,
+    this.referenceThumbnailPath,
+    this.referenceFullImagePath,
     this.sourceUrl,
     required this.sortOrder,
     required this.isCurrent,
@@ -1332,6 +1386,16 @@ class Point extends DataClass implements Insertable<Point> {
     }
     if (!nullToAbsent || referenceImageUrl != null) {
       map['reference_image_url'] = Variable<String>(referenceImageUrl);
+    }
+    if (!nullToAbsent || referenceThumbnailPath != null) {
+      map['reference_thumbnail_path'] = Variable<String>(
+        referenceThumbnailPath,
+      );
+    }
+    if (!nullToAbsent || referenceFullImagePath != null) {
+      map['reference_full_image_path'] = Variable<String>(
+        referenceFullImagePath,
+      );
     }
     if (!nullToAbsent || sourceUrl != null) {
       map['source_url'] = Variable<String>(sourceUrl);
@@ -1362,6 +1426,12 @@ class Point extends DataClass implements Insertable<Point> {
       referenceImageUrl: referenceImageUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(referenceImageUrl),
+      referenceThumbnailPath: referenceThumbnailPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(referenceThumbnailPath),
+      referenceFullImagePath: referenceFullImagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(referenceFullImagePath),
       sourceUrl: sourceUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceUrl),
@@ -1393,6 +1463,12 @@ class Point extends DataClass implements Insertable<Point> {
       referenceImageUrl: serializer.fromJson<String?>(
         json['referenceImageUrl'],
       ),
+      referenceThumbnailPath: serializer.fromJson<String?>(
+        json['referenceThumbnailPath'],
+      ),
+      referenceFullImagePath: serializer.fromJson<String?>(
+        json['referenceFullImagePath'],
+      ),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       isCurrent: serializer.fromJson<bool>(json['isCurrent']),
@@ -1415,6 +1491,12 @@ class Point extends DataClass implements Insertable<Point> {
       'source': serializer.toJson<String>(source),
       'sourceId': serializer.toJson<String?>(sourceId),
       'referenceImageUrl': serializer.toJson<String?>(referenceImageUrl),
+      'referenceThumbnailPath': serializer.toJson<String?>(
+        referenceThumbnailPath,
+      ),
+      'referenceFullImagePath': serializer.toJson<String?>(
+        referenceFullImagePath,
+      ),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'isCurrent': serializer.toJson<bool>(isCurrent),
@@ -1435,6 +1517,8 @@ class Point extends DataClass implements Insertable<Point> {
     String? source,
     Value<String?> sourceId = const Value.absent(),
     Value<String?> referenceImageUrl = const Value.absent(),
+    Value<String?> referenceThumbnailPath = const Value.absent(),
+    Value<String?> referenceFullImagePath = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
     int? sortOrder,
     bool? isCurrent,
@@ -1454,6 +1538,12 @@ class Point extends DataClass implements Insertable<Point> {
     referenceImageUrl: referenceImageUrl.present
         ? referenceImageUrl.value
         : this.referenceImageUrl,
+    referenceThumbnailPath: referenceThumbnailPath.present
+        ? referenceThumbnailPath.value
+        : this.referenceThumbnailPath,
+    referenceFullImagePath: referenceFullImagePath.present
+        ? referenceFullImagePath.value
+        : this.referenceFullImagePath,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
     sortOrder: sortOrder ?? this.sortOrder,
     isCurrent: isCurrent ?? this.isCurrent,
@@ -1479,6 +1569,12 @@ class Point extends DataClass implements Insertable<Point> {
       referenceImageUrl: data.referenceImageUrl.present
           ? data.referenceImageUrl.value
           : this.referenceImageUrl,
+      referenceThumbnailPath: data.referenceThumbnailPath.present
+          ? data.referenceThumbnailPath.value
+          : this.referenceThumbnailPath,
+      referenceFullImagePath: data.referenceFullImagePath.present
+          ? data.referenceFullImagePath.value
+          : this.referenceFullImagePath,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       isCurrent: data.isCurrent.present ? data.isCurrent.value : this.isCurrent,
@@ -1503,6 +1599,8 @@ class Point extends DataClass implements Insertable<Point> {
           ..write('source: $source, ')
           ..write('sourceId: $sourceId, ')
           ..write('referenceImageUrl: $referenceImageUrl, ')
+          ..write('referenceThumbnailPath: $referenceThumbnailPath, ')
+          ..write('referenceFullImagePath: $referenceFullImagePath, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isCurrent: $isCurrent, ')
@@ -1525,6 +1623,8 @@ class Point extends DataClass implements Insertable<Point> {
     source,
     sourceId,
     referenceImageUrl,
+    referenceThumbnailPath,
+    referenceFullImagePath,
     sourceUrl,
     sortOrder,
     isCurrent,
@@ -1546,6 +1646,8 @@ class Point extends DataClass implements Insertable<Point> {
           other.source == this.source &&
           other.sourceId == this.sourceId &&
           other.referenceImageUrl == this.referenceImageUrl &&
+          other.referenceThumbnailPath == this.referenceThumbnailPath &&
+          other.referenceFullImagePath == this.referenceFullImagePath &&
           other.sourceUrl == this.sourceUrl &&
           other.sortOrder == this.sortOrder &&
           other.isCurrent == this.isCurrent &&
@@ -1565,6 +1667,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
   final Value<String> source;
   final Value<String?> sourceId;
   final Value<String?> referenceImageUrl;
+  final Value<String?> referenceThumbnailPath;
+  final Value<String?> referenceFullImagePath;
   final Value<String?> sourceUrl;
   final Value<int> sortOrder;
   final Value<bool> isCurrent;
@@ -1583,6 +1687,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.source = const Value.absent(),
     this.sourceId = const Value.absent(),
     this.referenceImageUrl = const Value.absent(),
+    this.referenceThumbnailPath = const Value.absent(),
+    this.referenceFullImagePath = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.isCurrent = const Value.absent(),
@@ -1602,6 +1708,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     required String source,
     this.sourceId = const Value.absent(),
     this.referenceImageUrl = const Value.absent(),
+    this.referenceThumbnailPath = const Value.absent(),
+    this.referenceFullImagePath = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.isCurrent = const Value.absent(),
@@ -1630,6 +1738,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Expression<String>? source,
     Expression<String>? sourceId,
     Expression<String>? referenceImageUrl,
+    Expression<String>? referenceThumbnailPath,
+    Expression<String>? referenceFullImagePath,
     Expression<String>? sourceUrl,
     Expression<int>? sortOrder,
     Expression<bool>? isCurrent,
@@ -1649,6 +1759,10 @@ class PointsCompanion extends UpdateCompanion<Point> {
       if (source != null) 'source': source,
       if (sourceId != null) 'source_id': sourceId,
       if (referenceImageUrl != null) 'reference_image_url': referenceImageUrl,
+      if (referenceThumbnailPath != null)
+        'reference_thumbnail_path': referenceThumbnailPath,
+      if (referenceFullImagePath != null)
+        'reference_full_image_path': referenceFullImagePath,
       if (sourceUrl != null) 'source_url': sourceUrl,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (isCurrent != null) 'is_current': isCurrent,
@@ -1670,6 +1784,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Value<String>? source,
     Value<String?>? sourceId,
     Value<String?>? referenceImageUrl,
+    Value<String?>? referenceThumbnailPath,
+    Value<String?>? referenceFullImagePath,
     Value<String?>? sourceUrl,
     Value<int>? sortOrder,
     Value<bool>? isCurrent,
@@ -1689,6 +1805,10 @@ class PointsCompanion extends UpdateCompanion<Point> {
       source: source ?? this.source,
       sourceId: sourceId ?? this.sourceId,
       referenceImageUrl: referenceImageUrl ?? this.referenceImageUrl,
+      referenceThumbnailPath:
+          referenceThumbnailPath ?? this.referenceThumbnailPath,
+      referenceFullImagePath:
+          referenceFullImagePath ?? this.referenceFullImagePath,
       sourceUrl: sourceUrl ?? this.sourceUrl,
       sortOrder: sortOrder ?? this.sortOrder,
       isCurrent: isCurrent ?? this.isCurrent,
@@ -1736,6 +1856,16 @@ class PointsCompanion extends UpdateCompanion<Point> {
     if (referenceImageUrl.present) {
       map['reference_image_url'] = Variable<String>(referenceImageUrl.value);
     }
+    if (referenceThumbnailPath.present) {
+      map['reference_thumbnail_path'] = Variable<String>(
+        referenceThumbnailPath.value,
+      );
+    }
+    if (referenceFullImagePath.present) {
+      map['reference_full_image_path'] = Variable<String>(
+        referenceFullImagePath.value,
+      );
+    }
     if (sourceUrl.present) {
       map['source_url'] = Variable<String>(sourceUrl.value);
     }
@@ -1769,6 +1899,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
           ..write('source: $source, ')
           ..write('sourceId: $sourceId, ')
           ..write('referenceImageUrl: $referenceImageUrl, ')
+          ..write('referenceThumbnailPath: $referenceThumbnailPath, ')
+          ..write('referenceFullImagePath: $referenceFullImagePath, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isCurrent: $isCurrent, ')
@@ -2404,8 +2536,38 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant('landscape16x9'),
       );
+  static const VerificationMeta _cameraMinZoomMeta = const VerificationMeta(
+    'cameraMinZoom',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, uiScale, cameraAspectRatio];
+  late final GeneratedColumn<double> cameraMinZoom = GeneratedColumn<double>(
+    'camera_min_zoom',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.6),
+  );
+  static const VerificationMeta _cameraMaxZoomMeta = const VerificationMeta(
+    'cameraMaxZoom',
+  );
+  @override
+  late final GeneratedColumn<double> cameraMaxZoom = GeneratedColumn<double>(
+    'camera_max_zoom',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(5.0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    uiScale,
+    cameraAspectRatio,
+    cameraMinZoom,
+    cameraMaxZoom,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2438,6 +2600,24 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('camera_min_zoom')) {
+      context.handle(
+        _cameraMinZoomMeta,
+        cameraMinZoom.isAcceptableOrUnknown(
+          data['camera_min_zoom']!,
+          _cameraMinZoomMeta,
+        ),
+      );
+    }
+    if (data.containsKey('camera_max_zoom')) {
+      context.handle(
+        _cameraMaxZoomMeta,
+        cameraMaxZoom.isAcceptableOrUnknown(
+          data['camera_max_zoom']!,
+          _cameraMaxZoomMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2459,6 +2639,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}camera_aspect_ratio'],
       )!,
+      cameraMinZoom: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}camera_min_zoom'],
+      )!,
+      cameraMaxZoom: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}camera_max_zoom'],
+      )!,
     );
   }
 
@@ -2473,10 +2661,14 @@ class AppSettingsEntry extends DataClass
   final String id;
   final double uiScale;
   final String cameraAspectRatio;
+  final double cameraMinZoom;
+  final double cameraMaxZoom;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
     required this.cameraAspectRatio,
+    required this.cameraMinZoom,
+    required this.cameraMaxZoom,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2484,6 +2676,8 @@ class AppSettingsEntry extends DataClass
     map['id'] = Variable<String>(id);
     map['ui_scale'] = Variable<double>(uiScale);
     map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio);
+    map['camera_min_zoom'] = Variable<double>(cameraMinZoom);
+    map['camera_max_zoom'] = Variable<double>(cameraMaxZoom);
     return map;
   }
 
@@ -2492,6 +2686,8 @@ class AppSettingsEntry extends DataClass
       id: Value(id),
       uiScale: Value(uiScale),
       cameraAspectRatio: Value(cameraAspectRatio),
+      cameraMinZoom: Value(cameraMinZoom),
+      cameraMaxZoom: Value(cameraMaxZoom),
     );
   }
 
@@ -2504,6 +2700,8 @@ class AppSettingsEntry extends DataClass
       id: serializer.fromJson<String>(json['id']),
       uiScale: serializer.fromJson<double>(json['uiScale']),
       cameraAspectRatio: serializer.fromJson<String>(json['cameraAspectRatio']),
+      cameraMinZoom: serializer.fromJson<double>(json['cameraMinZoom']),
+      cameraMaxZoom: serializer.fromJson<double>(json['cameraMaxZoom']),
     );
   }
   @override
@@ -2513,6 +2711,8 @@ class AppSettingsEntry extends DataClass
       'id': serializer.toJson<String>(id),
       'uiScale': serializer.toJson<double>(uiScale),
       'cameraAspectRatio': serializer.toJson<String>(cameraAspectRatio),
+      'cameraMinZoom': serializer.toJson<double>(cameraMinZoom),
+      'cameraMaxZoom': serializer.toJson<double>(cameraMaxZoom),
     };
   }
 
@@ -2520,10 +2720,14 @@ class AppSettingsEntry extends DataClass
     String? id,
     double? uiScale,
     String? cameraAspectRatio,
+    double? cameraMinZoom,
+    double? cameraMaxZoom,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
     cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+    cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
+    cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -2532,6 +2736,12 @@ class AppSettingsEntry extends DataClass
       cameraAspectRatio: data.cameraAspectRatio.present
           ? data.cameraAspectRatio.value
           : this.cameraAspectRatio,
+      cameraMinZoom: data.cameraMinZoom.present
+          ? data.cameraMinZoom.value
+          : this.cameraMinZoom,
+      cameraMaxZoom: data.cameraMaxZoom.present
+          ? data.cameraMaxZoom.value
+          : this.cameraMaxZoom,
     );
   }
 
@@ -2540,49 +2750,64 @@ class AppSettingsEntry extends DataClass
     return (StringBuffer('AppSettingsEntry(')
           ..write('id: $id, ')
           ..write('uiScale: $uiScale, ')
-          ..write('cameraAspectRatio: $cameraAspectRatio')
+          ..write('cameraAspectRatio: $cameraAspectRatio, ')
+          ..write('cameraMinZoom: $cameraMinZoom, ')
+          ..write('cameraMaxZoom: $cameraMaxZoom')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, uiScale, cameraAspectRatio);
+  int get hashCode =>
+      Object.hash(id, uiScale, cameraAspectRatio, cameraMinZoom, cameraMaxZoom);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppSettingsEntry &&
           other.id == this.id &&
           other.uiScale == this.uiScale &&
-          other.cameraAspectRatio == this.cameraAspectRatio);
+          other.cameraAspectRatio == this.cameraAspectRatio &&
+          other.cameraMinZoom == this.cameraMinZoom &&
+          other.cameraMaxZoom == this.cameraMaxZoom);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> id;
   final Value<double> uiScale;
   final Value<String> cameraAspectRatio;
+  final Value<double> cameraMinZoom;
+  final Value<double> cameraMaxZoom;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
     this.uiScale = const Value.absent(),
     this.cameraAspectRatio = const Value.absent(),
+    this.cameraMinZoom = const Value.absent(),
+    this.cameraMaxZoom = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
     required String id,
     this.uiScale = const Value.absent(),
     this.cameraAspectRatio = const Value.absent(),
+    this.cameraMinZoom = const Value.absent(),
+    this.cameraMaxZoom = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
     Expression<String>? id,
     Expression<double>? uiScale,
     Expression<String>? cameraAspectRatio,
+    Expression<double>? cameraMinZoom,
+    Expression<double>? cameraMaxZoom,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (uiScale != null) 'ui_scale': uiScale,
       if (cameraAspectRatio != null) 'camera_aspect_ratio': cameraAspectRatio,
+      if (cameraMinZoom != null) 'camera_min_zoom': cameraMinZoom,
+      if (cameraMaxZoom != null) 'camera_max_zoom': cameraMaxZoom,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2591,12 +2816,16 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? id,
     Value<double>? uiScale,
     Value<String>? cameraAspectRatio,
+    Value<double>? cameraMinZoom,
+    Value<double>? cameraMaxZoom,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
       id: id ?? this.id,
       uiScale: uiScale ?? this.uiScale,
       cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+      cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
+      cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2613,6 +2842,12 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     if (cameraAspectRatio.present) {
       map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio.value);
     }
+    if (cameraMinZoom.present) {
+      map['camera_min_zoom'] = Variable<double>(cameraMinZoom.value);
+    }
+    if (cameraMaxZoom.present) {
+      map['camera_max_zoom'] = Variable<double>(cameraMaxZoom.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2625,6 +2860,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('id: $id, ')
           ..write('uiScale: $uiScale, ')
           ..write('cameraAspectRatio: $cameraAspectRatio, ')
+          ..write('cameraMinZoom: $cameraMinZoom, ')
+          ..write('cameraMaxZoom: $cameraMaxZoom, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3496,6 +3733,8 @@ typedef $$PointsTableCreateCompanionBuilder =
       required String source,
       Value<String?> sourceId,
       Value<String?> referenceImageUrl,
+      Value<String?> referenceThumbnailPath,
+      Value<String?> referenceFullImagePath,
       Value<String?> sourceUrl,
       Value<int> sortOrder,
       Value<bool> isCurrent,
@@ -3516,6 +3755,8 @@ typedef $$PointsTableUpdateCompanionBuilder =
       Value<String> source,
       Value<String?> sourceId,
       Value<String?> referenceImageUrl,
+      Value<String?> referenceThumbnailPath,
+      Value<String?> referenceFullImagePath,
       Value<String?> sourceUrl,
       Value<int> sortOrder,
       Value<bool> isCurrent,
@@ -3618,6 +3859,16 @@ class $$PointsTableFilterComposer
 
   ColumnFilters<String> get referenceImageUrl => $composableBuilder(
     column: $table.referenceImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get referenceThumbnailPath => $composableBuilder(
+    column: $table.referenceThumbnailPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get referenceFullImagePath => $composableBuilder(
+    column: $table.referenceFullImagePath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3747,6 +3998,16 @@ class $$PointsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get referenceThumbnailPath => $composableBuilder(
+    column: $table.referenceThumbnailPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get referenceFullImagePath => $composableBuilder(
+    column: $table.referenceFullImagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sourceUrl => $composableBuilder(
     column: $table.sourceUrl,
     builder: (column) => ColumnOrderings(column),
@@ -3859,6 +4120,16 @@ class $$PointsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get referenceThumbnailPath => $composableBuilder(
+    column: $table.referenceThumbnailPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get referenceFullImagePath => $composableBuilder(
+    column: $table.referenceFullImagePath,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get sourceUrl =>
       $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
 
@@ -3960,6 +4231,8 @@ class $$PointsTableTableManager
                 Value<String> source = const Value.absent(),
                 Value<String?> sourceId = const Value.absent(),
                 Value<String?> referenceImageUrl = const Value.absent(),
+                Value<String?> referenceThumbnailPath = const Value.absent(),
+                Value<String?> referenceFullImagePath = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> isCurrent = const Value.absent(),
@@ -3978,6 +4251,8 @@ class $$PointsTableTableManager
                 source: source,
                 sourceId: sourceId,
                 referenceImageUrl: referenceImageUrl,
+                referenceThumbnailPath: referenceThumbnailPath,
+                referenceFullImagePath: referenceFullImagePath,
                 sourceUrl: sourceUrl,
                 sortOrder: sortOrder,
                 isCurrent: isCurrent,
@@ -3998,6 +4273,8 @@ class $$PointsTableTableManager
                 required String source,
                 Value<String?> sourceId = const Value.absent(),
                 Value<String?> referenceImageUrl = const Value.absent(),
+                Value<String?> referenceThumbnailPath = const Value.absent(),
+                Value<String?> referenceFullImagePath = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> isCurrent = const Value.absent(),
@@ -4016,6 +4293,8 @@ class $$PointsTableTableManager
                 source: source,
                 sourceId: sourceId,
                 referenceImageUrl: referenceImageUrl,
+                referenceThumbnailPath: referenceThumbnailPath,
+                referenceFullImagePath: referenceFullImagePath,
                 sourceUrl: sourceUrl,
                 sortOrder: sortOrder,
                 isCurrent: isCurrent,
@@ -4389,6 +4668,8 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       required String id,
       Value<double> uiScale,
       Value<String> cameraAspectRatio,
+      Value<double> cameraMinZoom,
+      Value<double> cameraMaxZoom,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -4396,6 +4677,8 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<double> uiScale,
       Value<String> cameraAspectRatio,
+      Value<double> cameraMinZoom,
+      Value<double> cameraMaxZoom,
       Value<int> rowid,
     });
 
@@ -4420,6 +4703,16 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<String> get cameraAspectRatio => $composableBuilder(
     column: $table.cameraAspectRatio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get cameraMinZoom => $composableBuilder(
+    column: $table.cameraMinZoom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get cameraMaxZoom => $composableBuilder(
+    column: $table.cameraMaxZoom,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4447,6 +4740,16 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.cameraAspectRatio,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get cameraMinZoom => $composableBuilder(
+    column: $table.cameraMinZoom,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get cameraMaxZoom => $composableBuilder(
+    column: $table.cameraMaxZoom,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -4466,6 +4769,16 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get cameraAspectRatio => $composableBuilder(
     column: $table.cameraAspectRatio,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get cameraMinZoom => $composableBuilder(
+    column: $table.cameraMinZoom,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get cameraMaxZoom => $composableBuilder(
+    column: $table.cameraMaxZoom,
     builder: (column) => column,
   );
 }
@@ -4513,11 +4826,15 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<double> uiScale = const Value.absent(),
                 Value<String> cameraAspectRatio = const Value.absent(),
+                Value<double> cameraMinZoom = const Value.absent(),
+                Value<double> cameraMaxZoom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
                 uiScale: uiScale,
                 cameraAspectRatio: cameraAspectRatio,
+                cameraMinZoom: cameraMinZoom,
+                cameraMaxZoom: cameraMaxZoom,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4525,11 +4842,15 @@ class $$AppSettingsEntriesTableTableManager
                 required String id,
                 Value<double> uiScale = const Value.absent(),
                 Value<String> cameraAspectRatio = const Value.absent(),
+                Value<double> cameraMinZoom = const Value.absent(),
+                Value<double> cameraMaxZoom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
                 uiScale: uiScale,
                 cameraAspectRatio: cameraAspectRatio,
+                cameraMinZoom: cameraMinZoom,
+                cameraMaxZoom: cameraMaxZoom,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

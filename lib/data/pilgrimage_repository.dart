@@ -31,6 +31,13 @@ abstract interface class PilgrimageRepository {
     required List<PilgrimagePoint> points,
   });
 
+  Future<PilgrimagePlan> updatePointImageCache({
+    required String planId,
+    required String pointId,
+    String? referenceThumbnailPath,
+    String? referenceFullImagePath,
+  });
+
   Future<PilgrimagePlan> addWorkToPlan({
     required String planId,
     required PilgrimageWork work,

@@ -12,6 +12,8 @@ import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import 'map_navigation_launcher.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
 class PilgrimageMapScreen extends StatefulWidget {
   const PilgrimageMapScreen({
@@ -583,14 +585,6 @@ class _PointCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onOpenDetail,
-                  icon: const Icon(Icons.info_outline, size: 18),
-                  label: const Text('详情'),
-                ),
-              ),
-              const SizedBox(width: 8),
               IconButton.outlined(
                 tooltip: '拍摄参考',
                 onPressed: onOpenCamera,
@@ -641,17 +635,20 @@ class _PointThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = point.referenceImageUrl;
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: 64,
         height: 64,
         color: AppColors.surfaceMuted,
-        child: imageUrl == null
-            ? const Icon(Icons.image_outlined, color: AppColors.accentDark)
-            : Image.network(imageUrl, fit: BoxFit.cover),
+        child: ReferenceThumbnail(
+          localPath: point.referenceThumbnailPath,
+          imageUrl: point.referenceImageUrl,
+          placeholder: const Icon(
+            Icons.image_outlined,
+            color: AppColors.accentDark,
+          ),
+        ),
       ),
     );
   }

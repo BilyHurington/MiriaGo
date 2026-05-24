@@ -40,6 +40,8 @@ class Points extends Table {
   TextColumn get source => text()();
   TextColumn get sourceId => text().nullable()();
   TextColumn get referenceImageUrl => text().nullable()();
+  TextColumn get referenceThumbnailPath => text().nullable()();
+  TextColumn get referenceFullImagePath => text().nullable()();
   TextColumn get sourceUrl => text().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   BoolColumn get isCurrent => boolean().withDefault(const Constant(false))();
@@ -69,6 +71,8 @@ class AppSettingsEntries extends Table {
   RealColumn get uiScale => real().withDefault(const Constant(1.0))();
   TextColumn get cameraAspectRatio =>
       text().withDefault(const Constant('landscape16x9'))();
+  RealColumn get cameraMinZoom => real().withDefault(const Constant(0.6))();
+  RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -79,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -96,6 +100,18 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) {
         await migrator.createTable(appSettingsEntries);
+      }
+      if (from < 6) {
+        await migrator.addColumn(points, points.referenceThumbnailPath);
+        await migrator.addColumn(points, points.referenceFullImagePath);
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.cameraMinZoom,
+        );
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.cameraMaxZoom,
+        );
       }
     },
   );

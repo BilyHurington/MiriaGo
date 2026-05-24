@@ -6,6 +6,8 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
@@ -17,6 +19,7 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
     required this.photoPath,
     required this.referenceMode,
     this.referenceBytes,
+    this.referenceImagePath,
     this.referenceImageUrl,
     super.key,
   });
@@ -26,6 +29,7 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
   final String photoPath;
   final String referenceMode;
   final Uint8List? referenceBytes;
+  final String? referenceImagePath;
   final String? referenceImageUrl;
 
   @override
@@ -54,12 +58,14 @@ class _VisitRecordConfirmationScreenState
         prefix: 'reference',
       );
     }
+    final fallbackReferencePath = widget.referenceImagePath;
 
     await controller.createVisitRecord(
       point: widget.point,
       photoPath: widget.photoPath,
-      referenceImagePath: referenceImagePath,
-      referenceImageUrl: referenceImagePath == null
+      referenceImagePath: referenceImagePath ?? fallbackReferencePath,
+      referenceImageUrl:
+          referenceImagePath == null && fallbackReferencePath == null
           ? widget.referenceImageUrl
           : null,
       referenceMode: widget.referenceMode,
@@ -106,6 +112,7 @@ class _VisitRecordConfirmationScreenState
           _ComparisonPanel(
             photoPath: widget.photoPath,
             referenceBytes: widget.referenceBytes,
+            referenceImagePath: widget.referenceImagePath,
             referenceImageUrl: widget.referenceImageUrl,
           ),
           const SizedBox(height: 16),
@@ -137,11 +144,13 @@ class _ComparisonPanel extends StatelessWidget {
   const _ComparisonPanel({
     required this.photoPath,
     required this.referenceBytes,
+    required this.referenceImagePath,
     required this.referenceImageUrl,
   });
 
   final String photoPath;
   final Uint8List? referenceBytes;
+  final String? referenceImagePath;
   final String? referenceImageUrl;
 
   @override
@@ -153,6 +162,7 @@ class _ComparisonPanel extends StatelessWidget {
             label: '参考图',
             child: _ReferencePreview(
               bytes: referenceBytes,
+              imagePath: referenceImagePath,
               imageUrl: referenceImageUrl,
             ),
           ),
@@ -204,9 +214,14 @@ class _ImageCompareTile extends StatelessWidget {
 }
 
 class _ReferencePreview extends StatelessWidget {
-  const _ReferencePreview({required this.bytes, required this.imageUrl});
+  const _ReferencePreview({
+    required this.bytes,
+    required this.imagePath,
+    required this.imageUrl,
+  });
 
   final Uint8List? bytes;
+  final String? imagePath;
   final String? imageUrl;
 
   @override
@@ -214,6 +229,16 @@ class _ReferencePreview extends StatelessWidget {
     final localBytes = bytes;
     if (localBytes != null) {
       return Image.memory(localBytes, fit: BoxFit.cover);
+    }
+
+    final localPath = imagePath;
+    if (localPath != null) {
+      return ReferenceThumbnail(
+        localPath: localPath,
+        imageUrl: null,
+        placeholder: const _ReferencePlaceholder(),
+        fit: BoxFit.cover,
+      );
     }
 
     final url = imageUrl;

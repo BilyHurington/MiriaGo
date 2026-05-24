@@ -22,9 +22,9 @@ class PilgrimagePlanController extends ChangeNotifier {
     unawaited(loadVisitRecords());
   }
 
-  final PilgrimagePlan _plan;
+  PilgrimagePlan _plan;
   final PilgrimageRepository? _repository;
-  final Set<String> _completedPointIds;
+  Set<String> _completedPointIds;
   List<PilgrimageVisitRecord> _visitRecords = const [];
 
   String? _currentPointId;
@@ -145,6 +145,25 @@ class PilgrimagePlanController extends ChangeNotifier {
     return record;
   }
 
+  Future<void> updatePointImageCache(
+    PilgrimagePoint point, {
+    String? referenceThumbnailPath,
+    String? referenceFullImagePath,
+  }) async {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    final updatedPlan = await repository.updatePointImageCache(
+      planId: _plan.id,
+      pointId: point.id,
+      referenceThumbnailPath: referenceThumbnailPath,
+      referenceFullImagePath: referenceFullImagePath,
+    );
+    _replacePlanState(updatedPlan);
+  }
+
   Future<void> deleteVisitRecord(PilgrimageVisitRecord record) async {
     final repository = _repository;
     if (repository == null) {
@@ -200,5 +219,16 @@ class PilgrimagePlanController extends ChangeNotifier {
       (point) => point.id == id,
       orElse: () => points.first,
     );
+  }
+
+  void _replacePlanState(PilgrimagePlan updatedPlan) {
+    _plan = updatedPlan;
+    _completedPointIds = {...updatedPlan.completedPointIds};
+    _currentPointId = updatedPlan.currentPointId;
+    _selectedPointId =
+        updatedPlan.points.any((point) => point.id == _selectedPointId)
+        ? _selectedPointId
+        : updatedPlan.currentPointId;
+    notifyListeners();
   }
 }

@@ -7,6 +7,9 @@ import '../app_theme.dart';
 import '../data/anitabi_client.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/pilgrimage_repository.dart';
+import '../data/reference_image_cache_stub.dart'
+    if (dart.library.io) '../data/reference_image_cache_io.dart'
+    as reference_image_cache;
 import 'pilgrimage_models.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
@@ -120,10 +123,23 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
 
     try {
-      await widget.repository.addPointToPlan(
+      var importedPlan = await widget.repository.addPointToPlan(
         planId: widget.plan.id,
         point: pilgrimagePoint,
       );
+      final thumbnailPath = await reference_image_cache.cacheReferenceThumbnail(
+        pilgrimagePoint,
+      );
+      if (thumbnailPath != null) {
+        importedPlan = await widget.repository.updatePointImageCache(
+          planId: widget.plan.id,
+          pointId: pilgrimagePoint.id,
+          referenceThumbnailPath: thumbnailPath,
+          referenceFullImagePath: importedPlan.points
+              .firstWhere((point) => point.id == pilgrimagePoint.id)
+              .referenceFullImagePath,
+        );
+      }
       if (!mounted) {
         return;
       }

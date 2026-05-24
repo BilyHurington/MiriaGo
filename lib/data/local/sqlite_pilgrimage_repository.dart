@@ -51,6 +51,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return AppSettings(
       uiScale: row.uiScale.clamp(0.5, 2.0),
       cameraAspectRatio: _cameraAspectRatioFromName(row.cameraAspectRatio),
+      cameraMinZoom: row.cameraMinZoom.clamp(0.1, 10.0),
+      cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
     );
   }
 
@@ -144,6 +146,26 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       }
       await _touchPlan(planId);
     });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePointImageCache({
+    required String planId,
+    required String pointId,
+    String? referenceThumbnailPath,
+    String? referenceFullImagePath,
+  }) async {
+    await (_database.update(_database.points)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(pointId),
+        ))
+        .write(
+          PointsCompanion(
+            referenceThumbnailPath: Value(referenceThumbnailPath),
+            referenceFullImagePath: Value(referenceFullImagePath),
+          ),
+        );
+    await _touchPlan(planId);
     return _planFromRow(await _planRowById(planId));
   }
 
@@ -436,6 +458,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             id: 'default',
             uiScale: Value(settings.uiScale.clamp(0.5, 2.0)),
             cameraAspectRatio: Value(settings.cameraAspectRatio.name),
+            cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 10.0)),
+            cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
           ),
         );
   }
@@ -603,6 +627,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       source: point.source.name,
       sourceId: Value(point.sourceId),
       referenceImageUrl: Value(point.referenceImageUrl),
+      referenceThumbnailPath: Value(point.referenceThumbnailPath),
+      referenceFullImagePath: Value(point.referenceFullImagePath),
       sourceUrl: Value(point.sourceUrl),
       sortOrder: Value(sortOrder),
       isCurrent: const Value(false),
@@ -678,6 +704,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       source: _pointSourceFromName(row.source),
       sourceId: row.sourceId,
       referenceImageUrl: row.referenceImageUrl,
+      referenceThumbnailPath: row.referenceThumbnailPath,
+      referenceFullImagePath: row.referenceFullImagePath,
       sourceUrl: row.sourceUrl,
     );
   }

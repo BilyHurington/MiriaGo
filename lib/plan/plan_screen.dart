@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
+import '../data/reference_image_cache_stub.dart'
+    if (dart.library.io) '../data/reference_image_cache_io.dart'
+    as reference_image_cache;
 import '../point_detail/point_detail_sheet.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
@@ -78,10 +81,24 @@ class PlanScreen extends StatelessWidget {
           ),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: onOpenPointManager,
-              icon: const Icon(Icons.tune_outlined, size: 18),
-              label: const Text('管理点位'),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton.icon(
+                  onPressed: onOpenPointManager,
+                  icon: const Icon(Icons.tune_outlined, size: 18),
+                  label: const Text('管理点位'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _cacheFullReferenceImages(context),
+                  icon: const Icon(
+                    Icons.download_for_offline_outlined,
+                    size: 18,
+                  ),
+                  label: const Text('缓存完整参考图'),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -126,6 +143,34 @@ class PlanScreen extends StatelessWidget {
       onComplete: () => controller.completePoint(point),
       records: controller.recordsForPoint(point.id),
     );
+  }
+
+  Future<void> _cacheFullReferenceImages(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final points = controller.points
+        .where((point) => point.referenceImageUrl != null)
+        .toList(growable: false);
+    if (points.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('当前计划没有参考图')));
+      return;
+    }
+
+    messenger.showSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
+    var cached = 0;
+    for (final point in points) {
+      final path = await reference_image_cache.cacheReferenceFullImage(point);
+      if (path == null) {
+        continue;
+      }
+      await controller.updatePointImageCache(
+        point,
+        referenceThumbnailPath: point.referenceThumbnailPath,
+        referenceFullImagePath: path,
+      );
+      cached += 1;
+    }
+
+    messenger.showSnackBar(SnackBar(content: Text('已缓存 $cached 张完整参考图')));
   }
 }
 
