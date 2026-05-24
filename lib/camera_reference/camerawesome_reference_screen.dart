@@ -259,6 +259,10 @@ class _ReferenceCameraOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    final landscapePanelWidth = (MediaQuery.sizeOf(context).width * 0.34).clamp(
+      300.0,
+      380.0,
+    );
 
     return Stack(
       fit: StackFit.expand,
@@ -270,27 +274,30 @@ class _ReferenceCameraOverlay extends StatelessWidget {
               mode: mode,
               reference: reference,
               overlayOpacity: opacity,
+              isLandscape: isLandscape,
             );
           },
         ),
         SafeArea(
           child: isLandscape
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+              ? Stack(
                   children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: _CameraTopBar(
-                          state: state,
-                          landscapeLocked: landscapeLocked,
-                          onPickReference: onPickReference,
-                          onToggleOrientation: onToggleOrientation,
-                        ),
+                    Positioned(
+                      left: 12,
+                      top: 12,
+                      bottom: 12,
+                      child: _LandscapeCameraToolbar(
+                        state: state,
+                        landscapeLocked: landscapeLocked,
+                        onPickReference: onPickReference,
+                        onToggleOrientation: onToggleOrientation,
                       ),
                     ),
-                    SizedBox(
-                      width: 300,
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: landscapePanelWidth,
                       child: _CameraBottomPanel(
                         state: state,
                         mode: mode,
@@ -340,11 +347,13 @@ class _ReferenceModeLayer extends StatelessWidget {
     required this.mode,
     required this.reference,
     required this.overlayOpacity,
+    required this.isLandscape,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
+  final bool isLandscape;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +365,21 @@ class _ReferenceModeLayer extends StatelessWidget {
       AwesomeReferenceMode.overlay => IgnorePointer(
         child: Opacity(
           opacity: overlayOpacity,
+          child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+        ),
+      ),
+      AwesomeReferenceMode.split when isLandscape => Positioned(
+        left: 82,
+        top: 14,
+        width: 220,
+        height: 124,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white24),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
         ),
       ),
@@ -374,6 +398,21 @@ class _ReferenceModeLayer extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
           ),
+        ),
+      ),
+      AwesomeReferenceMode.pinned when isLandscape => Positioned(
+        left: 82,
+        top: 14,
+        width: 116,
+        height: 154,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white24),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: _ReferenceImageView(source: reference, fit: BoxFit.cover),
         ),
       ),
       AwesomeReferenceMode.pinned => Align(
@@ -439,6 +478,54 @@ class _CameraTopBar extends StatelessWidget {
           _CompactCameraSwitchButton(state: state),
         ],
       ),
+    );
+  }
+}
+
+class _LandscapeCameraToolbar extends StatelessWidget {
+  const _LandscapeCameraToolbar({
+    required this.state,
+    required this.landscapeLocked,
+    required this.onPickReference,
+    required this.onToggleOrientation,
+  });
+
+  final CameraState state;
+  final bool landscapeLocked;
+  final VoidCallback onPickReference;
+  final VoidCallback onToggleOrientation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _CameraCircleButton(
+          tooltip: '返回',
+          icon: Icons.arrow_back,
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        Column(
+          children: [
+            _CameraCircleButton(
+              tooltip: '参考图',
+              icon: Icons.image_outlined,
+              onPressed: onPickReference,
+            ),
+            const SizedBox(height: 10),
+            _CameraCircleButton(
+              tooltip: landscapeLocked ? '切换竖屏' : '切换横屏',
+              icon: Icons.screen_rotation_alt_outlined,
+              onPressed: onToggleOrientation,
+            ),
+            const SizedBox(height: 10),
+            _CompactFlashButton(state: state),
+            const SizedBox(height: 10),
+            _CompactCameraSwitchButton(state: state),
+          ],
+        ),
+        const SizedBox(width: 44, height: 44),
+      ],
     );
   }
 }
@@ -981,6 +1068,7 @@ class _WebCameraFallback extends StatelessWidget {
                     mode: mode,
                     reference: reference,
                     overlayOpacity: overlayOpacity,
+                    isLandscape: false,
                   ),
                 ],
               ),
