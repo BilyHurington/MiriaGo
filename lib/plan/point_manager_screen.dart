@@ -780,49 +780,53 @@ class _PointManagerTile extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 9),
-                    Row(
-                      children: [
-                        Text(
-                          statusText,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!selectionMode) ...[
-                          IconButton(
-                            tooltip: status == VisitStatus.completed
-                                ? '重新打开'
-                                : '标记完成',
-                            onPressed: isBusy
-                                ? null
-                                : status == VisitStatus.completed
-                                ? onReopen
-                                : onComplete,
-                            icon: Icon(
-                              status == VisitStatus.completed
-                                  ? Icons.restart_alt
-                                  : Icons.check_outlined,
+                    const SizedBox(height: 5),
+                    SizedBox(
+                      height: 32,
+                      child: Row(
+                        children: [
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
                             ),
                           ),
-                          IconButton(
-                            tooltip: '设为当前',
-                            onPressed: isBusy || status == VisitStatus.current
-                                ? null
-                                : onSetCurrent,
-                            icon: const Icon(Icons.flag_outlined),
-                          ),
-                          IconButton(
-                            tooltip: '删除点位',
-                            onPressed: isBusy ? null : onDelete,
-                            icon: const Icon(Icons.delete_outline),
-                          ),
+                          const Spacer(),
+                          if (!selectionMode) ...[
+                            _CompactTileButton(
+                              tooltip: status == VisitStatus.completed
+                                  ? '重新打开'
+                                  : '标记完成',
+                              onPressed: isBusy
+                                  ? null
+                                  : status == VisitStatus.completed
+                                  ? onReopen
+                                  : onComplete,
+                              icon: Icon(
+                                status == VisitStatus.completed
+                                    ? Icons.restart_alt
+                                    : Icons.check_outlined,
+                                size: 22,
+                              ),
+                            ),
+                            _CompactTileButton(
+                              tooltip: '设为当前',
+                              onPressed: isBusy || status == VisitStatus.current
+                                  ? null
+                                  : onSetCurrent,
+                              icon: const Icon(Icons.flag_outlined, size: 22),
+                            ),
+                            _CompactTileButton(
+                              tooltip: '删除点位',
+                              onPressed: isBusy ? null : onDelete,
+                              icon: const Icon(Icons.delete_outline, size: 22),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -831,6 +835,30 @@ class _PointManagerTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CompactTileButton extends StatelessWidget {
+  const _CompactTileButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 32),
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      icon: icon,
     );
   }
 }

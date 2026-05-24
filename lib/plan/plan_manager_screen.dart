@@ -220,39 +220,51 @@ class _PlanCard extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(
-                selected ? Icons.check_circle : Icons.route_outlined,
-                color: statusColor,
-                size: 18,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                statusText,
-                style: TextStyle(
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 32,
+            child: Row(
+              children: [
+                Icon(
+                  selected ? Icons.check_circle : Icons.route_outlined,
                   color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+                  size: 18,
                 ),
-              ),
-              const Spacer(),
-              if (!selected)
-                TextButton(onPressed: onSwitch, child: const Text('切换')),
-              IconButton(
-                tooltip: '重命名计划',
-                onPressed: onRename,
-                icon: const Icon(Icons.edit_outlined),
-              ),
-              if (canDelete)
-                IconButton(
-                  tooltip: '删除计划',
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
+                const SizedBox(width: 6),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
                 ),
-            ],
+                const Spacer(),
+                if (!selected)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(44, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: onSwitch,
+                    child: const Text('切换'),
+                  ),
+                _CompactPlanButton(
+                  tooltip: '重命名计划',
+                  onPressed: onRename,
+                  icon: const Icon(Icons.edit_outlined, size: 22),
+                ),
+                if (canDelete)
+                  _CompactPlanButton(
+                    tooltip: '删除计划',
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline, size: 22),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -264,6 +276,30 @@ class _PlanCard extends StatelessWidget {
         ? plan.works.length
         : plan.points.map((point) => point.work.id).toSet().length;
     return '$count 部作品';
+  }
+}
+
+class _CompactPlanButton extends StatelessWidget {
+  const _CompactPlanButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 32),
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      icon: icon,
+    );
   }
 }
 
