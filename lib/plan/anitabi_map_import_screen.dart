@@ -519,7 +519,7 @@ class _EmptyImportState extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          '当前计划还没有 Bangumi 作品。请先搜索 Bangumi 添加作品。',
+          '当前计划还没有 Bangumi 作品。请先到作品管理添加 Bangumi 作品。',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textSecondary,

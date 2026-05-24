@@ -113,8 +113,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('添加内容'), findsOneWidget);
-    expect(find.text('搜索 Bangumi 添加作品'), findsOneWidget);
-    expect(find.text('手动添加作品'), findsOneWidget);
+    expect(find.text('作品管理'), findsOneWidget);
     expect(find.text('手动添加点位'), findsOneWidget);
   });
 
@@ -145,7 +144,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加第一个点位'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('手动添加作品'));
+    await tester.tap(find.text('作品管理'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('手动添加'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.widgetWithText(TextFormField, '作品名称'), '原创短片');
@@ -157,7 +158,8 @@ void main() {
     await tester.tap(find.text('保存作品'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('1 部作品'), findsOneWidget);
+    expect(find.text('原创短片'), findsOneWidget);
+    expect(find.textContaining('0 个点位'), findsOneWidget);
   });
 
   testWidgets('adds a manual point to an empty plan', (tester) async {

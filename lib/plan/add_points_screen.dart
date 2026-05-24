@@ -6,8 +6,9 @@ import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import 'anitabi_map_import_screen.dart';
 import 'pilgrimage_models.dart';
+import 'work_manager_screen.dart';
 
-class AddPointsScreen extends StatelessWidget {
+class AddPointsScreen extends StatefulWidget {
   AddPointsScreen({
     required this.plan,
     required this.repository,
@@ -20,93 +21,100 @@ class AddPointsScreen extends StatelessWidget {
   final BangumiApiClient bangumiApiClient;
 
   @override
-  Widget build(BuildContext context) {
-    final currentPlan = plan;
+  State<AddPointsScreen> createState() => _AddPointsScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('添加内容')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          if (currentPlan != null) ...[
-            Text(
-              '加入到：${currentPlan.name}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                letterSpacing: 0,
+class _AddPointsScreenState extends State<AddPointsScreen> {
+  late PilgrimagePlan? _plan = widget.plan;
+  var _didUpdate = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPlan = _plan;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+
+        Navigator.of(context).pop(_didUpdate);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('添加内容')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            if (currentPlan != null) ...[
+              Text(
+                '加入到：${currentPlan.name}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+            ],
+            _WorkSummary(plan: currentPlan),
             const SizedBox(height: 12),
+            _AddSourceCard(
+              icon: Icons.movie_filter_outlined,
+              title: '作品管理',
+              body: '管理计划作品，支持 Bangumi 搜索、手动添加和删除作品。',
+              enabled: currentPlan != null,
+              actionLabel: currentPlan == null ? '不可用' : '管理',
+              onTap: currentPlan == null
+                  ? null
+                  : () => _openWorkManager(context, currentPlan),
+            ),
+            const SizedBox(height: 8),
+            _AddSourceCard(
+              icon: Icons.map_outlined,
+              title: '从作品地图导入点位',
+              body: '在 Anitabi 地图上查看作品点位，点击缩略图详情后加入计划。',
+              enabled: _hasBangumiWork(currentPlan),
+              actionLabel: _hasBangumiWork(currentPlan) ? '打开' : '需作品',
+              onTap: currentPlan == null
+                  ? null
+                  : () => _openAnitabiMapImport(context, currentPlan),
+            ),
+            const SizedBox(height: 8),
+            _AddSourceCard(
+              icon: Icons.add_location_alt_outlined,
+              title: '手动添加点位',
+              body: '选择已添加作品，再输入名称、坐标和场景信息。',
+              enabled: currentPlan != null,
+              actionLabel: currentPlan == null ? '不可用' : '添加',
+              onTap: currentPlan == null
+                  ? null
+                  : () => _openManualPointForm(context, currentPlan),
+            ),
           ],
-          _WorkSummary(plan: currentPlan),
-          const SizedBox(height: 12),
-          _AddSourceCard(
-            icon: Icons.map_outlined,
-            title: '从作品地图导入点位',
-            body: '在 Anitabi 地图上查看作品点位，点击缩略图详情后加入计划。',
-            enabled: _hasBangumiWork(currentPlan),
-            actionLabel: _hasBangumiWork(currentPlan) ? '打开' : '需作品',
-            onTap: currentPlan == null
-                ? null
-                : () => _openAnitabiMapImport(context, currentPlan),
-          ),
-          const SizedBox(height: 8),
-          _AddSourceCard(
-            icon: Icons.search,
-            title: '搜索 Bangumi 添加作品',
-            body: '用 Bangumi ID 关联作品，后续可从 Anitabi 快速拉取作品点位。',
-            enabled: currentPlan != null,
-            actionLabel: currentPlan == null ? '不可用' : '搜索',
-            onTap: currentPlan == null
-                ? null
-                : () => _openBangumiSearch(context, currentPlan),
-          ),
-          const SizedBox(height: 8),
-          _AddSourceCard(
-            icon: Icons.edit_note,
-            title: '手动添加作品',
-            body: '适合 Bangumi 上没有的作品，或先临时整理原创/小众点位。',
-            enabled: currentPlan != null,
-            actionLabel: currentPlan == null ? '不可用' : '添加',
-            onTap: currentPlan == null
-                ? null
-                : () => _openManualWorkForm(context, currentPlan),
-          ),
-          const SizedBox(height: 8),
-          _AddSourceCard(
-            icon: Icons.add_location_alt_outlined,
-            title: '手动添加点位',
-            body: '选择已添加作品，再输入名称、坐标和场景信息。',
-            enabled: currentPlan != null,
-            actionLabel: currentPlan == null ? '不可用' : '添加',
-            onTap: currentPlan == null
-                ? null
-                : () => _openManualPointForm(context, currentPlan),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Future<void> _openBangumiSearch(
+  Future<void> _openWorkManager(
     BuildContext context,
     PilgrimagePlan plan,
   ) async {
-    final didAdd = await Navigator.of(context).push<bool>(
+    final didUpdate = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => BangumiWorkSearchScreen(
+        builder: (_) => WorkManagerScreen(
           plan: plan,
-          repository: repository,
-          bangumiApiClient: bangumiApiClient,
+          repository: widget.repository,
+          bangumiApiClient: widget.bangumiApiClient,
         ),
       ),
     );
-    if (!context.mounted || didAdd != true) {
+    if (!context.mounted || didUpdate != true) {
       return;
     }
 
-    Navigator.of(context).pop(true);
+    await _reloadPlan(plan.id);
   }
 
   Future<void> _openAnitabiMapImport(
@@ -116,24 +124,7 @@ class AddPointsScreen extends StatelessWidget {
     final didAdd = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
-            AnitabiMapImportScreen(plan: plan, repository: repository),
-      ),
-    );
-    if (!context.mounted || didAdd != true) {
-      return;
-    }
-
-    Navigator.of(context).pop(true);
-  }
-
-  Future<void> _openManualWorkForm(
-    BuildContext context,
-    PilgrimagePlan plan,
-  ) async {
-    final didAdd = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            ManualWorkFormScreen(plan: plan, repository: repository),
+            AnitabiMapImportScreen(plan: plan, repository: widget.repository),
       ),
     );
     if (!context.mounted || didAdd != true) {
@@ -150,7 +141,7 @@ class AddPointsScreen extends StatelessWidget {
     final didAdd = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
-            _ManualPointFormScreen(plan: plan, repository: repository),
+            _ManualPointFormScreen(plan: plan, repository: widget.repository),
       ),
     );
     if (!context.mounted || didAdd != true) {
@@ -158,6 +149,18 @@ class AddPointsScreen extends StatelessWidget {
     }
 
     Navigator.of(context).pop(true);
+  }
+
+  Future<void> _reloadPlan(String planId) async {
+    final plans = await widget.repository.loadPlans();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _plan = plans.firstWhere((plan) => plan.id == planId);
+      _didUpdate = true;
+    });
   }
 
   bool _hasBangumiWork(PilgrimagePlan? plan) {
