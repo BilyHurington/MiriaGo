@@ -9,7 +9,6 @@ import 'comparison_export_config.dart';
 class ComparisonExportRenderer {
   const ComparisonExportRenderer();
 
-  static const double outputWidth = 1920.0;
   static const double inset = 18.0;
   static const double imageGap = 14.0;
   static const double imageRadius = 14.0;
@@ -33,6 +32,21 @@ class ComparisonExportRenderer {
     if (capImg == null) return null;
 
     final borderPx = config.borderWidth.px;
+
+    // Determine output width
+    final fixedWidth = config.outputWidth.px;
+    final double outputWidth;
+    if (fixedWidth != null) {
+      outputWidth = fixedWidth.toDouble();
+    } else {
+      // Auto: use the larger image's width plus border and inset
+      double maxImgW = capImg.width.toDouble();
+      if (refImg != null && refImg.width > maxImgW) {
+        maxImgW = refImg.width.toDouble();
+      }
+      outputWidth = maxImgW + 2 * borderPx + 2 * inset;
+    }
+
     final contentWidth = outputWidth - 2 * borderPx - 2 * inset;
 
     double refHeight = 0;
@@ -55,14 +69,18 @@ class ComparisonExportRenderer {
         ? metaAreaPadV * 2 + metaEntries.length * metaRowHeight
         : 0;
 
-    final imgAreaHeight = (refImg != null ? refHeight + imageGap : 0) + capHeight;
+    final imgAreaHeight =
+        (refImg != null ? refHeight + imageGap : 0) + capHeight;
     final metaGap = hasMeta ? inset : 0;
-    final totalHeight =
-        borderPx * 2 + inset * 2 + imgAreaHeight + metaGap + metaAreaHeight;
+    final totalHeight = borderPx * 2 +
+        inset * 2 +
+        imgAreaHeight +
+        metaGap +
+        metaAreaHeight;
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder,
-        Rect.fromLTWH(0, 0, outputWidth, totalHeight));
+    final canvas = Canvas(
+        recorder, Rect.fromLTWH(0, 0, outputWidth, totalHeight));
 
     // White card background
     canvas.drawRRect(
@@ -77,37 +95,28 @@ class ComparisonExportRenderer {
 
     // Reference image
     if (refImg != null) {
-      _drawLabeledImage(
-        canvas, refImg, borderPx + inset, y, contentWidth, refHeight,
-        config.showLabels ? '参考' : '',
-      );
+      _drawLabeledImage(canvas, refImg, borderPx + inset, y, contentWidth,
+          refHeight, config.showLabels ? '参考' : '');
       y += refHeight + imageGap;
     }
 
     // Captured image
-    _drawLabeledImage(
-      canvas, capImg, borderPx + inset, y, contentWidth, capHeight,
-      config.showLabels ? '巡礼' : '',
-    );
+    _drawLabeledImage(canvas, capImg, borderPx + inset, y, contentWidth,
+        capHeight, config.showLabels ? '巡礼' : '');
     y += capHeight + metaGap;
 
     // Metadata
     if (hasMeta) {
-      _drawMetadata(
-        canvas, borderPx + inset, y, contentWidth, metaAreaHeight, metaEntries,
-      );
+      _drawMetadata(canvas, borderPx + inset, y, contentWidth, metaAreaHeight,
+          metaEntries);
     }
 
     // Border
     if (borderPx > 0) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            borderPx / 2,
-            borderPx / 2,
-            outputWidth - borderPx,
-            totalHeight - borderPx,
-          ),
+          Rect.fromLTWH(borderPx / 2, borderPx / 2,
+              outputWidth - borderPx, totalHeight - borderPx),
           const Radius.circular(16),
         ),
         Paint()
@@ -145,8 +154,7 @@ class ComparisonExportRenderer {
     canvas.clipRRect(imageRRect);
     canvas.drawImageRect(
       image,
-      Rect.fromLTWH(
-          0, 0, image.width.toDouble(), image.height.toDouble()),
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
       Rect.fromLTWH(x, y, width, height),
       Paint(),
     );
@@ -178,10 +186,7 @@ class ComparisonExportRenderer {
         Paint()..color = const Color(0xAA000000),
       );
 
-      labelPainter.paint(
-        canvas,
-        Offset(x + 10 + hPad, y + 8 + vPad),
-      );
+      labelPainter.paint(canvas, Offset(x + 10 + hPad, y + 8 + vPad));
     }
   }
 
@@ -193,7 +198,6 @@ class ComparisonExportRenderer {
     double areaHeight,
     List<MapEntry<String, String>> entries,
   ) {
-    // Muted background
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(x, y, width, areaHeight),
@@ -202,7 +206,6 @@ class ComparisonExportRenderer {
       Paint()..color = const Color(0xFFF2F3F5),
     );
 
-    // Determine max field label width for alignment
     double maxFieldW = 0;
     final fieldPainters = <TextPainter>[];
     final valuePainters = <TextPainter>[];
@@ -220,10 +223,12 @@ class ComparisonExportRenderer {
       )..layout();
       fieldPainters.add(fp);
       if (fp.width > maxFieldW) maxFieldW = fp.width;
+    }
 
+    for (var i = 0; i < entries.length; i += 1) {
       final vp = TextPainter(
         text: TextSpan(
-          text: entry.value,
+          text: entries[i].value,
           style: const TextStyle(
             color: Color(0xFF333333),
             fontSize: metaValueFontSize,
@@ -235,28 +240,11 @@ class ComparisonExportRenderer {
       valuePainters.add(vp);
     }
 
-    // Re-layout value painters now that we know maxFieldW
-    for (var i = 0; i < entries.length; i += 1) {
-      valuePainters[i] = TextPainter(
-        text: TextSpan(
-          text: entries[i].value,
-          style: const TextStyle(
-            color: Color(0xFF333333),
-            fontSize: metaValueFontSize,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: width - maxFieldW - metaAreaPadH * 2 - 16);
-    }
-
     double rowY = y + metaAreaPadV;
     for (var i = 0; i < entries.length; i += 1) {
       fieldPainters[i].paint(canvas, Offset(x + metaAreaPadH, rowY));
       valuePainters[i].paint(
-        canvas,
-        Offset(x + metaAreaPadH + maxFieldW + 12, rowY),
-      );
+          canvas, Offset(x + metaAreaPadH + maxFieldW + 12, rowY));
       rowY += metaRowHeight;
     }
   }

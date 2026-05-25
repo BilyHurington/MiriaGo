@@ -188,6 +188,51 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
               ],
             ),
             const SizedBox(height: 16),
+            const Text(
+              '输出宽度',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ComparisonOutputWidth.values.map((ow) {
+                return ChoiceChip(
+                  label: Text(
+                    ow.label,
+                    style: TextStyle(
+                      color: _config.outputWidth == ow
+                          ? Colors.white
+                          : AppColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  selected: _config.outputWidth == ow,
+                  selectedColor: AppColors.accent,
+                  backgroundColor: AppColors.surfaceMuted,
+                  side: BorderSide(
+                    color: _config.outputWidth == ow
+                        ? AppColors.accent
+                        : AppColors.border,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  onSelected: (_) {
+                    setState(() =>
+                        _config = _config.copyWith(outputWidth: ow));
+                  },
+                );
+              }).toList(growable: false),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
                 const Text(
