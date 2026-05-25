@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
+import '../records/gallery_saver_stub.dart'
+    if (dart.library.io) '../records/gallery_saver_io.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
@@ -142,6 +144,37 @@ class _VisitRecordConfirmationScreenState
   }
 }
 
+Future<void> _showGallerySaveSheet(BuildContext context, String photoPath) async {
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(Icons.save_alt_outlined),
+            title: const Text('保存到相册'),
+            onTap: () => Navigator.of(context).pop('save'),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
+
+  if (action != 'save' || !context.mounted) return;
+
+  final success = await saveImageToGallery(photoPath);
+  if (!context.mounted) return;
+
+  ScaffoldMessenger.of(context).showReplacingSnackBar(
+    SnackBar(
+      content: Text(success ? '已保存到相册' : '保存失败，请稍后重试。'),
+    ),
+  );
+}
+
 class _ComparisonPanel extends StatelessWidget {
   const _ComparisonPanel({
     required this.photoPath,
@@ -180,6 +213,7 @@ class _ComparisonPanel extends StatelessWidget {
           child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
           onTap: () =>
               ImageViewerScreen.show(context, filePath: photoPath),
+          onLongPress: () => _showGallerySaveSheet(context, photoPath),
         ),
       ],
     );
@@ -191,11 +225,13 @@ class _ImageCompareTile extends StatelessWidget {
     required this.label,
     required this.child,
     this.onTap,
+    this.onLongPress,
   });
 
   final String label;
   final Widget child;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +242,7 @@ class _ImageCompareTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             onTap: onTap,
+            onLongPress: onLongPress,
             child: child,
           ),
         ),

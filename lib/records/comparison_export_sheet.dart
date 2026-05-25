@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_exporter_stub.dart'
     if (dart.library.io) 'comparison_exporter_io.dart';
@@ -271,9 +272,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
 
     if (path != null) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('对比图已导出: $path')),
-      );
+      ImageViewerScreen.show(context, filePath: path);
     } else {
       setState(() => _exporting = false);
       ScaffoldMessenger.of(context).showSnackBar(

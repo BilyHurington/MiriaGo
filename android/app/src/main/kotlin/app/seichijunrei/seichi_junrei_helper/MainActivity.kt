@@ -1,7 +1,14 @@
 package app.seichijunrei.seichi_junrei_helper
 
+import android.content.ContentValues
+import android.content.Context
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -13,5 +20,67 @@ class MainActivity : FlutterActivity() {
                 "seichi/native_camera_preview",
                 NativeCameraPreviewFactory(this, flutterEngine.dartExecutor.binaryMessenger)
             )
+
+        val galleryChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "seichi/gallery_saver"
+        )
+
+        galleryChannel.setMethodCallHandler { call, result ->
+            if (call.method == "saveToGallery") {
+                val filePath = call.argument<String>("filePath")
+                if (filePath == null) {
+                    result.error("INVALID_ARGUMENT", "filePath is required", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    val savedPath = saveImageToGallery(filePath)
+                    result.success(savedPath)
+                } catch (e: Exception) {
+                    result.error("SAVE_FAILED", e.message, null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+    }
+
+    private fun saveImageToGallery(sourcePath: String): String? {
+        val sourceFile = File(sourcePath)
+        if (!sourceFile.exists()) return null
+
+        val extension = sourceFile.extension.ifEmpty { "jpg" }
+        val mimeType = when (extension.lowercase()) {
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            else -> "image/jpeg"
+        }
+
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "seichi_${sourceFile.name}")
+            put(MediaStore.Images.Media.MIME_TYPE, mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/SeichiJunrei")
+            }
+        }
+
+        val resolver = contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: return null
+
+        resolver.openOutputStream(uri)?.use { output ->
+            sourceFile.inputStream().use { input ->
+                input.copyTo(output)
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        }
+
+        return uri.toString()
     }
 }
