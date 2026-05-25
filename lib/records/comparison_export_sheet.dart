@@ -46,7 +46,7 @@ class ComparisonExportSheet extends StatefulWidget {
 }
 
 class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
-  var _config = const ComparisonExportConfig();
+  var _config = ComparisonExportConfig.lastUsed;
   var _exporting = false;
 
   static const _borderColorOptions = <Color>[
@@ -187,7 +187,23 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
                 ],
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text(
+                  '显示标签',
+                  style: TextStyle(fontSize: 14, letterSpacing: 0),
+                ),
+                const Spacer(),
+                Switch(
+                  value: _config.showLabels,
+                  onChanged: (v) {
+                    setState(() => _config = _config.copyWith(showLabels: v));
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             const _SectionLabel('元数据'),
             const SizedBox(height: 8),
             Wrap(
@@ -259,6 +275,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
 
   Future<void> _doExport() async {
     setState(() => _exporting = true);
+    ComparisonExportConfig.lastUsed = _config;
 
     final path = await exportComparisonImage(
       referenceImagePath: widget.referenceImagePath,
