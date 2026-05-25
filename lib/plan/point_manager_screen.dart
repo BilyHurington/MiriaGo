@@ -164,20 +164,23 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       onReorderItem: _handleReorder,
       itemBuilder: (context, index) {
         final point = visiblePoints[index];
-        return _PointManagerTile(
+        return Padding(
           key: ValueKey(point.id),
-          index: index,
-          point: point,
-          status: _statusFor(point),
-          isBusy: _isSaving,
-          selectionMode: false,
-          selected: false,
-          canDrag: true,
-          onToggleSelected: () => _togglePointSelection(point),
-          onSetCurrent: () => _setCurrent(point),
-          onComplete: () => _complete(point),
-          onReopen: () => _reopen(point),
-          onDelete: () => _confirmDelete(point),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _PointManagerTile(
+            index: index,
+            point: point,
+            status: _statusFor(point),
+            isBusy: _isSaving,
+            selectionMode: false,
+            selected: false,
+            canDrag: true,
+            onToggleSelected: () => _togglePointSelection(point),
+            onSetCurrent: () => _setCurrent(point),
+            onComplete: () => _complete(point),
+            onReopen: () => _reopen(point),
+            onDelete: () => _confirmDelete(point),
+          ),
         );
       },
     );
@@ -576,7 +579,9 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     }
 
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
+    messenger.showReplacingSnackBar(
+      const SnackBar(content: Text('正在缓存完整参考图...')),
+    );
 
     var cached = 0;
     for (final point in fullPoints) {
@@ -774,7 +779,6 @@ class _PointManagerTile extends StatelessWidget {
     required this.onComplete,
     required this.onReopen,
     required this.onDelete,
-    super.key,
   });
 
   final int index;
@@ -918,7 +922,6 @@ class _PointManagerTile extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _CacheStatusPill extends StatelessWidget {
