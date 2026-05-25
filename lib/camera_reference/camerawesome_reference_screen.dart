@@ -194,6 +194,14 @@ class _CamerawesomeReferenceScreenState
     setState(() {
       _landscapeLocked = !_landscapeLocked;
     });
+    if (_landscapeLocked) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
   }
 
   bool get _shouldUseNativeCamera {
