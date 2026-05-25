@@ -46,6 +46,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.6.0+eol
   path: ^1.9.1
   camerawesome: ^2.5.0
+  share_plus: ^10.1.4
 
 dev_dependencies:
   flutter_test:

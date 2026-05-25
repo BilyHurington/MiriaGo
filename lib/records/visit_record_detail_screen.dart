@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
@@ -119,27 +121,65 @@ class VisitRecordDetailScreen extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    var deleteFiles = false;
+
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('删除记录'),
-          content: const Text('只删除这条巡礼记录，不会改变点位完成状态。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('删除'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('删除记录'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('只删除这条巡礼记录，不会改变点位完成状态。'),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: deleteFiles,
+                        onChanged: (v) =>
+                            setState(() => deleteFiles = v ?? false),
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const Text('同时删除照片文件'),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('删除'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
     if (shouldDelete != true || !context.mounted) {
       return;
+    }
+
+    if (deleteFiles) {
+      try {
+        File(record.photoPath).deleteSync();
+      } catch (_) {}
+      final refPath = record.referenceImagePath;
+      if (refPath != null) {
+        try {
+          File(refPath).deleteSync();
+        } catch (_) {}
+      }
     }
 
     await onDelete();

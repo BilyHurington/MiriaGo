@@ -75,17 +75,29 @@ class _VisitRecordConfirmationScreenState
       referenceMode: widget.referenceMode,
     );
 
+    String? nextPointName;
     if (completePoint) {
       controller.completePoint(widget.point);
+      nextPointName = controller.currentPoint?.name;
     }
 
     if (!mounted) {
       return;
     }
-    Navigator.of(context).pop();
+    final message = completePoint
+        ? (nextPointName != null
+            ? '已保存并标记完成，下一个：$nextPointName'
+            : '已保存并标记完成')
+        : '已保存巡礼记录';
     ScaffoldMessenger.of(context).showReplacingSnackBar(
-      SnackBar(content: Text(completePoint ? '已保存并标记完成' : '已保存巡礼记录')),
+      SnackBar(content: Text(message)),
     );
+    if (completePoint) {
+      Navigator.of(context).pop();
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

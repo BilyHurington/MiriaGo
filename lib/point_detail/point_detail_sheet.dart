@@ -69,16 +69,19 @@ class PointDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.84;
 
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: SizedBox(
+        height: sheetHeight,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Row(
                 children: [
                   _ReferencePreview(point: point, status: status),
@@ -220,6 +223,7 @@ class PointDetailSheet extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

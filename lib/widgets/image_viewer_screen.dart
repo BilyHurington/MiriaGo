@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
@@ -85,6 +86,17 @@ class ImageViewerScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.share_outlined, color: Colors.white),
+              title: const Text(
+                '分享',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                Share.shareXFiles([XFile(savePath)]);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
               title: const Text(
