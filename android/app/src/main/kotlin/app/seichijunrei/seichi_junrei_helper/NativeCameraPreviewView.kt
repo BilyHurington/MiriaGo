@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.view.MotionEvent
 import android.view.View
+import androidx.exifinterface.media.ExifInterface
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -259,7 +261,25 @@ class NativeCameraPreviewView(
     }
 
     private fun cropImageToTargetAspectRatio(file: File) {
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+        var bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+
+        val exif = ExifInterface(file.absolutePath)
+        val orientation = exif.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL,
+        )
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        }
+        if (!matrix.isIdentity) {
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (rotated != bitmap) bitmap.recycle()
+            bitmap = rotated
+        }
+
         val currentRatio = bitmap.width.toDouble() / bitmap.height.toDouble()
         if (abs(currentRatio - targetAspectRatio) < 0.01) {
             bitmap.recycle()
