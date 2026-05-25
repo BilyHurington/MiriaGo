@@ -727,7 +727,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   CameraPhotoAspectRatio _cameraAspectRatioFromName(String name) {
     return CameraPhotoAspectRatio.values.firstWhere(
       (ratio) => ratio.name == name,
-      orElse: () => CameraPhotoAspectRatio.landscape16x9,
+      orElse: () => CameraPhotoAspectRatio.auto,
     );
   }
 

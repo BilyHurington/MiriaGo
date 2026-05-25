@@ -102,6 +102,11 @@ class SettingsScreen extends StatelessWidget {
               SegmentedButton<CameraPhotoAspectRatio>(
                 segments: const [
                   ButtonSegment(
+                    value: CameraPhotoAspectRatio.auto,
+                    icon: Icon(Icons.auto_awesome, size: 18),
+                    label: Text('自动'),
+                  ),
+                  ButtonSegment(
                     value: CameraPhotoAspectRatio.landscape16x9,
                     icon: Icon(Icons.crop_16_9, size: 18),
                     label: Text('16:9'),

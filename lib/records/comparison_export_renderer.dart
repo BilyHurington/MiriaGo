@@ -11,13 +11,7 @@ class ComparisonExportRenderer {
 
   static const double inset = 18.0;
   static const double imageGap = 14.0;
-  static const double imageRadius = 14.0;
   static const double labelFontSize = 50.0;
-  static const double metaFieldFontSize = 38.0;
-  static const double metaValueFontSize = 38.0;
-  static const double metaRowHeight = 72.0;
-  static const double metaAreaPadH = 36.0;
-  static const double metaAreaPadV = 32.0;
 
   Future<Uint8List?> render({
     required Uint8List? referenceBytes,
@@ -31,65 +25,55 @@ class ComparisonExportRenderer {
     final capImg = await _decodeImage(capturedBytes);
     if (capImg == null) return null;
 
-    // Determine output width
     final fixedWidth = config.outputWidth.px;
     final borderPct = config.borderWidthPercent;
-    final bool hasBorder = borderPct > 0;
-    final double effectiveInset = hasBorder ? inset : 0.0;
+    final hasBorder = borderPct > 0;
+    final effectiveInset = hasBorder ? inset : 0.0;
+    final effectiveImageGap = hasBorder ? imageGap : 0.0;
 
     final double outputWidth;
     if (fixedWidth != null) {
       outputWidth = fixedWidth.toDouble();
     } else {
-      double maxImgW = capImg.width.toDouble();
+      var maxImgW = capImg.width.toDouble();
       if (refImg != null && refImg.width > maxImgW) {
         maxImgW = refImg.width.toDouble();
       }
-      outputWidth =
-          ((maxImgW + 2 * effectiveInset) / (1 - 2 * borderPct / 100))
-              .roundToDouble();
+      outputWidth = ((maxImgW + 2 * effectiveInset) / (1 - 2 * borderPct / 100))
+          .roundToDouble();
     }
 
-    final borderPx =
-        (outputWidth * borderPct / 100).roundToDouble();
+    final borderPx = (outputWidth * borderPct / 100).roundToDouble();
+    final contentWidth = outputWidth - 2 * borderPx - 2 * effectiveInset;
 
-    final contentWidth =
-        outputWidth - 2 * borderPx - 2 * effectiveInset;
-
-    double refHeight = 0;
+    var refHeight = 0.0;
     if (refImg != null) {
       refHeight = refImg.height / refImg.width * contentWidth;
     }
-
     final capHeight = capImg.height / capImg.width * contentWidth;
 
-    final metaEntries = <MapEntry<String, String>>[];
-    for (final field in config.metadataFields) {
-      final value = metadata[field];
-      if (value != null && value.isNotEmpty) {
-        metaEntries.add(MapEntry(field.label, value));
-      }
-    }
-
-    final hasMeta = metaEntries.isNotEmpty;
-    final double metaAreaHeight = hasMeta
-        ? metaAreaPadV * 2 + metaEntries.length * metaRowHeight
-        : 0;
+    final metaLayout = _ComparisonMetaLayout.from(
+      width: contentWidth,
+      config: config,
+      metadata: metadata,
+    );
 
     final imgAreaHeight =
-        (refImg != null ? refHeight + imageGap : 0) + capHeight;
-    final metaGap = hasMeta ? effectiveInset : 0.0;
-    final totalHeight = borderPx * 2 +
+        (refImg != null ? refHeight + effectiveImageGap : 0) + capHeight;
+    final metaGap = metaLayout.hasContent ? effectiveInset : 0.0;
+    final totalHeight =
+        borderPx * 2 +
         effectiveInset * 2 +
         imgAreaHeight +
         metaGap +
-        metaAreaHeight;
+        metaLayout.height;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(
-        recorder, Rect.fromLTWH(0, 0, outputWidth, totalHeight));
+      recorder,
+      Rect.fromLTWH(0, 0, outputWidth, totalHeight),
+    );
 
-    // White card background
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, outputWidth, totalHeight),
@@ -98,32 +82,50 @@ class ComparisonExportRenderer {
       Paint()..color = Colors.white,
     );
 
-    double y = borderPx + effectiveInset;
-
-    // Reference image
+    var y = borderPx + effectiveInset;
     if (refImg != null) {
-      _drawLabeledImage(canvas, refImg, borderPx + effectiveInset, y,
-          contentWidth, refHeight, config.showLabels ? '参考' : '');
-      y += refHeight + imageGap;
+      _drawLabeledImage(
+        canvas,
+        refImg,
+        borderPx + effectiveInset,
+        y,
+        contentWidth,
+        refHeight,
+        config.showLabels ? '参考' : '',
+      );
+      y += refHeight + effectiveImageGap;
     }
 
-    // Captured image
-    _drawLabeledImage(canvas, capImg, borderPx + effectiveInset, y,
-        contentWidth, capHeight, config.showLabels ? '巡礼' : '');
+    _drawLabeledImage(
+      canvas,
+      capImg,
+      borderPx + effectiveInset,
+      y,
+      contentWidth,
+      capHeight,
+      config.showLabels ? '巡礼' : '',
+    );
     y += capHeight + metaGap;
 
-    // Metadata
-    if (hasMeta) {
-      _drawMetadata(canvas, borderPx + effectiveInset, y, contentWidth,
-          metaAreaHeight, metaEntries);
+    if (metaLayout.hasContent) {
+      _drawMetadata(
+        canvas,
+        borderPx + effectiveInset,
+        y,
+        contentWidth,
+        metaLayout,
+      );
     }
 
-    // Border
     if (hasBorder) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(borderPx / 2, borderPx / 2,
-              outputWidth - borderPx, totalHeight - borderPx),
+          Rect.fromLTWH(
+            borderPx / 2,
+            borderPx / 2,
+            outputWidth - borderPx,
+            totalHeight - borderPx,
+          ),
           const Radius.circular(16),
         ),
         Paint()
@@ -134,8 +136,7 @@ class ComparisonExportRenderer {
     }
 
     final picture = recorder.endRecording();
-    final img = await picture.toImage(
-        outputWidth.toInt(), totalHeight.toInt());
+    final img = await picture.toImage(outputWidth.toInt(), totalHeight.toInt());
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
     refImg?.dispose();
     capImg.dispose();
@@ -152,33 +153,33 @@ class ComparisonExportRenderer {
     double height,
     String label,
   ) {
-    final imageRRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(x, y, width, height),
-      const Radius.circular(imageRadius),
-    );
-
-    canvas.save();
-    canvas.clipRRect(imageRRect);
     canvas.drawImageRect(
       image,
       Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
       Rect.fromLTWH(x, y, width, height),
       Paint(),
     );
-    canvas.restore();
 
     if (label.isNotEmpty) {
       final labelPainter = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(
+        text: const TextSpan(
+          style: TextStyle(
             color: Colors.white,
             fontSize: labelFontSize,
             fontWeight: FontWeight.w700,
           ),
         ),
         textDirection: TextDirection.ltr,
-      )..layout(maxWidth: width - 24);
+      );
+      labelPainter.text = TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: labelFontSize,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+      labelPainter.layout(maxWidth: width - 24);
 
       const hPad = 22.0;
       const vPad = 11.0;
@@ -202,57 +203,99 @@ class ComparisonExportRenderer {
     double x,
     double y,
     double width,
-    double areaHeight,
-    List<MapEntry<String, String>> entries,
+    _ComparisonMetaLayout layout,
   ) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, width, areaHeight),
-        const Radius.circular(imageRadius),
+        Rect.fromLTWH(x, y, width, layout.height),
+        Radius.circular(layout.radius),
       ),
-      Paint()..color = const Color(0xFFF2F3F5),
+      Paint()..color = const Color(0xFFF4F5F7),
     );
 
-    double maxFieldW = 0;
-    final fieldPainters = <TextPainter>[];
-    final valuePainters = <TextPainter>[];
-    for (final entry in entries) {
-      final fp = TextPainter(
+    var currentY = y + layout.paddingV;
+    if (layout.title.isNotEmpty) {
+      final titlePainter = TextPainter(
         text: TextSpan(
-          text: entry.key,
-          style: const TextStyle(
-            color: Color(0xFF999999),
-            fontSize: metaFieldFontSize,
-            fontWeight: FontWeight.w500,
+          text: layout.title,
+          style: TextStyle(
+            color: const Color(0xFF1D1F23),
+            fontSize: layout.titleFontSize,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+            height: 1.12,
           ),
         ),
         textDirection: TextDirection.ltr,
-      )..layout();
-      fieldPainters.add(fp);
-      if (fp.width > maxFieldW) maxFieldW = fp.width;
+        maxLines: 2,
+        ellipsis: '...',
+      )..layout(maxWidth: width - layout.paddingH * 2);
+      titlePainter.paint(canvas, Offset(x + layout.paddingH, currentY));
+      currentY += titlePainter.height + layout.titleSubtitleGap;
     }
 
-    for (var i = 0; i < entries.length; i += 1) {
-      final vp = TextPainter(
+    if (layout.subtitle.isNotEmpty) {
+      final subtitlePainter = TextPainter(
         text: TextSpan(
-          text: entries[i].value,
-          style: const TextStyle(
-            color: Color(0xFF333333),
-            fontSize: metaValueFontSize,
-            fontWeight: FontWeight.w400,
+          text: layout.subtitle,
+          style: TextStyle(
+            color: const Color(0xFF5F646D),
+            fontSize: layout.subtitleFontSize,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+            height: 1.22,
           ),
         ),
         textDirection: TextDirection.ltr,
-      )..layout(maxWidth: width - maxFieldW - metaAreaPadH * 2 - 16);
-      valuePainters.add(vp);
+        maxLines: 2,
+        ellipsis: '...',
+      )..layout(maxWidth: width - layout.paddingH * 2);
+      subtitlePainter.paint(canvas, Offset(x + layout.paddingH, currentY));
+      currentY += subtitlePainter.height;
     }
 
-    double rowY = y + metaAreaPadV;
-    for (var i = 0; i < entries.length; i += 1) {
-      fieldPainters[i].paint(canvas, Offset(x + metaAreaPadH, rowY));
-      valuePainters[i].paint(
-          canvas, Offset(x + metaAreaPadH + maxFieldW + 12, rowY));
-      rowY += metaRowHeight;
+    if (layout.tags.isNotEmpty) {
+      currentY += layout.subtitleTagGap;
+      var tagX = x + layout.paddingH;
+      var tagY = currentY;
+      final maxX = x + width - layout.paddingH;
+      for (final tag in layout.tags) {
+        final tagPainter = TextPainter(
+          text: TextSpan(
+            text: tag,
+            style: TextStyle(
+              color: const Color(0xFF6E747D),
+              fontSize: layout.tagFontSize,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+          ellipsis: '...',
+        )..layout(maxWidth: width - layout.paddingH * 2);
+        final tagWidth = tagPainter.width + layout.tagPadH * 2;
+        final tagHeight = layout.tagFontSize * 1.25 + layout.tagPadV * 2;
+        if (tagX > x + layout.paddingH && tagX + tagWidth > maxX) {
+          tagX = x + layout.paddingH;
+          tagY += tagHeight + layout.tagGap;
+        }
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(tagX, tagY, tagWidth, tagHeight),
+            Radius.circular(layout.tagRadius),
+          ),
+          Paint()..color = Colors.white,
+        );
+        tagPainter.paint(
+          canvas,
+          Offset(
+            tagX + layout.tagPadH,
+            tagY + (tagHeight - tagPainter.height) / 2,
+          ),
+        );
+        tagX += tagWidth + layout.tagGap;
+      }
     }
   }
 
@@ -260,5 +303,188 @@ class ComparisonExportRenderer {
     final completer = Completer<ui.Image?>();
     ui.decodeImageFromList(bytes, (img) => completer.complete(img));
     return completer.future;
+  }
+}
+
+class _ComparisonMetaLayout {
+  const _ComparisonMetaLayout({
+    required this.title,
+    required this.subtitle,
+    required this.tags,
+    required this.height,
+    required this.paddingH,
+    required this.paddingV,
+    required this.radius,
+    required this.titleFontSize,
+    required this.subtitleFontSize,
+    required this.tagFontSize,
+    required this.titleSubtitleGap,
+    required this.subtitleTagGap,
+    required this.tagGap,
+    required this.tagPadH,
+    required this.tagPadV,
+    required this.tagRadius,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<String> tags;
+  final double height;
+  final double paddingH;
+  final double paddingV;
+  final double radius;
+  final double titleFontSize;
+  final double subtitleFontSize;
+  final double tagFontSize;
+  final double titleSubtitleGap;
+  final double subtitleTagGap;
+  final double tagGap;
+  final double tagPadH;
+  final double tagPadV;
+  final double tagRadius;
+
+  bool get hasContent =>
+      title.isNotEmpty || subtitle.isNotEmpty || tags.isNotEmpty;
+
+  factory _ComparisonMetaLayout.from({
+    required double width,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+  }) {
+    final scale = (width / 1080).clamp(0.78, 2.4).toDouble();
+    final paddingH = 40.0 * scale;
+    final paddingV = 34.0 * scale;
+    final titleFontSize = 44.0 * scale;
+    final subtitleFontSize = 27.0 * scale;
+    final tagFontSize = 22.0 * scale;
+    final titleSubtitleGap = 12.0 * scale;
+    final subtitleTagGap = 24.0 * scale;
+    final tagGap = 12.0 * scale;
+    final tagPadH = 18.0 * scale;
+    final tagPadV = 8.0 * scale;
+    final radius = 12.0 * scale;
+    final tagRadius = 6.0 * scale;
+
+    String value(ComparisonMetadataField field) {
+      if (!config.metadataFields.contains(field)) return '';
+      return metadata[field]?.trim() ?? '';
+    }
+
+    final point = value(ComparisonMetadataField.pointName);
+    final work = value(ComparisonMetadataField.workTitle);
+    final capturedAt = value(ComparisonMetadataField.capturedAt);
+    final episode = value(ComparisonMetadataField.episodeLabel);
+    final coordinates = value(ComparisonMetadataField.coordinates);
+    final anitabiId = value(ComparisonMetadataField.anitabiId);
+
+    final title = point.isNotEmpty
+        ? point
+        : work.isNotEmpty
+        ? work
+        : capturedAt;
+    final subtitleParts = <String>[
+      if (point.isNotEmpty && work.isNotEmpty) work,
+      if (capturedAt.isNotEmpty) capturedAt,
+    ];
+    final tags = <String>[
+      if (episode.isNotEmpty) episode,
+      if (coordinates.isNotEmpty) coordinates,
+      if (anitabiId.isNotEmpty) 'Anitabi $anitabiId',
+    ];
+    final subtitle = subtitleParts.join(' · ');
+
+    double textHeight(
+      String text,
+      double fontSize,
+      FontWeight weight,
+      double lineHeight, {
+      int maxLines = 2,
+    }) {
+      if (text.isEmpty) return 0;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: weight,
+            height: lineHeight,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: maxLines,
+        ellipsis: '...',
+      )..layout(maxWidth: width - paddingH * 2);
+      return painter.height;
+    }
+
+    final titleHeight = textHeight(title, titleFontSize, FontWeight.w800, 1.12);
+    final subtitleHeight = textHeight(
+      subtitle,
+      subtitleFontSize,
+      FontWeight.w600,
+      1.22,
+    );
+    var tagRows = 0;
+    if (tags.isNotEmpty) {
+      var rowWidth = 0.0;
+      tagRows = 1;
+      final maxTagAreaWidth = width - paddingH * 2;
+      for (final tag in tags) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: tag,
+            style: TextStyle(
+              fontSize: tagFontSize,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+          ellipsis: '...',
+        )..layout(maxWidth: maxTagAreaWidth);
+        final itemWidth = painter.width + tagPadH * 2;
+        final needed = rowWidth == 0
+            ? itemWidth
+            : rowWidth + tagGap + itemWidth;
+        if (needed > maxTagAreaWidth && rowWidth > 0) {
+          tagRows += 1;
+          rowWidth = itemWidth;
+        } else {
+          rowWidth = needed;
+        }
+      }
+    }
+    final tagHeight = tagRows == 0
+        ? 0.0
+        : tagRows * (tagFontSize * 1.25 + tagPadV * 2) + (tagRows - 1) * tagGap;
+    final height = title.isEmpty && subtitle.isEmpty && tags.isEmpty
+        ? 0.0
+        : paddingV * 2 +
+              titleHeight +
+              (title.isNotEmpty && subtitle.isNotEmpty ? titleSubtitleGap : 0) +
+              subtitleHeight +
+              ((title.isNotEmpty || subtitle.isNotEmpty) && tags.isNotEmpty
+                  ? subtitleTagGap
+                  : 0) +
+              tagHeight;
+
+    return _ComparisonMetaLayout(
+      title: title,
+      subtitle: subtitle,
+      tags: tags,
+      height: height,
+      paddingH: paddingH,
+      paddingV: paddingV,
+      radius: radius,
+      titleFontSize: titleFontSize,
+      subtitleFontSize: subtitleFontSize,
+      tagFontSize: tagFontSize,
+      titleSubtitleGap: titleSubtitleGap,
+      subtitleTagGap: subtitleTagGap,
+      tagGap: tagGap,
+      tagPadH: tagPadH,
+      tagPadV: tagPadV,
+      tagRadius: tagRadius,
+    );
   }
 }

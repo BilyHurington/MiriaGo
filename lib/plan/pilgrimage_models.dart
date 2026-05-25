@@ -8,11 +8,12 @@ enum WorkSource { bangumi, manual }
 
 enum PointSource { manual, anitabi }
 
-enum CameraPhotoAspectRatio { landscape16x9, standard4x3, square1x1 }
+enum CameraPhotoAspectRatio { auto, landscape16x9, standard4x3, square1x1 }
 
 extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {
     return switch (this) {
+      CameraPhotoAspectRatio.auto => '自动',
       CameraPhotoAspectRatio.landscape16x9 => '16:9',
       CameraPhotoAspectRatio.standard4x3 => '4:3',
       CameraPhotoAspectRatio.square1x1 => '1:1',
@@ -23,7 +24,7 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
 class AppSettings {
   const AppSettings({
     this.uiScale = 1,
-    this.cameraAspectRatio = CameraPhotoAspectRatio.landscape16x9,
+    this.cameraAspectRatio = CameraPhotoAspectRatio.auto,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
   });

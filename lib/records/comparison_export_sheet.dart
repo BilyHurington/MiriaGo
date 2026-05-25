@@ -181,20 +181,28 @@ class _AppearanceSection extends StatelessWidget {
       children: [
         const _SectionLabel('外观'),
         const SizedBox(height: 8),
-        const _FieldLabel('边框宽度'),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: ComparisonBorderWidth.values
-              .map((bw) {
-                return _OptionChip(
-                  label: bw.label,
-                  selected: config.borderWidth == bw,
-                  onSelected: () => onChanged(config.copyWith(borderWidth: bw)),
-                );
-              })
-              .toList(growable: false),
+        Row(
+          children: [
+            const _FieldLabel('边框宽度'),
+            const Spacer(),
+            Text(
+              config.borderWidthPercent == 0
+                  ? '无'
+                  : '${config.borderWidthPercent.toStringAsFixed(1)}%',
+              style: const TextStyle(
+                color: AppColors.accent,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: config.borderWidthPercent,
+          min: 0,
+          max: 3.0,
+          divisions: 30,
+          onChanged: (v) => onChanged(config.copyWith(borderWidthPercent: v)),
         ),
         const SizedBox(height: 12),
         const _FieldLabel('边框颜色'),

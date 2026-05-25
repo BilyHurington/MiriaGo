@@ -2534,7 +2534,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
-        defaultValue: const Constant('landscape16x9'),
+        defaultValue: const Constant('auto'),
       );
   static const VerificationMeta _cameraMinZoomMeta = const VerificationMeta(
     'cameraMinZoom',

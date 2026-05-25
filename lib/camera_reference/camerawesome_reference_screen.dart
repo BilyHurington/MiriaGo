@@ -328,6 +328,7 @@ CameraAspectRatios _cameraAspectRatioFromDouble(double ratio) {
 
 double _defaultLandscapeAspectRatio(CameraPhotoAspectRatio ratio) {
   return switch (ratio) {
+    CameraPhotoAspectRatio.auto => 16 / 9,
     CameraPhotoAspectRatio.landscape16x9 => 16 / 9,
     CameraPhotoAspectRatio.standard4x3 => 4 / 3,
     CameraPhotoAspectRatio.square1x1 => 1,

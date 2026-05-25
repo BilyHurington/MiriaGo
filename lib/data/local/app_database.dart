@@ -70,7 +70,7 @@ class AppSettingsEntries extends Table {
   TextColumn get id => text()();
   RealColumn get uiScale => real().withDefault(const Constant(1.0))();
   TextColumn get cameraAspectRatio =>
-      text().withDefault(const Constant('landscape16x9'))();
+      text().withDefault(const Constant('auto'))();
   RealColumn get cameraMinZoom => real().withDefault(const Constant(0.6))();
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
 

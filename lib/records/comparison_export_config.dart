@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-enum ComparisonBorderWidth { none, w2, w4, w6, w8 }
-
 enum ComparisonOutputWidth { auto, w1080, w1920, w2560, w3840 }
 
 enum ComparisonMetadataField {
@@ -11,24 +9,6 @@ enum ComparisonMetadataField {
   coordinates,
   anitabiId,
   episodeLabel,
-}
-
-extension ComparisonBorderWidthValue on ComparisonBorderWidth {
-  double get px => switch (this) {
-    ComparisonBorderWidth.none => 0,
-    ComparisonBorderWidth.w2 => 2,
-    ComparisonBorderWidth.w4 => 4,
-    ComparisonBorderWidth.w6 => 6,
-    ComparisonBorderWidth.w8 => 8,
-  };
-
-  String get label => switch (this) {
-    ComparisonBorderWidth.none => '无',
-    ComparisonBorderWidth.w2 => '2px',
-    ComparisonBorderWidth.w4 => '4px',
-    ComparisonBorderWidth.w6 => '6px',
-    ComparisonBorderWidth.w8 => '8px',
-  };
 }
 
 extension ComparisonOutputWidthValue on ComparisonOutputWidth {
@@ -62,7 +42,7 @@ extension ComparisonMetadataFieldLabel on ComparisonMetadataField {
 
 class ComparisonExportConfig {
   const ComparisonExportConfig({
-    this.borderWidth = ComparisonBorderWidth.w2,
+    this.borderWidthPercent = 0.5,
     this.borderColor = Colors.white,
     this.outputWidth = ComparisonOutputWidth.auto,
     this.showLabels = false,
@@ -73,7 +53,7 @@ class ComparisonExportConfig {
     },
   });
 
-  final ComparisonBorderWidth borderWidth;
+  final double borderWidthPercent;
   final Color borderColor;
   final ComparisonOutputWidth outputWidth;
   final bool showLabels;
@@ -82,14 +62,14 @@ class ComparisonExportConfig {
   static ComparisonExportConfig lastUsed = const ComparisonExportConfig();
 
   ComparisonExportConfig copyWith({
-    ComparisonBorderWidth? borderWidth,
+    double? borderWidthPercent,
     Color? borderColor,
     ComparisonOutputWidth? outputWidth,
     bool? showLabels,
     Set<ComparisonMetadataField>? metadataFields,
   }) {
     return ComparisonExportConfig(
-      borderWidth: borderWidth ?? this.borderWidth,
+      borderWidthPercent: borderWidthPercent ?? this.borderWidthPercent,
       borderColor: borderColor ?? this.borderColor,
       outputWidth: outputWidth ?? this.outputWidth,
       showLabels: showLabels ?? this.showLabels,
