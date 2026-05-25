@@ -10,6 +10,9 @@ import 'plan/pilgrimage_models.dart';
 import 'plan/pilgrimage_plan_controller.dart';
 import 'plan/plan_screen.dart';
 import 'plan/point_manager_screen.dart';
+import 'plan_transfer/incoming_plan_file.dart';
+import 'plan_transfer/plan_package_file_stub.dart'
+    if (dart.library.io) 'plan_transfer/plan_package_file_io.dart';
 import 'records/records_screen.dart';
 import 'settings/settings_screen.dart';
 
@@ -28,11 +31,13 @@ class _AppShellState extends State<AppShell> {
   AppSettings _settings = const AppSettings();
   Object? _loadError;
   int _selectedIndex = 0;
+  final _incomingPlanFiles = const IncomingPlanFileChannel();
 
   @override
   void initState() {
     super.initState();
-    _loadActivePlan();
+    _incomingPlanFiles.listen(_importPlanFromPath);
+    _initializeApp();
   }
 
   @override
@@ -70,6 +75,11 @@ class _AppShellState extends State<AppShell> {
         _loadError = error;
       });
     }
+  }
+
+  Future<void> _initializeApp() async {
+    await _loadActivePlan();
+    await _loadInitialIncomingPlanFile();
   }
 
   void _openMap() {
@@ -125,6 +135,41 @@ class _AppShellState extends State<AppShell> {
     await widget.repository.saveAppSettings(settings);
   }
 
+  Future<void> _loadInitialIncomingPlanFile() async {
+    final path = await _incomingPlanFiles.getInitialPath();
+    if (path == null || path.isEmpty) {
+      return;
+    }
+    await _importPlanFromPath(path);
+  }
+
+  Future<void> _importPlanFromPath(String path) async {
+    try {
+      final package = await readPlanPackageFromPath(path);
+      final importedPlan = await widget.repository.importPlanPackage(
+        plan: package.plan,
+        visitRecords: package.visitRecords,
+      );
+      await _loadActivePlan();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedIndex = 0;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已导入计划「${importedPlan.name}」')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('计划文件导入失败')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _planController;
@@ -147,6 +192,7 @@ class _AppShellState extends State<AppShell> {
                 PlanScreen(
                   controller: controller,
                   settings: _settings,
+                  repository: widget.repository,
                   onOpenMap: _openMap,
                   onOpenPlanManager: _openPlanManager,
                   onOpenAddPoints: _openAddPoints,

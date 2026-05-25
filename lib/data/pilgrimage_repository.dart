@@ -16,6 +16,11 @@ abstract interface class PilgrimageRepository {
     required String area,
   });
 
+  Future<PilgrimagePlan> importPlanPackage({
+    required PilgrimagePlan plan,
+    required List<PilgrimageVisitRecord> visitRecords,
+  });
+
   Future<PilgrimagePlan> renamePlan({
     required String planId,
     required String name,

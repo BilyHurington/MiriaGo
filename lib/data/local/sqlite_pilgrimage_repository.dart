@@ -104,6 +104,67 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> importPlanPackage({
+    required PilgrimagePlan plan,
+    required List<PilgrimageVisitRecord> visitRecords,
+  }) async {
+    final now = DateTime.now();
+    final importedId = 'imported-${now.microsecondsSinceEpoch}';
+    final idPrefix = '$importedId-';
+    final workIdMap = {
+      for (final work in plan.works) work.id: '$idPrefix${work.id}',
+    };
+    final pointIdMap = {
+      for (final point in plan.points) point.id: '$idPrefix${point.id}',
+    };
+    final existingNames = (await _database.select(_database.plans).get())
+        .map((plan) => plan.name)
+        .toSet();
+    final importedPlan = plan.copyWith(
+      id: importedId,
+      name: _uniquePlanName(plan.name, existingNames),
+      works: _remapWorks(plan.works, workIdMap),
+      points: _remapPoints(plan.points, workIdMap, pointIdMap),
+      createdAt: now,
+      updatedAt: now,
+      currentPointId: plan.currentPointId == null
+          ? null
+          : pointIdMap[plan.currentPointId],
+      completedPointIds: {
+        for (final pointId in plan.completedPointIds)
+          if (pointIdMap[pointId] != null) pointIdMap[pointId]!,
+      },
+    );
+
+    await _database.transaction(() async {
+      await _database
+          .update(_database.plans)
+          .write(const PlansCompanion(active: Value(false)));
+      await _insertPlan(importedPlan, active: true);
+
+      for (final record in visitRecords) {
+        await _database
+            .into(_database.visitRecords)
+            .insert(
+              VisitRecordsCompanion.insert(
+                id: _importedRecordId(record.id, now),
+                planId: importedId,
+                pointId: pointIdMap[record.pointId] ?? record.pointId,
+                workId: workIdMap[record.workId] ?? record.workId,
+                photoPath: record.photoPath,
+                referenceImagePath: Value(record.referenceImagePath),
+                referenceImageUrl: Value(record.referenceImageUrl),
+                referenceMode: record.referenceMode,
+                capturedAt: record.capturedAt,
+              ),
+            );
+      }
+    });
+
+    return _planFromRow(await _planRowById(importedId));
+  }
+
+  @override
   Future<PilgrimagePlan> renamePlan({
     required String planId,
     required String name,
@@ -585,7 +646,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       await _database
           .into(_database.points)
           .insert(
-            _pointCompanion(planId: plan.id, point: point, sortOrder: index),
+            _pointCompanion(
+              planId: plan.id,
+              point: point,
+              sortOrder: index,
+              isCurrent: plan.currentPointId == point.id,
+              completedAt: plan.completedPointIds.contains(point.id)
+                  ? plan.updatedAt
+                  : null,
+            ),
           );
     }
   }
@@ -613,6 +682,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required PilgrimagePoint point,
     required int sortOrder,
+    bool isCurrent = false,
+    DateTime? completedAt,
   }) {
     return PointsCompanion.insert(
       id: point.id,
@@ -631,9 +702,75 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceFullImagePath: Value(point.referenceFullImagePath),
       sourceUrl: Value(point.sourceUrl),
       sortOrder: Value(sortOrder),
-      isCurrent: const Value(false),
-      completedAt: const Value(null),
+      isCurrent: Value(isCurrent),
+      completedAt: Value(completedAt),
     );
+  }
+
+  String _uniquePlanName(String baseName, Set<String> existingNames) {
+    final trimmed = baseName.trim().isEmpty ? '导入的巡礼计划' : baseName.trim();
+    if (!existingNames.contains(trimmed)) {
+      return trimmed;
+    }
+
+    var index = 2;
+    while (existingNames.contains('$trimmed ($index)')) {
+      index += 1;
+    }
+    return '$trimmed ($index)';
+  }
+
+  String _importedRecordId(String recordId, DateTime now) {
+    return 'imported-${now.microsecondsSinceEpoch}-$recordId';
+  }
+
+  List<PilgrimageWork> _remapWorks(
+    List<PilgrimageWork> works,
+    Map<String, String> workIdMap,
+  ) {
+    return [
+      for (final work in works)
+        PilgrimageWork(
+          id: workIdMap[work.id] ?? work.id,
+          bangumiId: work.bangumiId,
+          title: work.title,
+          subtitle: work.subtitle,
+          city: work.city,
+          source: work.source,
+        ),
+    ];
+  }
+
+  List<PilgrimagePoint> _remapPoints(
+    List<PilgrimagePoint> points,
+    Map<String, String> workIdMap,
+    Map<String, String> pointIdMap,
+  ) {
+    return [
+      for (final point in points)
+        PilgrimagePoint(
+          id: pointIdMap[point.id] ?? point.id,
+          work: PilgrimageWork(
+            id: workIdMap[point.work.id] ?? point.work.id,
+            bangumiId: point.work.bangumiId,
+            title: point.work.title,
+            subtitle: point.work.subtitle,
+            city: point.work.city,
+            source: point.work.source,
+          ),
+          name: point.name,
+          subtitle: point.subtitle,
+          position: point.position,
+          episodeLabel: point.episodeLabel,
+          referenceLabel: point.referenceLabel,
+          source: point.source,
+          sourceId: point.sourceId,
+          referenceImageUrl: point.referenceImageUrl,
+          referenceThumbnailPath: point.referenceThumbnailPath,
+          referenceFullImagePath: point.referenceFullImagePath,
+          sourceUrl: point.sourceUrl,
+        ),
+    ];
   }
 
   Future<PilgrimagePlan> _planFromRow(Plan row) async {

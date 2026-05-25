@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../app_theme.dart';
+import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../data/reference_cache_file_stub.dart'
@@ -9,6 +11,9 @@ import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
 import '../point_detail/point_detail_sheet.dart';
+import '../plan_transfer/plan_package.dart';
+import '../plan_transfer/plan_package_file_stub.dart'
+    if (dart.library.io) '../plan_transfer/plan_package_file_io.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
 
@@ -16,6 +21,7 @@ class PlanScreen extends StatelessWidget {
   const PlanScreen({
     required this.controller,
     required this.settings,
+    required this.repository,
     required this.onOpenMap,
     required this.onOpenPlanManager,
     required this.onOpenAddPoints,
@@ -25,6 +31,7 @@ class PlanScreen extends StatelessWidget {
 
   final PilgrimagePlanController controller;
   final AppSettings settings;
+  final PilgrimageRepository repository;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenPlanManager;
   final VoidCallback onOpenAddPoints;
@@ -101,6 +108,11 @@ class PlanScreen extends StatelessWidget {
                   ),
                   label: const Text('缓存完整参考图'),
                 ),
+                TextButton.icon(
+                  onPressed: () => _exportPlan(context),
+                  icon: const Icon(Icons.ios_share_outlined, size: 18),
+                  label: const Text('导出计划'),
+                ),
               ],
             ),
           ),
@@ -162,11 +174,15 @@ class PlanScreen extends StatelessWidget {
         )
         .toList(growable: false);
     if (points.isEmpty) {
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
+      messenger.showReplacingSnackBar(
+        const SnackBar(content: Text('当前计划没有需要缓存的参考图')),
+      );
       return;
     }
 
-    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
+    messenger.showReplacingSnackBar(
+      const SnackBar(content: Text('正在缓存完整参考图...')),
+    );
     var cached = 0;
     for (final point in points) {
       final path = await reference_image_cache.cacheReferenceFullImage(point);
@@ -187,6 +203,38 @@ class PlanScreen extends StatelessWidget {
     messenger.showReplacingSnackBar(
       SnackBar(content: Text('已缓存 $cached/${points.length} 张完整参考图')),
     );
+  }
+
+  Future<void> _exportPlan(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在导出计划...')));
+
+    try {
+      final records = await repository.loadVisitRecords(controller.plan.id);
+      final path = await exportPlanPackageToFile(
+        PlanPackage(plan: controller.plan, visitRecords: records),
+      );
+      if (path == null) {
+        messenger.showReplacingSnackBar(
+          const SnackBar(content: Text('当前平台暂不支持导出计划文件')),
+        );
+        return;
+      }
+
+      await Share.shareXFiles(
+        [
+          XFile(
+            path,
+            mimeType: seichiPlanMimeType,
+            name: '${controller.plan.name}.$seichiPlanFileExtension',
+          ),
+        ],
+        subject: controller.plan.name,
+        text: '圣地巡礼助手计划：${controller.plan.name}',
+      );
+    } catch (_) {
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('计划导出失败')));
+    }
   }
 }
 
@@ -524,7 +572,9 @@ class _PlanPointTile extends StatelessWidget {
               ),
               IconButton(
                 tooltip: status == VisitStatus.completed ? '重置' : '完成',
-                onPressed: status == VisitStatus.completed ? onReopen : onComplete,
+                onPressed: status == VisitStatus.completed
+                    ? onReopen
+                    : onComplete,
                 icon: Icon(
                   status == VisitStatus.completed
                       ? Icons.restart_alt

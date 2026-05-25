@@ -2,6 +2,8 @@ package app.seichijunrei.seichi_junrei_helper
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -11,6 +13,9 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    private var planFileChannel: MethodChannel? = null
+    private var pendingPlanPath: String? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine
@@ -25,6 +30,20 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             "seichi/gallery_saver"
         )
+        planFileChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "seichi/plan_file"
+        )
+
+        pendingPlanPath = extractPlanPathFromIntent(intent)
+        planFileChannel?.setMethodCallHandler { call, result ->
+            if (call.method == "getInitialPath") {
+                result.success(pendingPlanPath)
+                pendingPlanPath = null
+            } else {
+                result.notImplemented()
+            }
+        }
 
         galleryChannel.setMethodCallHandler { call, result ->
             if (call.method == "saveToGallery") {
@@ -43,6 +62,14 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val path = extractPlanPathFromIntent(intent) ?: return
+        pendingPlanPath = path
+        planFileChannel?.invokeMethod("openPath", path)
     }
 
     private fun saveImageToGallery(sourcePath: String): String? {
@@ -82,5 +109,35 @@ class MainActivity : FlutterActivity() {
         }
 
         return uri.toString()
+    }
+
+    private fun extractPlanPathFromIntent(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        val uri = intent.data ?: return null
+        return try {
+            copyPlanUriToCache(uri)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun copyPlanUriToCache(uri: Uri): String? {
+        val directory = File(cacheDir, "incoming_plans")
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+        val file = File(directory, "incoming_${System.currentTimeMillis()}.sjhplan")
+        val input = when (uri.scheme) {
+            "content" -> contentResolver.openInputStream(uri)
+            "file" -> File(uri.path ?: return null).inputStream()
+            else -> null
+        } ?: return null
+
+        input.use { source ->
+            file.outputStream().use { output ->
+                source.copyTo(output)
+            }
+        }
+        return file.absolutePath
     }
 }

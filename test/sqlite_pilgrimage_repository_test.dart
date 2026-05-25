@@ -274,4 +274,46 @@ void main() {
     expect(reloadedPlan.completedPointIds, isNot(contains(plan.points[1].id)));
     expect(reloadedPlan.currentPointId, plan.points.first.id);
   });
+
+  test('imports plan package as active plan with records', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+    await repository.completePoint(
+      planId: plan.id,
+      pointId: point.id,
+      nextCurrentPointId: plan.points[1].id,
+    );
+    final record = await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: '/tmp/photo.jpg',
+      referenceMode: '叠影',
+    );
+    final exportedPlan = await repository.loadActivePlan();
+
+    final imported = await repository.importPlanPackage(
+      plan: exportedPlan,
+      visitRecords: [record],
+    );
+    final active = await repository.loadActivePlan();
+    final records = await repository.loadVisitRecords(active.id);
+
+    expect(imported.id, isNot(plan.id));
+    expect(active.id, imported.id);
+    expect(active.name, '${exportedPlan.name} (2)');
+    expect(
+      active.points.map((point) => point.name),
+      plan.points.map((point) => point.name),
+    );
+    expect(active.completedPointIds, contains(active.points.first.id));
+    expect(active.currentPointId, active.points[1].id);
+    expect(records, hasLength(1));
+    expect(records.single.planId, imported.id);
+    expect(records.single.pointId, active.points.first.id);
+  });
 }

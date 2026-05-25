@@ -74,6 +74,41 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> importPlanPackage({
+    required PilgrimagePlan plan,
+    required List<PilgrimageVisitRecord> visitRecords,
+  }) async {
+    final now = DateTime.now();
+    final existingNames = _plans.map((plan) => plan.name).toSet();
+    final importedPlan = plan.copyWith(
+      id: 'imported-${now.microsecondsSinceEpoch}',
+      name: _uniquePlanName(plan.name, existingNames),
+      createdAt: now,
+      updatedAt: now,
+      currentPointId: plan.currentPointId,
+      completedPointIds: plan.completedPointIds,
+    );
+    _plans.add(importedPlan);
+    _visitRecords.addAll(
+      visitRecords.map(
+        (record) => PilgrimageVisitRecord(
+          id: 'imported-${now.microsecondsSinceEpoch}-${record.id}',
+          planId: importedPlan.id,
+          pointId: record.pointId,
+          workId: record.workId,
+          photoPath: record.photoPath,
+          referenceImagePath: record.referenceImagePath,
+          referenceImageUrl: record.referenceImageUrl,
+          referenceMode: record.referenceMode,
+          capturedAt: record.capturedAt,
+        ),
+      ),
+    );
+    _activePlanId = importedPlan.id;
+    return importedPlan;
+  }
+
+  @override
   Future<PilgrimagePlan> renamePlan({
     required String planId,
     required String name,
@@ -429,6 +464,19 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     return index;
+  }
+
+  String _uniquePlanName(String baseName, Set<String> existingNames) {
+    final trimmed = baseName.trim().isEmpty ? '导入的巡礼计划' : baseName.trim();
+    if (!existingNames.contains(trimmed)) {
+      return trimmed;
+    }
+
+    var index = 2;
+    while (existingNames.contains('$trimmed ($index)')) {
+      index += 1;
+    }
+    return '$trimmed ($index)';
   }
 }
 
