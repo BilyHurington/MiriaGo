@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../data/reference_cache_file_stub.dart'
+    if (dart.library.io) '../data/reference_cache_file_io.dart';
 import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
@@ -556,12 +558,19 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
 
   Future<void> _cacheFullReferenceImages() async {
     final fullPoints = _plan.points
-        .where((point) => point.referenceImageUrl != null)
+        .where(
+          (point) =>
+              point.referenceImageUrl != null &&
+              !referenceFullCacheFileIsCurrent(
+                path: point.referenceFullImagePath,
+                imageUrl: point.referenceImageUrl,
+              ),
+        )
         .toList(growable: false);
     if (fullPoints.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('当前计划没有参考图可缓存')));
+      ).showSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
       return;
     }
 
@@ -921,7 +930,10 @@ class _PointManagerTile extends StatelessWidget {
   }
 
   String _cacheStatusText(PilgrimagePoint point) {
-    final fullCached = point.referenceFullImagePath != null;
+    final fullCached = referenceFullCacheFileIsCurrent(
+      path: point.referenceFullImagePath,
+      imageUrl: point.referenceImageUrl,
+    );
     return fullCached ? '缓存：已缓存' : '缓存：未缓存';
   }
 }
@@ -933,7 +945,10 @@ class _CacheStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fullCached = point.referenceFullImagePath != null;
+    final fullCached = referenceFullCacheFileIsCurrent(
+      path: point.referenceFullImagePath,
+      imageUrl: point.referenceImageUrl,
+    );
     final label = fullCached ? '已缓存' : '未缓存';
     final color = fullCached ? AppColors.accent : AppColors.accentDark;
 

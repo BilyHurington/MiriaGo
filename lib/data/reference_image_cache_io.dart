@@ -17,7 +17,8 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
   return _cacheImage(
     url: thumbnailUrl,
     namespace: 'reference_thumbnails',
-    filename: '${_safeFileName(point.id)}${_extensionFromUrl(thumbnailUrl)}',
+    filename:
+        '${_safeFileName(point.id)}_${_stableUrlHash(thumbnailUrl)}${_extensionFromUrl(thumbnailUrl)}',
   );
 }
 
@@ -30,7 +31,8 @@ Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
   return _cacheImage(
     url: url,
     namespace: 'reference_full',
-    filename: '${_safeFileName(point.id)}${_extensionFromUrl(url)}',
+    filename:
+        '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
   );
 }
 
@@ -78,6 +80,15 @@ String _thumbnailUrl(String url) {
 
 String _safeFileName(String value) {
   return value.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
+}
+
+String _stableUrlHash(String value) {
+  var hash = 0x811c9dc5;
+  for (final codeUnit in value.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
 }
 
 String _extensionFromUrl(String url) {

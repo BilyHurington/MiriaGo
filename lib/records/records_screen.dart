@@ -20,7 +20,9 @@ class RecordsScreen extends StatefulWidget {
 
 class _RecordsScreenState extends State<RecordsScreen> {
   String? _selectedWorkId;
+  String _searchQuery = '';
   _RecordStatusFilter _statusFilter = _RecordStatusFilter.all;
+  var _filtersExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +40,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
             works: controller.plan.works,
             selectedWorkId: _selectedWorkId,
             statusFilter: _statusFilter,
+            searchQuery: _searchQuery,
+            expanded: _filtersExpanded,
+            activeFilterCount: _activeFilterCount,
+            onToggleExpanded: () {
+              setState(() => _filtersExpanded = !_filtersExpanded);
+            },
+            onSearchChanged: (query) {
+              setState(() => _searchQuery = query);
+            },
             onWorkSelected: (workId) {
               setState(() => _selectedWorkId = workId);
             },
@@ -90,6 +101,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
             return false;
           }
 
+          if (!_matchesSearch(record, point)) {
+            return false;
+          }
+
           return switch (_statusFilter) {
             _RecordStatusFilter.all => true,
             _RecordStatusFilter.completed =>
@@ -102,6 +117,55 @@ class _RecordsScreenState extends State<RecordsScreen> {
         })
         .toList(growable: false);
   }
+
+  int get _activeFilterCount {
+    var count = 0;
+    if (_selectedWorkId != null) {
+      count += 1;
+    }
+    if (_statusFilter != _RecordStatusFilter.all) {
+      count += 1;
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      count += 1;
+    }
+    return count;
+  }
+
+  bool _matchesSearch(PilgrimageVisitRecord record, PilgrimagePoint? point) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return true;
+    }
+
+    final values = <String>[
+      record.id,
+      record.pointId,
+      record.workId,
+      record.referenceMode,
+      record.referenceImagePath ?? '',
+      record.referenceImageUrl ?? '',
+      if (point != null) ...[
+        point.id,
+        point.name,
+        point.subtitle,
+        point.episodeLabel,
+        point.referenceLabel,
+        point.sourceId ?? '',
+        point.sourceUrl ?? '',
+        point.referenceImageUrl ?? '',
+        point.position.latitude.toStringAsFixed(6),
+        point.position.longitude.toStringAsFixed(6),
+        point.work.id,
+        point.work.title,
+        point.work.subtitle,
+        point.work.city,
+        point.work.bangumiId?.toString() ?? '',
+      ],
+    ];
+
+    return values.any((value) => value.toLowerCase().contains(query));
+  }
 }
 
 class _RecordFilters extends StatelessWidget {
@@ -109,6 +173,11 @@ class _RecordFilters extends StatelessWidget {
     required this.works,
     required this.selectedWorkId,
     required this.statusFilter,
+    required this.searchQuery,
+    required this.expanded,
+    required this.activeFilterCount,
+    required this.onToggleExpanded,
+    required this.onSearchChanged,
     required this.onWorkSelected,
     required this.onStatusSelected,
   });
@@ -116,14 +185,165 @@ class _RecordFilters extends StatelessWidget {
   final List<PilgrimageWork> works;
   final String? selectedWorkId;
   final _RecordStatusFilter statusFilter;
+  final String searchQuery;
+  final bool expanded;
+  final int activeFilterCount;
+  final VoidCallback onToggleExpanded;
+  final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?> onWorkSelected;
   final ValueChanged<_RecordStatusFilter> onStatusSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = activeFilterCount == 0
+        ? '全部记录'
+        : '$activeFilterCount 个筛选条件';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onToggleExpanded,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_list, color: AppColors.accentDark),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '筛选',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    summary,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            const Divider(height: 1, color: AppColors.border),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: _ExpandedRecordFilters(
+                works: works,
+                selectedWorkId: selectedWorkId,
+                statusFilter: statusFilter,
+                searchQuery: searchQuery,
+                onSearchChanged: onSearchChanged,
+                onWorkSelected: onWorkSelected,
+                onStatusSelected: onStatusSelected,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpandedRecordFilters extends StatefulWidget {
+  const _ExpandedRecordFilters({
+    required this.works,
+    required this.selectedWorkId,
+    required this.statusFilter,
+    required this.searchQuery,
+    required this.onSearchChanged,
+    required this.onWorkSelected,
+    required this.onStatusSelected,
+  });
+
+  final List<PilgrimageWork> works;
+  final String? selectedWorkId;
+  final _RecordStatusFilter statusFilter;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String?> onWorkSelected;
+  final ValueChanged<_RecordStatusFilter> onStatusSelected;
+
+  @override
+  State<_ExpandedRecordFilters> createState() => _ExpandedRecordFiltersState();
+}
+
+class _ExpandedRecordFiltersState extends State<_ExpandedRecordFilters> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.searchQuery);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExpandedRecordFilters oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.searchQuery != _searchController.text) {
+      _searchController.text = widget.searchQuery;
+      _searchController.selection = TextSelection.collapsed(
+        offset: widget.searchQuery.length,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            labelText: '搜索点位',
+            prefixIcon: const Icon(Icons.search),
+            hintText: '点位、作品、场景、集数、坐标',
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: '清空搜索',
+                    onPressed: () {
+                      _searchController.clear();
+                      widget.onSearchChanged('');
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.close),
+                  ),
+          ),
+          onChanged: (value) {
+            widget.onSearchChanged(value);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 14),
         const Text(
           '作品',
           style: TextStyle(
@@ -139,15 +359,15 @@ class _RecordFilters extends StatelessWidget {
             children: [
               _FilterChipButton(
                 label: '全部',
-                selected: selectedWorkId == null,
-                onSelected: () => onWorkSelected(null),
+                selected: widget.selectedWorkId == null,
+                onSelected: () => widget.onWorkSelected(null),
               ),
-              for (final work in works) ...[
+              for (final work in widget.works) ...[
                 const SizedBox(width: 8),
                 _FilterChipButton(
                   label: work.title,
-                  selected: selectedWorkId == work.id,
-                  onSelected: () => onWorkSelected(work.id),
+                  selected: widget.selectedWorkId == work.id,
+                  onSelected: () => widget.onWorkSelected(work.id),
                 ),
               ],
             ],
@@ -169,18 +389,21 @@ class _RecordFilters extends StatelessWidget {
           children: [
             _FilterChipButton(
               label: '全部',
-              selected: statusFilter == _RecordStatusFilter.all,
-              onSelected: () => onStatusSelected(_RecordStatusFilter.all),
+              selected: widget.statusFilter == _RecordStatusFilter.all,
+              onSelected: () =>
+                  widget.onStatusSelected(_RecordStatusFilter.all),
             ),
             _FilterChipButton(
               label: '已完成点位',
-              selected: statusFilter == _RecordStatusFilter.completed,
-              onSelected: () => onStatusSelected(_RecordStatusFilter.completed),
+              selected: widget.statusFilter == _RecordStatusFilter.completed,
+              onSelected: () =>
+                  widget.onStatusSelected(_RecordStatusFilter.completed),
             ),
             _FilterChipButton(
               label: '未完成点位',
-              selected: statusFilter == _RecordStatusFilter.pending,
-              onSelected: () => onStatusSelected(_RecordStatusFilter.pending),
+              selected: widget.statusFilter == _RecordStatusFilter.pending,
+              onSelected: () =>
+                  widget.onStatusSelected(_RecordStatusFilter.pending),
             ),
           ],
         ),
