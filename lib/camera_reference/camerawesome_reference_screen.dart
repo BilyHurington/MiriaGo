@@ -167,6 +167,10 @@ class _CamerawesomeReferenceScreenState
       return;
     }
 
+    if (_landscapeLocked) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => VisitRecordConfirmationScreen(
@@ -182,6 +186,13 @@ class _CamerawesomeReferenceScreenState
         ),
       ),
     );
+
+    if (_landscapeLocked && mounted) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
   }
 
   void _setZoom(CameraState state, double value) {
