@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:flutter/foundation.dart';
@@ -16,6 +18,9 @@ import '../widgets/reference_thumbnail_stub.dart'
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
+import 'reference_image_bytes_stub.dart'
+    if (dart.library.io) 'reference_image_bytes_io.dart'
+    as reference_image_bytes;
 import 'visit_record_confirmation_screen.dart';
 
 enum AwesomeReferenceMode { overlay, split, pinned }
@@ -59,6 +64,8 @@ class _CamerawesomeReferenceScreenState
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   bool _landscapeLocked = false;
   bool _nativeCameraFailed = false;
+  double? _referenceAspectRatio;
+  int _referenceAspectRatioRequest = 0;
 
   @override
   void initState() {
@@ -66,6 +73,18 @@ class _CamerawesomeReferenceScreenState
     _overlayOpacity = ValueNotifier<double>(0.46);
     _zoom = ValueNotifier<double>(0);
     _nativeCameraController = _NativeCameraController();
+    _refreshReferenceAspectRatio();
+  }
+
+  @override
+  void didUpdateWidget(covariant CamerawesomeReferenceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.point.id != widget.point.id ||
+        oldWidget.point.referenceFullImagePath !=
+            widget.point.referenceFullImagePath ||
+        oldWidget.point.referenceImageUrl != widget.point.referenceImageUrl) {
+      _refreshReferenceAspectRatio();
+    }
   }
 
   @override
@@ -95,6 +114,23 @@ class _CamerawesomeReferenceScreenState
 
     setState(() {
       _localReferenceBytes = bytes;
+    });
+    await _refreshReferenceAspectRatio();
+  }
+
+  Future<void> _refreshReferenceAspectRatio() async {
+    final requestId = ++_referenceAspectRatioRequest;
+    final ratio = await _resolveReferenceAspectRatio(
+      bytes: _localReferenceBytes,
+      localPath: widget.point.referenceFullImagePath,
+      url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
+    );
+    if (!mounted || requestId != _referenceAspectRatioRequest) {
+      return;
+    }
+
+    setState(() {
+      _referenceAspectRatio = ratio;
     });
   }
 
@@ -173,6 +209,11 @@ class _CamerawesomeReferenceScreenState
       localPath: widget.point.referenceFullImagePath,
       url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
     );
+    final captureAspectRatio = _captureAspectRatio(
+      referenceAspectRatio: _referenceAspectRatio,
+      settings: widget.settings,
+      landscapeLocked: _landscapeLocked,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -197,6 +238,7 @@ class _CamerawesomeReferenceScreenState
               mode: _mode,
               overlayOpacity: _overlayOpacity,
               settings: widget.settings,
+              captureAspectRatio: captureAspectRatio,
               landscapeLocked: _landscapeLocked,
               onNativeUnavailable: () {
                 setState(() => _nativeCameraFailed = true);
@@ -218,9 +260,7 @@ class _CamerawesomeReferenceScreenState
               sensorConfig: SensorConfig.single(
                 sensor: Sensor.position(SensorPosition.back),
                 flashMode: FlashMode.auto,
-                aspectRatio: _cameraAspectRatio(
-                  widget.settings.cameraAspectRatio,
-                ),
+                aspectRatio: _cameraAspectRatioFromDouble(captureAspectRatio),
                 zoom: _zoom.value,
               ),
               previewFit: CameraPreviewFit.contain,
@@ -251,28 +291,111 @@ class _CamerawesomeReferenceScreenState
   }
 }
 
-CameraAspectRatios _cameraAspectRatio(CameraPhotoAspectRatio ratio) {
-  return switch (ratio) {
-    CameraPhotoAspectRatio.landscape16x9 => CameraAspectRatios.ratio_16_9,
-    CameraPhotoAspectRatio.standard4x3 => CameraAspectRatios.ratio_4_3,
-    CameraPhotoAspectRatio.square1x1 => CameraAspectRatios.ratio_1_1,
-  };
+CameraAspectRatios _cameraAspectRatioFromDouble(double ratio) {
+  final normalized = ratio >= 1 ? ratio : 1 / ratio;
+  final distanceToSquare = (normalized - 1).abs();
+  final distanceToFourThree = (normalized - 4 / 3).abs();
+  final distanceToSixteenNine = (normalized - 16 / 9).abs();
+
+  if (distanceToSquare <= distanceToFourThree &&
+      distanceToSquare <= distanceToSixteenNine) {
+    return CameraAspectRatios.ratio_1_1;
+  }
+  if (distanceToFourThree <= distanceToSixteenNine) {
+    return CameraAspectRatios.ratio_4_3;
+  }
+  return CameraAspectRatios.ratio_16_9;
 }
 
-double _cameraPortraitPreviewAspectRatio(CameraPhotoAspectRatio ratio) {
-  return switch (ratio) {
-    CameraPhotoAspectRatio.landscape16x9 => 9 / 16,
-    CameraPhotoAspectRatio.standard4x3 => 3 / 4,
-    CameraPhotoAspectRatio.square1x1 => 1,
-  };
-}
-
-double _cameraLandscapePreviewAspectRatio(CameraPhotoAspectRatio ratio) {
+double _defaultLandscapeAspectRatio(CameraPhotoAspectRatio ratio) {
   return switch (ratio) {
     CameraPhotoAspectRatio.landscape16x9 => 16 / 9,
     CameraPhotoAspectRatio.standard4x3 => 4 / 3,
     CameraPhotoAspectRatio.square1x1 => 1,
   };
+}
+
+double _captureAspectRatio({
+  required double? referenceAspectRatio,
+  required AppSettings settings,
+  required bool landscapeLocked,
+}) {
+  final baseRatio =
+      referenceAspectRatio ??
+      _defaultLandscapeAspectRatio(settings.cameraAspectRatio);
+  if (baseRatio <= 0) {
+    return 1;
+  }
+  if (landscapeLocked || baseRatio <= 1) {
+    return baseRatio;
+  }
+  return 1 / baseRatio;
+}
+
+Future<double?> _resolveReferenceAspectRatio({
+  required Uint8List? bytes,
+  required String? localPath,
+  required String? url,
+}) async {
+  final localBytes =
+      bytes ??
+      (localPath == null
+          ? null
+          : await reference_image_bytes.readReferenceImageBytes(localPath));
+  if (localBytes != null) {
+    return _decodeImageAspectRatio(localBytes);
+  }
+
+  if (url == null || url.isEmpty) {
+    return null;
+  }
+
+  try {
+    final provider = NetworkImage(url);
+    final completer = Completer<ImageInfo>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (image, synchronousCall) {
+        if (!completer.isCompleted) {
+          completer.complete(image);
+        }
+        stream.removeListener(listener);
+      },
+      onError: (error, stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+    final imageInfo = await completer.future.timeout(
+      const Duration(seconds: 5),
+    );
+    final width = imageInfo.image.width;
+    final height = imageInfo.image.height;
+    if (width <= 0 || height <= 0) {
+      return null;
+    }
+    return width / height;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<double?> _decodeImageAspectRatio(Uint8List bytes) async {
+  try {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    if (image.width <= 0 || image.height <= 0) {
+      return null;
+    }
+    return image.width / image.height;
+  } catch (_) {
+    return null;
+  }
 }
 
 class _NativeCameraController extends ChangeNotifier {
@@ -286,6 +409,7 @@ class _NativeCameraController extends ChangeNotifier {
   var _zoomRatio = 1.0;
   var _flashMode = 'auto';
   var _lensFacing = 'back';
+  var _captureAspectRatio = 1.0;
 
   bool get ready => _ready;
   bool get busy => _busy;
@@ -319,6 +443,7 @@ class _NativeCameraController extends ChangeNotifier {
     try {
       final result = await _channel!.invokeMapMethod<String, Object?>(
         'initialize',
+        {'targetAspectRatio': _captureAspectRatio},
       );
       _applyZoomState(result);
       _ready = true;
@@ -343,6 +468,22 @@ class _NativeCameraController extends ChangeNotifier {
     );
     _applyZoomState(result);
     notifyListeners();
+  }
+
+  Future<void> setCaptureAspectRatio(double ratio) async {
+    final safeRatio = ratio <= 0 ? 1.0 : ratio;
+    if ((_captureAspectRatio - safeRatio).abs() < 0.001) {
+      return;
+    }
+
+    _captureAspectRatio = safeRatio;
+    final channel = _channel;
+    if (channel == null || !_ready) {
+      return;
+    }
+    await channel.invokeMethod<void>('setTargetAspectRatio', {
+      'targetAspectRatio': _captureAspectRatio,
+    });
   }
 
   Future<void> cycleFlashMode() async {
@@ -422,6 +563,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
     required this.mode,
     required this.overlayOpacity,
     required this.settings,
+    required this.captureAspectRatio,
     required this.landscapeLocked,
     required this.onNativeUnavailable,
     required this.onModeChanged,
@@ -439,6 +581,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
   final AppSettings settings;
+  final double captureAspectRatio;
   final bool landscapeLocked;
   final VoidCallback onNativeUnavailable;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
@@ -453,6 +596,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
+        unawaited(controller.setCaptureAspectRatio(captureAspectRatio));
         if (controller.error != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             onNativeUnavailable();
@@ -472,9 +616,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
                     reference: reference,
                     overlayOpacity: opacity,
                     isLandscape: true,
-                    targetAspectRatio: _cameraLandscapePreviewAspectRatio(
-                      settings.cameraAspectRatio,
-                    ),
+                    targetAspectRatio: captureAspectRatio,
                   );
                 },
               ),
@@ -513,7 +655,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
                     reference: reference,
                     mode: mode,
                     overlayOpacity: overlayOpacity,
-                    settings: settings,
+                    captureAspectRatio: captureAspectRatio,
                   ),
                 ),
               ),
@@ -542,23 +684,21 @@ class _NativePreviewFrame extends StatelessWidget {
     required this.reference,
     required this.mode,
     required this.overlayOpacity,
-    required this.settings,
+    required this.captureAspectRatio,
   });
 
   final _NativeCameraController controller;
   final _ReferenceImageSource reference;
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
-  final AppSettings settings;
+  final double captureAspectRatio;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: AspectRatio(
-        aspectRatio: _cameraPortraitPreviewAspectRatio(
-          settings.cameraAspectRatio,
-        ),
+        aspectRatio: captureAspectRatio,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Colors.black,
@@ -578,9 +718,7 @@ class _NativePreviewFrame extends StatelessWidget {
                     overlayOpacity: opacity,
                     isLandscape: false,
                     constrainToBounds: true,
-                    targetAspectRatio: _cameraPortraitPreviewAspectRatio(
-                      settings.cameraAspectRatio,
-                    ),
+                    targetAspectRatio: captureAspectRatio,
                   );
                 },
               ),

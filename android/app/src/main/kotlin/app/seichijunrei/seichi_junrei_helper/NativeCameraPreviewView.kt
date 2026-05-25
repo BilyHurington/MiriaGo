@@ -3,8 +3,11 @@ package app.seichijunrei.seichi_junrei_helper
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import android.view.View
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
@@ -25,6 +28,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -43,6 +47,7 @@ class NativeCameraPreviewView(
     private var imageCapture: ImageCapture? = null
     private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var flashMode = ImageCapture.FLASH_MODE_AUTO
+    private var targetAspectRatio = 1.0
 
     init {
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
@@ -66,9 +71,10 @@ class NativeCameraPreviewView(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "initialize" -> initialize(result)
+            "initialize" -> initialize(call, result)
             "getZoomState" -> result.success(zoomStateMap())
             "setZoomRatio" -> setZoomRatio(call, result)
+            "setTargetAspectRatio" -> setTargetAspectRatio(call, result)
             "setFlashMode" -> setFlashMode(call, result)
             "switchCamera" -> switchCamera(result)
             "takePicture" -> takePicture(result)
@@ -80,7 +86,10 @@ class NativeCameraPreviewView(
         }
     }
 
-    private fun initialize(result: MethodChannel.Result) {
+    private fun initialize(call: MethodCall, result: MethodChannel.Result) {
+        targetAspectRatio = sanitizedAspectRatio(
+            call.argument<Double>("targetAspectRatio") ?: targetAspectRatio,
+        )
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             result.error("camera_permission_denied", "Camera permission is not granted.", null)
             return
@@ -112,6 +121,7 @@ class NativeCameraPreviewView(
         }
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .setTargetAspectRatio(cameraTargetAspectRatio())
             .setFlashMode(flashMode)
             .build()
 
@@ -132,6 +142,20 @@ class NativeCameraPreviewView(
         val nextZoom = min(max(requested, minZoom), maxZoom)
         camera?.cameraControl?.setZoomRatio(nextZoom)
         result.success(zoomStateMap(nextZoom))
+    }
+
+    private fun setTargetAspectRatio(call: MethodCall, result: MethodChannel.Result) {
+        targetAspectRatio = sanitizedAspectRatio(
+            call.argument<Double>("targetAspectRatio") ?: targetAspectRatio,
+        )
+        try {
+            if (cameraProvider != null) {
+                bindCamera()
+            }
+            result.success(null)
+        } catch (error: Exception) {
+            result.error("camera_ratio_failed", error.message, null)
+        }
     }
 
     private fun setFlashMode(call: MethodCall, result: MethodChannel.Result) {
@@ -193,7 +217,14 @@ class NativeCameraPreviewView(
             executor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    activity.runOnUiThread { result.success(file.absolutePath) }
+                    try {
+                        cropImageToTargetAspectRatio(file)
+                        activity.runOnUiThread { result.success(file.absolutePath) }
+                    } catch (error: Exception) {
+                        activity.runOnUiThread {
+                            result.error("capture_crop_failed", error.message, null)
+                        }
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -212,6 +243,49 @@ class NativeCameraPreviewView(
             .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
             .build()
         currentCamera.cameraControl.startFocusAndMetering(action)
+    }
+
+    private fun sanitizedAspectRatio(value: Double): Double {
+        return value.coerceIn(0.2, 5.0)
+    }
+
+    private fun cameraTargetAspectRatio(): Int {
+        val normalized = if (targetAspectRatio >= 1.0) targetAspectRatio else 1.0 / targetAspectRatio
+        return if (abs(normalized - 16.0 / 9.0) < abs(normalized - 4.0 / 3.0)) {
+            AspectRatio.RATIO_16_9
+        } else {
+            AspectRatio.RATIO_4_3
+        }
+    }
+
+    private fun cropImageToTargetAspectRatio(file: File) {
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+        val currentRatio = bitmap.width.toDouble() / bitmap.height.toDouble()
+        if (abs(currentRatio - targetAspectRatio) < 0.01) {
+            bitmap.recycle()
+            return
+        }
+
+        val cropWidth: Int
+        val cropHeight: Int
+        if (currentRatio > targetAspectRatio) {
+            cropHeight = bitmap.height
+            cropWidth = (cropHeight * targetAspectRatio).toInt().coerceIn(1, bitmap.width)
+        } else {
+            cropWidth = bitmap.width
+            cropHeight = (cropWidth / targetAspectRatio).toInt().coerceIn(1, bitmap.height)
+        }
+
+        val left = ((bitmap.width - cropWidth) / 2).coerceAtLeast(0)
+        val top = ((bitmap.height - cropHeight) / 2).coerceAtLeast(0)
+        val cropped = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
+        file.outputStream().use { output ->
+            cropped.compress(Bitmap.CompressFormat.JPEG, 95, output)
+        }
+        if (cropped != bitmap) {
+            cropped.recycle()
+        }
+        bitmap.recycle()
     }
 
     private fun zoomStateMap(overrideZoom: Float? = null): Map<String, Any> {
