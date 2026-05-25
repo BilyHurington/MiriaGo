@@ -32,7 +32,7 @@ void main() {
 
     expect(find.text('叠影'), findsWidgets);
     expect(find.text('上下'), findsWidgets);
-    expect(find.text('小窗'), findsWidgets);
+    expect(find.text('小窗'), findsNothing);
   });
 
   testWidgets('opens shared point detail sheet from plan list', (tester) async {

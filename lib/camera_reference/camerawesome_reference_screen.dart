@@ -62,7 +62,7 @@ class _CamerawesomeReferenceScreenState
   Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
-  bool _landscapeLocked = false;
+  bool _landscapeLocked = true;
   bool _nativeCameraFailed = false;
   double? _referenceAspectRatio;
   int _referenceAspectRatioRequest = 0;
@@ -73,6 +73,10 @@ class _CamerawesomeReferenceScreenState
     _overlayOpacity = ValueNotifier<double>(0.46);
     _zoom = ValueNotifier<double>(0);
     _nativeCameraController = _NativeCameraController();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _refreshReferenceAspectRatio();
   }
 
@@ -330,7 +334,9 @@ double _defaultLandscapeAspectRatio(CameraPhotoAspectRatio ratio) {
   return switch (ratio) {
     CameraPhotoAspectRatio.auto => 16 / 9,
     CameraPhotoAspectRatio.landscape16x9 => 16 / 9,
+    CameraPhotoAspectRatio.cinema21x9 => 21 / 9,
     CameraPhotoAspectRatio.standard4x3 => 4 / 3,
+    CameraPhotoAspectRatio.photo3x2 => 3 / 2,
     CameraPhotoAspectRatio.square1x1 => 1,
   };
 }
@@ -624,38 +630,20 @@ class _NativeReferenceCameraBody extends StatelessWidget {
         }
 
         if (landscapeLocked) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              _NativeCameraPreview(controller: controller),
-              ValueListenableBuilder<double>(
-                valueListenable: overlayOpacity,
-                builder: (context, opacity, child) {
-                  return _ReferenceModeLayer(
-                    mode: mode,
-                    reference: reference,
-                    overlayOpacity: opacity,
-                    isLandscape: true,
-                    targetAspectRatio: captureAspectRatio,
-                  );
-                },
-              ),
-              SafeArea(
-                child: _NativeLandscapeCameraLayout(
-                  controller: controller,
-                  mode: mode,
-                  overlayOpacity: overlayOpacity,
-                  settings: settings,
-                  galleryImage: galleryImage,
-                  onModeChanged: onModeChanged,
-                  onOpacityChanged: onOpacityChanged,
-                  onCapture: onCapture,
-                  onPickReference: onPickReference,
-                  onPickGallery: onPickGallery,
-                  onToggleOrientation: onToggleOrientation,
-                ),
-              ),
-            ],
+          return _NativeLandscapeCameraLayout(
+            controller: controller,
+            reference: reference,
+            mode: mode,
+            overlayOpacity: overlayOpacity,
+            settings: settings,
+            captureAspectRatio: captureAspectRatio,
+            galleryImage: galleryImage,
+            onModeChanged: onModeChanged,
+            onOpacityChanged: onOpacityChanged,
+            onCapture: onCapture,
+            onPickReference: onPickReference,
+            onPickGallery: onPickGallery,
+            onToggleOrientation: onToggleOrientation,
           );
         }
 
@@ -670,12 +658,13 @@ class _NativeReferenceCameraBody extends StatelessWidget {
               ),
               Expanded(
                 child: Center(
-                  child: _NativePreviewFrame(
+                  child: _NativeCameraStage(
                     controller: controller,
                     reference: reference,
                     mode: mode,
                     overlayOpacity: overlayOpacity,
                     captureAspectRatio: captureAspectRatio,
+                    landscape: false,
                   ),
                 ),
               ),
@@ -698,13 +687,14 @@ class _NativeReferenceCameraBody extends StatelessWidget {
   }
 }
 
-class _NativePreviewFrame extends StatelessWidget {
-  const _NativePreviewFrame({
+class _NativeCameraStage extends StatelessWidget {
+  const _NativeCameraStage({
     required this.controller,
     required this.reference,
     required this.mode,
     required this.overlayOpacity,
     required this.captureAspectRatio,
+    required this.landscape,
   });
 
   final _NativeCameraController controller;
@@ -712,50 +702,120 @@ class _NativePreviewFrame extends StatelessWidget {
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
   final double captureAspectRatio;
+  final bool landscape;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: AspectRatio(
-        aspectRatio: captureAspectRatio,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white12),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _NativeCameraPreview(controller: controller),
-              ValueListenableBuilder<double>(
-                valueListenable: overlayOpacity,
-                builder: (context, opacity, child) {
-                  return _ReferenceModeLayer(
-                    mode: mode,
-                    reference: reference,
-                    overlayOpacity: opacity,
-                    isLandscape: false,
-                    constrainToBounds: true,
-                    targetAspectRatio: captureAspectRatio,
-                  );
-                },
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white12),
+    final safeMode = mode == AwesomeReferenceMode.pinned
+        ? AwesomeReferenceMode.overlay
+        : mode;
+
+    return ValueListenableBuilder<double>(
+      valueListenable: overlayOpacity,
+      builder: (context, opacity, child) {
+        if (safeMode == AwesomeReferenceMode.split && reference.hasImage) {
+          return Padding(
+            padding: EdgeInsets.all(landscape ? 12 : 10),
+            child: Column(
+              children: [
+                Expanded(
+                  child: _AspectStageFrame(
+                    aspectRatio: captureAspectRatio,
+                    child: _ReferenceImageView(
+                      source: reference,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: landscape ? 10 : 8),
+                Expanded(
+                  child: _AspectStageFrame(
+                    aspectRatio: captureAspectRatio,
+                    child: _NativeCameraPreview(controller: controller),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.all(landscape ? 12 : 10),
+          child: _AspectStageFrame(
+            aspectRatio: captureAspectRatio,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _NativeCameraPreview(controller: controller),
+                if (reference.hasImage)
+                  IgnorePointer(
+                    child: Opacity(
+                      opacity: opacity,
+                      child: _ReferenceImageView(
+                        source: reference,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+}
+
+class _AspectStageFrame extends StatelessWidget {
+  const _AspectStageFrame({required this.aspectRatio, required this.child});
+
+  final double aspectRatio;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = aspectRatio <= 0 ? 16 / 9 : aspectRatio;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var width = constraints.maxWidth;
+        var height = width / ratio;
+        if (height > constraints.maxHeight) {
+          height = constraints.maxHeight;
+          width = height * ratio;
+        }
+
+        return Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    child,
+                    IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -903,9 +963,11 @@ class _NativeCameraBottomPanel extends StatelessWidget {
 class _NativeLandscapeCameraLayout extends StatelessWidget {
   const _NativeLandscapeCameraLayout({
     required this.controller,
+    required this.reference,
     required this.mode,
     required this.overlayOpacity,
     required this.settings,
+    required this.captureAspectRatio,
     required this.galleryImage,
     required this.onModeChanged,
     required this.onOpacityChanged,
@@ -916,9 +978,11 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
   });
 
   final _NativeCameraController controller;
+  final _ReferenceImageSource reference;
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
   final AppSettings settings;
+  final double captureAspectRatio;
   final XFile? galleryImage;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
@@ -929,56 +993,57 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _LandscapeCanvas(
-      child: Stack(
-        children: [
-          _NativeCameraTopBar(
-            controller: controller,
-            isLandscapeUi: true,
-            onPickReference: onPickReference,
-            onToggleOrientation: onToggleOrientation,
-          ),
-          Positioned(
-            left: 14,
-            right: 14,
-            bottom: 14,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: _NativeLandscapeControlPanel(
-                    controller: controller,
-                    mode: mode,
-                    overlayOpacity: overlayOpacity,
-                    settings: settings,
-                    onModeChanged: onModeChanged,
-                    onOpacityChanged: onOpacityChanged,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                _NativeLandscapeCaptureRail(
-                  controller: controller,
-                  galleryImage: galleryImage,
-                  onPickGallery: onPickGallery,
-                  onCapture: onCapture,
-                ),
-              ],
+    return ColoredBox(
+      color: const Color(0xFF090A0D),
+      child: SafeArea(
+        child: Row(
+          children: [
+            _NativeLandscapeLeftRail(
+              mode: mode,
+              overlayOpacity: overlayOpacity,
+              controller: controller,
+              settings: settings,
+              onModeChanged: onModeChanged,
+              onOpacityChanged: onOpacityChanged,
+              onBack: () => Navigator.of(context).maybePop(),
+              onPickReference: onPickReference,
+              onPickGallery: onPickGallery,
             ),
-          ),
-        ],
+            Expanded(
+              child: _NativeCameraStage(
+                controller: controller,
+                reference: reference,
+                mode: mode,
+                overlayOpacity: overlayOpacity,
+                captureAspectRatio: captureAspectRatio,
+                landscape: true,
+              ),
+            ),
+            _NativeLandscapeRightRail(
+              controller: controller,
+              galleryImage: galleryImage,
+              onCapture: onCapture,
+              onToggleOrientation: onToggleOrientation,
+              onPickGallery: onPickGallery,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _NativeLandscapeControlPanel extends StatelessWidget {
-  const _NativeLandscapeControlPanel({
+class _NativeLandscapeLeftRail extends StatelessWidget {
+  const _NativeLandscapeLeftRail({
     required this.controller,
     required this.mode,
     required this.overlayOpacity,
     required this.settings,
     required this.onModeChanged,
     required this.onOpacityChanged,
+    required this.onBack,
+    required this.onPickReference,
+    required this.onPickGallery,
   });
 
   final _NativeCameraController controller;
@@ -987,27 +1052,66 @@ class _NativeLandscapeControlPanel extends StatelessWidget {
   final AppSettings settings;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
+  final VoidCallback onBack;
+  final VoidCallback onPickReference;
+  final VoidCallback onPickGallery;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
-      ),
+    return SizedBox(
+      width: 184,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
         child: Row(
           children: [
-            _ModeSelector(mode: mode, onChanged: onModeChanged),
-            const SizedBox(width: 14),
+            Column(
+              children: [
+                _CameraCircleButton(
+                  tooltip: null,
+                  icon: Icons.arrow_back,
+                  onPressed: onBack,
+                ),
+                const SizedBox(height: 10),
+                _CameraCircleButton(
+                  tooltip: null,
+                  icon: Icons.image_outlined,
+                  onPressed: onPickReference,
+                ),
+                const SizedBox(height: 10),
+                _CameraCircleButton(
+                  tooltip: null,
+                  icon: Icons.photo_library_outlined,
+                  onPressed: onPickGallery,
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
             Expanded(
-              child: _NativeZoomAndOpacityControls(
-                controller: controller,
-                settings: settings,
-                overlayOpacity: overlayOpacity,
-                onOpacityChanged: onOpacityChanged,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+                  child: Column(
+                    children: [
+                      _ModeSelector(mode: mode, onChanged: onModeChanged),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Center(
+                          child: _NativeZoomAndOpacityControls(
+                            controller: controller,
+                            settings: settings,
+                            overlayOpacity: overlayOpacity,
+                            onOpacityChanged: onOpacityChanged,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -1017,55 +1121,57 @@ class _NativeLandscapeControlPanel extends StatelessWidget {
   }
 }
 
-class _NativeLandscapeCaptureRail extends StatelessWidget {
-  const _NativeLandscapeCaptureRail({
+class _NativeLandscapeRightRail extends StatelessWidget {
+  const _NativeLandscapeRightRail({
     required this.controller,
     required this.galleryImage,
-    required this.onPickGallery,
     required this.onCapture,
+    required this.onToggleOrientation,
+    required this.onPickGallery,
   });
 
   final _NativeCameraController controller;
   final XFile? galleryImage;
-  final VoidCallback onPickGallery;
   final Future<void> Function() onCapture;
+  final VoidCallback onToggleOrientation;
+  final VoidCallback onPickGallery;
 
   @override
   Widget build(BuildContext context) {
-    final hasGalleryImage = galleryImage != null;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
-      ),
+    return SizedBox(
+      width: 112,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
+        child: Column(
           children: [
-            _CameraActionButton(
+            _NativeFlashButton(controller: controller, showTooltip: false),
+            const SizedBox(height: 10),
+            _CameraCircleButton(
               tooltip: null,
-              icon: hasGalleryImage
-                  ? Icons.photo_library
-                  : Icons.photo_library_outlined,
-              onPressed: onPickGallery,
+              icon: Icons.cameraswitch_outlined,
+              onPressed: controller.switchCamera,
             ),
-            const SizedBox(width: 18),
-            _NativeCaptureButton(
-              busy: controller.busy,
-              compact: true,
-              onPressed: onCapture,
+            const SizedBox(height: 10),
+            _CameraCircleButton(
+              tooltip: null,
+              icon: Icons.screen_rotation_alt_outlined,
+              onPressed: onToggleOrientation,
             ),
-            if (hasGalleryImage) ...[
-              const SizedBox(width: 18),
+            const Spacer(),
+            _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
+            const Spacer(),
+            if (galleryImage != null)
               _CameraActionButton(
                 tooltip: null,
                 icon: Icons.fact_check_outlined,
                 onPressed: () {},
+              )
+            else
+              _CameraActionButton(
+                tooltip: null,
+                icon: Icons.photo_library_outlined,
+                onPressed: onPickGallery,
               ),
-            ],
           ],
         ),
       ),
@@ -1157,14 +1263,9 @@ class _NativeZoomAndOpacityControls extends StatelessWidget {
 }
 
 class _NativeCaptureButton extends StatelessWidget {
-  const _NativeCaptureButton({
-    required this.busy,
-    required this.onPressed,
-    this.compact = false,
-  });
+  const _NativeCaptureButton({required this.busy, required this.onPressed});
 
   final bool busy;
-  final bool compact;
   final Future<void> Function() onPressed;
 
   @override
@@ -1177,12 +1278,12 @@ class _NativeCaptureButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: busy ? null : onPressed,
         child: Container(
-          width: compact ? 62 : 72,
-          height: compact ? 62 : 72,
+          width: 72,
+          height: 72,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: compact ? 3 : 4),
+            border: Border.all(color: Colors.white, width: 4),
           ),
           child: busy
               ? const SizedBox(
@@ -1194,8 +1295,8 @@ class _NativeCaptureButton extends StatelessWidget {
                   ),
                 )
               : Container(
-                  width: compact ? 44 : 52,
-                  height: compact ? 44 : 52,
+                  width: 52,
+                  height: 52,
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -1342,16 +1443,12 @@ class _ReferenceModeLayer extends StatelessWidget {
     required this.reference,
     required this.overlayOpacity,
     required this.isLandscape,
-    this.constrainToBounds = false,
-    this.targetAspectRatio,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
   final bool isLandscape;
-  final bool constrainToBounds;
-  final double? targetAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1364,7 +1461,6 @@ class _ReferenceModeLayer extends StatelessWidget {
         mode: mode,
         reference: reference,
         overlayOpacity: overlayOpacity,
-        targetAspectRatio: targetAspectRatio,
       );
     }
 
@@ -1372,104 +1468,32 @@ class _ReferenceModeLayer extends StatelessWidget {
       AwesomeReferenceMode.overlay => IgnorePointer(
         child: Opacity(
           opacity: overlayOpacity,
-          child: _ReferenceAspectBox(
-            aspectRatio: targetAspectRatio,
+          child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+        ),
+      ),
+      AwesomeReferenceMode.split => Align(
+        alignment: Alignment.topCenter,
+        child: SafeArea(
+          bottom: false,
+          child: _ReferenceFrame(
+            height: MediaQuery.sizeOf(context).height * 0.34,
+            margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
             child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
           ),
         ),
       ),
-      AwesomeReferenceMode.split =>
-        constrainToBounds
-            ? Align(
-                alignment: Alignment.topCenter,
-                child: FractionallySizedBox(
-                  heightFactor: 0.48,
-                  widthFactor: 1,
-                  child: _ReferenceFrame(
-                    margin: const EdgeInsets.all(8),
-                    child: _ReferenceAspectBox(
-                      aspectRatio: targetAspectRatio,
-                      child: _ReferenceImageView(
-                        source: reference,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : Align(
-                alignment: Alignment.topCenter,
-                child: SafeArea(
-                  bottom: false,
-                  child: _ReferenceFrame(
-                    height: MediaQuery.sizeOf(context).height * 0.34,
-                    margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
-                    child: _ReferenceAspectBox(
-                      aspectRatio: targetAspectRatio,
-                      child: _ReferenceImageView(
-                        source: reference,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-      AwesomeReferenceMode.pinned =>
-        constrainToBounds
-            ? Align(
-                alignment: Alignment.topLeft,
-                child: FractionallySizedBox(
-                  widthFactor: 0.38,
-                  heightFactor: 0.38,
-                  child: _ReferenceFrame(
-                    margin: const EdgeInsets.all(8),
-                    child: _ReferenceAspectBox(
-                      aspectRatio: targetAspectRatio,
-                      child: _ReferenceImageView(
-                        source: reference,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : Align(
-                alignment: Alignment.topLeft,
-                child: SafeArea(
-                  child: _ReferenceFrame(
-                    width: 116,
-                    height: 154,
-                    margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
-                    child: _ReferenceAspectBox(
-                      aspectRatio: targetAspectRatio,
-                      child: _ReferenceImageView(
-                        source: reference,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+      AwesomeReferenceMode.pinned => Align(
+        alignment: Alignment.topLeft,
+        child: SafeArea(
+          child: _ReferenceFrame(
+            width: 116,
+            height: 154,
+            margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
+            child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+          ),
+        ),
+      ),
     };
-  }
-}
-
-class _ReferenceAspectBox extends StatelessWidget {
-  const _ReferenceAspectBox({required this.child, this.aspectRatio});
-
-  final Widget child;
-  final double? aspectRatio;
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = aspectRatio;
-    if (ratio == null) {
-      return child;
-    }
-
-    return Center(
-      child: AspectRatio(aspectRatio: ratio, child: child),
-    );
   }
 }
 
@@ -1508,13 +1532,11 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
     required this.mode,
     required this.reference,
     required this.overlayOpacity,
-    this.targetAspectRatio,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
-  final double? targetAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1526,12 +1548,9 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
             AwesomeReferenceMode.overlay => IgnorePointer(
               child: Opacity(
                 opacity: overlayOpacity,
-                child: _ReferenceAspectBox(
-                  aspectRatio: targetAspectRatio,
-                  child: _ReferenceImageView(
-                    source: reference,
-                    fit: BoxFit.contain,
-                  ),
+                child: _ReferenceImageView(
+                  source: reference,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -1541,12 +1560,9 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
               top: 66,
               height: 132,
               child: _LandscapeReferenceFrame(
-                child: _ReferenceAspectBox(
-                  aspectRatio: targetAspectRatio,
-                  child: _ReferenceImageView(
-                    source: reference,
-                    fit: BoxFit.contain,
-                  ),
+                child: _ReferenceImageView(
+                  source: reference,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -1556,12 +1572,9 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
               width: 220,
               height: 124,
               child: _LandscapeReferenceFrame(
-                child: _ReferenceAspectBox(
-                  aspectRatio: targetAspectRatio,
-                  child: _ReferenceImageView(
-                    source: reference,
-                    fit: BoxFit.contain,
-                  ),
+                child: _ReferenceImageView(
+                  source: reference,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -1998,32 +2011,36 @@ class _ModeSelector extends StatelessWidget {
     const modes = [
       (AwesomeReferenceMode.overlay, Icons.layers_outlined, '叠影'),
       (AwesomeReferenceMode.split, Icons.splitscreen_outlined, '上下'),
-      (
-        AwesomeReferenceMode.pinned,
-        Icons.picture_in_picture_alt_outlined,
-        '小窗',
-      ),
     ];
 
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final entry in modes)
-            _ModeChip(
-              selected: mode == entry.$1,
-              icon: entry.$2,
-              label: entry.$3,
-              onTap: () => onChanged(entry.$1),
-            ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 136;
+        return Container(
+          height: compact ? 70 : 34,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(compact ? 12 : 999),
+          ),
+          child: Flex(
+            direction: compact ? Axis.vertical : Axis.horizontal,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final entry in modes)
+                Expanded(
+                  child: _ModeChip(
+                    selected: mode == entry.$1,
+                    icon: entry.$2,
+                    label: entry.$3,
+                    compact: compact,
+                    onTap: () => onChanged(entry.$1),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -2033,37 +2050,43 @@ class _ModeChip extends StatelessWidget {
     required this.selected,
     required this.icon,
     required this.label,
+    required this.compact,
     required this.onTap,
   });
 
   final bool selected;
   final IconData icon;
   final String label;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      customBorder: const StadiumBorder(),
+      customBorder: compact
+          ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+          : const StadiumBorder(),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: compact ? 32 : 30,
+        padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 12),
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(compact ? 10 : 999),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
               size: 16,
               color: selected ? AppColors.textPrimary : Colors.white70,
             ),
-            const SizedBox(width: 5),
+            SizedBox(width: compact ? 3 : 5),
             Text(
               label,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: selected ? AppColors.textPrimary : Colors.white70,
                 fontSize: 12,

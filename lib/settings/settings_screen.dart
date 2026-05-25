@@ -97,37 +97,35 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _SettingsSection(
-            title: '拍摄',
+            title: '无参考图时比例',
             children: [
-              SegmentedButton<CameraPhotoAspectRatio>(
-                segments: const [
-                  ButtonSegment(
-                    value: CameraPhotoAspectRatio.auto,
-                    icon: Icon(Icons.auto_awesome, size: 18),
-                    label: Text('自动'),
-                  ),
-                  ButtonSegment(
-                    value: CameraPhotoAspectRatio.landscape16x9,
-                    icon: Icon(Icons.crop_16_9, size: 18),
-                    label: Text('16:9'),
-                  ),
-                  ButtonSegment(
-                    value: CameraPhotoAspectRatio.standard4x3,
-                    icon: Icon(Icons.crop_5_4, size: 18),
-                    label: Text('4:3'),
-                  ),
-                  ButtonSegment(
-                    value: CameraPhotoAspectRatio.square1x1,
-                    icon: Icon(Icons.crop_square, size: 18),
-                    label: Text('1:1'),
-                  ),
-                ],
-                selected: {settings.cameraAspectRatio},
-                onSelectionChanged: (selected) {
-                  onChanged(
-                    settings.copyWith(cameraAspectRatio: selected.single),
-                  );
-                },
+              const Text(
+                '有参考图时会优先使用参考图真实比例。',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: CameraPhotoAspectRatio.values
+                    .where((ratio) => ratio != CameraPhotoAspectRatio.square1x1)
+                    .map((ratio) {
+                      final selected = settings.cameraAspectRatio == ratio;
+                      return ChoiceChip(
+                        label: Text(ratio.label),
+                        selected: selected,
+                        onSelected: (_) {
+                          onChanged(
+                            settings.copyWith(cameraAspectRatio: ratio),
+                          );
+                        },
+                      );
+                    })
+                    .toList(growable: false),
               ),
             ],
           ),
