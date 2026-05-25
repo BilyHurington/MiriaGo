@@ -3,9 +3,11 @@ package app.seichijunrei.seichi_junrei_helper
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.view.MotionEvent
 import android.view.View
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
@@ -45,6 +47,12 @@ class NativeCameraPreviewView(
     init {
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        previewView.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                focusAt(event.x, event.y)
+            }
+            true
+        }
         channel.setMethodCallHandler(this)
     }
 
@@ -195,6 +203,15 @@ class NativeCameraPreviewView(
                 }
             },
         )
+    }
+
+    private fun focusAt(x: Float, y: Float) {
+        val currentCamera = camera ?: return
+        val point = previewView.meteringPointFactory.createPoint(x, y)
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
+            .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        currentCamera.cameraControl.startFocusAndMetering(action)
     }
 
     private fun zoomStateMap(overrideZoom: Float? = null): Map<String, Any> {

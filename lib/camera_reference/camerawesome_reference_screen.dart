@@ -259,8 +259,17 @@ CameraAspectRatios _cameraAspectRatio(CameraPhotoAspectRatio ratio) {
   };
 }
 
+double _cameraPortraitPreviewAspectRatio(CameraPhotoAspectRatio ratio) {
+  return switch (ratio) {
+    CameraPhotoAspectRatio.landscape16x9 => 9 / 16,
+    CameraPhotoAspectRatio.standard4x3 => 3 / 4,
+    CameraPhotoAspectRatio.square1x1 => 1,
+  };
+}
+
 class _NativeCameraController extends ChangeNotifier {
   MethodChannel? _channel;
+  int? _viewId;
   var _ready = false;
   var _busy = false;
   String? _error;
@@ -280,8 +289,14 @@ class _NativeCameraController extends ChangeNotifier {
   String get lensFacing => _lensFacing;
 
   Future<void> attach(int viewId) async {
-    if (_channel != null) {
+    if (_channel != null && _viewId == viewId) {
       return;
+    }
+
+    if (_channel != null) {
+      await _channel!.invokeMethod<void>('dispose');
+      _channel = null;
+      _ready = false;
     }
 
     final permission = await Permission.camera.request();
@@ -291,6 +306,7 @@ class _NativeCameraController extends ChangeNotifier {
       return;
     }
 
+    _viewId = viewId;
     _channel = MethodChannel('seichi/native_camera_preview_$viewId');
     try {
       final result = await _channel!.invokeMapMethod<String, Object?>(
@@ -435,62 +451,139 @@ class _NativeReferenceCameraBody extends StatelessWidget {
           });
         }
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            _NativeCameraPreview(controller: controller),
-            ValueListenableBuilder<double>(
-              valueListenable: overlayOpacity,
-              builder: (context, opacity, child) {
-                return _ReferenceModeLayer(
+        if (landscapeLocked) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              _NativeCameraPreview(controller: controller),
+              ValueListenableBuilder<double>(
+                valueListenable: overlayOpacity,
+                builder: (context, opacity, child) {
+                  return _ReferenceModeLayer(
+                    mode: mode,
+                    reference: reference,
+                    overlayOpacity: opacity,
+                    isLandscape: true,
+                  );
+                },
+              ),
+              SafeArea(
+                child: _NativeLandscapeCameraLayout(
+                  controller: controller,
                   mode: mode,
-                  reference: reference,
-                  overlayOpacity: opacity,
-                  isLandscape: landscapeLocked,
-                );
-              },
-            ),
-            SafeArea(
-              child: landscapeLocked
-                  ? _NativeLandscapeCameraLayout(
-                      controller: controller,
-                      mode: mode,
-                      overlayOpacity: overlayOpacity,
-                      settings: settings,
-                      galleryImage: galleryImage,
-                      onModeChanged: onModeChanged,
-                      onOpacityChanged: onOpacityChanged,
-                      onCapture: onCapture,
-                      onPickReference: onPickReference,
-                      onPickGallery: onPickGallery,
-                      onToggleOrientation: onToggleOrientation,
-                    )
-                  : Column(
-                      children: [
-                        _NativeCameraTopBar(
-                          controller: controller,
-                          isLandscapeUi: false,
-                          onPickReference: onPickReference,
-                          onToggleOrientation: onToggleOrientation,
-                        ),
-                        const Spacer(),
-                        _NativeCameraBottomPanel(
-                          controller: controller,
-                          mode: mode,
-                          overlayOpacity: overlayOpacity,
-                          settings: settings,
-                          galleryImage: galleryImage,
-                          onModeChanged: onModeChanged,
-                          onOpacityChanged: onOpacityChanged,
-                          onCapture: onCapture,
-                          onPickGallery: onPickGallery,
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+                  overlayOpacity: overlayOpacity,
+                  settings: settings,
+                  galleryImage: galleryImage,
+                  onModeChanged: onModeChanged,
+                  onOpacityChanged: onOpacityChanged,
+                  onCapture: onCapture,
+                  onPickReference: onPickReference,
+                  onPickGallery: onPickGallery,
+                  onToggleOrientation: onToggleOrientation,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return SafeArea(
+          child: Column(
+            children: [
+              _NativeCameraTopBar(
+                controller: controller,
+                isLandscapeUi: false,
+                onPickReference: onPickReference,
+                onToggleOrientation: onToggleOrientation,
+              ),
+              Expanded(
+                child: Center(
+                  child: _NativePreviewFrame(
+                    controller: controller,
+                    reference: reference,
+                    mode: mode,
+                    overlayOpacity: overlayOpacity,
+                    settings: settings,
+                  ),
+                ),
+              ),
+              _NativeCameraBottomPanel(
+                controller: controller,
+                mode: mode,
+                overlayOpacity: overlayOpacity,
+                settings: settings,
+                galleryImage: galleryImage,
+                onModeChanged: onModeChanged,
+                onOpacityChanged: onOpacityChanged,
+                onCapture: onCapture,
+                onPickGallery: onPickGallery,
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _NativePreviewFrame extends StatelessWidget {
+  const _NativePreviewFrame({
+    required this.controller,
+    required this.reference,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.settings,
+  });
+
+  final _NativeCameraController controller;
+  final _ReferenceImageSource reference;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: AspectRatio(
+        aspectRatio: _cameraPortraitPreviewAspectRatio(
+          settings.cameraAspectRatio,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _NativeCameraPreview(controller: controller),
+              ValueListenableBuilder<double>(
+                valueListenable: overlayOpacity,
+                builder: (context, opacity, child) {
+                  return _ReferenceModeLayer(
+                    mode: mode,
+                    reference: reference,
+                    overlayOpacity: opacity,
+                    isLandscape: false,
+                    constrainToBounds: true,
+                  );
+                },
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1077,12 +1170,14 @@ class _ReferenceModeLayer extends StatelessWidget {
     required this.reference,
     required this.overlayOpacity,
     required this.isLandscape,
+    this.constrainToBounds = false,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
   final bool isLandscape;
+  final bool constrainToBounds;
 
   @override
   Widget build(BuildContext context) {
@@ -1105,41 +1200,97 @@ class _ReferenceModeLayer extends StatelessWidget {
           child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
         ),
       ),
-      AwesomeReferenceMode.split => Align(
-        alignment: Alignment.topCenter,
-        child: SafeArea(
-          bottom: false,
-          child: Container(
-            height: MediaQuery.sizeOf(context).height * 0.34,
-            margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.42),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
-          ),
-        ),
-      ),
-      AwesomeReferenceMode.pinned => Align(
-        alignment: Alignment.topLeft,
-        child: SafeArea(
-          child: Container(
-            width: 116,
-            height: 154,
-            margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.42),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _ReferenceImageView(source: reference, fit: BoxFit.cover),
-          ),
-        ),
-      ),
+      AwesomeReferenceMode.split =>
+        constrainToBounds
+            ? Align(
+                alignment: Alignment.topCenter,
+                child: FractionallySizedBox(
+                  heightFactor: 0.48,
+                  widthFactor: 1,
+                  child: _ReferenceFrame(
+                    margin: const EdgeInsets.all(8),
+                    child: _ReferenceImageView(
+                      source: reference,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              )
+            : Align(
+                alignment: Alignment.topCenter,
+                child: SafeArea(
+                  bottom: false,
+                  child: _ReferenceFrame(
+                    height: MediaQuery.sizeOf(context).height * 0.34,
+                    margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
+                    child: _ReferenceImageView(
+                      source: reference,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+      AwesomeReferenceMode.pinned =>
+        constrainToBounds
+            ? Align(
+                alignment: Alignment.topLeft,
+                child: FractionallySizedBox(
+                  widthFactor: 0.38,
+                  heightFactor: 0.38,
+                  child: _ReferenceFrame(
+                    margin: const EdgeInsets.all(8),
+                    child: _ReferenceImageView(
+                      source: reference,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              )
+            : Align(
+                alignment: Alignment.topLeft,
+                child: SafeArea(
+                  child: _ReferenceFrame(
+                    width: 116,
+                    height: 154,
+                    margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
+                    child: _ReferenceImageView(
+                      source: reference,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
     };
+  }
+}
+
+class _ReferenceFrame extends StatelessWidget {
+  const _ReferenceFrame({
+    required this.child,
+    this.width,
+    this.height,
+    this.margin = EdgeInsets.zero,
+  });
+
+  final Widget child;
+  final double? width;
+  final double? height;
+  final EdgeInsetsGeometry margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      margin: margin,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
   }
 }
 
