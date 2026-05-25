@@ -33,6 +33,10 @@ class ComparisonExportRenderer {
 
     // Determine output width
     final fixedWidth = config.outputWidth.px;
+    final borderPct = config.borderWidthPercent;
+    final bool hasBorder = borderPct > 0;
+    final double effectiveInset = hasBorder ? inset : 0.0;
+
     final double outputWidth;
     if (fixedWidth != null) {
       outputWidth = fixedWidth.toDouble();
@@ -41,13 +45,16 @@ class ComparisonExportRenderer {
       if (refImg != null && refImg.width > maxImgW) {
         maxImgW = refImg.width.toDouble();
       }
-      final pct = config.borderWidthPercent;
-      outputWidth = ((maxImgW + 2 * inset) / (1 - 2 * pct / 100)).roundToDouble();
+      outputWidth =
+          ((maxImgW + 2 * effectiveInset) / (1 - 2 * borderPct / 100))
+              .roundToDouble();
     }
 
-    final borderPx = (outputWidth * config.borderWidthPercent / 100).roundToDouble();
+    final borderPx =
+        (outputWidth * borderPct / 100).roundToDouble();
 
-    final contentWidth = outputWidth - 2 * borderPx - 2 * inset;
+    final contentWidth =
+        outputWidth - 2 * borderPx - 2 * effectiveInset;
 
     double refHeight = 0;
     if (refImg != null) {
@@ -71,9 +78,9 @@ class ComparisonExportRenderer {
 
     final imgAreaHeight =
         (refImg != null ? refHeight + imageGap : 0) + capHeight;
-    final metaGap = hasMeta ? inset : 0;
+    final metaGap = hasMeta ? effectiveInset : 0.0;
     final totalHeight = borderPx * 2 +
-        inset * 2 +
+        effectiveInset * 2 +
         imgAreaHeight +
         metaGap +
         metaAreaHeight;
@@ -86,33 +93,33 @@ class ComparisonExportRenderer {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, outputWidth, totalHeight),
-        Radius.circular(borderPx > 0 ? 16.0 : 0),
+        Radius.circular(hasBorder ? 16.0 : 0),
       ),
       Paint()..color = Colors.white,
     );
 
-    double y = borderPx + inset;
+    double y = borderPx + effectiveInset;
 
     // Reference image
     if (refImg != null) {
-      _drawLabeledImage(canvas, refImg, borderPx + inset, y, contentWidth,
-          refHeight, config.showLabels ? '参考' : '');
+      _drawLabeledImage(canvas, refImg, borderPx + effectiveInset, y,
+          contentWidth, refHeight, config.showLabels ? '参考' : '');
       y += refHeight + imageGap;
     }
 
     // Captured image
-    _drawLabeledImage(canvas, capImg, borderPx + inset, y, contentWidth,
-        capHeight, config.showLabels ? '巡礼' : '');
+    _drawLabeledImage(canvas, capImg, borderPx + effectiveInset, y,
+        contentWidth, capHeight, config.showLabels ? '巡礼' : '');
     y += capHeight + metaGap;
 
     // Metadata
     if (hasMeta) {
-      _drawMetadata(canvas, borderPx + inset, y, contentWidth, metaAreaHeight,
-          metaEntries);
+      _drawMetadata(canvas, borderPx + effectiveInset, y, contentWidth,
+          metaAreaHeight, metaEntries);
     }
 
     // Border
-    if (borderPx > 0) {
+    if (hasBorder) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(borderPx / 2, borderPx / 2,
