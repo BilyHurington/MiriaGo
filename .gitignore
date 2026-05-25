@@ -6,6 +6,7 @@
 .DS_Store
 DESIGN_RULES.md
 PROJECT_MEMORY.md
+docs/memory/
 .atom/
 .build/
 .buildlog/
