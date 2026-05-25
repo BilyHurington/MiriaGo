@@ -825,24 +825,10 @@ class _AspectStageFrame extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _CameraDebugColors.preview),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    child,
-                    IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _CameraDebugColors.preview),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                child: child,
               ),
             ),
           ),
@@ -872,8 +858,6 @@ class _CameraDebugColors {
   static const rightRail = Color(0xFF4D96FF);
   static const zoomRail = Color(0xFF00D4FF);
   static const stage = Color(0xFFFFC857);
-  static const preview = Color(0xFFFF5EC4);
-  static const panel = Color(0xFF8E7CFF);
 }
 
 class _CameraDebugFrame extends StatelessWidget {
@@ -889,42 +873,7 @@ class _CameraDebugFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(border: Border.all(color: color, width: 2)),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          child,
-          Positioned(
-            left: 3,
-            top: 3,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return child;
   }
 }
 
@@ -2778,7 +2727,6 @@ class _VerticalCameraSlider extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _CameraDebugColors.panel),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
