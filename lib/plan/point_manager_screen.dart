@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../data/reference_cache_file_stub.dart'
     if (dart.library.io) '../data/reference_cache_file_io.dart';
 import '../data/reference_image_cache_stub.dart'
@@ -310,7 +311,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('点位顺序保存失败')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('点位顺序保存失败')));
     }
   }
 
@@ -366,7 +367,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('点位删除失败')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('点位删除失败')));
     }
   }
 
@@ -512,7 +513,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(failureMessage)));
+      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
     }
   }
 
@@ -552,7 +553,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(failureMessage)));
+      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
     }
   }
 
@@ -570,12 +571,12 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (fullPoints.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
       return;
     }
 
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
+    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
 
     var cached = 0;
     for (final point in fullPoints) {
@@ -597,7 +598,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         _plan = updatedPlan;
         _didUpdate = true;
       });
-      messenger.showSnackBar(
+      messenger.showReplacingSnackBar(
         SnackBar(content: Text('正在缓存完整参考图 $cached/${fullPoints.length}')),
       );
     }
@@ -606,7 +607,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       return;
     }
 
-    messenger.showSnackBar(
+    messenger.showReplacingSnackBar(
       SnackBar(content: Text('已缓存 $cached/${fullPoints.length} 张完整参考图')),
     );
   }

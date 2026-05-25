@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/visit_record_photo_stub.dart'
@@ -61,7 +62,7 @@ class PointDetailSheet extends StatelessWidget {
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('无法打开 Google Maps。')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('无法打开 Google Maps。')));
     }
   }
 

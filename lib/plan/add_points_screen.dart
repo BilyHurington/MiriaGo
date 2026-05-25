@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import 'anitabi_map_import_screen.dart';
@@ -259,7 +260,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('作品添加失败，请稍后重试。')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('作品添加失败，请稍后重试。')));
     } finally {
       if (mounted) {
         setState(() {
@@ -396,7 +397,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('作品保存失败，请稍后重试。')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('作品保存失败，请稍后重试。')));
     } finally {
       if (mounted) {
         setState(() {
@@ -558,7 +559,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('点位保存失败，请稍后重试。')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('点位保存失败，请稍后重试。')));
     } finally {
       if (mounted) {
         setState(() {

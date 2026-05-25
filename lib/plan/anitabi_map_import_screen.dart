@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../data/anitabi_client.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/pilgrimage_repository.dart';
@@ -150,7 +151,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已加入计划，可继续选择点位。')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('已加入计划，可继续选择点位。')));
     } catch (_) {
       if (!mounted) {
         return;
@@ -158,7 +159,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('点位导入失败，请稍后重试。')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('点位导入失败，请稍后重试。')));
     } finally {
       if (mounted) {
         setState(() {

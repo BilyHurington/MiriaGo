@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
@@ -168,7 +169,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showReplacingSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

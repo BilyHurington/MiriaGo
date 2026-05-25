@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
@@ -80,7 +81,7 @@ class _VisitRecordConfirmationScreenState
       return;
     }
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showReplacingSnackBar(
       SnackBar(content: Text(completePoint ? '已保存并标记完成' : '已保存巡礼记录')),
     );
   }

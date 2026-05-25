@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import 'add_points_screen.dart';
@@ -157,7 +158,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('作品删除失败')));
+      ).showReplacingSnackBar(const SnackBar(content: Text('作品删除失败')));
     }
   }
 

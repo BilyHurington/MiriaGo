@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../data/reference_cache_file_stub.dart'
     if (dart.library.io) '../data/reference_cache_file_io.dart';
@@ -160,11 +161,11 @@ class PlanScreen extends StatelessWidget {
         )
         .toList(growable: false);
     if (points.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
       return;
     }
 
-    messenger.showSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
+    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在缓存完整参考图...')));
     var cached = 0;
     for (final point in points) {
       final path = await reference_image_cache.cacheReferenceFullImage(point);
@@ -177,12 +178,12 @@ class PlanScreen extends StatelessWidget {
         referenceFullImagePath: path,
       );
       cached += 1;
-      messenger.showSnackBar(
+      messenger.showReplacingSnackBar(
         SnackBar(content: Text('正在缓存完整参考图 $cached/${points.length}')),
       );
     }
 
-    messenger.showSnackBar(
+    messenger.showReplacingSnackBar(
       SnackBar(content: Text('已缓存 $cached/${points.length} 张完整参考图')),
     );
   }
