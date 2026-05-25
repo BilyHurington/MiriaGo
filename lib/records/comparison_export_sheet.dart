@@ -60,257 +60,42 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.84;
 
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottomInset),
+      child: SizedBox(
+        height: sheetHeight,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '导出对比图',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
+            _SheetHeader(exporting: _exporting),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _AppearanceSection(
+                      config: _config,
+                      borderColorOptions: _borderColorOptions,
+                      borderColorLabels: _borderColorLabels,
+                      onChanged: (config) => setState(() => _config = config),
                     ),
-                  ),
+                    const SizedBox(height: 18),
+                    _MetadataSection(
+                      config: _config,
+                      onChanged: (config) => setState(() => _config = config),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const _SectionLabel('外观'),
-            const SizedBox(height: 8),
-            const Text(
-              '边框宽度',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
               ),
             ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: ComparisonBorderWidth.values.map((bw) {
-                return ChoiceChip(
-                  label: Text(
-                    bw.label,
-                    style: TextStyle(
-                      color: _config.borderWidth == bw
-                          ? Colors.white
-                          : AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  selected: _config.borderWidth == bw,
-                  selectedColor: AppColors.accent,
-                  backgroundColor: AppColors.surfaceMuted,
-                  side: BorderSide(
-                    color: _config.borderWidth == bw
-                        ? AppColors.accent
-                        : AppColors.border,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  onSelected: (_) {
-                    setState(() => _config = _config.copyWith(borderWidth: bw));
-                  },
-                );
-              }).toList(growable: false),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '边框颜色',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                for (var i = 0; i < _borderColorOptions.length; i += 1) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _config = _config.copyWith(
-                          borderColor: _borderColorOptions[i],
-                        );
-                      });
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _borderColorOptions[i],
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _config.borderColor == _borderColorOptions[i]
-                              ? AppColors.accent
-                              : _borderColorOptions[i] == Colors.white
-                                  ? AppColors.border
-                                  : Colors.transparent,
-                          width: _config.borderColor == _borderColorOptions[i]
-                              ? 3
-                              : 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _borderColorLabels[i],
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '输出宽度',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: ComparisonOutputWidth.values.map((ow) {
-                return ChoiceChip(
-                  label: Text(
-                    ow.label,
-                    style: TextStyle(
-                      color: _config.outputWidth == ow
-                          ? Colors.white
-                          : AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  selected: _config.outputWidth == ow,
-                  selectedColor: AppColors.accent,
-                  backgroundColor: AppColors.surfaceMuted,
-                  side: BorderSide(
-                    color: _config.outputWidth == ow
-                        ? AppColors.accent
-                        : AppColors.border,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  onSelected: (_) {
-                    setState(() =>
-                        _config = _config.copyWith(outputWidth: ow));
-                  },
-                );
-              }).toList(growable: false),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Text(
-                  '显示标签',
-                  style: TextStyle(fontSize: 14, letterSpacing: 0),
-                ),
-                const Spacer(),
-                Switch(
-                  value: _config.showLabels,
-                  onChanged: (v) {
-                    setState(() => _config = _config.copyWith(showLabels: v));
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const _SectionLabel('元数据'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 4,
-              runSpacing: 2,
-              children: ComparisonMetadataField.values.map((field) {
-                final selected = _config.metadataFields.contains(field);
-                return SizedBox(
-                  width: (MediaQuery.of(context).size.width - 48) / 2,
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: selected,
-                        onChanged: (_) {
-                          setState(() {
-                            final updated =
-                                Set<ComparisonMetadataField>.from(
-                                    _config.metadataFields);
-                            if (selected) {
-                              updated.remove(field);
-                            } else {
-                              updated.add(field);
-                            }
-                            _config =
-                                _config.copyWith(metadataFields: updated);
-                          });
-                        },
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      Expanded(
-                        child: Text(
-                          field.label,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(growable: false),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _exporting ? null : _doExport,
-                icon: _exporting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.download, size: 18),
-                label: Text(_exporting ? '导出中...' : '导出'),
-              ),
+            _SheetFooter(
+              bottomInset: bottomInset,
+              exporting: _exporting,
+              onExport: _doExport,
             ),
           ],
         ),
@@ -337,10 +122,341 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       ImageViewerScreen.show(context, filePath: path);
     } else {
       setState(() => _exporting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('导出失败，请稍后重试。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('导出失败，请稍后重试。')));
     }
+  }
+}
+
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.exporting});
+
+  final bool exporting;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 12, 10),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              '导出对比图',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '关闭',
+            onPressed: exporting ? null : () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppearanceSection extends StatelessWidget {
+  const _AppearanceSection({
+    required this.config,
+    required this.borderColorOptions,
+    required this.borderColorLabels,
+    required this.onChanged,
+  });
+
+  final ComparisonExportConfig config;
+  final List<Color> borderColorOptions;
+  final List<String> borderColorLabels;
+  final ValueChanged<ComparisonExportConfig> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('外观'),
+        const SizedBox(height: 8),
+        const _FieldLabel('边框宽度'),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ComparisonBorderWidth.values
+              .map((bw) {
+                return _OptionChip(
+                  label: bw.label,
+                  selected: config.borderWidth == bw,
+                  onSelected: () => onChanged(config.copyWith(borderWidth: bw)),
+                );
+              })
+              .toList(growable: false),
+        ),
+        const SizedBox(height: 12),
+        const _FieldLabel('边框颜色'),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < borderColorOptions.length; i += 1)
+              _ColorOption(
+                color: borderColorOptions[i],
+                label: borderColorLabels[i],
+                selected: config.borderColor == borderColorOptions[i],
+                onTap: () => onChanged(
+                  config.copyWith(borderColor: borderColorOptions[i]),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const _FieldLabel('输出宽度'),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ComparisonOutputWidth.values
+              .map((ow) {
+                return _OptionChip(
+                  label: ow.label,
+                  selected: config.outputWidth == ow,
+                  onSelected: () => onChanged(config.copyWith(outputWidth: ow)),
+                );
+              })
+              .toList(growable: false),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Text(
+              '显示标签',
+              style: TextStyle(fontSize: 14, letterSpacing: 0),
+            ),
+            const Spacer(),
+            Switch(
+              value: config.showLabels,
+              onChanged: (v) => onChanged(config.copyWith(showLabels: v)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MetadataSection extends StatelessWidget {
+  const _MetadataSection({required this.config, required this.onChanged});
+
+  final ComparisonExportConfig config;
+  final ValueChanged<ComparisonExportConfig> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('元数据'),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = constraints.maxWidth >= 360
+                ? (constraints.maxWidth - 8) / 2
+                : constraints.maxWidth;
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 2,
+              children: ComparisonMetadataField.values
+                  .map((field) {
+                    final selected = config.metadataFields.contains(field);
+                    return SizedBox(
+                      width: itemWidth,
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: selected,
+                            onChanged: (_) {
+                              final updated = Set<ComparisonMetadataField>.from(
+                                config.metadataFields,
+                              );
+                              if (selected) {
+                                updated.remove(field);
+                              } else {
+                                updated.add(field);
+                              }
+                              onChanged(
+                                config.copyWith(metadataFields: updated),
+                              );
+                            },
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Expanded(
+                            child: Text(
+                              field.label,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _SheetFooter extends StatelessWidget {
+  const _SheetFooter({
+    required this.bottomInset,
+    required this.exporting,
+    required this.onExport,
+  });
+
+  final double bottomInset;
+  final bool exporting;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: exporting ? null : () => Navigator.of(context).pop(),
+                child: const Text('取消'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: exporting ? null : onExport,
+                icon: exporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.download, size: 18),
+                label: Text(exporting ? '导出中...' : '导出'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(46),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionChip extends StatelessWidget {
+  const _OptionChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: selected ? Colors.white : AppColors.textPrimary,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
+      ),
+      selected: selected,
+      selectedColor: AppColors.accent,
+      backgroundColor: AppColors.surfaceMuted,
+      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onSelected: (_) => onSelected(),
+    );
+  }
+}
+
+class _ColorOption extends StatelessWidget {
+  const _ColorOption({
+    required this.color,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected
+                    ? AppColors.accent
+                    : color == Colors.white
+                    ? AppColors.border
+                    : Colors.transparent,
+                width: selected ? 3 : 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -356,6 +472,25 @@ class _SectionLabel extends StatelessWidget {
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w800,
+        letterSpacing: 0,
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
         letterSpacing: 0,
       ),
     );
