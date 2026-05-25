@@ -470,7 +470,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     await _saveStatusChange(
       action: () =>
           widget.repository.reopenPoints(planId: _plan.id, pointIds: pointIds),
-      failureMessage: '批量重新打开失败',
+      failureMessage: '批量重置失败',
     );
   }
 
@@ -874,7 +874,7 @@ class _PointManagerTile extends StatelessWidget {
                             if (!selectionMode) ...[
                               _CompactTileButton(
                                 tooltip: status == VisitStatus.completed
-                                    ? '重新打开'
+                                    ? '重置'
                                     : '标记完成',
                                 onPressed: isBusy
                                     ? null
@@ -1093,7 +1093,7 @@ class _BatchActionBar extends StatelessWidget {
               icon: const Icon(Icons.check_outlined),
             ),
             IconButton(
-              tooltip: '重新打开',
+              tooltip: '重置',
               onPressed: isBusy || !hasSelection ? null : onReopen,
               icon: const Icon(Icons.restart_alt),
             ),

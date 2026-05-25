@@ -116,6 +116,7 @@ class PlanScreen extends StatelessWidget {
                 onTap: () => _showPointDetail(context, point),
                 onOpenCamera: () => _openCamera(context, point),
                 onComplete: () => controller.completePoint(point),
+                onReopen: () => controller.reopenPoint(point),
               ),
               const SizedBox(height: 8),
             ],
@@ -445,6 +446,7 @@ class _PlanPointTile extends StatelessWidget {
     required this.onTap,
     required this.onOpenCamera,
     required this.onComplete,
+    required this.onReopen,
   });
 
   final PilgrimagePoint point;
@@ -453,6 +455,7 @@ class _PlanPointTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
+  final VoidCallback onReopen;
 
   @override
   Widget build(BuildContext context) {
@@ -520,9 +523,13 @@ class _PlanPointTile extends StatelessWidget {
                 icon: const Icon(Icons.photo_camera_outlined),
               ),
               IconButton(
-                tooltip: '完成',
-                onPressed: onComplete,
-                icon: const Icon(Icons.check_outlined),
+                tooltip: status == VisitStatus.completed ? '重置' : '完成',
+                onPressed: status == VisitStatus.completed ? onReopen : onComplete,
+                icon: Icon(
+                  status == VisitStatus.completed
+                      ? Icons.restart_alt
+                      : Icons.check_outlined,
+                ),
               ),
             ],
           ),
