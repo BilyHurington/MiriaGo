@@ -715,7 +715,7 @@ class _NativeCameraStage extends StatelessWidget {
       builder: (context, opacity, child) {
         if (safeMode == AwesomeReferenceMode.split && reference.hasImage) {
           return Padding(
-            padding: EdgeInsets.all(landscape ? 12 : 10),
+            padding: EdgeInsets.all(landscape ? 6 : 10),
             child: Column(
               children: [
                 Expanded(
@@ -727,7 +727,7 @@ class _NativeCameraStage extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: landscape ? 10 : 8),
+                SizedBox(height: landscape ? 6 : 8),
                 Expanded(
                   child: _AspectStageFrame(
                     aspectRatio: captureAspectRatio,
@@ -740,7 +740,7 @@ class _NativeCameraStage extends StatelessWidget {
         }
 
         return Padding(
-          padding: EdgeInsets.all(landscape ? 12 : 10),
+          padding: EdgeInsets.all(landscape ? 6 : 10),
           child: _AspectStageFrame(
             aspectRatio: captureAspectRatio,
             child: Stack(
@@ -793,7 +793,7 @@ class _AspectStageFrame extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: _CameraDebugColors.preview),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -805,7 +805,7 @@ class _AspectStageFrame extends StatelessWidget {
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white12),
+                          border: Border.all(color: _CameraDebugColors.preview),
                         ),
                       ),
                     ),
@@ -830,6 +830,67 @@ class _NativeCameraPreview extends StatelessWidget {
     return AndroidView(
       viewType: 'seichi/native_camera_preview',
       onPlatformViewCreated: controller.attach,
+    );
+  }
+}
+
+class _CameraDebugColors {
+  static const root = Color(0xFFFF4D4D);
+  static const leftRail = Color(0xFF39D98A);
+  static const rightRail = Color(0xFF4D96FF);
+  static const stage = Color(0xFFFFC857);
+  static const preview = Color(0xFFFF5EC4);
+  static const panel = Color(0xFF8E7CFF);
+}
+
+class _CameraDebugFrame extends StatelessWidget {
+  const _CameraDebugFrame({
+    required this.color,
+    required this.label,
+    required this.child,
+  });
+
+  final Color color;
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(border: Border.all(color: color, width: 2)),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          child,
+          Positioned(
+            left: 3,
+            top: 3,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -996,37 +1057,45 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
     return ColoredBox(
       color: const Color(0xFF090A0D),
       child: SafeArea(
-        child: Row(
-          children: [
-            _NativeLandscapeLeftRail(
-              mode: mode,
-              overlayOpacity: overlayOpacity,
-              controller: controller,
-              settings: settings,
-              onModeChanged: onModeChanged,
-              onOpacityChanged: onOpacityChanged,
-              onBack: () => Navigator.of(context).maybePop(),
-              onPickReference: onPickReference,
-              onPickGallery: onPickGallery,
-            ),
-            Expanded(
-              child: _NativeCameraStage(
-                controller: controller,
-                reference: reference,
+        child: _CameraDebugFrame(
+          color: _CameraDebugColors.root,
+          label: 'root',
+          child: Row(
+            children: [
+              _NativeLandscapeLeftRail(
                 mode: mode,
                 overlayOpacity: overlayOpacity,
-                captureAspectRatio: captureAspectRatio,
-                landscape: true,
+                controller: controller,
+                settings: settings,
+                onModeChanged: onModeChanged,
+                onOpacityChanged: onOpacityChanged,
+                onBack: () => Navigator.of(context).maybePop(),
+                onPickReference: onPickReference,
+                onPickGallery: onPickGallery,
               ),
-            ),
-            _NativeLandscapeRightRail(
-              controller: controller,
-              galleryImage: galleryImage,
-              onCapture: onCapture,
-              onToggleOrientation: onToggleOrientation,
-              onPickGallery: onPickGallery,
-            ),
-          ],
+              Expanded(
+                child: _CameraDebugFrame(
+                  color: _CameraDebugColors.stage,
+                  label: 'stage',
+                  child: _NativeCameraStage(
+                    controller: controller,
+                    reference: reference,
+                    mode: mode,
+                    overlayOpacity: overlayOpacity,
+                    captureAspectRatio: captureAspectRatio,
+                    landscape: true,
+                  ),
+                ),
+              ),
+              _NativeLandscapeRightRail(
+                controller: controller,
+                galleryImage: galleryImage,
+                onCapture: onCapture,
+                onToggleOrientation: onToggleOrientation,
+                onPickGallery: onPickGallery,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1058,63 +1127,67 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 184,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        child: Row(
-          children: [
-            Column(
-              children: [
-                _CameraCircleButton(
-                  tooltip: null,
-                  icon: Icons.arrow_back,
-                  onPressed: onBack,
-                ),
-                const SizedBox(height: 10),
-                _CameraCircleButton(
-                  tooltip: null,
-                  icon: Icons.image_outlined,
-                  onPressed: onPickReference,
-                ),
-                const SizedBox(height: 10),
-                _CameraCircleButton(
-                  tooltip: null,
-                  icon: Icons.photo_library_outlined,
-                  onPressed: onPickGallery,
-                ),
-              ],
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-                  child: Column(
-                    children: [
-                      _ModeSelector(mode: mode, onChanged: onModeChanged),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: Center(
-                          child: _NativeZoomAndOpacityControls(
-                            controller: controller,
-                            settings: settings,
-                            overlayOpacity: overlayOpacity,
-                            onOpacityChanged: onOpacityChanged,
+    return _CameraDebugFrame(
+      color: _CameraDebugColors.leftRail,
+      label: 'left',
+      child: SizedBox(
+        width: 152,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
+          child: Row(
+            children: [
+              Column(
+                children: [
+                  _CameraCircleButton(
+                    tooltip: null,
+                    icon: Icons.arrow_back,
+                    onPressed: onBack,
+                  ),
+                  const SizedBox(height: 8),
+                  _CameraCircleButton(
+                    tooltip: null,
+                    icon: Icons.image_outlined,
+                    onPressed: onPickReference,
+                  ),
+                  const SizedBox(height: 8),
+                  _CameraCircleButton(
+                    tooltip: null,
+                    icon: Icons.photo_library_outlined,
+                    onPressed: onPickGallery,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _CameraDebugColors.panel),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+                    child: Column(
+                      children: [
+                        _ModeSelector(mode: mode, onChanged: onModeChanged),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Center(
+                            child: _NativeZoomAndOpacityControls(
+                              controller: controller,
+                              settings: settings,
+                              overlayOpacity: overlayOpacity,
+                              onOpacityChanged: onOpacityChanged,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1138,41 +1211,45 @@ class _NativeLandscapeRightRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 112,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
-        child: Column(
-          children: [
-            _NativeFlashButton(controller: controller, showTooltip: false),
-            const SizedBox(height: 10),
-            _CameraCircleButton(
-              tooltip: null,
-              icon: Icons.cameraswitch_outlined,
-              onPressed: controller.switchCamera,
-            ),
-            const SizedBox(height: 10),
-            _CameraCircleButton(
-              tooltip: null,
-              icon: Icons.screen_rotation_alt_outlined,
-              onPressed: onToggleOrientation,
-            ),
-            const Spacer(),
-            _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
-            const Spacer(),
-            if (galleryImage != null)
-              _CameraActionButton(
+    return _CameraDebugFrame(
+      color: _CameraDebugColors.rightRail,
+      label: 'right',
+      child: SizedBox(
+        width: 96,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
+          child: Column(
+            children: [
+              _NativeFlashButton(controller: controller, showTooltip: false),
+              const SizedBox(height: 8),
+              _CameraCircleButton(
                 tooltip: null,
-                icon: Icons.fact_check_outlined,
-                onPressed: () {},
-              )
-            else
-              _CameraActionButton(
-                tooltip: null,
-                icon: Icons.photo_library_outlined,
-                onPressed: onPickGallery,
+                icon: Icons.cameraswitch_outlined,
+                onPressed: controller.switchCamera,
               ),
-          ],
+              const SizedBox(height: 8),
+              _CameraCircleButton(
+                tooltip: null,
+                icon: Icons.screen_rotation_alt_outlined,
+                onPressed: onToggleOrientation,
+              ),
+              const Spacer(),
+              _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
+              const Spacer(),
+              if (galleryImage != null)
+                _CameraActionButton(
+                  tooltip: null,
+                  icon: Icons.fact_check_outlined,
+                  onPressed: () {},
+                )
+              else
+                _CameraActionButton(
+                  tooltip: null,
+                  icon: Icons.photo_library_outlined,
+                  onPressed: onPickGallery,
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -50,7 +50,7 @@ class NativeCameraPreviewView(
     private var targetAspectRatio = 1.0
 
     init {
-        previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
+        previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
         previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         previewView.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
@@ -116,9 +116,12 @@ class NativeCameraPreviewView(
         val selector = CameraSelector.Builder()
             .requireLensFacing(lensFacing)
             .build()
-        val preview = Preview.Builder().build().also {
-            it.setSurfaceProvider(previewView.surfaceProvider)
-        }
+        val preview = Preview.Builder()
+            .setTargetAspectRatio(cameraTargetAspectRatio())
+            .build()
+            .also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(cameraTargetAspectRatio())
