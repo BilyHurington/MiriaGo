@@ -1269,7 +1269,7 @@ class _ReferenceModeLayer extends StatelessWidget {
                       aspectRatio: targetAspectRatio,
                       child: _ReferenceImageView(
                         source: reference,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -1286,7 +1286,7 @@ class _ReferenceModeLayer extends StatelessWidget {
                       aspectRatio: targetAspectRatio,
                       child: _ReferenceImageView(
                         source: reference,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -1402,7 +1402,7 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
                   aspectRatio: targetAspectRatio,
                   child: _ReferenceImageView(
                     source: reference,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
