@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/image_viewer_screen.dart';
+import 'comparison_export_config.dart';
+import 'comparison_export_sheet.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
 
@@ -26,6 +28,11 @@ class VisitRecordDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('记录详情'),
         actions: [
+          IconButton(
+            tooltip: '导出对比图',
+            onPressed: () => _exportComparison(context, resolvedPoint),
+            icon: const Icon(Icons.ios_share_outlined),
+          ),
           IconButton(
             tooltip: '删除记录',
             onPressed: () => _confirmDelete(context),
@@ -140,6 +147,33 @@ class VisitRecordDetailScreen extends StatelessWidget {
       return;
     }
     Navigator.of(context).pop();
+  }
+
+  void _exportComparison(BuildContext context, PilgrimagePoint? resolvedPoint) {
+    final meta = <ComparisonMetadataField, String>{
+      ComparisonMetadataField.capturedAt:
+          _formatDateTime(record.capturedAt),
+    };
+
+    if (resolvedPoint != null) {
+      meta[ComparisonMetadataField.pointName] = resolvedPoint.name;
+      meta[ComparisonMetadataField.workTitle] = resolvedPoint.work.title;
+      meta[ComparisonMetadataField.episodeLabel] = resolvedPoint.episodeLabel;
+      meta[ComparisonMetadataField.coordinates] =
+          '${resolvedPoint.position.latitude.toStringAsFixed(5)}, '
+              '${resolvedPoint.position.longitude.toStringAsFixed(5)}';
+      if (resolvedPoint.sourceId != null) {
+        meta[ComparisonMetadataField.anitabiId] = resolvedPoint.sourceId!;
+      }
+    }
+
+    ComparisonExportSheet.show(
+      context,
+      referenceImagePath: record.referenceImagePath,
+      referenceImageUrl: record.referenceImageUrl,
+      capturedPath: record.photoPath,
+      metadata: meta,
+    );
   }
 }
 
