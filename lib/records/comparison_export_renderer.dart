@@ -9,16 +9,16 @@ import 'comparison_export_config.dart';
 class ComparisonExportRenderer {
   const ComparisonExportRenderer();
 
-  static const double outputWidth = 1080.0;
-  static const double inset = 10.0;
-  static const double imageGap = 8.0;
-  static const double imageRadius = 8.0;
-  static const double labelFontSize = 28.0;
-  static const double metaFieldFontSize = 22.0;
-  static const double metaValueFontSize = 22.0;
-  static const double metaRowHeight = 42.0;
-  static const double metaAreaPadH = 20.0;
-  static const double metaAreaPadV = 18.0;
+  static const double outputWidth = 1920.0;
+  static const double inset = 18.0;
+  static const double imageGap = 14.0;
+  static const double imageRadius = 14.0;
+  static const double labelFontSize = 50.0;
+  static const double metaFieldFontSize = 38.0;
+  static const double metaValueFontSize = 38.0;
+  static const double metaRowHeight = 72.0;
+  static const double metaAreaPadH = 36.0;
+  static const double metaAreaPadV = 32.0;
 
   Future<Uint8List?> render({
     required Uint8List? referenceBytes,
@@ -165,8 +165,8 @@ class ComparisonExportRenderer {
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: width - 24);
 
-      const hPad = 12.0;
-      const vPad = 6.0;
+      const hPad = 22.0;
+      const vPad = 11.0;
       final pillW = labelPainter.width + hPad * 2;
       final pillH = labelFontSize * 1.2 + vPad * 2;
 
