@@ -1567,20 +1567,7 @@ class _LandscapeCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Center(
-          child: RotatedBox(
-            quarterTurns: 1,
-            child: SizedBox(
-              width: constraints.maxHeight,
-              height: constraints.maxWidth,
-              child: child,
-            ),
-          ),
-        );
-      },
-    );
+    return child;
   }
 }
 
