@@ -31,21 +31,21 @@ class ComparisonExportRenderer {
     final capImg = await _decodeImage(capturedBytes);
     if (capImg == null) return null;
 
-    final borderPx = config.borderWidth.px;
-
     // Determine output width
     final fixedWidth = config.outputWidth.px;
     final double outputWidth;
     if (fixedWidth != null) {
       outputWidth = fixedWidth.toDouble();
     } else {
-      // Auto: use the larger image's width plus border and inset
       double maxImgW = capImg.width.toDouble();
       if (refImg != null && refImg.width > maxImgW) {
         maxImgW = refImg.width.toDouble();
       }
-      outputWidth = maxImgW + 2 * borderPx + 2 * inset;
+      final pct = config.borderWidthPercent;
+      outputWidth = ((maxImgW + 2 * inset) / (1 - 2 * pct / 100)).roundToDouble();
     }
+
+    final borderPx = (outputWidth * config.borderWidthPercent / 100).roundToDouble();
 
     final contentWidth = outputWidth - 2 * borderPx - 2 * inset;
 
