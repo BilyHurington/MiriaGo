@@ -716,25 +716,48 @@ class _NativeCameraStage extends StatelessWidget {
         if (safeMode == AwesomeReferenceMode.split && reference.hasImage) {
           return Padding(
             padding: EdgeInsets.all(landscape ? 6 : 10),
-            child: Column(
-              children: [
-                Expanded(
-                  child: _AspectStageFrame(
-                    aspectRatio: captureAspectRatio,
-                    child: _ReferenceImageView(
-                      source: reference,
-                      fit: BoxFit.contain,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final gap = landscape ? 6.0 : 8.0;
+                final maxFrameHeight = (constraints.maxHeight - gap) / 2;
+                var frameWidth = constraints.maxWidth;
+                var frameHeight = frameWidth / captureAspectRatio;
+                if (frameHeight > maxFrameHeight) {
+                  frameHeight = maxFrameHeight;
+                  frameWidth = frameHeight * captureAspectRatio;
+                }
+
+                return Center(
+                  child: SizedBox(
+                    width: frameWidth,
+                    height: frameHeight * 2 + gap,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: frameWidth,
+                          height: frameHeight,
+                          child: _AspectStageFrame(
+                            aspectRatio: captureAspectRatio,
+                            child: _ReferenceImageView(
+                              source: reference,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: gap),
+                        SizedBox(
+                          width: frameWidth,
+                          height: frameHeight,
+                          child: _AspectStageFrame(
+                            aspectRatio: captureAspectRatio,
+                            child: _NativeCameraPreview(controller: controller),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                SizedBox(height: landscape ? 6 : 8),
-                Expanded(
-                  child: _AspectStageFrame(
-                    aspectRatio: captureAspectRatio,
-                    child: _NativeCameraPreview(controller: controller),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           );
         }
@@ -838,6 +861,7 @@ class _CameraDebugColors {
   static const root = Color(0xFFFF4D4D);
   static const leftRail = Color(0xFF39D98A);
   static const rightRail = Color(0xFF4D96FF);
+  static const zoomRail = Color(0xFF00D4FF);
   static const stage = Color(0xFFFFC857);
   static const preview = Color(0xFFFF5EC4);
   static const panel = Color(0xFF8E7CFF);
@@ -1071,7 +1095,6 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
                 onOpacityChanged: onOpacityChanged,
                 onBack: () => Navigator.of(context).maybePop(),
                 onPickReference: onPickReference,
-                onPickGallery: onPickGallery,
               ),
               Expanded(
                 child: _CameraDebugFrame(
@@ -1087,9 +1110,15 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
                   ),
                 ),
               ),
+              _NativeLandscapeZoomRail(
+                controller: controller,
+                settings: settings,
+              ),
               _NativeLandscapeRightRail(
                 controller: controller,
+                overlayOpacity: overlayOpacity,
                 galleryImage: galleryImage,
+                onOpacityChanged: onOpacityChanged,
                 onCapture: onCapture,
                 onToggleOrientation: onToggleOrientation,
                 onPickGallery: onPickGallery,
@@ -1112,7 +1141,6 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
     required this.onOpacityChanged,
     required this.onBack,
     required this.onPickReference,
-    required this.onPickGallery,
   });
 
   final _NativeCameraController controller;
@@ -1123,7 +1151,6 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
   final ValueChanged<double> onOpacityChanged;
   final VoidCallback onBack;
   final VoidCallback onPickReference;
-  final VoidCallback onPickGallery;
 
   @override
   Widget build(BuildContext context) {
@@ -1131,62 +1158,73 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
       color: _CameraDebugColors.leftRail,
       label: 'left',
       child: SizedBox(
-        width: 152,
+        width: 66,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Column(
             children: [
-              Column(
-                children: [
-                  _CameraCircleButton(
-                    tooltip: null,
-                    icon: Icons.arrow_back,
-                    onPressed: onBack,
-                  ),
-                  const SizedBox(height: 8),
-                  _CameraCircleButton(
-                    tooltip: null,
-                    icon: Icons.image_outlined,
-                    onPressed: onPickReference,
-                  ),
-                  const SizedBox(height: 8),
-                  _CameraCircleButton(
-                    tooltip: null,
-                    icon: Icons.photo_library_outlined,
-                    onPressed: onPickGallery,
-                  ),
-                ],
+              _CameraCircleButton(
+                tooltip: null,
+                icon: Icons.arrow_back,
+                onPressed: onBack,
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _CameraDebugColors.panel),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-                    child: Column(
-                      children: [
-                        _ModeSelector(mode: mode, onChanged: onModeChanged),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: Center(
-                            child: _NativeZoomAndOpacityControls(
-                              controller: controller,
-                              settings: settings,
-                              overlayOpacity: overlayOpacity,
-                              onOpacityChanged: onOpacityChanged,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 8),
+              _CameraCircleButton(
+                tooltip: null,
+                icon: Icons.image_outlined,
+                onPressed: onPickReference,
               ),
+              const SizedBox(height: 14),
+              _ModeColumnSelector(mode: mode, onChanged: onModeChanged),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NativeLandscapeZoomRail extends StatelessWidget {
+  const _NativeLandscapeZoomRail({
+    required this.controller,
+    required this.settings,
+  });
+
+  final _NativeCameraController controller;
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final minZoom = math.max(controller.minZoomRatio, settings.cameraMinZoom);
+    final maxZoom = math.min(controller.maxZoomRatio, settings.cameraMaxZoom);
+    final effectiveMin = maxZoom <= minZoom ? controller.minZoomRatio : minZoom;
+    final effectiveMax = maxZoom <= minZoom ? controller.maxZoomRatio : maxZoom;
+    final sliderValue = _sliderValueFromRealZoom(
+      minZoom: effectiveMin,
+      maxZoom: effectiveMax,
+      realZoom: controller.zoomRatio,
+    );
+
+    return _CameraDebugFrame(
+      color: _CameraDebugColors.zoomRail,
+      label: 'zoom',
+      child: SizedBox(
+        width: 64,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: _VerticalCameraSlider(
+            icon: Icons.zoom_in_outlined,
+            value: sliderValue,
+            label: _formatRealZoom(controller.zoomRatio),
+            onChanged: (value) {
+              controller.setZoomRatio(
+                _realZoomFromSliderValue(
+                  minZoom: effectiveMin,
+                  maxZoom: effectiveMax,
+                  sliderValue: value,
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -1197,14 +1235,18 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
 class _NativeLandscapeRightRail extends StatelessWidget {
   const _NativeLandscapeRightRail({
     required this.controller,
+    required this.overlayOpacity,
     required this.galleryImage,
+    required this.onOpacityChanged,
     required this.onCapture,
     required this.onToggleOrientation,
     required this.onPickGallery,
   });
 
   final _NativeCameraController controller;
+  final ValueListenable<double> overlayOpacity;
   final XFile? galleryImage;
+  final ValueChanged<double> onOpacityChanged;
   final Future<void> Function() onCapture;
   final VoidCallback onToggleOrientation;
   final VoidCallback onPickGallery;
@@ -1215,23 +1257,53 @@ class _NativeLandscapeRightRail extends StatelessWidget {
       color: _CameraDebugColors.rightRail,
       label: 'right',
       child: SizedBox(
-        width: 96,
+        width: 122,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
+          padding: const EdgeInsets.fromLTRB(4, 6, 8, 6),
           child: Column(
             children: [
-              _NativeFlashButton(controller: controller, showTooltip: false),
-              const SizedBox(height: 8),
-              _CameraCircleButton(
-                tooltip: null,
-                icon: Icons.cameraswitch_outlined,
-                onPressed: controller.switchCamera,
-              ),
-              const SizedBox(height: 8),
-              _CameraCircleButton(
-                tooltip: null,
-                icon: Icons.screen_rotation_alt_outlined,
-                onPressed: onToggleOrientation,
+              SizedBox(
+                height: 188,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 58,
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: overlayOpacity,
+                        builder: (context, opacity, child) {
+                          return _VerticalCameraSlider(
+                            icon: Icons.opacity,
+                            value: opacity,
+                            label: '${(opacity * 100).round()}%',
+                            onChanged: onOpacityChanged,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Column(
+                      children: [
+                        _NativeFlashButton(
+                          controller: controller,
+                          showTooltip: false,
+                        ),
+                        const SizedBox(height: 8),
+                        _CameraCircleButton(
+                          tooltip: null,
+                          icon: Icons.cameraswitch_outlined,
+                          onPressed: controller.switchCamera,
+                        ),
+                        const SizedBox(height: 8),
+                        _CameraCircleButton(
+                          tooltip: null,
+                          icon: Icons.screen_rotation_alt_outlined,
+                          onPressed: onToggleOrientation,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
@@ -2122,6 +2194,94 @@ class _ModeSelector extends StatelessWidget {
   }
 }
 
+class _ModeColumnSelector extends StatelessWidget {
+  const _ModeColumnSelector({required this.mode, required this.onChanged});
+
+  final AwesomeReferenceMode mode;
+  final ValueChanged<AwesomeReferenceMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const modes = [
+      (AwesomeReferenceMode.overlay, Icons.layers_outlined, '叠影'),
+      (AwesomeReferenceMode.split, Icons.splitscreen_outlined, '上下'),
+    ];
+
+    return Column(
+      children: [
+        for (final entry in modes) ...[
+          _ModeIconButton(
+            selected: mode == entry.$1,
+            icon: entry.$2,
+            label: entry.$3,
+            onTap: () => onChanged(entry.$1),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _ModeIconButton extends StatelessWidget {
+  const _ModeIconButton({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        customBorder: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: selected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? Colors.white : Colors.white24),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 17,
+                color: selected ? AppColors.textPrimary : Colors.white70,
+              ),
+              const SizedBox(height: 1),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? AppColors.textPrimary : Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ModeChip extends StatelessWidget {
   const _ModeChip({
     required this.selected,
@@ -2422,6 +2582,133 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
       0.0,
       1.0,
     );
+  }
+}
+
+class _VerticalCameraSlider extends StatelessWidget {
+  const _VerticalCameraSlider({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final double value;
+  final String label;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeValue = value.clamp(0.0, 1.0);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        void updateFromLocal(Offset localPosition) {
+          final height = math.max(constraints.maxHeight, 1.0);
+          final next = (1 - localPosition.dy / height).clamp(0.0, 1.0);
+          onChanged(next);
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) => updateFromLocal(details.localPosition),
+          onVerticalDragStart: (details) =>
+              updateFromLocal(details.localPosition),
+          onVerticalDragUpdate: (details) =>
+              updateFromLocal(details.localPosition),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _CameraDebugColors.panel),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Column(
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Icon(icon, size: 16, color: Colors.white70),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Center(
+                      child: SizedBox(
+                        width: 36,
+                        height: double.infinity,
+                        child: CustomPaint(
+                          painter: _VerticalSliderPainter(value: safeValue),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _VerticalSliderPainter extends CustomPainter {
+  const _VerticalSliderPainter({required this.value});
+
+  final double value;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = size.width / 2;
+    const trackWidth = 5.0;
+    const thumbRadius = 12.0;
+    final top = thumbRadius;
+    final bottom = size.height - thumbRadius;
+    final activeY = bottom - (bottom - top) * value;
+    final inactivePaint = Paint()
+      ..color = Colors.white24
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = trackWidth;
+    final activePaint = Paint()
+      ..color = Colors.white
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = trackWidth;
+    canvas.drawLine(
+      Offset(centerX, top),
+      Offset(centerX, bottom),
+      inactivePaint,
+    );
+    canvas.drawLine(
+      Offset(centerX, activeY),
+      Offset(centerX, bottom),
+      activePaint,
+    );
+    canvas.drawCircle(
+      Offset(centerX, activeY),
+      thumbRadius + 10,
+      Paint()..color = Colors.white.withValues(alpha: 0.10),
+    );
+    canvas.drawCircle(
+      Offset(centerX, activeY),
+      thumbRadius,
+      Paint()..color = Colors.white,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _VerticalSliderPainter oldDelegate) {
+    return oldDelegate.value != value;
   }
 }
 
