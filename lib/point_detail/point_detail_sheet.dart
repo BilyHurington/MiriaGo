@@ -5,6 +5,7 @@ import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
+import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
@@ -244,20 +245,27 @@ class _ReferencePreview extends StatelessWidget {
       VisitStatus.pending => AppColors.accentDark,
     };
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 76,
-        height: 76,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceMuted,
-          border: Border.all(color: AppColors.border),
-        ),
-        child: ReferenceThumbnail(
-          localPath: point.referenceThumbnailPath,
-          imageUrl: point.referenceImageUrl,
-          fit: BoxFit.cover,
-          placeholder: Icon(Icons.image_outlined, color: color, size: 28),
+    return GestureDetector(
+      onTap: () => ImageViewerScreen.show(
+        context,
+        filePath: point.referenceFullImagePath,
+        imageUrl: point.referenceImageUrl,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 76,
+          height: 76,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceMuted,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ReferenceThumbnail(
+            localPath: point.referenceThumbnailPath,
+            imageUrl: point.referenceImageUrl,
+            fit: BoxFit.cover,
+            placeholder: Icon(Icons.image_outlined, color: color, size: 28),
+          ),
         ),
       ),
     );

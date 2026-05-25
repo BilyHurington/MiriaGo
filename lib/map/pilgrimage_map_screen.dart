@@ -11,6 +11,7 @@ import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../widgets/image_viewer_screen.dart';
 import 'map_navigation_launcher.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -635,18 +636,25 @@ class _PointThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 64,
-        height: 64,
-        color: AppColors.surfaceMuted,
-        child: ReferenceThumbnail(
-          localPath: point.referenceThumbnailPath,
-          imageUrl: point.referenceImageUrl,
-          placeholder: const Icon(
-            Icons.image_outlined,
-            color: AppColors.accentDark,
+    return GestureDetector(
+      onTap: () => ImageViewerScreen.show(
+        context,
+        filePath: point.referenceFullImagePath,
+        imageUrl: point.referenceImageUrl,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 64,
+          height: 64,
+          color: AppColors.surfaceMuted,
+          child: ReferenceThumbnail(
+            localPath: point.referenceThumbnailPath,
+            imageUrl: point.referenceImageUrl,
+            placeholder: const Icon(
+              Icons.image_outlined,
+              color: AppColors.accentDark,
+            ),
           ),
         ),
       ),

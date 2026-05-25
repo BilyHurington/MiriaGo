@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 
 class VisitRecordPhoto extends StatelessWidget {
-  const VisitRecordPhoto({required this.path, super.key});
+  const VisitRecordPhoto({required this.path, this.fit = BoxFit.cover, super.key});
 
   final String path;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +22,6 @@ class VisitRecordPhoto extends StatelessWidget {
       );
     }
 
-    return Image.file(file, fit: BoxFit.cover);
+    return Image.file(file, fit: fit);
   }
 }

@@ -6,6 +6,7 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
+import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'camera_storage_stub.dart'
@@ -155,24 +156,29 @@ class _ComparisonPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _ImageCompareTile(
-            label: '参考图',
-            child: _ReferencePreview(
-              bytes: referenceBytes,
-              imagePath: referenceImagePath,
-              imageUrl: referenceImageUrl,
-            ),
+        _ImageCompareTile(
+          label: '参考图',
+          child: _ReferencePreview(
+            bytes: referenceBytes,
+            imagePath: referenceImagePath,
+            imageUrl: referenceImageUrl,
+          ),
+          onTap: () => ImageViewerScreen.show(
+            context,
+            bytes: referenceBytes,
+            filePath: referenceImagePath,
+            imageUrl: referenceImageUrl,
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ImageCompareTile(
-            label: '巡礼图',
-            child: VisitRecordPhoto(path: photoPath),
-          ),
+        const SizedBox(height: 12),
+        _ImageCompareTile(
+          label: '巡礼图',
+          child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
+          onTap: () =>
+              ImageViewerScreen.show(context, filePath: photoPath),
         ),
       ],
     );
@@ -180,20 +186,25 @@ class _ComparisonPanel extends StatelessWidget {
 }
 
 class _ImageCompareTile extends StatelessWidget {
-  const _ImageCompareTile({required this.label, required this.child});
+  const _ImageCompareTile({
+    required this.label,
+    required this.child,
+    this.onTap,
+  });
 
   final String label;
   final Widget child;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onTap,
             child: child,
           ),
         ),
@@ -228,7 +239,7 @@ class _ReferencePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final localBytes = bytes;
     if (localBytes != null) {
-      return Image.memory(localBytes, fit: BoxFit.cover);
+      return Image.memory(localBytes, fit: BoxFit.contain);
     }
 
     final localPath = imagePath;
@@ -237,7 +248,7 @@ class _ReferencePreview extends StatelessWidget {
         localPath: localPath,
         imageUrl: null,
         placeholder: const _ReferencePlaceholder(),
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
       );
     }
 
@@ -245,7 +256,7 @@ class _ReferencePreview extends StatelessWidget {
     if (url != null) {
       return Image.network(
         url,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return const _ReferencePlaceholder();
         },

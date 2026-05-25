@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
+import '../widgets/image_viewer_screen.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
 
@@ -153,23 +154,27 @@ class _RecordComparisonPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _RecordImageTile(
-            label: '参考图',
-            child: _RecordReferencePhoto(
-              path: record.referenceImagePath,
-              url: record.referenceImageUrl ?? fallbackReferenceUrl,
-            ),
+        _RecordImageTile(
+          label: '参考图',
+          child: _RecordReferencePhoto(
+            path: record.referenceImagePath,
+            url: record.referenceImageUrl ?? fallbackReferenceUrl,
+          ),
+          onTap: () => ImageViewerScreen.show(
+            context,
+            filePath: record.referenceImagePath,
+            imageUrl: record.referenceImageUrl ?? fallbackReferenceUrl,
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _RecordImageTile(
-            label: '巡礼图',
-            child: VisitRecordPhoto(path: record.photoPath),
-          ),
+        const SizedBox(height: 12),
+        _RecordImageTile(
+          label: '巡礼图',
+          child: VisitRecordPhoto(path: record.photoPath, fit: BoxFit.contain),
+          onTap: () =>
+              ImageViewerScreen.show(context, filePath: record.photoPath),
         ),
       ],
     );
@@ -177,20 +182,25 @@ class _RecordComparisonPanel extends StatelessWidget {
 }
 
 class _RecordImageTile extends StatelessWidget {
-  const _RecordImageTile({required this.label, required this.child});
+  const _RecordImageTile({
+    required this.label,
+    required this.child,
+    this.onTap,
+  });
 
   final String label;
   final Widget child;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onTap,
             child: child,
           ),
         ),
@@ -220,14 +230,14 @@ class _RecordReferencePhoto extends StatelessWidget {
   Widget build(BuildContext context) {
     final localPath = path;
     if (localPath != null) {
-      return VisitRecordPhoto(path: localPath);
+      return VisitRecordPhoto(path: localPath, fit: BoxFit.contain);
     }
 
     final imageUrl = url;
     if (imageUrl != null) {
       return Image.network(
         imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return const _RecordReferencePlaceholder();
         },
