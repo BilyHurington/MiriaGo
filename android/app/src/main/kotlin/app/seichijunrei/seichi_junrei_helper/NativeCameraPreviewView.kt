@@ -44,6 +44,7 @@ class NativeCameraPreviewView(
 
     init {
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         channel.setMethodCallHandler(this)
     }
 
