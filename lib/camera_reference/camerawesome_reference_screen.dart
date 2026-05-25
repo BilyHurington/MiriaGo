@@ -695,6 +695,7 @@ class _NativeCameraStage extends StatelessWidget {
     required this.overlayOpacity,
     required this.captureAspectRatio,
     required this.landscape,
+    this.metrics,
   });
 
   final _NativeCameraController controller;
@@ -703,6 +704,7 @@ class _NativeCameraStage extends StatelessWidget {
   final ValueListenable<double> overlayOpacity;
   final double captureAspectRatio;
   final bool landscape;
+  final _CameraLayoutMetrics? metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -714,13 +716,18 @@ class _NativeCameraStage extends StatelessWidget {
       valueListenable: overlayOpacity,
       builder: (context, opacity, child) {
         if (safeMode == AwesomeReferenceMode.split && reference.hasImage) {
+          final stagePadding =
+              metrics?.stagePadding ?? (landscape ? 6.0 : 10.0);
           return Padding(
-            padding: EdgeInsets.all(landscape ? 6 : 10),
+            padding: EdgeInsets.all(stagePadding),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final gap = landscape ? 6.0 : 8.0;
-                final maxFrameHeight = (constraints.maxHeight - gap) / 2;
-                var frameWidth = constraints.maxWidth;
+                final gap = metrics?.splitGap ?? (landscape ? 6.0 : 8.0);
+                final maxFrameHeight = math.max(
+                  (constraints.maxHeight - gap) / 2,
+                  0.0,
+                );
+                var frameWidth = math.max(constraints.maxWidth, 0.0);
                 var frameHeight = frameWidth / captureAspectRatio;
                 if (frameHeight > maxFrameHeight) {
                   frameHeight = maxFrameHeight;
@@ -763,7 +770,9 @@ class _NativeCameraStage extends StatelessWidget {
         }
 
         return Padding(
-          padding: EdgeInsets.all(landscape ? 6 : 10),
+          padding: EdgeInsets.all(
+            metrics?.stagePadding ?? (landscape ? 6.0 : 10.0),
+          ),
           child: _AspectStageFrame(
             aspectRatio: captureAspectRatio,
             child: Stack(
@@ -915,6 +924,85 @@ class _CameraDebugFrame extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CameraLayoutMetrics {
+  const _CameraLayoutMetrics({
+    required this.compactness,
+    required this.textScale,
+    required this.leftRailWidth,
+    required this.zoomRailWidth,
+    required this.rightRailWidth,
+    required this.opacitySliderWidth,
+    required this.controlButtonSize,
+    required this.controlIconSize,
+    required this.modeButtonWidth,
+    required this.modeButtonHeight,
+    required this.captureButtonSize,
+    required this.captureInnerSize,
+    required this.actionButtonSize,
+    required this.actionIconSize,
+    required this.leftGap,
+    required this.modeGap,
+    required this.rightGap,
+    required this.stagePadding,
+    required this.splitGap,
+    required this.opacitySliderHeight,
+    required this.showGalleryText,
+  });
+
+  final double compactness;
+  final double textScale;
+  final double leftRailWidth;
+  final double zoomRailWidth;
+  final double rightRailWidth;
+  final double opacitySliderWidth;
+  final double controlButtonSize;
+  final double controlIconSize;
+  final double modeButtonWidth;
+  final double modeButtonHeight;
+  final double captureButtonSize;
+  final double captureInnerSize;
+  final double actionButtonSize;
+  final double actionIconSize;
+  final double leftGap;
+  final double modeGap;
+  final double rightGap;
+  final double stagePadding;
+  final double splitGap;
+  final double opacitySliderHeight;
+  final bool showGalleryText;
+
+  static _CameraLayoutMetrics landscape(Size size, double requestedTextScale) {
+    final shortest = math.min(size.width, size.height);
+    final compactness = ((shortest - 360) / 220).clamp(0.0, 1.0);
+    final textScale = requestedTextScale.clamp(0.9, 1.15);
+    final wideEnoughForGalleryText = size.width >= 820 && shortest >= 390;
+
+    return _CameraLayoutMetrics(
+      compactness: compactness,
+      textScale: textScale,
+      leftRailWidth: ui.lerpDouble(54, 60, compactness)!,
+      zoomRailWidth: ui.lerpDouble(46, 52, compactness)!,
+      rightRailWidth: ui.lerpDouble(96, 106, compactness)!,
+      opacitySliderWidth: ui.lerpDouble(42, 46, compactness)!,
+      controlButtonSize: ui.lerpDouble(40, 44, compactness)!,
+      controlIconSize: ui.lerpDouble(20, 22, compactness)!,
+      modeButtonWidth: ui.lerpDouble(42, 48, compactness)!,
+      modeButtonHeight: ui.lerpDouble(46, 52, compactness)!,
+      captureButtonSize: ui.lerpDouble(64, 72, compactness)!,
+      captureInnerSize: ui.lerpDouble(44, 52, compactness)!,
+      actionButtonSize: ui.lerpDouble(44, 50, compactness)!,
+      actionIconSize: ui.lerpDouble(22, 24, compactness)!,
+      leftGap: ui.lerpDouble(6, 8, compactness)!,
+      modeGap: ui.lerpDouble(6, 8, compactness)!,
+      rightGap: ui.lerpDouble(6, 8, compactness)!,
+      stagePadding: ui.lerpDouble(1, 2, compactness)!,
+      splitGap: ui.lerpDouble(1, 2, compactness)!,
+      opacitySliderHeight: ui.lerpDouble(142, 162, compactness)!,
+      showGalleryText: wideEnoughForGalleryText,
     );
   }
 }
@@ -1081,50 +1169,65 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
     return ColoredBox(
       color: const Color(0xFF090A0D),
       child: SafeArea(
-        child: _CameraDebugFrame(
-          color: _CameraDebugColors.root,
-          label: 'root',
-          child: Row(
-            children: [
-              _NativeLandscapeLeftRail(
-                mode: mode,
-                overlayOpacity: overlayOpacity,
-                controller: controller,
-                settings: settings,
-                onModeChanged: onModeChanged,
-                onOpacityChanged: onOpacityChanged,
-                onBack: () => Navigator.of(context).maybePop(),
-                onPickReference: onPickReference,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final mediaQuery = MediaQuery.of(context);
+            final metrics = _CameraLayoutMetrics.landscape(
+              constraints.biggest,
+              mediaQuery.textScaler.scale(1),
+            );
+
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: TextScaler.linear(metrics.textScale),
               ),
-              Expanded(
-                child: _CameraDebugFrame(
-                  color: _CameraDebugColors.stage,
-                  label: 'stage',
-                  child: _NativeCameraStage(
-                    controller: controller,
-                    reference: reference,
-                    mode: mode,
-                    overlayOpacity: overlayOpacity,
-                    captureAspectRatio: captureAspectRatio,
-                    landscape: true,
-                  ),
+              child: _CameraDebugFrame(
+                color: _CameraDebugColors.root,
+                label: 'root',
+                child: Row(
+                  children: [
+                    _NativeLandscapeLeftRail(
+                      metrics: metrics,
+                      mode: mode,
+                      onModeChanged: onModeChanged,
+                      onBack: () => Navigator.of(context).maybePop(),
+                      onPickReference: onPickReference,
+                    ),
+                    Expanded(
+                      child: _CameraDebugFrame(
+                        color: _CameraDebugColors.stage,
+                        label: 'stage',
+                        child: _NativeCameraStage(
+                          controller: controller,
+                          reference: reference,
+                          mode: mode,
+                          overlayOpacity: overlayOpacity,
+                          captureAspectRatio: captureAspectRatio,
+                          landscape: true,
+                          metrics: metrics,
+                        ),
+                      ),
+                    ),
+                    _NativeLandscapeZoomRail(
+                      metrics: metrics,
+                      controller: controller,
+                      settings: settings,
+                    ),
+                    _NativeLandscapeRightRail(
+                      metrics: metrics,
+                      controller: controller,
+                      overlayOpacity: overlayOpacity,
+                      galleryImage: galleryImage,
+                      onOpacityChanged: onOpacityChanged,
+                      onCapture: onCapture,
+                      onToggleOrientation: onToggleOrientation,
+                      onPickGallery: onPickGallery,
+                    ),
+                  ],
                 ),
               ),
-              _NativeLandscapeZoomRail(
-                controller: controller,
-                settings: settings,
-              ),
-              _NativeLandscapeRightRail(
-                controller: controller,
-                overlayOpacity: overlayOpacity,
-                galleryImage: galleryImage,
-                onOpacityChanged: onOpacityChanged,
-                onCapture: onCapture,
-                onToggleOrientation: onToggleOrientation,
-                onPickGallery: onPickGallery,
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -1133,22 +1236,16 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
 
 class _NativeLandscapeLeftRail extends StatelessWidget {
   const _NativeLandscapeLeftRail({
-    required this.controller,
+    required this.metrics,
     required this.mode,
-    required this.overlayOpacity,
-    required this.settings,
     required this.onModeChanged,
-    required this.onOpacityChanged,
     required this.onBack,
     required this.onPickReference,
   });
 
-  final _NativeCameraController controller;
+  final _CameraLayoutMetrics metrics;
   final AwesomeReferenceMode mode;
-  final ValueListenable<double> overlayOpacity;
-  final AppSettings settings;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
-  final ValueChanged<double> onOpacityChanged;
   final VoidCallback onBack;
   final VoidCallback onPickReference;
 
@@ -1158,24 +1255,32 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
       color: _CameraDebugColors.leftRail,
       label: 'left',
       child: SizedBox(
-        width: 66,
+        width: metrics.leftRailWidth,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
           child: Column(
             children: [
               _CameraCircleButton(
+                size: metrics.controlButtonSize,
+                iconSize: metrics.controlIconSize,
                 tooltip: null,
                 icon: Icons.arrow_back,
                 onPressed: onBack,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: metrics.leftGap),
               _CameraCircleButton(
+                size: metrics.controlButtonSize,
+                iconSize: metrics.controlIconSize,
                 tooltip: null,
                 icon: Icons.image_outlined,
                 onPressed: onPickReference,
               ),
-              const SizedBox(height: 14),
-              _ModeColumnSelector(mode: mode, onChanged: onModeChanged),
+              SizedBox(height: metrics.leftGap + 2),
+              _ModeColumnSelector(
+                metrics: metrics,
+                mode: mode,
+                onChanged: onModeChanged,
+              ),
             ],
           ),
         ),
@@ -1186,10 +1291,12 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
 
 class _NativeLandscapeZoomRail extends StatelessWidget {
   const _NativeLandscapeZoomRail({
+    required this.metrics,
     required this.controller,
     required this.settings,
   });
 
+  final _CameraLayoutMetrics metrics;
   final _NativeCameraController controller;
   final AppSettings settings;
 
@@ -1209,10 +1316,11 @@ class _NativeLandscapeZoomRail extends StatelessWidget {
       color: _CameraDebugColors.zoomRail,
       label: 'zoom',
       child: SizedBox(
-        width: 64,
+        width: metrics.zoomRailWidth,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
           child: _VerticalCameraSlider(
+            compact: true,
             icon: Icons.zoom_in_outlined,
             value: sliderValue,
             label: _formatRealZoom(controller.zoomRatio),
@@ -1234,6 +1342,7 @@ class _NativeLandscapeZoomRail extends StatelessWidget {
 
 class _NativeLandscapeRightRail extends StatelessWidget {
   const _NativeLandscapeRightRail({
+    required this.metrics,
     required this.controller,
     required this.overlayOpacity,
     required this.galleryImage,
@@ -1243,6 +1352,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
     required this.onPickGallery,
   });
 
+  final _CameraLayoutMetrics metrics;
   final _NativeCameraController controller;
   final ValueListenable<double> overlayOpacity;
   final XFile? galleryImage;
@@ -1257,22 +1367,26 @@ class _NativeLandscapeRightRail extends StatelessWidget {
       color: _CameraDebugColors.rightRail,
       label: 'right',
       child: SizedBox(
-        width: 122,
+        width: metrics.rightRailWidth,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 6, 8, 6),
+          padding: const EdgeInsets.fromLTRB(3, 5, 6, 5),
           child: Column(
             children: [
               SizedBox(
-                height: 188,
+                height: math.max(
+                  metrics.opacitySliderHeight,
+                  metrics.controlButtonSize * 3 + metrics.rightGap * 2,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(
-                      width: 58,
+                      width: metrics.opacitySliderWidth,
                       child: ValueListenableBuilder<double>(
                         valueListenable: overlayOpacity,
                         builder: (context, opacity, child) {
                           return _VerticalCameraSlider(
+                            compact: true,
                             icon: Icons.opacity,
                             value: opacity,
                             label: '${(opacity * 100).round()}%',
@@ -1281,21 +1395,27 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                         },
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     Column(
                       children: [
                         _NativeFlashButton(
+                          size: metrics.controlButtonSize,
+                          iconSize: metrics.controlIconSize,
                           controller: controller,
                           showTooltip: false,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: metrics.rightGap),
                         _CameraCircleButton(
+                          size: metrics.controlButtonSize,
+                          iconSize: metrics.controlIconSize,
                           tooltip: null,
                           icon: Icons.cameraswitch_outlined,
                           onPressed: controller.switchCamera,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: metrics.rightGap),
                         _CameraCircleButton(
+                          size: metrics.controlButtonSize,
+                          iconSize: metrics.controlIconSize,
                           tooltip: null,
                           icon: Icons.screen_rotation_alt_outlined,
                           onPressed: onToggleOrientation,
@@ -1306,18 +1426,26 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
-              const Spacer(),
+              _NativeCaptureButton(
+                size: metrics.captureButtonSize,
+                innerSize: metrics.captureInnerSize,
+                busy: controller.busy,
+                onPressed: onCapture,
+              ),
+              SizedBox(height: metrics.rightGap + 4),
               if (galleryImage != null)
                 _CameraActionButton(
+                  size: metrics.actionButtonSize,
+                  iconSize: metrics.actionIconSize,
                   tooltip: null,
                   icon: Icons.fact_check_outlined,
                   onPressed: () {},
                 )
               else
-                _CameraActionButton(
-                  tooltip: null,
-                  icon: Icons.photo_library_outlined,
+                _GalleryImportButton(
+                  showLabel: metrics.showGalleryText,
+                  size: metrics.actionButtonSize,
+                  iconSize: metrics.actionIconSize,
                   onPressed: onPickGallery,
                 ),
             ],
@@ -1332,10 +1460,14 @@ class _NativeFlashButton extends StatelessWidget {
   const _NativeFlashButton({
     required this.controller,
     required this.showTooltip,
+    this.size,
+    this.iconSize,
   });
 
   final _NativeCameraController controller;
   final bool showTooltip;
+  final double? size;
+  final double? iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1347,6 +1479,8 @@ class _NativeFlashButton extends StatelessWidget {
     };
 
     return _CameraCircleButton(
+      size: size ?? 44,
+      iconSize: iconSize ?? 21,
       tooltip: showTooltip ? '闪光灯' : null,
       icon: icon,
       onPressed: controller.cycleFlashMode,
@@ -1412,10 +1546,17 @@ class _NativeZoomAndOpacityControls extends StatelessWidget {
 }
 
 class _NativeCaptureButton extends StatelessWidget {
-  const _NativeCaptureButton({required this.busy, required this.onPressed});
+  const _NativeCaptureButton({
+    required this.busy,
+    required this.onPressed,
+    this.size = 72,
+    this.innerSize = 52,
+  });
 
   final bool busy;
   final Future<void> Function() onPressed;
+  final double size;
+  final double innerSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1427,8 +1568,8 @@ class _NativeCaptureButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: busy ? null : onPressed,
         child: Container(
-          width: 72,
-          height: 72,
+          width: size,
+          height: size,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -1444,8 +1585,8 @@ class _NativeCaptureButton extends StatelessWidget {
                   ),
                 )
               : Container(
-                  width: 52,
-                  height: 52,
+                  width: innerSize,
+                  height: innerSize,
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -1991,11 +2132,15 @@ class _CameraCircleButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.size = 44,
+    this.iconSize = 21,
   });
 
   final String? tooltip;
   final IconData icon;
   final VoidCallback onPressed;
+  final double size;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -2004,11 +2149,13 @@ class _CameraCircleButton extends StatelessWidget {
       style: IconButton.styleFrom(
         backgroundColor: Colors.black.withValues(alpha: 0.38),
         foregroundColor: Colors.white,
-        minimumSize: const Size(44, 44),
+        minimumSize: Size(size, size),
+        fixedSize: Size(size, size),
+        padding: EdgeInsets.zero,
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: Icon(icon, size: 21),
+      icon: Icon(icon, size: iconSize),
     );
   }
 }
@@ -2195,8 +2342,13 @@ class _ModeSelector extends StatelessWidget {
 }
 
 class _ModeColumnSelector extends StatelessWidget {
-  const _ModeColumnSelector({required this.mode, required this.onChanged});
+  const _ModeColumnSelector({
+    required this.metrics,
+    required this.mode,
+    required this.onChanged,
+  });
 
+  final _CameraLayoutMetrics metrics;
   final AwesomeReferenceMode mode;
   final ValueChanged<AwesomeReferenceMode> onChanged;
 
@@ -2211,12 +2363,13 @@ class _ModeColumnSelector extends StatelessWidget {
       children: [
         for (final entry in modes) ...[
           _ModeIconButton(
+            metrics: metrics,
             selected: mode == entry.$1,
             icon: entry.$2,
             label: entry.$3,
             onTap: () => onChanged(entry.$1),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: metrics.modeGap),
         ],
       ],
     );
@@ -2225,12 +2378,14 @@ class _ModeColumnSelector extends StatelessWidget {
 
 class _ModeIconButton extends StatelessWidget {
   const _ModeIconButton({
+    required this.metrics,
     required this.selected,
     required this.icon,
     required this.label,
     required this.onTap,
   });
 
+  final _CameraLayoutMetrics metrics;
   final bool selected;
   final IconData icon;
   final String label;
@@ -2247,8 +2402,8 @@ class _ModeIconButton extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          width: 48,
-          height: 48,
+          width: metrics.modeButtonWidth,
+          height: metrics.modeButtonHeight,
           decoration: BoxDecoration(
             color: selected
                 ? Colors.white
@@ -2261,7 +2416,7 @@ class _ModeIconButton extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: 17,
+                size: metrics.controlIconSize - 3,
                 color: selected ? AppColors.textPrimary : Colors.white70,
               ),
               const SizedBox(height: 1),
@@ -2269,7 +2424,7 @@ class _ModeIconButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: selected ? AppColors.textPrimary : Colors.white70,
-                  fontSize: 10,
+                  fontSize: 10 * metrics.textScale,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0,
                 ),
@@ -2591,12 +2746,14 @@ class _VerticalCameraSlider extends StatelessWidget {
     required this.value,
     required this.label,
     required this.onChanged,
+    this.compact = false,
   });
 
   final IconData icon;
   final double value;
   final String label;
   final ValueChanged<double> onChanged;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2624,7 +2781,10 @@ class _VerticalCameraSlider extends StatelessWidget {
               border: Border.all(color: _CameraDebugColors.panel),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 3 : 4,
+                vertical: compact ? 6 : 8,
+              ),
               child: Column(
                 children: [
                   Text(
@@ -2634,18 +2794,18 @@ class _VerticalCameraSlider extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Icon(icon, size: 16, color: Colors.white70),
-                  const SizedBox(height: 6),
+                  SizedBox(height: compact ? 3 : 4),
+                  Icon(icon, size: compact ? 14 : 16, color: Colors.white70),
+                  SizedBox(height: compact ? 4 : 6),
                   Expanded(
                     child: Center(
                       child: SizedBox(
-                        width: 36,
+                        width: compact ? 32 : 36,
                         height: double.infinity,
                         child: CustomPaint(
                           painter: _VerticalSliderPainter(value: safeValue),
@@ -2762,11 +2922,15 @@ class _CameraActionButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.size = 50,
+    this.iconSize = 24,
   });
 
   final String? tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
+  final double size;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -2776,11 +2940,59 @@ class _CameraActionButton extends StatelessWidget {
         foregroundColor: onPressed == null ? Colors.white30 : Colors.white,
         backgroundColor: Colors.white.withValues(alpha: 0.12),
         disabledBackgroundColor: Colors.white.withValues(alpha: 0.06),
-        minimumSize: const Size(50, 50),
+        minimumSize: Size(size, size),
+        fixedSize: Size(size, size),
+        padding: EdgeInsets.zero,
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: Icon(icon, size: 24),
+      icon: Icon(icon, size: iconSize),
+    );
+  }
+}
+
+class _GalleryImportButton extends StatelessWidget {
+  const _GalleryImportButton({
+    required this.showLabel,
+    required this.size,
+    required this.iconSize,
+    required this.onPressed,
+  });
+
+  final bool showLabel;
+  final double size;
+  final double iconSize;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showLabel) {
+      return _CameraActionButton(
+        tooltip: '从相册导入',
+        icon: Icons.add_photo_alternate_outlined,
+        size: size,
+        iconSize: iconSize,
+        onPressed: onPressed,
+      );
+    }
+
+    return Tooltip(
+      message: '从相册导入',
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.white.withValues(alpha: 0.12),
+          minimumSize: Size(size + 34, size),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: onPressed,
+        icon: Icon(Icons.add_photo_alternate_outlined, size: iconSize),
+        label: const Text(
+          '导入',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+        ),
+      ),
     );
   }
 }
