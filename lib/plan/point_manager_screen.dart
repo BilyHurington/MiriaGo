@@ -853,17 +853,6 @@ class _PointManagerTile extends StatelessWidget {
                           letterSpacing: 0,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _cacheStatusText(point),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                          letterSpacing: 0,
-                        ),
-                      ),
                       const SizedBox(height: 5),
                       SizedBox(
                         height: 32,
@@ -929,13 +918,6 @@ class _PointManagerTile extends StatelessWidget {
     );
   }
 
-  String _cacheStatusText(PilgrimagePoint point) {
-    final fullCached = referenceFullCacheFileIsCurrent(
-      path: point.referenceFullImagePath,
-      imageUrl: point.referenceImageUrl,
-    );
-    return fullCached ? '缓存：已缓存' : '缓存：未缓存';
-  }
 }
 
 class _CacheStatusPill extends StatelessWidget {
