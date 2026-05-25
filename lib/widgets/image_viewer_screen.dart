@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../records/gallery_saver_stub.dart'
+    if (dart.library.io) '../records/gallery_saver_io.dart';
+
 class ImageViewerScreen extends StatelessWidget {
   const ImageViewerScreen({
     this.filePath,
@@ -42,7 +45,12 @@ class ImageViewerScreen extends StatelessWidget {
             child: InteractiveViewer(
               minScale: 0.5,
               maxScale: 5.0,
-              child: Center(child: _buildImage()),
+              child: Center(
+                child: GestureDetector(
+                  onLongPress: () => _showSaveSheet(context),
+                  child: _buildImage(),
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -63,6 +71,42 @@ class ImageViewerScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSaveSheet(BuildContext context) {
+    final savePath = filePath;
+    if (savePath == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
+              title: const Text(
+                '保存到相册',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () async {
+                Navigator.of(ctx).pop();
+                final success = await saveImageToGallery(savePath);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? '已保存到相册' : '保存失败'),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+      backgroundColor: const Color(0xFF2C2C2E),
     );
   }
 

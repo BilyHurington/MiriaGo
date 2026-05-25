@@ -134,6 +134,7 @@ class ComparisonExportRenderer {
       const Radius.circular(imageRadius),
     );
 
+    canvas.save();
     canvas.clipRRect(imageRect);
     canvas.drawImageRect(
       image,
