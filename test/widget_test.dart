@@ -30,7 +30,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(find.text('叠影'), findsWidgets);
+    expect(find.text('上下'), findsWidgets);
+    expect(find.text('小窗'), findsWidgets);
   });
 
   testWidgets('opens shared point detail sheet from plan list', (tester) async {

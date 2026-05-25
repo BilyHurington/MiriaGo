@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_image_url.dart';
@@ -51,24 +52,28 @@ class _CamerawesomeReferenceScreenState
   final ImagePicker _imagePicker = ImagePicker();
   late final ValueNotifier<double> _overlayOpacity;
   late final ValueNotifier<double> _zoom;
+  late final _NativeCameraController _nativeCameraController;
 
   Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   bool _landscapeLocked = false;
+  bool _nativeCameraFailed = false;
 
   @override
   void initState() {
     super.initState();
     _overlayOpacity = ValueNotifier<double>(0.46);
     _zoom = ValueNotifier<double>(0);
+    _nativeCameraController = _NativeCameraController();
   }
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations(const []);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _overlayOpacity.dispose();
     _zoom.dispose();
+    _nativeCameraController.dispose();
     super.dispose();
   }
 
@@ -155,6 +160,12 @@ class _CamerawesomeReferenceScreenState
     });
   }
 
+  bool get _shouldUseNativeCamera {
+    return !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        !_nativeCameraFailed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final reference = _ReferenceImageSource(
@@ -176,6 +187,31 @@ class _CamerawesomeReferenceScreenState
               onOpacityChanged: (value) => _overlayOpacity.value = value,
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
+            )
+          : _shouldUseNativeCamera
+          ? _NativeReferenceCameraBody(
+              point: widget.point,
+              controller: _nativeCameraController,
+              reference: reference,
+              galleryImage: _galleryImage,
+              mode: _mode,
+              overlayOpacity: _overlayOpacity,
+              settings: widget.settings,
+              landscapeLocked: _landscapeLocked,
+              onNativeUnavailable: () {
+                setState(() => _nativeCameraFailed = true);
+              },
+              onModeChanged: (mode) => setState(() => _mode = mode),
+              onOpacityChanged: (value) => _overlayOpacity.value = value,
+              onCapture: () async {
+                final path = await _nativeCameraController.takePicture();
+                if (path != null) {
+                  await _openConfirmation(path);
+                }
+              },
+              onPickReference: _pickReferenceImage,
+              onPickGallery: _pickGalleryImage,
+              onToggleOrientation: _toggleOrientation,
             )
           : CameraAwesomeBuilder.custom(
               saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
@@ -221,6 +257,717 @@ CameraAspectRatios _cameraAspectRatio(CameraPhotoAspectRatio ratio) {
     CameraPhotoAspectRatio.standard4x3 => CameraAspectRatios.ratio_4_3,
     CameraPhotoAspectRatio.square1x1 => CameraAspectRatios.ratio_1_1,
   };
+}
+
+class _NativeCameraController extends ChangeNotifier {
+  MethodChannel? _channel;
+  var _ready = false;
+  var _busy = false;
+  String? _error;
+  var _minZoomRatio = 1.0;
+  var _maxZoomRatio = 1.0;
+  var _zoomRatio = 1.0;
+  var _flashMode = 'auto';
+  var _lensFacing = 'back';
+
+  bool get ready => _ready;
+  bool get busy => _busy;
+  String? get error => _error;
+  double get minZoomRatio => _minZoomRatio;
+  double get maxZoomRatio => _maxZoomRatio;
+  double get zoomRatio => _zoomRatio;
+  String get flashMode => _flashMode;
+  String get lensFacing => _lensFacing;
+
+  Future<void> attach(int viewId) async {
+    if (_channel != null) {
+      return;
+    }
+
+    final permission = await Permission.camera.request();
+    if (!permission.isGranted) {
+      _error = '需要相机权限';
+      notifyListeners();
+      return;
+    }
+
+    _channel = MethodChannel('seichi/native_camera_preview_$viewId');
+    try {
+      final result = await _channel!.invokeMapMethod<String, Object?>(
+        'initialize',
+      );
+      _applyZoomState(result);
+      _ready = true;
+      _error = null;
+    } catch (error) {
+      _error = '原生相机初始化失败';
+    }
+    notifyListeners();
+  }
+
+  Future<void> setZoomRatio(double ratio) async {
+    final channel = _channel;
+    if (channel == null || !_ready) {
+      return;
+    }
+
+    _zoomRatio = ratio.clamp(_minZoomRatio, _maxZoomRatio);
+    notifyListeners();
+    final result = await channel.invokeMapMethod<String, Object?>(
+      'setZoomRatio',
+      {'zoomRatio': _zoomRatio},
+    );
+    _applyZoomState(result);
+    notifyListeners();
+  }
+
+  Future<void> cycleFlashMode() async {
+    final nextMode = switch (_flashMode) {
+      'auto' => 'on',
+      'on' => 'torch',
+      'torch' => 'off',
+      _ => 'auto',
+    };
+    await setFlashMode(nextMode);
+  }
+
+  Future<void> setFlashMode(String mode) async {
+    final channel = _channel;
+    if (channel == null || !_ready) {
+      return;
+    }
+
+    _flashMode = mode;
+    notifyListeners();
+    await channel.invokeMethod<void>('setFlashMode', {'flashMode': mode});
+  }
+
+  Future<void> switchCamera() async {
+    final channel = _channel;
+    if (channel == null || !_ready) {
+      return;
+    }
+
+    final result = await channel.invokeMapMethod<String, Object?>(
+      'switchCamera',
+    );
+    _applyZoomState(result);
+    notifyListeners();
+  }
+
+  Future<String?> takePicture() async {
+    final channel = _channel;
+    if (channel == null || !_ready || _busy) {
+      return null;
+    }
+
+    _busy = true;
+    notifyListeners();
+    try {
+      return await channel.invokeMethod<String>('takePicture');
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _channel?.invokeMethod<void>('dispose');
+    super.dispose();
+  }
+
+  void _applyZoomState(Map<String, Object?>? state) {
+    if (state == null) {
+      return;
+    }
+
+    _minZoomRatio = (state['minZoomRatio'] as num?)?.toDouble() ?? 1;
+    _maxZoomRatio = (state['maxZoomRatio'] as num?)?.toDouble() ?? 1;
+    _zoomRatio = (state['zoomRatio'] as num?)?.toDouble() ?? 1;
+    _lensFacing = state['lensFacing'] as String? ?? _lensFacing;
+  }
+}
+
+class _NativeReferenceCameraBody extends StatelessWidget {
+  const _NativeReferenceCameraBody({
+    required this.point,
+    required this.controller,
+    required this.reference,
+    required this.galleryImage,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.settings,
+    required this.landscapeLocked,
+    required this.onNativeUnavailable,
+    required this.onModeChanged,
+    required this.onOpacityChanged,
+    required this.onCapture,
+    required this.onPickReference,
+    required this.onPickGallery,
+    required this.onToggleOrientation,
+  });
+
+  final PilgrimagePoint point;
+  final _NativeCameraController controller;
+  final _ReferenceImageSource reference;
+  final XFile? galleryImage;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final AppSettings settings;
+  final bool landscapeLocked;
+  final VoidCallback onNativeUnavailable;
+  final ValueChanged<AwesomeReferenceMode> onModeChanged;
+  final ValueChanged<double> onOpacityChanged;
+  final Future<void> Function() onCapture;
+  final VoidCallback onPickReference;
+  final VoidCallback onPickGallery;
+  final VoidCallback onToggleOrientation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        if (controller.error != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            onNativeUnavailable();
+          });
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _NativeCameraPreview(controller: controller),
+            ValueListenableBuilder<double>(
+              valueListenable: overlayOpacity,
+              builder: (context, opacity, child) {
+                return _ReferenceModeLayer(
+                  mode: mode,
+                  reference: reference,
+                  overlayOpacity: opacity,
+                  isLandscape: landscapeLocked,
+                );
+              },
+            ),
+            SafeArea(
+              child: landscapeLocked
+                  ? _NativeLandscapeCameraLayout(
+                      controller: controller,
+                      mode: mode,
+                      overlayOpacity: overlayOpacity,
+                      settings: settings,
+                      galleryImage: galleryImage,
+                      onModeChanged: onModeChanged,
+                      onOpacityChanged: onOpacityChanged,
+                      onCapture: onCapture,
+                      onPickReference: onPickReference,
+                      onPickGallery: onPickGallery,
+                      onToggleOrientation: onToggleOrientation,
+                    )
+                  : Column(
+                      children: [
+                        _NativeCameraTopBar(
+                          controller: controller,
+                          isLandscapeUi: false,
+                          onPickReference: onPickReference,
+                          onToggleOrientation: onToggleOrientation,
+                        ),
+                        const Spacer(),
+                        _NativeCameraBottomPanel(
+                          controller: controller,
+                          mode: mode,
+                          overlayOpacity: overlayOpacity,
+                          settings: settings,
+                          galleryImage: galleryImage,
+                          onModeChanged: onModeChanged,
+                          onOpacityChanged: onOpacityChanged,
+                          onCapture: onCapture,
+                          onPickGallery: onPickGallery,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _NativeCameraPreview extends StatelessWidget {
+  const _NativeCameraPreview({required this.controller});
+
+  final _NativeCameraController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AndroidView(
+      viewType: 'seichi/native_camera_preview',
+      onPlatformViewCreated: controller.attach,
+    );
+  }
+}
+
+class _NativeCameraTopBar extends StatelessWidget {
+  const _NativeCameraTopBar({
+    required this.controller,
+    required this.isLandscapeUi,
+    required this.onPickReference,
+    required this.onToggleOrientation,
+  });
+
+  final _NativeCameraController controller;
+  final bool isLandscapeUi;
+  final VoidCallback onPickReference;
+  final VoidCallback onToggleOrientation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+      child: Row(
+        children: [
+          _CameraCircleButton(
+            tooltip: isLandscapeUi ? null : '返回',
+            icon: Icons.arrow_back,
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          const Spacer(),
+          _CameraCircleButton(
+            tooltip: isLandscapeUi ? null : '参考图',
+            icon: Icons.image_outlined,
+            onPressed: onPickReference,
+          ),
+          const SizedBox(width: 8),
+          _CameraCircleButton(
+            tooltip: isLandscapeUi ? null : '切换横屏 UI',
+            icon: Icons.screen_rotation_alt_outlined,
+            onPressed: onToggleOrientation,
+          ),
+          const SizedBox(width: 8),
+          _NativeFlashButton(
+            controller: controller,
+            showTooltip: !isLandscapeUi,
+          ),
+          const SizedBox(width: 8),
+          _CameraCircleButton(
+            tooltip: isLandscapeUi ? null : '切换摄像头',
+            icon: Icons.cameraswitch_outlined,
+            onPressed: controller.switchCamera,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NativeCameraBottomPanel extends StatelessWidget {
+  const _NativeCameraBottomPanel({
+    required this.controller,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.settings,
+    required this.galleryImage,
+    required this.onModeChanged,
+    required this.onOpacityChanged,
+    required this.onCapture,
+    required this.onPickGallery,
+  });
+
+  final _NativeCameraController controller;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final AppSettings settings;
+  final XFile? galleryImage;
+  final ValueChanged<AwesomeReferenceMode> onModeChanged;
+  final ValueChanged<double> onOpacityChanged;
+  final Future<void> Function() onCapture;
+  final VoidCallback onPickGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        border: const Border(top: BorderSide(color: Colors.white12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ModeSelector(mode: mode, onChanged: onModeChanged),
+          const SizedBox(height: 6),
+          _NativeZoomAndOpacityControls(
+            controller: controller,
+            settings: settings,
+            overlayOpacity: overlayOpacity,
+            onOpacityChanged: onOpacityChanged,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _CameraActionButton(
+                tooltip: '相册导入',
+                icon: galleryImage == null
+                    ? Icons.photo_library_outlined
+                    : Icons.photo_library,
+                onPressed: onPickGallery,
+              ),
+              const Spacer(),
+              _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
+              const Spacer(),
+              if (galleryImage == null)
+                const SizedBox(width: 50)
+              else
+                _CameraActionButton(
+                  tooltip: '检查照片',
+                  icon: Icons.fact_check_outlined,
+                  onPressed: () {},
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NativeLandscapeCameraLayout extends StatelessWidget {
+  const _NativeLandscapeCameraLayout({
+    required this.controller,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.settings,
+    required this.galleryImage,
+    required this.onModeChanged,
+    required this.onOpacityChanged,
+    required this.onCapture,
+    required this.onPickReference,
+    required this.onPickGallery,
+    required this.onToggleOrientation,
+  });
+
+  final _NativeCameraController controller;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final AppSettings settings;
+  final XFile? galleryImage;
+  final ValueChanged<AwesomeReferenceMode> onModeChanged;
+  final ValueChanged<double> onOpacityChanged;
+  final Future<void> Function() onCapture;
+  final VoidCallback onPickReference;
+  final VoidCallback onPickGallery;
+  final VoidCallback onToggleOrientation;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LandscapeCanvas(
+      child: Stack(
+        children: [
+          _NativeCameraTopBar(
+            controller: controller,
+            isLandscapeUi: true,
+            onPickReference: onPickReference,
+            onToggleOrientation: onToggleOrientation,
+          ),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 14,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: _NativeLandscapeControlPanel(
+                    controller: controller,
+                    mode: mode,
+                    overlayOpacity: overlayOpacity,
+                    settings: settings,
+                    onModeChanged: onModeChanged,
+                    onOpacityChanged: onOpacityChanged,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                _NativeLandscapeCaptureRail(
+                  controller: controller,
+                  galleryImage: galleryImage,
+                  onPickGallery: onPickGallery,
+                  onCapture: onCapture,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NativeLandscapeControlPanel extends StatelessWidget {
+  const _NativeLandscapeControlPanel({
+    required this.controller,
+    required this.mode,
+    required this.overlayOpacity,
+    required this.settings,
+    required this.onModeChanged,
+    required this.onOpacityChanged,
+  });
+
+  final _NativeCameraController controller;
+  final AwesomeReferenceMode mode;
+  final ValueListenable<double> overlayOpacity;
+  final AppSettings settings;
+  final ValueChanged<AwesomeReferenceMode> onModeChanged;
+  final ValueChanged<double> onOpacityChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+        child: Row(
+          children: [
+            _ModeSelector(mode: mode, onChanged: onModeChanged),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _NativeZoomAndOpacityControls(
+                controller: controller,
+                settings: settings,
+                overlayOpacity: overlayOpacity,
+                onOpacityChanged: onOpacityChanged,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NativeLandscapeCaptureRail extends StatelessWidget {
+  const _NativeLandscapeCaptureRail({
+    required this.controller,
+    required this.galleryImage,
+    required this.onPickGallery,
+    required this.onCapture,
+  });
+
+  final _NativeCameraController controller;
+  final XFile? galleryImage;
+  final VoidCallback onPickGallery;
+  final Future<void> Function() onCapture;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasGalleryImage = galleryImage != null;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CameraActionButton(
+              tooltip: null,
+              icon: hasGalleryImage
+                  ? Icons.photo_library
+                  : Icons.photo_library_outlined,
+              onPressed: onPickGallery,
+            ),
+            const SizedBox(width: 18),
+            _NativeCaptureButton(
+              busy: controller.busy,
+              compact: true,
+              onPressed: onCapture,
+            ),
+            if (hasGalleryImage) ...[
+              const SizedBox(width: 18),
+              _CameraActionButton(
+                tooltip: null,
+                icon: Icons.fact_check_outlined,
+                onPressed: () {},
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NativeFlashButton extends StatelessWidget {
+  const _NativeFlashButton({
+    required this.controller,
+    required this.showTooltip,
+  });
+
+  final _NativeCameraController controller;
+  final bool showTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (controller.flashMode) {
+      'off' => Icons.flash_off,
+      'on' => Icons.flash_on,
+      'torch' => Icons.flashlight_on,
+      _ => Icons.flash_auto,
+    };
+
+    return _CameraCircleButton(
+      tooltip: showTooltip ? '闪光灯' : null,
+      icon: icon,
+      onPressed: controller.cycleFlashMode,
+    );
+  }
+}
+
+class _NativeZoomAndOpacityControls extends StatelessWidget {
+  const _NativeZoomAndOpacityControls({
+    required this.controller,
+    required this.settings,
+    required this.overlayOpacity,
+    required this.onOpacityChanged,
+  });
+
+  final _NativeCameraController controller;
+  final AppSettings settings;
+  final ValueListenable<double> overlayOpacity;
+  final ValueChanged<double> onOpacityChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final minZoom = math.max(controller.minZoomRatio, settings.cameraMinZoom);
+    final maxZoom = math.min(controller.maxZoomRatio, settings.cameraMaxZoom);
+    final effectiveMin = maxZoom <= minZoom ? controller.minZoomRatio : minZoom;
+    final effectiveMax = maxZoom <= minZoom ? controller.maxZoomRatio : maxZoom;
+    final sliderValue = _sliderValueFromRealZoom(
+      minZoom: effectiveMin,
+      maxZoom: effectiveMax,
+      realZoom: controller.zoomRatio,
+    );
+
+    return Column(
+      children: [
+        _SliderRow(
+          icon: Icons.zoom_in_outlined,
+          value: sliderValue,
+          label: _formatRealZoom(controller.zoomRatio),
+          onChanged: (value) {
+            controller.setZoomRatio(
+              _realZoomFromSliderValue(
+                minZoom: effectiveMin,
+                maxZoom: effectiveMax,
+                sliderValue: value,
+              ),
+            );
+          },
+        ),
+        ValueListenableBuilder<double>(
+          valueListenable: overlayOpacity,
+          builder: (context, opacity, child) {
+            return _SliderRow(
+              icon: Icons.opacity,
+              value: opacity,
+              label: '${(opacity * 100).round()}%',
+              onChanged: onOpacityChanged,
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _NativeCaptureButton extends StatelessWidget {
+  const _NativeCaptureButton({
+    required this.busy,
+    required this.onPressed,
+    this.compact = false,
+  });
+
+  final bool busy;
+  final bool compact;
+  final Future<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.32),
+      shape: const CircleBorder(),
+      elevation: 0,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: busy ? null : onPressed,
+        child: Container(
+          width: compact ? 62 : 72,
+          height: compact ? 62 : 72,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: compact ? 3 : 4),
+          ),
+          child: busy
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Container(
+                  width: compact ? 44 : 52,
+                  height: compact ? 44 : 52,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+double _realZoomFromSliderValue({
+  required double minZoom,
+  required double maxZoom,
+  required double sliderValue,
+}) {
+  final safeMin = math.max(minZoom, 0.01);
+  final safeMax = math.max(maxZoom, safeMin);
+  if (safeMax <= safeMin) {
+    return safeMin;
+  }
+  return safeMin * math.pow(safeMax / safeMin, sliderValue).toDouble();
+}
+
+double _sliderValueFromRealZoom({
+  required double minZoom,
+  required double maxZoom,
+  required double realZoom,
+}) {
+  final safeMin = math.max(minZoom, 0.01);
+  final safeMax = math.max(maxZoom, safeMin);
+  if (safeMax <= safeMin) {
+    return 0;
+  }
+  return (math.log(realZoom.clamp(safeMin, safeMax) / safeMin) /
+          math.log(safeMax / safeMin))
+      .clamp(0.0, 1.0);
 }
 
 class _ReferenceCameraOverlay extends StatelessWidget {
