@@ -267,6 +267,14 @@ double _cameraPortraitPreviewAspectRatio(CameraPhotoAspectRatio ratio) {
   };
 }
 
+double _cameraLandscapePreviewAspectRatio(CameraPhotoAspectRatio ratio) {
+  return switch (ratio) {
+    CameraPhotoAspectRatio.landscape16x9 => 16 / 9,
+    CameraPhotoAspectRatio.standard4x3 => 4 / 3,
+    CameraPhotoAspectRatio.square1x1 => 1,
+  };
+}
+
 class _NativeCameraController extends ChangeNotifier {
   MethodChannel? _channel;
   int? _viewId;
@@ -464,6 +472,9 @@ class _NativeReferenceCameraBody extends StatelessWidget {
                     reference: reference,
                     overlayOpacity: opacity,
                     isLandscape: true,
+                    targetAspectRatio: _cameraLandscapePreviewAspectRatio(
+                      settings.cameraAspectRatio,
+                    ),
                   );
                 },
               ),
@@ -567,6 +578,9 @@ class _NativePreviewFrame extends StatelessWidget {
                     overlayOpacity: opacity,
                     isLandscape: false,
                     constrainToBounds: true,
+                    targetAspectRatio: _cameraPortraitPreviewAspectRatio(
+                      settings.cameraAspectRatio,
+                    ),
                   );
                 },
               ),
@@ -1171,6 +1185,7 @@ class _ReferenceModeLayer extends StatelessWidget {
     required this.overlayOpacity,
     required this.isLandscape,
     this.constrainToBounds = false,
+    this.targetAspectRatio,
   });
 
   final AwesomeReferenceMode mode;
@@ -1178,6 +1193,7 @@ class _ReferenceModeLayer extends StatelessWidget {
   final double overlayOpacity;
   final bool isLandscape;
   final bool constrainToBounds;
+  final double? targetAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1190,6 +1206,7 @@ class _ReferenceModeLayer extends StatelessWidget {
         mode: mode,
         reference: reference,
         overlayOpacity: overlayOpacity,
+        targetAspectRatio: targetAspectRatio,
       );
     }
 
@@ -1197,7 +1214,10 @@ class _ReferenceModeLayer extends StatelessWidget {
       AwesomeReferenceMode.overlay => IgnorePointer(
         child: Opacity(
           opacity: overlayOpacity,
-          child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+          child: _ReferenceAspectBox(
+            aspectRatio: targetAspectRatio,
+            child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+          ),
         ),
       ),
       AwesomeReferenceMode.split =>
@@ -1209,9 +1229,12 @@ class _ReferenceModeLayer extends StatelessWidget {
                   widthFactor: 1,
                   child: _ReferenceFrame(
                     margin: const EdgeInsets.all(8),
-                    child: _ReferenceImageView(
-                      source: reference,
-                      fit: BoxFit.contain,
+                    child: _ReferenceAspectBox(
+                      aspectRatio: targetAspectRatio,
+                      child: _ReferenceImageView(
+                        source: reference,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
@@ -1223,9 +1246,12 @@ class _ReferenceModeLayer extends StatelessWidget {
                   child: _ReferenceFrame(
                     height: MediaQuery.sizeOf(context).height * 0.34,
                     margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
-                    child: _ReferenceImageView(
-                      source: reference,
-                      fit: BoxFit.contain,
+                    child: _ReferenceAspectBox(
+                      aspectRatio: targetAspectRatio,
+                      child: _ReferenceImageView(
+                        source: reference,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
@@ -1239,9 +1265,12 @@ class _ReferenceModeLayer extends StatelessWidget {
                   heightFactor: 0.38,
                   child: _ReferenceFrame(
                     margin: const EdgeInsets.all(8),
-                    child: _ReferenceImageView(
-                      source: reference,
-                      fit: BoxFit.cover,
+                    child: _ReferenceAspectBox(
+                      aspectRatio: targetAspectRatio,
+                      child: _ReferenceImageView(
+                        source: reference,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
@@ -1253,14 +1282,36 @@ class _ReferenceModeLayer extends StatelessWidget {
                     width: 116,
                     height: 154,
                     margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
-                    child: _ReferenceImageView(
-                      source: reference,
-                      fit: BoxFit.cover,
+                    child: _ReferenceAspectBox(
+                      aspectRatio: targetAspectRatio,
+                      child: _ReferenceImageView(
+                        source: reference,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
               ),
     };
+  }
+}
+
+class _ReferenceAspectBox extends StatelessWidget {
+  const _ReferenceAspectBox({required this.child, this.aspectRatio});
+
+  final Widget child;
+  final double? aspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = aspectRatio;
+    if (ratio == null) {
+      return child;
+    }
+
+    return Center(
+      child: AspectRatio(aspectRatio: ratio, child: child),
+    );
   }
 }
 
@@ -1299,11 +1350,13 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
     required this.mode,
     required this.reference,
     required this.overlayOpacity,
+    this.targetAspectRatio,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
+  final double? targetAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1315,9 +1368,12 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
             AwesomeReferenceMode.overlay => IgnorePointer(
               child: Opacity(
                 opacity: overlayOpacity,
-                child: _ReferenceImageView(
-                  source: reference,
-                  fit: BoxFit.contain,
+                child: _ReferenceAspectBox(
+                  aspectRatio: targetAspectRatio,
+                  child: _ReferenceImageView(
+                    source: reference,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),
@@ -1327,9 +1383,12 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
               top: 66,
               height: 132,
               child: _LandscapeReferenceFrame(
-                child: _ReferenceImageView(
-                  source: reference,
-                  fit: BoxFit.contain,
+                child: _ReferenceAspectBox(
+                  aspectRatio: targetAspectRatio,
+                  child: _ReferenceImageView(
+                    source: reference,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),
@@ -1339,9 +1398,12 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
               width: 220,
               height: 124,
               child: _LandscapeReferenceFrame(
-                child: _ReferenceImageView(
-                  source: reference,
-                  fit: BoxFit.cover,
+                child: _ReferenceAspectBox(
+                  aspectRatio: targetAspectRatio,
+                  child: _ReferenceImageView(
+                    source: reference,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
