@@ -268,42 +268,52 @@ class NativeCameraPreviewView(
             ExifInterface.TAG_ORIENTATION,
             ExifInterface.ORIENTATION_NORMAL,
         )
-        val matrix = Matrix()
-        when (orientation) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        val isRotated = orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+            orientation == ExifInterface.ORIENTATION_ROTATE_270
+
+        val rawWidth = bitmap.width
+        val rawHeight = bitmap.height
+        val rawRatio = rawWidth.toDouble() / rawHeight.toDouble()
+
+        // Compute the target ratio in raw (pre-rotation) space.
+        // If the image needs 90°/270° rotation, the display ratio is inverted.
+        val rawTargetRatio = if (isRotated) 1.0 / targetAspectRatio else targetAspectRatio
+
+        val needsCrop = abs(rawRatio - rawTargetRatio) >= 0.01
+
+        if (needsCrop) {
+            val cropWidth: Int
+            val cropHeight: Int
+            if (rawRatio > rawTargetRatio) {
+                cropHeight = rawHeight
+                cropWidth = (cropHeight * rawTargetRatio).toInt().coerceIn(1, rawWidth)
+            } else {
+                cropWidth = rawWidth
+                cropHeight = (cropWidth / rawTargetRatio).toInt().coerceIn(1, rawHeight)
+            }
+
+            val left = ((rawWidth - cropWidth) / 2).coerceAtLeast(0)
+            val top = ((rawHeight - cropHeight) / 2).coerceAtLeast(0)
+            val cropped = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
+            if (cropped != bitmap) bitmap.recycle()
+            bitmap = cropped
         }
-        if (!matrix.isIdentity) {
+
+        // Apply EXIF rotation after cropping, so the saved image is correctly oriented.
+        if (isRotated) {
+            val matrix = Matrix()
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            }
             val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
             if (rotated != bitmap) bitmap.recycle()
             bitmap = rotated
         }
 
-        val currentRatio = bitmap.width.toDouble() / bitmap.height.toDouble()
-        if (abs(currentRatio - targetAspectRatio) < 0.01) {
-            bitmap.recycle()
-            return
-        }
-
-        val cropWidth: Int
-        val cropHeight: Int
-        if (currentRatio > targetAspectRatio) {
-            cropHeight = bitmap.height
-            cropWidth = (cropHeight * targetAspectRatio).toInt().coerceIn(1, bitmap.width)
-        } else {
-            cropWidth = bitmap.width
-            cropHeight = (cropWidth / targetAspectRatio).toInt().coerceIn(1, bitmap.height)
-        }
-
-        val left = ((bitmap.width - cropWidth) / 2).coerceAtLeast(0)
-        val top = ((bitmap.height - cropHeight) / 2).coerceAtLeast(0)
-        val cropped = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
         file.outputStream().use { output ->
-            cropped.compress(Bitmap.CompressFormat.JPEG, 95, output)
-        }
-        if (cropped != bitmap) {
-            cropped.recycle()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, output)
         }
         bitmap.recycle()
     }
