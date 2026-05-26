@@ -5,7 +5,9 @@ import 'package:latlong2/latlong.dart';
 import '../plan/pilgrimage_models.dart';
 
 const seichiPlanFileExtension = 'sjhplan';
-const seichiPlanMimeType = 'application/vnd.seichi-junrei.plan+json';
+const seichiPlanMimeType = 'application/vnd.miriago.plan+json';
+const _miriaGoPlanFormat = 'miriago-plan';
+const _legacyPlanFormat = 'seichi-junrei-helper-plan';
 
 class PlanPackage {
   const PlanPackage({required this.plan, required this.visitRecords});
@@ -15,7 +17,7 @@ class PlanPackage {
 
   String toJsonString() {
     return const JsonEncoder.withIndent('  ').convert({
-      'format': 'seichi-junrei-helper-plan',
+      'format': _miriaGoPlanFormat,
       'version': 1,
       'exportedAt': DateTime.now().toIso8601String(),
       'plan': _planToJson(plan),
@@ -28,7 +30,8 @@ class PlanPackage {
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Invalid plan package root.');
     }
-    if (decoded['format'] != 'seichi-junrei-helper-plan') {
+    if (decoded['format'] != _miriaGoPlanFormat &&
+        decoded['format'] != _legacyPlanFormat) {
       throw const FormatException('Unsupported plan package format.');
     }
     if (decoded['version'] != 1) {

@@ -17,6 +17,18 @@ enum CameraPhotoAspectRatio {
   square1x1,
 }
 
+enum AppThemePalette {
+  miriaYellow,
+  classicGreen;
+
+  String get label {
+    return switch (this) {
+      AppThemePalette.miriaYellow => '鲜黄色',
+      AppThemePalette.classicGreen => '经典绿色',
+    };
+  }
+}
+
 extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {
     return switch (this) {
@@ -36,24 +48,28 @@ class AppSettings {
     this.cameraAspectRatio = CameraPhotoAspectRatio.auto,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
+    this.themePalette = AppThemePalette.miriaYellow,
   });
 
   final double uiScale;
   final CameraPhotoAspectRatio cameraAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final AppThemePalette themePalette;
 
   AppSettings copyWith({
     double? uiScale,
     CameraPhotoAspectRatio? cameraAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    AppThemePalette? themePalette,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
       cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      themePalette: themePalette ?? this.themePalette,
     );
   }
 }

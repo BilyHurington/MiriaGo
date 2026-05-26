@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:seichi_junrei_helper/records/comparison_export_config.dart';
+import 'package:miriago/records/comparison_export_config.dart';
 
 void main() {
   test('serializes comparison export config for global reuse', () {

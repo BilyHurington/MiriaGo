@@ -1,8 +1,8 @@
-# 圣地巡礼助手
+# MiriaGo
 
-圣地巡礼助手是一个使用 Flutter 开发的开源跨平台应用，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录与对比图。
+MiriaGo 是一个使用 Flutter 开发的开源跨平台应用，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录与对比图。
 
-项目英文名暂定为 **Seichi Junrei Helper**。当前主要面向 Android，Web 版本用于开发预览。
+当前主要面向 Android，Web 版本用于开发预览。
 
 ## 功能
 
@@ -83,7 +83,7 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 当前 Bangumi User-Agent：
 
 ```text
-bilyhurington/Seichi-Junrei-Helper/1.0.0 (https://github.com/bilyhurington/Seichi-Junrei-Helper)
+bilyhurington/MiriaGo/1.0.0 (https://github.com/bilyhurington/MiriaGo)
 ```
 
 ## 文档

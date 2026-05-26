@@ -26,6 +26,44 @@ class SettingsScreen extends StatelessWidget {
               Row(
                 children: [
                   const Icon(
+                    Icons.palette_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '主题色 ${settings.themePalette.label}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: AppThemePalette.values
+                    .map((palette) {
+                      final selected = settings.themePalette == palette;
+                      return ChoiceChip(
+                        label: Text(palette.label),
+                        avatar: _ThemeSwatch(palette: palette),
+                        selected: selected,
+                        onSelected: (_) {
+                          onChanged(settings.copyWith(themePalette: palette));
+                        },
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Icon(
                     Icons.zoom_out_map_outlined,
                     color: AppColors.textSecondary,
                   ),
@@ -142,7 +180,7 @@ class SettingsScreen extends StatelessWidget {
               SizedBox(height: 10),
               _InfoRow(
                 icon: Icons.code_outlined,
-                text: 'github.com/BilyHurington/seichi-junrei-helper',
+                text: 'github.com/BilyHurington/MiriaGo',
               ),
             ],
           ),
@@ -182,6 +220,29 @@ class _SettingsSection extends StatelessWidget {
           const SizedBox(height: 12),
           ...children,
         ],
+      ),
+    );
+  }
+}
+
+class _ThemeSwatch extends StatelessWidget {
+  const _ThemeSwatch({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (palette) {
+      AppThemePalette.miriaYellow => AppColors.miriaYellow,
+      AppThemePalette.classicGreen => AppColors.classicGreen,
+    };
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.border),
       ),
     );
   }

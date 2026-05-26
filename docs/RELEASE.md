@@ -87,7 +87,7 @@ flutter build apk --release --dart-define=BANGUMI_API_TOKEN=xxxx
 示例：
 
 ```text
-seichi-junrei-helper-v1.0.0-android.apk
+MiriaGo-v1.0.0-android.apk
 ```
 
 ## 当前仓库的自动构建

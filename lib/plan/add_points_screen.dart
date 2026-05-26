@@ -793,7 +793,7 @@ class _WorkSummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+          Icon(Icons.movie_filter_outlined, color: AppColors.accent),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -835,7 +835,7 @@ class _WorkResultCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+          Icon(Icons.movie_filter_outlined, color: AppColors.accent),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>圣地巡礼助手</string>
+	<string>MiriaGo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>圣地巡礼助手</string>
+	<string>MiriaGo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,11 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Seichi Junrei Helper uses the camera to align real-world scenes with reference images.</string>
+	<string>MiriaGo uses the camera to align real-world scenes with reference images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Seichi Junrei Helper lets you choose reference images from your photo library.</string>
+	<string>MiriaGo lets you choose reference images from your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Seichi Junrei Helper uses your location to show nearby pilgrimage points on the map.</string>
+	<string>MiriaGo uses your location to show nearby pilgrimage points on the map.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

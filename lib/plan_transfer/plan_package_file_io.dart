@@ -13,7 +13,7 @@ Future<String?> exportPlanPackageToFile(PlanPackage package) async {
       .replaceAll(RegExp(r'^_|_$'), '');
   final timestamp = DateTime.now().millisecondsSinceEpoch;
   final fileName =
-      '${safeName.isEmpty ? 'seichi_plan' : safeName}_$timestamp.$seichiPlanFileExtension';
+      '${safeName.isEmpty ? 'miriago_plan' : safeName}_$timestamp.$seichiPlanFileExtension';
   final file = File(p.join(directory.path, fileName));
   await file.writeAsString(package.toJsonString(), flush: true);
   return file.path;

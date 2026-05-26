@@ -2861,6 +2861,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(5.0),
   );
+  static const VerificationMeta _themePaletteMeta = const VerificationMeta(
+    'themePalette',
+  );
+  @override
+  late final GeneratedColumn<String> themePalette = GeneratedColumn<String>(
+    'theme_palette',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('miriaYellow'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2868,6 +2880,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     cameraAspectRatio,
     cameraMinZoom,
     cameraMaxZoom,
+    themePalette,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2919,6 +2932,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('theme_palette')) {
+      context.handle(
+        _themePaletteMeta,
+        themePalette.isAcceptableOrUnknown(
+          data['theme_palette']!,
+          _themePaletteMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2948,6 +2970,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.double,
         data['${effectivePrefix}camera_max_zoom'],
       )!,
+      themePalette: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme_palette'],
+      )!,
     );
   }
 
@@ -2964,12 +2990,14 @@ class AppSettingsEntry extends DataClass
   final String cameraAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final String themePalette;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
     required this.cameraAspectRatio,
     required this.cameraMinZoom,
     required this.cameraMaxZoom,
+    required this.themePalette,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2979,6 +3007,7 @@ class AppSettingsEntry extends DataClass
     map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio);
     map['camera_min_zoom'] = Variable<double>(cameraMinZoom);
     map['camera_max_zoom'] = Variable<double>(cameraMaxZoom);
+    map['theme_palette'] = Variable<String>(themePalette);
     return map;
   }
 
@@ -2989,6 +3018,7 @@ class AppSettingsEntry extends DataClass
       cameraAspectRatio: Value(cameraAspectRatio),
       cameraMinZoom: Value(cameraMinZoom),
       cameraMaxZoom: Value(cameraMaxZoom),
+      themePalette: Value(themePalette),
     );
   }
 
@@ -3003,6 +3033,7 @@ class AppSettingsEntry extends DataClass
       cameraAspectRatio: serializer.fromJson<String>(json['cameraAspectRatio']),
       cameraMinZoom: serializer.fromJson<double>(json['cameraMinZoom']),
       cameraMaxZoom: serializer.fromJson<double>(json['cameraMaxZoom']),
+      themePalette: serializer.fromJson<String>(json['themePalette']),
     );
   }
   @override
@@ -3014,6 +3045,7 @@ class AppSettingsEntry extends DataClass
       'cameraAspectRatio': serializer.toJson<String>(cameraAspectRatio),
       'cameraMinZoom': serializer.toJson<double>(cameraMinZoom),
       'cameraMaxZoom': serializer.toJson<double>(cameraMaxZoom),
+      'themePalette': serializer.toJson<String>(themePalette),
     };
   }
 
@@ -3023,12 +3055,14 @@ class AppSettingsEntry extends DataClass
     String? cameraAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    String? themePalette,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
     cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
     cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
     cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+    themePalette: themePalette ?? this.themePalette,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -3043,6 +3077,9 @@ class AppSettingsEntry extends DataClass
       cameraMaxZoom: data.cameraMaxZoom.present
           ? data.cameraMaxZoom.value
           : this.cameraMaxZoom,
+      themePalette: data.themePalette.present
+          ? data.themePalette.value
+          : this.themePalette,
     );
   }
 
@@ -3053,14 +3090,21 @@ class AppSettingsEntry extends DataClass
           ..write('uiScale: $uiScale, ')
           ..write('cameraAspectRatio: $cameraAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
-          ..write('cameraMaxZoom: $cameraMaxZoom')
+          ..write('cameraMaxZoom: $cameraMaxZoom, ')
+          ..write('themePalette: $themePalette')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, uiScale, cameraAspectRatio, cameraMinZoom, cameraMaxZoom);
+  int get hashCode => Object.hash(
+    id,
+    uiScale,
+    cameraAspectRatio,
+    cameraMinZoom,
+    cameraMaxZoom,
+    themePalette,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3069,7 +3113,8 @@ class AppSettingsEntry extends DataClass
           other.uiScale == this.uiScale &&
           other.cameraAspectRatio == this.cameraAspectRatio &&
           other.cameraMinZoom == this.cameraMinZoom &&
-          other.cameraMaxZoom == this.cameraMaxZoom);
+          other.cameraMaxZoom == this.cameraMaxZoom &&
+          other.themePalette == this.themePalette);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -3078,6 +3123,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> cameraAspectRatio;
   final Value<double> cameraMinZoom;
   final Value<double> cameraMaxZoom;
+  final Value<String> themePalette;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -3085,6 +3131,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
+    this.themePalette = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -3093,6 +3140,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
+    this.themePalette = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -3101,6 +3149,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? cameraAspectRatio,
     Expression<double>? cameraMinZoom,
     Expression<double>? cameraMaxZoom,
+    Expression<String>? themePalette,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3109,6 +3158,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (cameraAspectRatio != null) 'camera_aspect_ratio': cameraAspectRatio,
       if (cameraMinZoom != null) 'camera_min_zoom': cameraMinZoom,
       if (cameraMaxZoom != null) 'camera_max_zoom': cameraMaxZoom,
+      if (themePalette != null) 'theme_palette': themePalette,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3119,6 +3169,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? cameraAspectRatio,
     Value<double>? cameraMinZoom,
     Value<double>? cameraMaxZoom,
+    Value<String>? themePalette,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -3127,6 +3178,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      themePalette: themePalette ?? this.themePalette,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3149,6 +3201,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     if (cameraMaxZoom.present) {
       map['camera_max_zoom'] = Variable<double>(cameraMaxZoom.value);
     }
+    if (themePalette.present) {
+      map['theme_palette'] = Variable<String>(themePalette.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3163,6 +3218,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('cameraAspectRatio: $cameraAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
+          ..write('themePalette: $themePalette, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5076,6 +5132,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> cameraAspectRatio,
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
+      Value<String> themePalette,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -5085,6 +5142,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> cameraAspectRatio,
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
+      Value<String> themePalette,
       Value<int> rowid,
     });
 
@@ -5119,6 +5177,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<double> get cameraMaxZoom => $composableBuilder(
     column: $table.cameraMaxZoom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themePalette => $composableBuilder(
+    column: $table.themePalette,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5156,6 +5219,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.cameraMaxZoom,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get themePalette => $composableBuilder(
+    column: $table.themePalette,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -5185,6 +5253,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get cameraMaxZoom => $composableBuilder(
     column: $table.cameraMaxZoom,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get themePalette => $composableBuilder(
+    column: $table.themePalette,
     builder: (column) => column,
   );
 }
@@ -5234,6 +5307,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> cameraAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
+                Value<String> themePalette = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -5241,6 +5315,7 @@ class $$AppSettingsEntriesTableTableManager
                 cameraAspectRatio: cameraAspectRatio,
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
+                themePalette: themePalette,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5250,6 +5325,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> cameraAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
+                Value<String> themePalette = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -5257,6 +5333,7 @@ class $$AppSettingsEntriesTableTableManager
                 cameraAspectRatio: cameraAspectRatio,
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
+                themePalette: themePalette,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

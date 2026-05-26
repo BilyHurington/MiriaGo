@@ -3142,7 +3142,7 @@ class _FallbackPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
+    return ColoredBox(
       color: AppColors.surfaceMuted,
       child: Center(
         child: Column(
@@ -3218,7 +3218,7 @@ class _ReferenceError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
+    return ColoredBox(
       color: AppColors.surfaceMuted,
       child: Center(
         child: Icon(Icons.broken_image_outlined, color: AppColors.accentDark),

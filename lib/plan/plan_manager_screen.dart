@@ -140,7 +140,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
           ),
         ],
         subject: plan.name,
-        text: '圣地巡礼助手计划：${plan.name}',
+        text: 'MiriaGo计划：${plan.name}',
       );
     } catch (_) {
       messenger.showReplacingSnackBar(const SnackBar(content: Text('计划导出失败')));

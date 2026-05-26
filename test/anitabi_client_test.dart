@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:seichi_junrei_helper/data/anitabi_client.dart';
-import 'package:seichi_junrei_helper/plan/pilgrimage_models.dart';
+import 'package:miriago/data/anitabi_client.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
   group('formatAnitabiSceneTime', () {

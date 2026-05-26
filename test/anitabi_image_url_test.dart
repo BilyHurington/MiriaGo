@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:seichi_junrei_helper/data/anitabi_image_url.dart';
+import 'package:miriago/data/anitabi_image_url.dart';
 
 void main() {
   test('removes Anitabi thumbnail plan from image URL', () {

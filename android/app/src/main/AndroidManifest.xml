@@ -8,7 +8,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
     <application
-        android:label="圣地巡礼助手"
+        android:label="MiriaGo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -38,6 +38,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="content"/>
                 <data android:scheme="file"/>
+                <data android:mimeType="application/vnd.miriago.plan+json"/>
                 <data android:mimeType="application/vnd.seichi-junrei.plan+json"/>
                 <data android:mimeType="application/octet-stream"/>
                 <data android:mimeType="application/json"/>

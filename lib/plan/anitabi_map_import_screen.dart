@@ -238,8 +238,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     TileLayer(
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName:
-                          'app.seichijunrei.seichi_junrei_helper',
+                      userAgentPackageName: 'app.miriago.miriago',
                     ),
                     MarkerLayer(
                       markers: [
@@ -376,7 +375,7 @@ class _ImportSummary extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            const Icon(Icons.map_outlined, color: AppColors.accent),
+            Icon(Icons.map_outlined, color: AppColors.accent),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -519,7 +518,7 @@ class _NoPointSelectedCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(Icons.touch_app_outlined, color: AppColors.accent),
           SizedBox(width: 10),

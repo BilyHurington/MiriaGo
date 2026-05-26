@@ -220,7 +220,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'app.seichijunrei.seichi_junrei_helper',
+                userAgentPackageName: 'app.miriago.miriago',
               ),
               MarkerLayer(
                 markers: [
@@ -652,7 +652,7 @@ class _PointThumbnail extends StatelessWidget {
           child: ReferenceThumbnail(
             localPath: point.referenceThumbnailPath,
             imageUrl: point.referenceImageUrl,
-            placeholder: const Icon(
+            placeholder: Icon(
               Icons.image_outlined,
               color: AppColors.accentDark,
             ),
@@ -679,7 +679,7 @@ class _MapRecordBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.photo_library_outlined,
             size: 15,
             color: AppColors.accentDark,
@@ -687,7 +687,7 @@ class _MapRecordBadge extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             '已拍 $count',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.accentDark,
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -715,7 +715,7 @@ class _EmptyMapCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(Icons.map_outlined, color: AppColors.accent),
           SizedBox(width: 10),

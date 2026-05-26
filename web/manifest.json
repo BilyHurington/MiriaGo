@@ -1,11 +1,11 @@
 {
-    "name": "圣地巡礼助手",
-    "short_name": "圣地巡礼助手",
+    "name": "MiriaGo",
+    "short_name": "MiriaGo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "圣地巡礼助手 / Seichi Junrei Helper",
+    "description": "MiriaGo",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

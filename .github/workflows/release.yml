@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p dist
           VERSION="${GITHUB_REF_NAME:-manual}"
-          cp build/app/outputs/flutter-apk/app-release.apk "dist/seichi-junrei-helper-${VERSION}-android.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/MiriaGo-${VERSION}-android.apk"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

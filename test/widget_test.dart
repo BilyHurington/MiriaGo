@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:seichi_junrei_helper/main.dart';
-import 'package:seichi_junrei_helper/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/main.dart';
+import 'package:miriago/data/sample_pilgrimage_repository.dart';
 
 void main() {
   testWidgets('shows the pilgrimage plan workflow shell', (tester) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -22,7 +22,7 @@ void main() {
 
   testWidgets('opens camera reference from current target', (tester) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -37,7 +37,7 @@ void main() {
 
   testWidgets('opens shared point detail sheet from plan list', (tester) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -62,7 +62,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -78,7 +78,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -94,7 +94,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -121,7 +121,7 @@ void main() {
 
   testWidgets('creates a new plan from the plan manager', (tester) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -136,7 +136,7 @@ void main() {
 
   testWidgets('adds a manual work to an empty plan', (tester) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 
@@ -166,7 +166,7 @@ void main() {
 
   testWidgets('adds a manual point to an empty plan', (tester) async {
     await tester.pumpWidget(
-      SeichiJunreiHelperApp(repository: SamplePilgrimageRepository()),
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pump();
 

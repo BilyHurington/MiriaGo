@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:seichi_junrei_helper/data/sample_pilgrimage_repository.dart';
-import 'package:seichi_junrei_helper/plan_transfer/plan_package.dart';
+import 'package:miriago/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/plan_transfer/plan_package.dart';
 
 void main() {
   test('encodes and decodes plan package data', () async {

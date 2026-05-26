@@ -53,6 +53,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       cameraAspectRatio: _cameraAspectRatioFromName(row.cameraAspectRatio),
       cameraMinZoom: row.cameraMinZoom.clamp(0.1, 10.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
+      themePalette: _themePaletteFromName(row.themePalette),
     );
   }
 
@@ -557,6 +558,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             cameraAspectRatio: Value(settings.cameraAspectRatio.name),
             cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 10.0)),
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
+            themePalette: Value(settings.themePalette.name),
           ),
         );
   }
@@ -906,6 +908,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return CameraPhotoAspectRatio.values.firstWhere(
       (ratio) => ratio.name == name,
       orElse: () => CameraPhotoAspectRatio.auto,
+    );
+  }
+
+  AppThemePalette _themePaletteFromName(String name) {
+    return AppThemePalette.values.firstWhere(
+      (palette) => palette.name == name,
+      orElse: () => AppThemePalette.miriaYellow,
     );
   }
 

@@ -1,8 +1,8 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:seichi_junrei_helper/data/local/app_database.dart';
-import 'package:seichi_junrei_helper/data/local/sqlite_pilgrimage_repository.dart';
-import 'package:seichi_junrei_helper/plan/pilgrimage_models.dart';
+import 'package:miriago/data/local/app_database.dart';
+import 'package:miriago/data/local/sqlite_pilgrimage_repository.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
   test('persists completed point and next current target', () async {

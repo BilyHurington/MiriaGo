@@ -213,7 +213,7 @@ class _EmptyPlanCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.route_outlined, color: AppColors.accent),
               SizedBox(width: 8),
@@ -287,7 +287,7 @@ class _WorkHeader extends StatelessWidget {
               color: AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.movie_filter_outlined,
               color: AppColors.accentDark,
             ),
@@ -367,11 +367,11 @@ class _CurrentTargetCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.flag_outlined, color: AppColors.accent),
+              Icon(Icons.flag_outlined, color: AppColors.accent),
               const SizedBox(width: 8),
               Text(
                 '当前目标 $completedCount/$totalCount',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.accentDark,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -548,19 +548,19 @@ class _PlanPointTile extends StatelessWidget {
 
   _PointStatusColors _statusColors(VisitStatus status) {
     return switch (status) {
-      VisitStatus.current => const _PointStatusColors(
+      VisitStatus.current => _PointStatusColors(
         background: AppColors.accent,
         foreground: Colors.white,
         border: AppColors.accent,
         icon: Icons.flag,
       ),
-      VisitStatus.completed => const _PointStatusColors(
+      VisitStatus.completed => _PointStatusColors(
         background: AppColors.surfaceMuted,
         foreground: AppColors.textSecondary,
         border: AppColors.border,
         icon: Icons.check_circle_outline,
       ),
-      VisitStatus.pending => const _PointStatusColors(
+      VisitStatus.pending => _PointStatusColors(
         background: AppColors.surfaceMuted,
         foreground: AppColors.accentDark,
         border: AppColors.border,
@@ -586,7 +586,7 @@ class _PointRecordBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.photo_library_outlined,
             size: 13,
             color: AppColors.accentDark,
@@ -594,7 +594,7 @@ class _PointRecordBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '已拍 $count',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.accentDark,
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -608,7 +608,7 @@ class _PointRecordBadge extends StatelessWidget {
 }
 
 class _PointStatusColors {
-  const _PointStatusColors({
+  _PointStatusColors({
     required this.background,
     required this.foreground,
     required this.border,

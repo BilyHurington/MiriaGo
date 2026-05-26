@@ -545,10 +545,7 @@ class _ScorePanel extends StatelessWidget {
       child: beforeScore == null || afterScore == null
           ? Row(
               children: [
-                const Icon(
-                  Icons.auto_fix_high_outlined,
-                  color: AppColors.accent,
-                ),
+                Icon(Icons.auto_fix_high_outlined, color: AppColors.accent),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -611,7 +608,7 @@ class _ScoreValue extends StatelessWidget {
         children: [
           Text(
             '$score',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.accentDark,
               fontSize: 22,
               fontWeight: FontWeight.w900,
@@ -665,7 +662,7 @@ class _IntensityControl extends StatelessWidget {
               const Spacer(),
               Text(
                 '$percent%',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.accentDark,
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
@@ -833,7 +830,7 @@ class _ParameterRow extends StatelessWidget {
             Expanded(
               child: Text(
                 item.label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0,

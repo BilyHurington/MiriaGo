@@ -55,13 +55,13 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   var _config = ComparisonExportConfig.lastUsed;
   var _exporting = false;
 
-  static const _borderColorOptions = <Color>[
+  static List<Color> get _borderColorOptions => <Color>[
     Colors.white,
     Colors.black,
     AppColors.accent,
   ];
 
-  static const _borderColorLabels = <String>['白色', '黑色', '主题绿'];
+  static const _borderColorLabels = <String>['白色', '黑色', '主题色'];
 
   @override
   void initState() {
@@ -218,7 +218,7 @@ class _AppearanceSection extends StatelessWidget {
               config.borderWidthPercent == 0
                   ? '无'
                   : '${config.borderWidthPercent.toStringAsFixed(1)}%',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.accent,
                 fontSize: 14,
                 fontWeight: FontWeight.w800,

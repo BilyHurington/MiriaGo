@@ -254,7 +254,7 @@ class _WorkManageCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.movie_filter_outlined, color: AppColors.accentDark),
+          Icon(Icons.movie_filter_outlined, color: AppColors.accentDark),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

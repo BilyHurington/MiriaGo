@@ -216,7 +216,7 @@ class _RecordFilters extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.filter_list, color: AppColors.accentDark),
+                  Icon(Icons.filter_list, color: AppColors.accentDark),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
@@ -501,7 +501,7 @@ class _RecordsSummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.collections_bookmark_outlined,
             color: AppColors.accent,
             size: 30,
@@ -672,7 +672,7 @@ class _EmptyRecords extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(Icons.info_outline, color: AppColors.textSecondary),
           SizedBox(width: 10),

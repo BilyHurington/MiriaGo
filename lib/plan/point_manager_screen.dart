@@ -650,7 +650,7 @@ class _PointManagerHeader extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.route_outlined, color: AppColors.accentDark),
+                Icon(Icons.route_outlined, color: AppColors.accentDark),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

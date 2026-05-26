@@ -11,20 +11,20 @@ import 'data/sample_pilgrimage_repository.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const SeichiJunreiHelperApp());
+  runApp(const MiriaGoApp());
 }
 
-class SeichiJunreiHelperApp extends StatelessWidget {
-  const SeichiJunreiHelperApp({this.repository, super.key});
+class MiriaGoApp extends StatelessWidget {
+  const MiriaGoApp({this.repository, super.key});
 
   final PilgrimageRepository? repository;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '圣地巡礼助手',
+      title: 'MiriaGo',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
+      theme: AppTheme.light(),
       home: AppShell(
         repository:
             repository ??

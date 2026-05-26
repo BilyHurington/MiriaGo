@@ -1,4 +1,4 @@
-package app.seichijunrei.seichi_junrei_helper
+package app.miriago.miriago
 
 import android.Manifest
 import android.content.Context

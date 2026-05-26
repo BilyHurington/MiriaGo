@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'plan/pilgrimage_models.dart';
+
 class AppColors {
   const AppColors._();
+
+  static AppThemePalette palette = AppThemePalette.miriaYellow;
 
   static const background = Color(0xFFF7F8FA);
   static const surface = Color(0xFFFFFFFF);
@@ -9,22 +13,48 @@ class AppColors {
   static const textPrimary = Color(0xFF111827);
   static const textSecondary = Color(0xFF5B6472);
   static const border = Color(0xFFD8DEE6);
-  static const accent = Color(0xFF0F8B8D);
-  static const accentDark = Color(0xFF0B6F72);
+  static const miriaYellow = Color(0xFFFFCE00);
+  static const miriaYellowDark = Color(0xFFB77C00);
+  static const classicGreen = Color(0xFF0F8B8D);
+  static const classicGreenDark = Color(0xFF0B6F72);
   static const warning = Color(0xFFC87900);
   static const error = Color(0xFFC2413A);
   static const cameraDarkSurface = Color(0xFF101418);
   static const cameraDarkOverlay = Color(0xFF171C21);
+
+  static Color get accent {
+    return switch (palette) {
+      AppThemePalette.miriaYellow => miriaYellow,
+      AppThemePalette.classicGreen => classicGreen,
+    };
+  }
+
+  static Color get accentDark {
+    return switch (palette) {
+      AppThemePalette.miriaYellow => miriaYellowDark,
+      AppThemePalette.classicGreen => classicGreenDark,
+    };
+  }
+
+  static Color get onAccent {
+    return switch (palette) {
+      AppThemePalette.miriaYellow => textPrimary,
+      AppThemePalette.classicGreen => Colors.white,
+    };
+  }
 }
 
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData get light {
-    const colorScheme = ColorScheme(
+  static ThemeData light({
+    AppThemePalette palette = AppThemePalette.miriaYellow,
+  }) {
+    AppColors.palette = palette;
+    final colorScheme = ColorScheme(
       brightness: Brightness.light,
       primary: AppColors.accent,
-      onPrimary: Colors.white,
+      onPrimary: AppColors.onAccent,
       secondary: AppColors.accentDark,
       onSecondary: Colors.white,
       error: AppColors.error,
@@ -61,7 +91,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.accent,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onAccent,
           disabledBackgroundColor: AppColors.surfaceMuted,
           disabledForegroundColor: AppColors.textSecondary,
           minimumSize: const Size(44, 44),

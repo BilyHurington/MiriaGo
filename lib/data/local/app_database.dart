@@ -78,6 +78,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant('auto'))();
   RealColumn get cameraMinZoom => real().withDefault(const Constant(0.6))();
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
+  TextColumn get themePalette =>
+      text().withDefault(const Constant('miriaYellow'))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -88,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -129,6 +131,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           visitRecords,
           visitRecords.colorGradingIntensity,
+        );
+      }
+      if (from < 8) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.themePalette,
         );
       }
     },
