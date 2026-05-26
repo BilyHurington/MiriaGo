@@ -1,39 +1,78 @@
-# MiriaGo
-
 <p align="center">
   <img src="icon.jpg" alt="MiriaGo icon" width="128" height="128">
 </p>
 
-MiriaGo 是一个使用 Flutter 开发的开源应用，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录与对比图。
+<h1 align="center">MiriaGo</h1>
 
-当前仅支持 Android，计划后续增加 iOS 支持。Web 版本仅用于开发预览。
+<p align="center">
+  面向动漫圣地巡礼的计划、地图、拍摄参考与记录整理工具。
+</p>
 
-## 功能
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-0F8B8D.svg"></a>
+  <img alt="Platform: Android" src="https://img.shields.io/badge/Platform-Android-0F8B8D.svg">
+  <img alt="Built with Flutter" src="https://img.shields.io/badge/Built%20with-Flutter-0F8B8D.svg">
+</p>
 
-- 多计划管理：创建、切换、重命名和导出巡礼计划。
-- 作品管理：通过 Bangumi 搜索添加作品，也支持手动添加作品。
+MiriaGo 使用 Flutter 开发，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录、自动调色与分享用对比图。
+
+当前仅支持 Android，计划后续增加 iOS 支持。Web 版本仅作为开发预览。
+
+## 快速使用
+
+- Android APK：请前往 [Releases](https://github.com/BilyHurington/MiriaGo/releases) 下载最新版本。
+- 使用指南：[docs/USAGE.md](docs/USAGE.md)
+
+## 功能亮点
+
+- 多计划管理：创建、切换、重命名、导入和导出巡礼计划。
+- 作品管理：通过 Bangumi 搜索添加作品，也支持手动添加。
 - Anitabi 点位导入：在作品地图上查看点位、缩略图和详情，并按需加入计划。
-- 地图与定位：使用 OpenStreetMap 地图显示计划点位，导航交给外部地图应用。
-- 点位管理：排序、筛选、批量完成、批量删除、缓存参考图。
-- 拍摄参考：支持叠影参考、上下参考、相册导入和拍摄记录确认。
+- 地图与导航：使用 OpenStreetMap 显示计划点位，导航交给外部地图应用。
+- 拍摄参考：现场拍摄时支持参考图叠影、上下参考和相册导入。
+- 离线准备：导入点位时缓存缩略图，可在出发前批量缓存完整参考图。
 - 巡礼记录：按作品查看记录，支持筛选、搜索、详情查看和删除。
-- 自动调色：根据参考图生成调色参数，用强度滑块控制应用比例。
-- 对比图导出：导出参考图与巡礼图的分享图，支持主题、元数据和巡礼者名称。
-- 计划导入/导出：导出计划文件并通过系统分享，支持从其他应用打开导入。
+- 自动调色：根据参考图生成可解释的调色参数，用强度滑块控制应用比例。
+- 对比图导出：导出适合分享的参考图/巡礼图对比图，支持主题、元数据和巡礼者名称。
 
 ## 截图
 
-截图和演示图后续补充。
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/呼唤少女-计划页面.jpg" alt="计划首页" width="240"><br>
+      <sub>计划首页与当前目标</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/呼唤少女-地图点位导入页面.jpg" alt="Anitabi 点位导入" width="240"><br>
+      <sub>Anitabi 点位导入</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/呼唤少女-地图页面.jpg" alt="地图与导航" width="240"><br>
+      <sub>地图与导航</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <a href="docs/sample_images/相机拍摄参考页面.jpg">
+        <img src="docs/sample_images/呼唤少女-地图页面.jpg" alt="拍摄参考截图占位" width="240">
+      </a><br>
+      <sub>拍摄参考（截图待补充）</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/铃音-自动调色页面.jpg" alt="自动调色" width="240"><br>
+      <sub>自动调色</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/铃音-导出对比图.png" alt="导出对比图" width="240"><br>
+      <sub>对比图导出</sub>
+    </td>
+  </tr>
+</table>
 
-## 下载与安装
+> 相机拍摄参考截图稍后补充。当前占位链接预留为 `docs/sample_images/相机拍摄参考页面.jpg`。
 
-当前还没有正式发布版本。开发构建出的 Android release APK 位置为：
-
-```text
-build/app/outputs/flutter-apk/app-release.apk
-```
-
-## 开发环境
+## 开发
 
 需要安装：
 
@@ -61,6 +100,12 @@ flutter test --no-pub
 flutter build apk --release --no-pub
 ```
 
+安装到已连接 Android 设备：
+
+```bash
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
 构建 Web 预览：
 
 ```bash
@@ -68,11 +113,23 @@ flutter build web --no-pub
 python3 -m http.server 8080 --directory build/web
 ```
 
-安装到已连接 Android 设备：
+## Release 构建
 
-```bash
-adb install -r build/app/outputs/flutter-apk/app-release.apk
+仓库包含 GitHub Actions release workflow：
+
+- 手动触发：`Actions` -> `Android Release` -> `Run workflow`
+- 发布触发：推送 `v*` tag，例如 `v1.0.0`
+
+正式签名 APK 需要在 GitHub Actions Secrets 中配置：
+
+```text
+ANDROID_KEYSTORE_BASE64
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
 ```
+
+本地签名文件不会提交到仓库。请妥善备份 release keystore。
 
 ## 第三方服务与数据
 
@@ -81,10 +138,6 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 - 地图瓦片和地图数据来自 OpenStreetMap。使用时应保留 `OpenStreetMap contributors` 署名，并遵守 OpenStreetMap 官方瓦片使用政策。
 - 作品搜索使用 Bangumi API。非浏览器 API 请求需要设置清晰的 User-Agent。
 - 巡礼点位和参考图来自 Anitabi。点位、截图、图片和相关元数据的版权归原平台、贡献者或权利方所有。本项目只提供客户端访问与用户本地缓存能力，不在仓库中分发这些数据。
-
-## 文档
-
-- [使用指南](docs/USAGE.md)
 
 ## 开源协议
 
