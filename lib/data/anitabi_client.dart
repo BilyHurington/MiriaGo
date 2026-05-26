@@ -141,12 +141,17 @@ class AnitabiPoint {
 
   static String _episodeLabel(Object? ep, Object? second) {
     final epText = ep == null ? 'EP ?' : 'EP $ep';
-    if (second == null) {
+    final sceneTime = formatAnitabiSceneTime(second);
+    if (sceneTime == null) {
       return epText;
     }
 
-    return '$epText / ${second}s';
+    return '$epText / $sceneTime';
   }
+}
+
+String? formatAnitabiSceneTime(Object? second) {
+  return formatSceneSeconds(second);
 }
 
 class AnitabiException implements Exception {

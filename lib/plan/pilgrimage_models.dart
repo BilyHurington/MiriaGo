@@ -175,6 +175,8 @@ class PilgrimagePoint {
   final String? referenceFullImagePath;
   final String? sourceUrl;
 
+  String get displayEpisodeLabel => formatEpisodeLabelForDisplay(episodeLabel);
+
   PilgrimagePoint copyWith({
     String? referenceThumbnailPath,
     String? referenceFullImagePath,
@@ -197,6 +199,34 @@ class PilgrimagePoint {
       sourceUrl: sourceUrl,
     );
   }
+}
+
+String formatEpisodeLabelForDisplay(String label) {
+  return label.replaceAllMapped(RegExp(r'\b(\d+)s\b'), (match) {
+    final seconds = int.tryParse(match.group(1)!);
+    return formatSceneSeconds(seconds) ?? match.group(0)!;
+  });
+}
+
+String? formatSceneSeconds(Object? second) {
+  final seconds = switch (second) {
+    int value => value,
+    num value => value.round(),
+    String value => int.tryParse(value),
+    _ => null,
+  };
+  if (seconds == null || seconds < 0) {
+    return null;
+  }
+
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  final hours = seconds ~/ 3600;
+  final minutes = (seconds % 3600) ~/ 60;
+  final remainingSeconds = seconds % 60;
+  if (hours > 0) {
+    return '$hours:${twoDigits(minutes)}:${twoDigits(remainingSeconds)}';
+  }
+  return '$minutes:${twoDigits(remainingSeconds)}';
 }
 
 class PilgrimagePlan {

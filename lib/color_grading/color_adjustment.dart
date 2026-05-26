@@ -91,6 +91,19 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
     'temperature': 0.18 * config.stepScale,
     'tint': 0.14 * config.stepScale,
   };
+  if (config.matchToneZones) {
+    steps.addAll({
+      'highlights': 0.20 * config.stepScale,
+      'shadows': 0.20 * config.stepScale,
+    });
+  }
+  if (config.matchRgbCurves) {
+    steps.addAll({
+      'redCurve': 0.18 * config.stepScale,
+      'greenCurve': 0.18 * config.stepScale,
+      'blueCurve': 0.18 * config.stepScale,
+    });
+  }
 
   for (var round = 0; round < config.rounds; round += 1) {
     var improved = false;
@@ -188,7 +201,39 @@ ColorGradingParams _estimateInitialParams(
       -config.maxColorBalance,
       config.maxColorBalance,
     ),
+    highlights: config.matchToneZones
+        ? ((reference.highlightLuma - captured.highlightLuma) * 2.4).clamp(
+            -config.maxToneZone,
+            config.maxToneZone,
+          )
+        : 0,
+    shadows: config.matchToneZones
+        ? ((reference.shadowLuma - captured.shadowLuma) * 2.4).clamp(
+            -config.maxToneZone,
+            config.maxToneZone,
+          )
+        : 0,
+    redCurve: config.matchRgbCurves
+        ? _initialCurve(reference.meanR, captured.meanR, config)
+        : 0,
+    greenCurve: config.matchRgbCurves
+        ? _initialCurve(reference.meanG, captured.meanG, config)
+        : 0,
+    blueCurve: config.matchRgbCurves
+        ? _initialCurve(reference.meanB, captured.meanB, config)
+        : 0,
   ).clamped();
+}
+
+double _initialCurve(
+  double referenceMean,
+  double capturedMean,
+  _ModeConfig config,
+) {
+  return ((referenceMean - capturedMean) * 2.2).clamp(
+    -config.maxRgbCurve,
+    config.maxRgbCurve,
+  );
 }
 
 ColorGradingParams _shiftParam(
@@ -203,6 +248,11 @@ ColorGradingParams _shiftParam(
     'saturation' => params.copyWith(saturation: params.saturation + delta),
     'temperature' => params.copyWith(temperature: params.temperature + delta),
     'tint' => params.copyWith(tint: params.tint + delta),
+    'highlights' => params.copyWith(highlights: params.highlights + delta),
+    'shadows' => params.copyWith(shadows: params.shadows + delta),
+    'redCurve' => params.copyWith(redCurve: params.redCurve + delta),
+    'greenCurve' => params.copyWith(greenCurve: params.greenCurve + delta),
+    'blueCurve' => params.copyWith(blueCurve: params.blueCurve + delta),
     _ => params,
   }.clamped();
 }
@@ -220,11 +270,21 @@ double _colorLoss(_ImageStats reference, _ImageStats candidate) {
       .abs();
   final temp = (reference.redBlueBalance - candidate.redBlueBalance).abs();
   final tint = (reference.greenBalance - candidate.greenBalance).abs();
-  return 0.34 * luma +
-      0.24 * contrast +
-      0.22 * saturation +
-      0.10 * temp +
-      0.10 * tint;
+  final highlights = (reference.highlightLuma - candidate.highlightLuma).abs();
+  final shadows = (reference.shadowLuma - candidate.shadowLuma).abs();
+  final red = (reference.meanR - candidate.meanR).abs();
+  final green = (reference.meanG - candidate.meanG).abs();
+  final blue = (reference.meanB - candidate.meanB).abs();
+  return 0.24 * luma +
+      0.17 * contrast +
+      0.16 * saturation +
+      0.09 * temp +
+      0.08 * tint +
+      0.09 * highlights +
+      0.09 * shadows +
+      0.03 * red +
+      0.03 * green +
+      0.02 * blue;
 }
 
 int _scoreFromLoss(double loss) {
@@ -238,6 +298,9 @@ void _applyColorGrading(img.Image image, ColorGradingParams params) {
   final rBalance = 1 + 0.10 * p.temperature - 0.04 * p.tint;
   final gBalance = 1 + 0.08 * p.tint;
   final bBalance = 1 - 0.10 * p.temperature - 0.04 * p.tint;
+  final redGamma = pow(2.0, -0.42 * p.redCurve).toDouble();
+  final greenGamma = pow(2.0, -0.42 * p.greenCurve).toDouble();
+  final blueGamma = pow(2.0, -0.42 * p.blueCurve).toDouble();
 
   for (final pixel in image) {
     var r = pixel.rNormalized.toDouble();
@@ -261,6 +324,19 @@ void _applyColorGrading(img.Image image, ColorGradingParams params) {
     g *= gBalance;
     b *= bBalance;
 
+    final zoneLuma = (0.2126 * r + 0.7152 * g + 0.0722 * b).clamp(0.0, 1.0);
+    final shadowMask = (1 - zoneLuma) * (1 - zoneLuma);
+    final highlightMask = zoneLuma * zoneLuma;
+    final toneOffset =
+        p.shadows * 0.16 * shadowMask + p.highlights * 0.16 * highlightMask;
+    r += toneOffset;
+    g += toneOffset;
+    b += toneOffset;
+
+    r = pow(r.clamp(0.0, 1.0), redGamma).toDouble();
+    g = pow(g.clamp(0.0, 1.0), greenGamma).toDouble();
+    b = pow(b.clamp(0.0, 1.0), blueGamma).toDouble();
+
     pixel
       ..r = (r.clamp(0.0, 1.0) * 255).round()
       ..g = (g.clamp(0.0, 1.0) * 255).round()
@@ -279,6 +355,10 @@ class _ModeConfig {
     required this.minSaturation,
     required this.maxSaturation,
     required this.maxColorBalance,
+    required this.matchToneZones,
+    required this.matchRgbCurves,
+    required this.maxToneZone,
+    required this.maxRgbCurve,
   });
 
   final int rounds;
@@ -290,6 +370,10 @@ class _ModeConfig {
   final double minSaturation;
   final double maxSaturation;
   final double maxColorBalance;
+  final bool matchToneZones;
+  final bool matchRgbCurves;
+  final double maxToneZone;
+  final double maxRgbCurve;
 
   static _ModeConfig forMode(ColorMatchMode mode) {
     return switch (mode) {
@@ -303,9 +387,13 @@ class _ModeConfig {
         minSaturation: 0.80,
         maxSaturation: 1.25,
         maxColorBalance: 0.55,
+        matchToneZones: false,
+        matchRgbCurves: false,
+        maxToneZone: 0,
+        maxRgbCurve: 0,
       ),
       ColorMatchMode.standard => const _ModeConfig(
-        rounds: 5,
+        rounds: 6,
         stepScale: 1.0,
         maxBrightness: 0.16,
         maxExposure: 0.80,
@@ -314,10 +402,14 @@ class _ModeConfig {
         minSaturation: 0.65,
         maxSaturation: 1.45,
         maxColorBalance: 1.0,
+        matchToneZones: true,
+        matchRgbCurves: false,
+        maxToneZone: 0.65,
+        maxRgbCurve: 0,
       ),
       ColorMatchMode.strong => const _ModeConfig(
-        rounds: 7,
-        stepScale: 1.35,
+        rounds: 8,
+        stepScale: 1.45,
         maxBrightness: 0.24,
         maxExposure: 1.0,
         minContrast: 0.70,
@@ -325,6 +417,10 @@ class _ModeConfig {
         minSaturation: 0.50,
         maxSaturation: 1.60,
         maxColorBalance: 1.0,
+        matchToneZones: true,
+        matchRgbCurves: true,
+        maxToneZone: 1.0,
+        maxRgbCurve: 1.0,
       ),
     };
   }
@@ -337,6 +433,11 @@ class _ImageStats {
     required this.meanSaturation,
     required this.redBlueBalance,
     required this.greenBalance,
+    required this.meanR,
+    required this.meanG,
+    required this.meanB,
+    required this.shadowLuma,
+    required this.highlightLuma,
   });
 
   final double meanLuma;
@@ -344,6 +445,11 @@ class _ImageStats {
   final double meanSaturation;
   final double redBlueBalance;
   final double greenBalance;
+  final double meanR;
+  final double meanG;
+  final double meanB;
+  final double shadowLuma;
+  final double highlightLuma;
 
   factory _ImageStats.fromImage(img.Image image) {
     var sumR = 0.0;
@@ -352,6 +458,10 @@ class _ImageStats {
     var sumLuma = 0.0;
     var sumLumaSquared = 0.0;
     var sumSaturation = 0.0;
+    var sumShadowLuma = 0.0;
+    var sumHighlightLuma = 0.0;
+    var shadowCount = 0;
+    var highlightCount = 0;
     var count = 0;
 
     for (final pixel in image) {
@@ -371,6 +481,14 @@ class _ImageStats {
       sumLuma += luma;
       sumLumaSquared += luma * luma;
       sumSaturation += saturation;
+      if (luma < 0.35) {
+        sumShadowLuma += luma;
+        shadowCount += 1;
+      }
+      if (luma > 0.65) {
+        sumHighlightLuma += luma;
+        highlightCount += 1;
+      }
       count += 1;
     }
 
@@ -387,6 +505,13 @@ class _ImageStats {
       meanSaturation: sumSaturation / safeCount,
       redBlueBalance: meanR - meanB,
       greenBalance: meanG - (meanR + meanB) * 0.5,
+      meanR: meanR,
+      meanG: meanG,
+      meanB: meanB,
+      shadowLuma: shadowCount == 0 ? meanLuma : sumShadowLuma / shadowCount,
+      highlightLuma: highlightCount == 0
+          ? meanLuma
+          : sumHighlightLuma / highlightCount,
     );
   }
 }

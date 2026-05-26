@@ -128,7 +128,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
                 _DetailRow(
                   icon: Icons.local_movies_outlined,
                   label: '场景',
-                  value: resolvedPoint.episodeLabel,
+                  value: resolvedPoint.displayEpisodeLabel,
                 ),
                 _DetailRow(
                   icon: Icons.location_on_outlined,
@@ -239,7 +239,8 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
     if (resolvedPoint != null) {
       meta[ComparisonMetadataField.pointName] = resolvedPoint.name;
       meta[ComparisonMetadataField.workTitle] = resolvedPoint.work.title;
-      meta[ComparisonMetadataField.episodeLabel] = resolvedPoint.episodeLabel;
+      meta[ComparisonMetadataField.episodeLabel] =
+          resolvedPoint.displayEpisodeLabel;
       meta[ComparisonMetadataField.coordinates] =
           '${resolvedPoint.position.latitude.toStringAsFixed(5)}, '
           '${resolvedPoint.position.longitude.toStringAsFixed(5)}';

@@ -150,7 +150,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         point.id,
         point.name,
         point.subtitle,
-        point.episodeLabel,
+        point.displayEpisodeLabel,
         point.referenceLabel,
         point.sourceId ?? '',
         point.sourceUrl ?? '',
@@ -587,7 +587,7 @@ class _VisitRecordCard extends StatelessWidget {
                     Text(
                       resolvedPoint == null
                           ? record.workId
-                          : '${resolvedPoint.work.title} / ${resolvedPoint.episodeLabel}',
+                          : '${resolvedPoint.work.title} / ${resolvedPoint.displayEpisodeLabel}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

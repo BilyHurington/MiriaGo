@@ -85,13 +85,11 @@ class _VisitRecordConfirmationScreenState
       return;
     }
     final message = completePoint
-        ? (nextPointName != null
-            ? '已保存并标记完成，下一个：$nextPointName'
-            : '已保存并标记完成')
+        ? (nextPointName != null ? '已保存并标记完成，下一个：$nextPointName' : '已保存并标记完成')
         : '已保存巡礼记录';
-    ScaffoldMessenger.of(context).showReplacingSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showReplacingSnackBar(SnackBar(content: Text(message)));
     if (completePoint) {
       Navigator.of(context).pop();
       Navigator.of(context).pop();
@@ -117,7 +115,7 @@ class _VisitRecordConfirmationScreenState
           ),
           const SizedBox(height: 4),
           Text(
-            '${widget.point.work.title} / ${widget.point.episodeLabel}',
+            '${widget.point.work.title} / ${widget.point.displayEpisodeLabel}',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
@@ -156,7 +154,10 @@ class _VisitRecordConfirmationScreenState
   }
 }
 
-Future<void> _showGallerySaveSheet(BuildContext context, String photoPath) async {
+Future<void> _showGallerySaveSheet(
+  BuildContext context,
+  String photoPath,
+) async {
   final action = await showModalBottomSheet<String>(
     context: context,
     builder: (context) => SafeArea(
@@ -181,9 +182,7 @@ Future<void> _showGallerySaveSheet(BuildContext context, String photoPath) async
   if (!context.mounted) return;
 
   ScaffoldMessenger.of(context).showReplacingSnackBar(
-    SnackBar(
-      content: Text(success ? '已保存到相册' : '保存失败，请稍后重试。'),
-    ),
+    SnackBar(content: Text(success ? '已保存到相册' : '保存失败，请稍后重试。')),
   );
 }
 
@@ -223,8 +222,7 @@ class _ComparisonPanel extends StatelessWidget {
         _ImageCompareTile(
           label: '巡礼图',
           child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
-          onTap: () =>
-              ImageViewerScreen.show(context, filePath: photoPath),
+          onTap: () => ImageViewerScreen.show(context, filePath: photoPath),
           onLongPress: () => _showGallerySaveSheet(context, photoPath),
         ),
       ],
@@ -252,11 +250,7 @@ class _ImageCompareTile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            onTap: onTap,
-            onLongPress: onLongPress,
-            child: child,
-          ),
+          child: InkWell(onTap: onTap, onLongPress: onLongPress, child: child),
         ),
         const SizedBox(height: 6),
         Text(

@@ -849,7 +849,7 @@ class _PointManagerTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
+                        '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

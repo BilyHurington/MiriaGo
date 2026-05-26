@@ -128,7 +128,7 @@ class PointDetailSheet extends StatelessWidget {
                 _InfoRow(
                   icon: Icons.local_movies_outlined,
                   label: '场景',
-                  value: point.episodeLabel,
+                  value: point.displayEpisodeLabel,
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(

@@ -391,7 +391,7 @@ class _CurrentTargetCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
+            '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
@@ -507,7 +507,7 @@ class _PlanPointTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${point.work.title} / ${point.subtitle} / ${point.episodeLabel}',
+                      '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

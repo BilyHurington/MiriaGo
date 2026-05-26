@@ -22,6 +22,11 @@ class ColorGradingParams {
     this.saturation = 1,
     this.temperature = 0,
     this.tint = 0,
+    this.highlights = 0,
+    this.shadows = 0,
+    this.redCurve = 0,
+    this.greenCurve = 0,
+    this.blueCurve = 0,
   });
 
   final double brightness;
@@ -30,6 +35,11 @@ class ColorGradingParams {
   final double saturation;
   final double temperature;
   final double tint;
+  final double highlights;
+  final double shadows;
+  final double redCurve;
+  final double greenCurve;
+  final double blueCurve;
 
   static const defaults = ColorGradingParams();
 
@@ -40,6 +50,11 @@ class ColorGradingParams {
     double? saturation,
     double? temperature,
     double? tint,
+    double? highlights,
+    double? shadows,
+    double? redCurve,
+    double? greenCurve,
+    double? blueCurve,
   }) {
     return ColorGradingParams(
       brightness: brightness ?? this.brightness,
@@ -48,6 +63,11 @@ class ColorGradingParams {
       saturation: saturation ?? this.saturation,
       temperature: temperature ?? this.temperature,
       tint: tint ?? this.tint,
+      highlights: highlights ?? this.highlights,
+      shadows: shadows ?? this.shadows,
+      redCurve: redCurve ?? this.redCurve,
+      greenCurve: greenCurve ?? this.greenCurve,
+      blueCurve: blueCurve ?? this.blueCurve,
     );
   }
 
@@ -59,6 +79,11 @@ class ColorGradingParams {
       saturation: saturation.clamp(0.5, 1.6),
       temperature: temperature.clamp(-1.0, 1.0),
       tint: tint.clamp(-1.0, 1.0),
+      highlights: highlights.clamp(-1.0, 1.0),
+      shadows: shadows.clamp(-1.0, 1.0),
+      redCurve: redCurve.clamp(-1.0, 1.0),
+      greenCurve: greenCurve.clamp(-1.0, 1.0),
+      blueCurve: blueCurve.clamp(-1.0, 1.0),
     );
   }
 
@@ -76,6 +101,11 @@ class ColorGradingParams {
       saturation: mix(a.saturation, b.saturation),
       temperature: mix(a.temperature, b.temperature),
       tint: mix(a.tint, b.tint),
+      highlights: mix(a.highlights, b.highlights),
+      shadows: mix(a.shadows, b.shadows),
+      redCurve: mix(a.redCurve, b.redCurve),
+      greenCurve: mix(a.greenCurve, b.greenCurve),
+      blueCurve: mix(a.blueCurve, b.blueCurve),
     ).clamped();
   }
 
@@ -87,6 +117,11 @@ class ColorGradingParams {
       'saturation': saturation,
       'temperature': temperature,
       'tint': tint,
+      'highlights': highlights,
+      'shadows': shadows,
+      'redCurve': redCurve,
+      'greenCurve': greenCurve,
+      'blueCurve': blueCurve,
     };
   }
 
@@ -102,6 +137,11 @@ class ColorGradingParams {
       saturation: value('saturation', 1),
       temperature: value('temperature', 0),
       tint: value('tint', 0),
+      highlights: value('highlights', 0),
+      shadows: value('shadows', 0),
+      redCurve: value('redCurve', 0),
+      greenCurve: value('greenCurve', 0),
+      blueCurve: value('blueCurve', 0),
     ).clamped();
   }
 
@@ -117,6 +157,14 @@ class ColorGradingParams {
     matrix = _multiplyMatrix(_saturationMatrix(p.saturation), matrix);
     matrix = _multiplyMatrix(
       _channelBalanceMatrix(p.temperature, p.tint),
+      matrix,
+    );
+    matrix = _multiplyMatrix(
+      _toneZoneApproximationMatrix(p.highlights, p.shadows),
+      matrix,
+    );
+    matrix = _multiplyMatrix(
+      _rgbCurveApproximationMatrix(p.redCurve, p.greenCurve, p.blueCurve),
       matrix,
     );
     return matrix;
@@ -237,6 +285,44 @@ List<double> _channelBalanceMatrix(double temperature, double tint) {
   final r = 1 + 0.10 * temperature - 0.04 * tint;
   final g = 1 + 0.08 * tint;
   final b = 1 - 0.10 * temperature - 0.04 * tint;
+  return [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
+}
+
+List<double> _toneZoneApproximationMatrix(double highlights, double shadows) {
+  final contrast = 1 + highlights * 0.12 - shadows * 0.10;
+  final offset = 255 * (shadows * 0.08 + highlights * 0.02);
+  return [
+    contrast,
+    0,
+    0,
+    0,
+    offset,
+    0,
+    contrast,
+    0,
+    0,
+    offset,
+    0,
+    0,
+    contrast,
+    0,
+    offset,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
+}
+
+List<double> _rgbCurveApproximationMatrix(
+  double redCurve,
+  double greenCurve,
+  double blueCurve,
+) {
+  final r = 1 + redCurve * 0.14;
+  final g = 1 + greenCurve * 0.14;
+  final b = 1 + blueCurve * 0.14;
   return [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
 }
 

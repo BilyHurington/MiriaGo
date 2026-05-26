@@ -562,7 +562,7 @@ class _PointCard extends StatelessWidget {
           if (point.referenceImageUrl != null) ...[
             const SizedBox(height: 8),
             Text(
-              point.episodeLabel,
+              point.displayEpisodeLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
