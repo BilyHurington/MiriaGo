@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
-import '../widgets/copyable_info.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -172,22 +171,16 @@ class SettingsScreen extends StatelessWidget {
           const _SettingsSection(
             title: '作者',
             children: [
-              CopyableInfoRow(
-                icon: Icons.person_outline,
-                label: '作者',
-                value: 'BilyHurington',
-              ),
+              _InfoRow(icon: Icons.person_outline, text: 'BilyHurington'),
               SizedBox(height: 10),
-              CopyableInfoRow(
+              _InfoRow(
                 icon: Icons.mail_outline,
-                label: '邮箱',
-                value: 'bilyhurington@gmail.com',
+                text: 'bilyhurington@gmail.com',
               ),
               SizedBox(height: 10),
-              CopyableInfoRow(
+              _InfoRow(
                 icon: Icons.code_outlined,
-                label: 'GitHub',
-                value: 'github.com/BilyHurington/MiriaGo',
+                text: 'github.com/BilyHurington/MiriaGo',
               ),
             ],
           ),
@@ -251,6 +244,29 @@ class _ThemeSwatch extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.border),
       ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.textSecondary, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14, letterSpacing: 0),
+          ),
+        ),
+      ],
     );
   }
 }

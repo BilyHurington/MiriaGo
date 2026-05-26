@@ -11,7 +11,6 @@ import '../data/pilgrimage_repository.dart';
 import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
-import '../widgets/copyable_info.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'pilgrimage_models.dart';
 
@@ -454,49 +453,26 @@ class _AnitabiPointCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        point.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                    CopyValueButton(
-                      label: '点位名称',
-                      value: point.name,
-                      iconSize: 17,
-                    ),
-                  ],
+                Text(
+                  point.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
                 ),
                 const SizedBox(height: 3),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${point.subtitle} / ${point.episodeLabel}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                    CopyValueButton(
-                      label: '点位信息',
-                      value: _copySummary,
-                      iconSize: 17,
-                    ),
-                  ],
+                Text(
+                  '${point.subtitle} / ${point.episodeLabel}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -524,16 +500,6 @@ class _AnitabiPointCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String get _copySummary {
-    return [
-      point.name,
-      point.subtitle,
-      point.episodeLabel,
-      point.origin,
-      '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
-    ].where((value) => value.trim().isNotEmpty).join('\n');
   }
 }
 

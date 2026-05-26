@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
 import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
-import '../widgets/copyable_info.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
@@ -95,58 +95,50 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           const SizedBox(height: 16),
           _DetailSection(
             children: [
-              CopyableInfoRow(
+              _DetailRow(
                 icon: Icons.schedule,
                 label: '拍摄时间',
                 value: _formatDateTime(_record.capturedAt),
-                labelWidth: 70,
               ),
-              CopyableInfoRow(
+              _DetailRow(
                 icon: Icons.layers_outlined,
                 label: '参考模式',
                 value: _record.referenceMode,
-                labelWidth: 70,
               ),
-              CopyableInfoRow(
+              _DetailRow(
                 icon: Icons.photo_outlined,
                 label: _record.hasColorGrading ? '显示照片' : '照片路径',
                 value: _record.displayPhotoPath,
-                labelWidth: 70,
               ),
               if (_record.hasColorGrading)
-                CopyableInfoRow(
+                _DetailRow(
                   icon: Icons.photo_library_outlined,
                   label: '原图',
                   value: _record.sourcePhotoPath,
-                  labelWidth: 70,
                 ),
               if (referenceImagePath != null || referenceImageUrl != null)
-                CopyableInfoRow(
+                _DetailRow(
                   icon: Icons.image_outlined,
                   label: '参考图',
                   value: referenceImagePath ?? referenceImageUrl!,
-                  labelWidth: 70,
                 ),
               if (resolvedPoint != null) ...[
-                CopyableInfoRow(
+                _DetailRow(
                   icon: Icons.movie_filter_outlined,
                   label: '作品',
                   value:
                       '${resolvedPoint.work.title} / ${resolvedPoint.work.subtitle}',
-                  labelWidth: 70,
                 ),
-                CopyableInfoRow(
+                _DetailRow(
                   icon: Icons.local_movies_outlined,
                   label: '场景',
                   value: resolvedPoint.displayEpisodeLabel,
-                  labelWidth: 70,
                 ),
-                CopyableInfoRow(
+                _DetailRow(
                   icon: Icons.location_on_outlined,
                   label: '坐标',
                   value:
-                      '${resolvedPoint.position.latitude.toStringAsFixed(5)},${resolvedPoint.position.longitude.toStringAsFixed(5)}',
-                  labelWidth: 70,
+                      '${resolvedPoint.position.latitude.toStringAsFixed(5)}, ${resolvedPoint.position.longitude.toStringAsFixed(5)}',
                 ),
               ],
             ],
@@ -514,6 +506,60 @@ class _DetailSection extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.textSecondary, size: 19),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 70,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('已复制：$label')),
+              );
+            },
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

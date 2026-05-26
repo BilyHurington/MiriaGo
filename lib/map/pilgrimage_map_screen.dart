@@ -12,7 +12,6 @@ import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
-import '../widgets/copyable_info.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'map_navigation_launcher.dart';
 import '../widgets/reference_thumbnail_stub.dart'
@@ -531,52 +530,29 @@ class _PointCard extends StatelessWidget {
                         _StatusBadge(status: status),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  point.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0,
-                                  ),
-                                ),
-                              ),
-                              CopyValueButton(
-                                label: '点位名称',
-                                value: point.name,
-                                iconSize: 17,
-                              ),
-                            ],
+                          child: Text(
+                            point.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _metaText,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        CopyValueButton(
-                          label: '点位信息',
-                          value: _copySummary,
-                          iconSize: 17,
-                        ),
-                      ],
+                    Text(
+                      _metaText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ],
                 ),
@@ -651,16 +627,6 @@ class _PointCard extends StatelessWidget {
     }
 
     return '${point.work.title} / ${distance.round()} m';
-  }
-
-  String get _copySummary {
-    return [
-      point.name,
-      '${point.work.title} / ${point.work.subtitle}',
-      point.subtitle,
-      point.displayEpisodeLabel,
-      '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
-    ].where((value) => value.trim().isNotEmpty).join('\n');
   }
 }
 

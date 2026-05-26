@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
@@ -7,7 +8,6 @@ import '../plan/pilgrimage_models.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/image_viewer_screen.dart';
-import '../widgets/copyable_info.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
@@ -120,57 +120,50 @@ class PointDetailSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                CopyableInfoRow(
+                _InfoRow(
                   icon: Icons.movie_filter_outlined,
                   label: '作品',
                   value: '${point.work.title} / ${point.work.subtitle}',
-                  labelWidth: 42,
                 ),
                 const SizedBox(height: 8),
-                CopyableInfoRow(
+                _InfoRow(
                   icon: Icons.local_movies_outlined,
                   label: '场景',
                   value: point.displayEpisodeLabel,
-                  labelWidth: 42,
                 ),
                 const SizedBox(height: 8),
-                CopyableInfoRow(
+                _InfoRow(
                   icon: Icons.location_on_outlined,
                   label: '坐标',
                   value:
-                      '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
-                  labelWidth: 42,
+                      '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
                 ),
                 const SizedBox(height: 8),
-                CopyableInfoRow(
+                _InfoRow(
                   icon: Icons.image_outlined,
                   label: '参考',
                   value: point.referenceLabel,
-                  labelWidth: 42,
                 ),
                 const SizedBox(height: 8),
-                CopyableInfoRow(
+                _InfoRow(
                   icon: Icons.source_outlined,
                   label: '来源',
                   value: _sourceText,
-                  labelWidth: 42,
                 ),
                 if (point.sourceId != null) ...[
                   const SizedBox(height: 8),
-                  CopyableInfoRow(
+                  _InfoRow(
                     icon: Icons.tag_outlined,
                     label: 'ID',
                     value: point.sourceId!,
-                    labelWidth: 42,
                   ),
                 ],
                 if (point.sourceUrl != null) ...[
                   const SizedBox(height: 8),
-                  CopyableInfoRow(
+                  _InfoRow(
                     icon: Icons.link_outlined,
                     label: '链接',
                     value: point.sourceUrl!,
-                    labelWidth: 42,
                   ),
                 ],
                 if (records.isNotEmpty) ...[
@@ -319,6 +312,60 @@ class _StatusBadge extends StatelessWidget {
           letterSpacing: 0,
         ),
       ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.textSecondary, size: 19),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 42,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('已复制：$label')),
+              );
+            },
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
