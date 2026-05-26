@@ -99,6 +99,7 @@ abstract interface class PilgrimageRepository {
     String? referenceImagePath,
     String? referenceImageUrl,
     required String referenceMode,
+    DateTime? capturedAt,
   });
 
   Future<PilgrimageVisitRecord> updateVisitRecordColorGrading({
@@ -109,6 +110,11 @@ abstract interface class PilgrimageRepository {
     required String colorGradingMode,
     required String colorGradingParamsJson,
     required double colorGradingIntensity,
+  });
+
+  Future<PilgrimageVisitRecord> clearVisitRecordColorGrading({
+    required String planId,
+    required String recordId,
   });
 
   Future<void> deleteVisitRecord({

@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/local/app_database.dart';
@@ -66,6 +67,70 @@ void main() {
     final reloadedPlan = await repository.loadActivePlan();
 
     expect(reloadedPlan.points.map((point) => point.id), reorderedIds);
+    expect(reloadedPlan.currentPointId, plan.currentPointId);
+  });
+
+  test('sets first added point as current target for empty plan', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final sourcePlan = await repository.loadActivePlan();
+    final emptyPlan = await repository.createPlan(name: '空计划', area: '京都');
+
+    final updatedPlan = await repository.addPointToPlan(
+      planId: emptyPlan.id,
+      point: sourcePlan.points.first,
+    );
+
+    expect(updatedPlan.points, hasLength(1));
+    expect(updatedPlan.currentPointId, sourcePlan.points.first.id);
+  });
+
+  test('repairs missing current target when loading persisted plan', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final sourcePlan = await repository.loadActivePlan();
+    final emptyPlan = await repository.createPlan(name: '旧数据', area: '京都');
+    final addedPlan = await repository.addPointToPlan(
+      planId: emptyPlan.id,
+      point: sourcePlan.points.first,
+    );
+    await database
+        .update(database.points)
+        .write(const PointsCompanion(isCurrent: Value(false)));
+
+    final reloadedPlan = await repository.loadActivePlan();
+
+    expect(reloadedPlan.currentPointId, addedPlan.points.first.id);
+  });
+
+  test('keeps current target when updating cached reference image', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final sourcePlan = await repository.loadActivePlan();
+    final emptyPlan = await repository.createPlan(name: '缓存测试', area: '京都');
+    final addedPlan = await repository.addPointToPlan(
+      planId: emptyPlan.id,
+      point: sourcePlan.points.first,
+    );
+
+    final updatedPlan = await repository.updatePointImageCache(
+      planId: addedPlan.id,
+      pointId: addedPlan.points.first.id,
+      referenceThumbnailPath: addedPlan.points.first.referenceThumbnailPath,
+      referenceFullImagePath: '/tmp/reference-full.jpg',
+    );
+
+    expect(updatedPlan.currentPointId, addedPlan.points.first.id);
+    expect(
+      updatedPlan.points.first.referenceFullImagePath,
+      '/tmp/reference-full.jpg',
+    );
   });
 
   test('renames plans and persists app settings', () async {
@@ -213,6 +278,42 @@ void main() {
     expect(records.single.colorGradingMode, 'strong');
     expect(records.single.colorGradingParamsJson, '{"exposure":0.2}');
     expect(records.single.colorGradingIntensity, 0.7);
+
+    await repository.clearVisitRecordColorGrading(
+      planId: plan.id,
+      recordId: record.id,
+    );
+
+    final clearedRecords = await repository.loadVisitRecords(plan.id);
+
+    expect(clearedRecords.single.sourcePhotoPath, '/tmp/original.jpg');
+    expect(clearedRecords.single.displayPhotoPath, '/tmp/original.jpg');
+    expect(clearedRecords.single.colorGradingMode, isNull);
+    expect(clearedRecords.single.colorGradingParamsJson, isNull);
+    expect(clearedRecords.single.colorGradingIntensity, isNull);
+  });
+
+  test('uses explicit captured time when creating visit records', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+    final capturedAt = DateTime(2024, 7, 8, 9, 10, 11);
+
+    await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: '/tmp/imported.jpg',
+      referenceMode: '相册导入',
+      capturedAt: capturedAt,
+    );
+
+    final records = await repository.loadVisitRecords(plan.id);
+
+    expect(records.single.capturedAt, capturedAt);
   });
 
   test('deletes visit records without changing point completion', () async {
@@ -288,6 +389,29 @@ void main() {
     expect(
       updatedPlan.points.map((point) => point.id),
       isNot(contains(plan.points[1].id)),
+    );
+    expect(updatedPlan.currentPointId, plan.points[2].id);
+  });
+
+  test('deleting unrelated points keeps current target', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+
+    await repository.setCurrentPoint(
+      planId: plan.id,
+      pointId: plan.points[2].id,
+    );
+    final updatedPlan = await repository.deletePointFromPlan(
+      planId: plan.id,
+      pointId: plan.points[0].id,
+    );
+
+    expect(
+      updatedPlan.points.map((point) => point.id),
+      isNot(contains(plan.points[0].id)),
     );
     expect(updatedPlan.currentPointId, plan.points[2].id);
   });

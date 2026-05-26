@@ -25,6 +25,7 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
     this.referenceBytes,
     this.referenceImagePath,
     this.referenceImageUrl,
+    this.capturedAtOverride,
     super.key,
   });
 
@@ -35,6 +36,7 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
   final Uint8List? referenceBytes;
   final String? referenceImagePath;
   final String? referenceImageUrl;
+  final DateTime? capturedAtOverride;
 
   @override
   State<VisitRecordConfirmationScreen> createState() =>
@@ -73,6 +75,7 @@ class _VisitRecordConfirmationScreenState
           ? widget.referenceImageUrl
           : null,
       referenceMode: widget.referenceMode,
+      capturedAt: widget.capturedAtOverride,
     );
 
     String? nextPointName;

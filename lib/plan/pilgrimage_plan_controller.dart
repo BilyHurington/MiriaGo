@@ -12,12 +12,7 @@ class PilgrimagePlanController extends ChangeNotifier {
   }) : _repository = visitRepository,
        _plan = plan,
        _completedPointIds = {...plan.completedPointIds},
-       _currentPointId =
-           plan.currentPointId ??
-           plan.points
-               .where((point) => !plan.completedPointIds.contains(point.id))
-               .firstOrNull
-               ?.id,
+       _currentPointId = plan.currentPointId,
        _selectedPointId = plan.points.firstOrNull?.id {
     unawaited(loadVisitRecords());
   }
@@ -125,6 +120,7 @@ class PilgrimagePlanController extends ChangeNotifier {
     String? referenceImagePath,
     String? referenceImageUrl,
     required String referenceMode,
+    DateTime? capturedAt,
   }) async {
     final repository = _repository;
     if (repository == null) {
@@ -139,6 +135,7 @@ class PilgrimagePlanController extends ChangeNotifier {
       referenceImagePath: referenceImagePath,
       referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
+      capturedAt: capturedAt,
     );
     _visitRecords = [record, ..._visitRecords];
     notifyListeners();
@@ -198,6 +195,26 @@ class PilgrimagePlanController extends ChangeNotifier {
       colorGradingMode: colorGradingMode,
       colorGradingParamsJson: colorGradingParamsJson,
       colorGradingIntensity: colorGradingIntensity,
+    );
+    _visitRecords = [
+      for (final candidate in _visitRecords)
+        candidate.id == updated.id ? updated : candidate,
+    ];
+    notifyListeners();
+    return updated;
+  }
+
+  Future<PilgrimageVisitRecord?> clearVisitRecordColorGrading({
+    required PilgrimageVisitRecord record,
+  }) async {
+    final repository = _repository;
+    if (repository == null) {
+      return null;
+    }
+
+    final updated = await repository.clearVisitRecordColorGrading(
+      planId: _plan.id,
+      recordId: record.id,
     );
     _visitRecords = [
       for (final candidate in _visitRecords)

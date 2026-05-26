@@ -21,7 +21,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       _database.plans,
     )..orderBy([(table) => OrderingTerm.asc(table.createdAt)])).get();
 
-    return Future.wait(planRows.map(_planFromRow));
+    return Future.wait(planRows.map(_loadPlanWithCurrentTargetRepair));
   }
 
   @override
@@ -34,7 +34,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             .getSingleOrNull();
     final fallbackPlan =
         activePlan ?? await _database.select(_database.plans).getSingle();
-    return _planFromRow(fallbackPlan);
+    return _loadPlanWithCurrentTargetRepair(fallbackPlan);
   }
 
   @override
@@ -198,6 +198,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     await _database.transaction(() async {
       final plan = await _planRowById(planId);
+      final hadCurrentPoint = await _hasCurrentPoint(planId);
       for (var index = 0; index < points.length; index += 1) {
         final point = points[index];
         await _upsertWork(planId: planId, work: point.work);
@@ -210,6 +211,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
                 sortOrder: plan.updatedAt.microsecondsSinceEpoch + index,
               ),
             );
+      }
+      if (!hadCurrentPoint && points.isNotEmpty) {
+        await _setFirstPendingPointCurrent(planId);
       }
       await _touchPlan(planId);
     });
@@ -435,8 +439,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     String? referenceImagePath,
     String? referenceImageUrl,
     required String referenceMode,
+    DateTime? capturedAt,
   }) async {
     final now = DateTime.now();
+    final recordCapturedAt = capturedAt ?? now;
     final record = PilgrimageVisitRecord(
       id: 'record-${now.microsecondsSinceEpoch}',
       planId: planId,
@@ -446,7 +452,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceImagePath: referenceImagePath,
       referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
-      capturedAt: now,
+      capturedAt: recordCapturedAt,
     );
     await _database
         .into(_database.visitRecords)
@@ -492,6 +498,27 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             colorGradingMode: Value(colorGradingMode),
             colorGradingParamsJson: Value(colorGradingParamsJson),
             colorGradingIntensity: Value(colorGradingIntensity),
+          ),
+        );
+    await _touchPlan(planId);
+    return _visitRecordFromRow(await _visitRecordRowById(planId, recordId));
+  }
+
+  @override
+  Future<PilgrimageVisitRecord> clearVisitRecordColorGrading({
+    required String planId,
+    required String recordId,
+  }) async {
+    await (_database.update(_database.visitRecords)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(recordId),
+        ))
+        .write(
+          const VisitRecordsCompanion(
+            originalPhotoPath: Value(null),
+            gradedPhotoPath: Value(null),
+            colorGradingMode: Value(null),
+            colorGradingParamsJson: Value(null),
+            colorGradingIntensity: Value(null),
           ),
         );
     await _touchPlan(planId);
@@ -700,6 +727,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
           );
     }
+
+    if (plan.points.isNotEmpty && plan.currentPointId == null) {
+      await _setFirstPendingPointCurrent(plan.id);
+    }
   }
 
   Future<void> _upsertWork({
@@ -851,6 +882,24 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
+  Future<PilgrimagePlan> _loadPlanWithCurrentTargetRepair(Plan row) async {
+    var plan = await _planFromRow(row);
+    if (plan.currentPointId != null || plan.points.isEmpty) {
+      return plan;
+    }
+
+    final hasPendingPoint = plan.points.any(
+      (point) => !plan.completedPointIds.contains(point.id),
+    );
+    if (!hasPendingPoint) {
+      return plan;
+    }
+
+    await _setFirstPendingPointCurrent(plan.id);
+    plan = await _planFromRow(await _planRowById(plan.id));
+    return plan;
+  }
+
   PilgrimageWork _workFromRow(Work row) {
     return PilgrimageWork(
       id: row.id,
@@ -941,6 +990,20 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return (_database.update(_database.points)
           ..where((table) => table.planId.equals(planId)))
         .write(const PointsCompanion(isCurrent: Value(false)));
+  }
+
+  Future<bool> _hasCurrentPoint(String planId) async {
+    final currentPoint =
+        await (_database.select(_database.points)
+              ..where(
+                (table) =>
+                    table.planId.equals(planId) &
+                    table.isCurrent.equals(true) &
+                    table.completedAt.isNull(),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return currentPoint != null;
   }
 
   Future<void> _setFirstPendingPointCurrent(String planId) async {

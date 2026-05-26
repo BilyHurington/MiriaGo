@@ -45,6 +45,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   int? _beforeScore;
   int? _afterScore;
   Object? _loadError;
+  var _resetPending = false;
 
   PilgrimageVisitRecord get _record => widget.record;
 
@@ -179,6 +180,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
         _beforeScore = result.beforeScore;
         _afterScore = result.afterScore;
         _intensity = 1.0;
+        _resetPending = false;
       }
     });
 
@@ -192,6 +194,20 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     final targetParams = _targetParams;
     final messenger = ScaffoldMessenger.of(context);
     if (captured == null || _saving) {
+      return;
+    }
+    if (_resetPending) {
+      setState(() => _saving = true);
+      final updated = await widget.controller.clearVisitRecordColorGrading(
+        record: _record,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _saving = false);
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('已还原为原图')));
+      Navigator.of(context).pop(updated);
       return;
     }
     if (targetParams == null) {
@@ -240,6 +256,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       _afterScore = null;
       _intensity = 1.0;
       _showOriginal = false;
+      _resetPending = _record.hasColorGrading;
     });
   }
 
@@ -290,6 +307,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
               _beforeScore = null;
               _afterScore = null;
               _intensity = 1.0;
+              _resetPending = false;
             });
           },
         ),

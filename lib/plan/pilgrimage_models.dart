@@ -115,11 +115,11 @@ class PilgrimageVisitRecord {
       gradedPhotoPath != null && colorGradingParamsJson != null;
 
   PilgrimageVisitRecord copyWith({
-    String? originalPhotoPath,
-    String? gradedPhotoPath,
-    String? colorGradingMode,
-    String? colorGradingParamsJson,
-    double? colorGradingIntensity,
+    Object? originalPhotoPath = _unset,
+    Object? gradedPhotoPath = _unset,
+    Object? colorGradingMode = _unset,
+    Object? colorGradingParamsJson = _unset,
+    Object? colorGradingIntensity = _unset,
   }) {
     return PilgrimageVisitRecord(
       id: id,
@@ -127,13 +127,21 @@ class PilgrimageVisitRecord {
       pointId: pointId,
       workId: workId,
       photoPath: photoPath,
-      originalPhotoPath: originalPhotoPath ?? this.originalPhotoPath,
-      gradedPhotoPath: gradedPhotoPath ?? this.gradedPhotoPath,
-      colorGradingMode: colorGradingMode ?? this.colorGradingMode,
-      colorGradingParamsJson:
-          colorGradingParamsJson ?? this.colorGradingParamsJson,
-      colorGradingIntensity:
-          colorGradingIntensity ?? this.colorGradingIntensity,
+      originalPhotoPath: originalPhotoPath == _unset
+          ? this.originalPhotoPath
+          : originalPhotoPath as String?,
+      gradedPhotoPath: gradedPhotoPath == _unset
+          ? this.gradedPhotoPath
+          : gradedPhotoPath as String?,
+      colorGradingMode: colorGradingMode == _unset
+          ? this.colorGradingMode
+          : colorGradingMode as String?,
+      colorGradingParamsJson: colorGradingParamsJson == _unset
+          ? this.colorGradingParamsJson
+          : colorGradingParamsJson as String?,
+      colorGradingIntensity: colorGradingIntensity == _unset
+          ? this.colorGradingIntensity
+          : colorGradingIntensity as double?,
       referenceImagePath: referenceImagePath,
       referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,

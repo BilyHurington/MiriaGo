@@ -154,10 +154,13 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     final newPoints = points
         .where((point) => !existingIds.contains(point.id))
         .toList(growable: false);
+    final updatedPoints = [...plan.points, ...newPoints];
     final updatedPlan = plan.copyWith(
       works: works,
-      points: [...plan.points, ...newPoints],
-      currentPointId: plan.currentPointId ?? newPoints.firstOrNull?.id,
+      points: updatedPoints,
+      currentPointId:
+          plan.currentPointId ??
+          _firstPendingPointId(updatedPoints, plan.completedPointIds),
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -224,20 +227,17 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
         .toList(growable: false);
     final completedPointIds = {...plan.completedPointIds}
       ..removeAll(removedPointIds);
-    final currentPointId =
+    final removedCurrentPoint =
         plan.currentPointId != null &&
-            removedPointIds.contains(plan.currentPointId)
-        ? points
-              .where((point) => !completedPointIds.contains(point.id))
-              .firstOrNull
-              ?.id
-        : plan.currentPointId;
+        removedPointIds.contains(plan.currentPointId);
     final updatedPlan = plan.copyWith(
       works: plan.works
           .where((work) => work.id != workId)
           .toList(growable: false),
       points: points,
-      currentPointId: currentPointId,
+      currentPointId: removedCurrentPoint
+          ? _firstPendingPointId(points, completedPointIds)
+          : plan.currentPointId,
       completedPointIds: completedPointIds,
       updatedAt: DateTime.now(),
     );
@@ -282,16 +282,13 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
         .where((point) => !pointIds.contains(point.id))
         .toList(growable: false);
     final completedPointIds = {...plan.completedPointIds}..removeAll(pointIds);
-    final currentPointId =
-        plan.currentPointId != null && pointIds.contains(plan.currentPointId)
-        ? points
-              .where((point) => !completedPointIds.contains(point.id))
-              .firstOrNull
-              ?.id
-        : plan.currentPointId;
+    final removedCurrentPoint =
+        plan.currentPointId != null && pointIds.contains(plan.currentPointId);
     final updatedPlan = plan.copyWith(
       points: points,
-      currentPointId: currentPointId,
+      currentPointId: removedCurrentPoint
+          ? _firstPendingPointId(points, completedPointIds)
+          : plan.currentPointId,
       completedPointIds: completedPointIds,
       updatedAt: DateTime.now(),
     );
@@ -414,6 +411,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     String? referenceImagePath,
     String? referenceImageUrl,
     required String referenceMode,
+    DateTime? capturedAt,
   }) async {
     final now = DateTime.now();
     final record = PilgrimageVisitRecord(
@@ -425,7 +423,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       referenceImagePath: referenceImagePath,
       referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
-      capturedAt: now,
+      capturedAt: capturedAt ?? now,
     );
     _visitRecords.add(record);
     return record;
@@ -454,6 +452,29 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       colorGradingMode: colorGradingMode,
       colorGradingParamsJson: colorGradingParamsJson,
       colorGradingIntensity: colorGradingIntensity,
+    );
+    _visitRecords[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<PilgrimageVisitRecord> clearVisitRecordColorGrading({
+    required String planId,
+    required String recordId,
+  }) async {
+    final index = _visitRecords.indexWhere(
+      (record) => record.planId == planId && record.id == recordId,
+    );
+    if (index == -1) {
+      throw ArgumentError.value(recordId, 'recordId', 'Record does not exist.');
+    }
+
+    final updated = _visitRecords[index].copyWith(
+      originalPhotoPath: null,
+      gradedPhotoPath: null,
+      colorGradingMode: null,
+      colorGradingParamsJson: null,
+      colorGradingIntensity: null,
     );
     _visitRecords[index] = updated;
     return updated;
@@ -497,6 +518,16 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     return index;
+  }
+
+  String? _firstPendingPointId(
+    List<PilgrimagePoint> points,
+    Set<String> completedPointIds,
+  ) {
+    return points
+        .where((point) => !completedPointIds.contains(point.id))
+        .firstOrNull
+        ?.id;
   }
 
   String _uniquePlanName(String baseName, Set<String> existingNames) {

@@ -22,6 +22,7 @@ MiriaGo 使用 Flutter 开发，用于规划动漫圣地巡礼、从 Anitabi 导
 
 - Android APK：请前往 [Releases](https://github.com/BilyHurington/MiriaGo/releases) 下载最新版本。
 - 使用指南：[docs/USAGE.md](docs/USAGE.md)
+- 由于使用的地图为 OpenStreetMap 与 Google Maps，国内使用时需要科学上网；不过对于各位想要现地巡礼的人来说，应该不是难事吧 hh。
 
 ## 功能亮点
 

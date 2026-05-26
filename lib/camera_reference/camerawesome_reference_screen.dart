@@ -18,6 +18,8 @@ import '../widgets/reference_thumbnail_stub.dart'
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
+import 'gallery_capture_time_stub.dart'
+    if (dart.library.io) 'gallery_capture_time_io.dart';
 import 'reference_image_bytes_stub.dart'
     if (dart.library.io) 'reference_image_bytes_io.dart'
     as reference_image_bytes;
@@ -147,7 +149,8 @@ class _CamerawesomeReferenceScreenState
     setState(() {
       _galleryImage = picked;
     });
-    await _openConfirmation(picked.path);
+    final capturedAt = await readGalleryCaptureTime(picked.path);
+    await _openConfirmation(picked.path, capturedAtOverride: capturedAt);
   }
 
   Future<void> _handleCaptureEvent(MediaCapture event) async {
@@ -166,7 +169,10 @@ class _CamerawesomeReferenceScreenState
     await _openConfirmation(path);
   }
 
-  Future<void> _openConfirmation(String photoPath) async {
+  Future<void> _openConfirmation(
+    String photoPath, {
+    DateTime? capturedAtOverride,
+  }) async {
     if (!mounted) {
       return;
     }
@@ -187,6 +193,7 @@ class _CamerawesomeReferenceScreenState
           referenceImageUrl: anitabiFullResolutionImageUrl(
             widget.point.referenceImageUrl,
           ),
+          capturedAtOverride: capturedAtOverride,
         ),
       ),
     );
