@@ -48,7 +48,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - 自动调色：根据参考图生成可解释的调色参数，用强度滑块控制应用比例。
 - 对比图导出：导出适合分享的参考图/巡礼图对比图，支持主题、元数据和巡礼者名称。
 
-## 截图
+## 效果展示
 
 <table>
   <tr>
@@ -68,9 +68,9 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
   <tr>
     <td align="center" width="33%">
       <a href="docs/sample_images/相机拍摄参考页面.jpg">
-        <img src="docs/sample_images/呼唤少女-地图页面.jpg" alt="拍摄参考截图占位" width="240">
+        <img src="docs/sample_images/呼唤少女-地图页面.jpg" alt="拍摄参考展示占位" width="240">
       </a><br>
-      <sub>拍摄参考（截图待补充）</sub>
+      <sub>拍摄参考（展示图待补充）</sub>
     </td>
     <td align="center" width="33%">
       <img src="docs/sample_images/铃音-自动调色页面.jpg" alt="自动调色" width="240"><br>
@@ -83,7 +83,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
   </tr>
 </table>
 
-> 相机拍摄参考截图稍后补充。当前占位链接预留为 `docs/sample_images/相机拍摄参考页面.jpg`。
+> 相机拍摄参考展示图稍后补充。当前占位链接预留为 `docs/sample_images/相机拍摄参考页面.jpg`。
 
 ## 开发
 
