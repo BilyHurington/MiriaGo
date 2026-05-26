@@ -2871,7 +2871,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('miriaYellow'),
+    defaultValue: const Constant('classicGreen'),
   );
   @override
   List<GeneratedColumn> get $columns => [

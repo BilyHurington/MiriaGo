@@ -5,7 +5,7 @@ import 'plan/pilgrimage_models.dart';
 class AppColors {
   const AppColors._();
 
-  static AppThemePalette palette = AppThemePalette.miriaYellow;
+  static AppThemePalette palette = AppThemePalette.classicGreen;
 
   static const background = Color(0xFFF7F8FA);
   static const surface = Color(0xFFFFFFFF);
@@ -48,7 +48,7 @@ class AppTheme {
   const AppTheme._();
 
   static ThemeData light({
-    AppThemePalette palette = AppThemePalette.miriaYellow,
+    AppThemePalette palette = AppThemePalette.classicGreen,
   }) {
     AppColors.palette = palette;
     final colorScheme = ColorScheme(

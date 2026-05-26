@@ -48,7 +48,7 @@ class AppSettings {
     this.cameraAspectRatio = CameraPhotoAspectRatio.auto,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
-    this.themePalette = AppThemePalette.miriaYellow,
+    this.themePalette = AppThemePalette.classicGreen,
   });
 
   final double uiScale;

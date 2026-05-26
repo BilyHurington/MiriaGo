@@ -79,7 +79,7 @@ class AppSettingsEntries extends Table {
   RealColumn get cameraMinZoom => real().withDefault(const Constant(0.6))();
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
   TextColumn get themePalette =>
-      text().withDefault(const Constant('miriaYellow'))();
+      text().withDefault(const Constant('classicGreen'))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
