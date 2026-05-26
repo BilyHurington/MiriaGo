@@ -93,23 +93,23 @@ class AnitabiPoint {
     required int bangumiId,
   }) {
     final geo = json['geo'] as List<Object?>;
-    final cn = (json['cn'] as String?)?.trim();
-    final name = (json['name'] as String?)?.trim() ?? 'Anitabi 点位';
+    final cn = _stringValue(json['cn']);
+    final name = _stringValue(json['name']) ?? 'Anitabi 点位';
     final ep = json['ep'];
     final second = json['s'];
 
     return AnitabiPoint(
       bangumiId: bangumiId,
-      id: json['id'] as String,
+      id: _stringValue(json['id']) ?? 'unknown',
       name: cn?.isNotEmpty == true ? cn! : name,
       subtitle: name,
       position: LatLng((geo[0] as num).toDouble(), (geo[1] as num).toDouble()),
       episodeLabel: _episodeLabel(ep, second),
       referenceImageUrl: anitabiFullResolutionImageUrl(
-        json['image'] as String?,
+        _stringValue(json['image']),
       ),
-      origin: json['origin'] as String? ?? 'Anitabi',
-      originUrl: json['originURL'] as String?,
+      origin: _stringValue(json['origin']) ?? 'Anitabi',
+      originUrl: _stringValue(json['originURL']),
     );
   }
 
@@ -148,6 +148,11 @@ class AnitabiPoint {
 
     return '$epText / $sceneTime';
   }
+}
+
+String? _stringValue(Object? value) {
+  final text = value?.toString().trim();
+  return text?.isEmpty == true ? null : text;
 }
 
 String? formatAnitabiSceneTime(Object? second) {

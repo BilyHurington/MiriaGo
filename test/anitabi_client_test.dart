@@ -27,4 +27,25 @@ void main() {
     expect(formatEpisodeLabelForDisplay('EP 12 / 3723s'), 'EP 12 / 1:02:03');
     expect(formatEpisodeLabelForDisplay('手动录入'), '手动录入');
   });
+
+  test('parses Anitabi points with numeric text fields', () {
+    final point = AnitabiPoint.fromJson({
+      'id': '2ehwpjt',
+      'name': 278,
+      'cn': '',
+      'geo': [36.1169, 139.3049],
+      'image': 'https://image.anitabi.cn/points/531159/2ehwpjt.jpg?plan=h160',
+      'origin': 531159,
+      'originURL': null,
+      'ep': 1,
+      's': 125,
+    }, bangumiId: 531159);
+
+    expect(point.id, '2ehwpjt');
+    expect(point.name, '278');
+    expect(point.subtitle, '278');
+    expect(point.origin, '531159');
+    expect(point.episodeLabel, 'EP 1 / 2:05');
+    expect(point.referenceImageUrl, endsWith('/2ehwpjt.jpg'));
+  });
 }
