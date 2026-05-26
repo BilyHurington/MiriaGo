@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+OverlayEntry? _activeCopyOverlay;
+
 class CopyableText extends StatefulWidget {
   const CopyableText({
     required this.text,
@@ -24,11 +26,9 @@ class CopyableText extends StatefulWidget {
 }
 
 class _CopyableTextState extends State<CopyableText> {
-  OverlayEntry? _copyOverlay;
-
   @override
   void dispose() {
-    _hideCopyOverlay();
+    _hideActiveCopyOverlay();
     super.dispose();
   }
 
@@ -36,7 +36,7 @@ class _CopyableTextState extends State<CopyableText> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _hideCopyOverlay,
+      onTapDown: (_) => _hideActiveCopyOverlay(),
       onLongPress: _showCopyOverlay,
       child: Text(
         widget.text,
@@ -48,7 +48,7 @@ class _CopyableTextState extends State<CopyableText> {
   }
 
   void _showCopyOverlay() {
-    _hideCopyOverlay();
+    _hideActiveCopyOverlay();
 
     final overlay = Overlay.of(context);
     final renderBox = context.findRenderObject() as RenderBox?;
@@ -67,56 +67,83 @@ class _CopyableTextState extends State<CopyableText> {
     );
     final targetSize = renderBox.size;
     final overlaySize = overlayBox.size;
-    final top = (targetTopLeft.dy - 44).clamp(8.0, overlaySize.height - 48);
-    final left = (targetTopLeft.dx + targetSize.width - 72).clamp(
+    const buttonWidth = 82.0;
+    const buttonHeight = 42.0;
+    final top = (targetTopLeft.dy - buttonHeight - 6).clamp(
       8.0,
-      overlaySize.width - 80,
+      overlaySize.height - buttonHeight - 8,
     );
+    final left = (targetTopLeft.dx + (targetSize.width - buttonWidth) / 2)
+        .clamp(8.0, overlaySize.width - buttonWidth - 8);
 
-    _copyOverlay = OverlayEntry(
-      builder: (context) {
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _hideCopyOverlay,
-                child: const SizedBox.expand(),
-              ),
-            ),
-            Positioned(
-              left: left,
-              top: top,
-              child: Material(
-                color: Colors.transparent,
-                child: FilledButton.tonalIcon(
-                  onPressed: () {
-                    _hideCopyOverlay();
-                    copyValue(value: widget.copyText ?? widget.text);
-                  },
-                  icon: const Icon(Icons.copy_outlined, size: 16),
-                  label: const Text('复制'),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                  ),
+    _activeCopyOverlay = OverlayEntry(
+      builder: (overlayContext) => _CopyOverlay(
+        left: left,
+        top: top,
+        onDismiss: _hideActiveCopyOverlay,
+        onCopy: () {
+          _hideActiveCopyOverlay();
+          copyValue(value: widget.copyText ?? widget.text);
+        },
+      ),
+    );
+    overlay.insert(_activeCopyOverlay!);
+  }
+}
+
+class _CopyOverlay extends StatelessWidget {
+  const _CopyOverlay({
+    required this.left,
+    required this.top,
+    required this.onDismiss,
+    required this.onCopy,
+  });
+
+  final double left;
+  final double top;
+  final VoidCallback onDismiss;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => onDismiss(),
+            child: const SizedBox.expand(),
+          ),
+        ),
+        Positioned(
+          left: left,
+          top: top,
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (_) {},
+            child: Material(
+              color: Colors.transparent,
+              child: FilledButton.tonalIcon(
+                onPressed: onCopy,
+                icon: const Icon(Icons.copy_outlined, size: 16),
+                label: const Text('复制'),
+                style: FilledButton.styleFrom(
+                  fixedSize: const Size(82, 42),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
-    overlay.insert(_copyOverlay!);
   }
+}
 
-  void _hideCopyOverlay() {
-    _copyOverlay?.remove();
-    _copyOverlay = null;
-  }
+void _hideActiveCopyOverlay() {
+  _activeCopyOverlay?.remove();
+  _activeCopyOverlay = null;
 }
 
 Future<void> copyValue({required String value}) async {
