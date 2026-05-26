@@ -86,8 +86,6 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 bilyhurington/Seichi-Junrei-Helper/1.0.0 (https://github.com/bilyhurington/Seichi-Junrei-Helper)
 ```
 
-公开仓库时建议不要提交个人 Bangumi API Token。更稳妥的方式是使用构建参数、用户设置或专门为应用创建的低权限 Token。
-
 ## 文档
 
 - [使用指南](docs/USAGE.md)
