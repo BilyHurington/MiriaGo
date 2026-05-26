@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../plan_transfer/plan_package.dart';
+import '../plan_transfer/plan_package_file_stub.dart'
+    if (dart.library.io) '../plan_transfer/plan_package_file_io.dart';
+import '../widgets/snackbar_helper.dart';
 import 'pilgrimage_models.dart';
 
 class PlanManagerScreen extends StatefulWidget {
@@ -108,6 +113,40 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     await _loadPlans();
   }
 
+  Future<void> _exportPlan(PilgrimagePlan plan) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showReplacingSnackBar(
+      SnackBar(content: Text('正在导出「${plan.name}」...')),
+    );
+
+    try {
+      final records = await widget.repository.loadVisitRecords(plan.id);
+      final path = await exportPlanPackageToFile(
+        PlanPackage(plan: plan, visitRecords: records),
+      );
+      if (path == null) {
+        messenger.showReplacingSnackBar(
+          const SnackBar(content: Text('当前平台暂不支持导出计划文件')),
+        );
+        return;
+      }
+
+      await Share.shareXFiles(
+        [
+          XFile(
+            path,
+            mimeType: seichiPlanMimeType,
+            name: '${plan.name}.$seichiPlanFileExtension',
+          ),
+        ],
+        subject: plan.name,
+        text: '圣地巡礼助手计划：${plan.name}',
+      );
+    } catch (_) {
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('计划导出失败')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final plans = _plans;
@@ -138,6 +177,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                 canDelete: plans.length > 1 && plan.id != _activePlan?.id,
                 onSwitch: () => _switchPlan(plan),
                 onRename: () => _renamePlan(plan),
+                onExport: () => _exportPlan(plan),
                 onDelete: () => _deletePlan(plan),
               );
             },
@@ -172,6 +212,7 @@ class _PlanCard extends StatelessWidget {
     required this.canDelete,
     required this.onSwitch,
     required this.onRename,
+    required this.onExport,
     required this.onDelete,
   });
 
@@ -180,6 +221,7 @@ class _PlanCard extends StatelessWidget {
   final bool canDelete;
   final VoidCallback onSwitch;
   final VoidCallback onRename;
+  final VoidCallback onExport;
   final VoidCallback onDelete;
 
   @override
@@ -199,15 +241,28 @@ class _PlanCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            plan.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  plan.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _CompactPlanButton(
+                tooltip: '导出计划',
+                onPressed: onExport,
+                icon: const Icon(Icons.ios_share_outlined, size: 22),
+              ),
+            ],
           ),
           const SizedBox(height: 5),
           Text(
