@@ -1,7 +1,22 @@
 import 'dart:math';
 
+enum ColorMatchMode {
+  natural,
+  standard,
+  strong;
+
+  String get label {
+    return switch (this) {
+      ColorMatchMode.natural => '自然',
+      ColorMatchMode.standard => '标准',
+      ColorMatchMode.strong => '强匹配',
+    };
+  }
+}
+
 class ColorGradingParams {
   const ColorGradingParams({
+    this.brightness = 0,
     this.exposure = 0,
     this.contrast = 1,
     this.saturation = 1,
@@ -9,6 +24,7 @@ class ColorGradingParams {
     this.tint = 0,
   });
 
+  final double brightness;
   final double exposure;
   final double contrast;
   final double saturation;
@@ -18,6 +34,7 @@ class ColorGradingParams {
   static const defaults = ColorGradingParams();
 
   ColorGradingParams copyWith({
+    double? brightness,
     double? exposure,
     double? contrast,
     double? saturation,
@@ -25,6 +42,7 @@ class ColorGradingParams {
     double? tint,
   }) {
     return ColorGradingParams(
+      brightness: brightness ?? this.brightness,
       exposure: exposure ?? this.exposure,
       contrast: contrast ?? this.contrast,
       saturation: saturation ?? this.saturation,
@@ -35,6 +53,7 @@ class ColorGradingParams {
 
   ColorGradingParams clamped() {
     return ColorGradingParams(
+      brightness: brightness.clamp(-0.25, 0.25),
       exposure: exposure.clamp(-1.0, 1.0),
       contrast: contrast.clamp(0.7, 1.4),
       saturation: saturation.clamp(0.5, 1.6),
@@ -51,6 +70,7 @@ class ColorGradingParams {
     final amount = t.clamp(0.0, 1.0);
     double mix(double x, double y) => x + (y - x) * amount;
     return ColorGradingParams(
+      brightness: mix(a.brightness, b.brightness),
       exposure: mix(a.exposure, b.exposure),
       contrast: mix(a.contrast, b.contrast),
       saturation: mix(a.saturation, b.saturation),
@@ -61,6 +81,7 @@ class ColorGradingParams {
 
   Map<String, Object?> toJson() {
     return {
+      'brightness': brightness,
       'exposure': exposure,
       'contrast': contrast,
       'saturation': saturation,
@@ -75,6 +96,7 @@ class ColorGradingParams {
     }
 
     return ColorGradingParams(
+      brightness: value('brightness', 0),
       exposure: value('exposure', 0),
       contrast: value('contrast', 1),
       saturation: value('saturation', 1),
@@ -86,6 +108,7 @@ class ColorGradingParams {
   List<double> toColorMatrix() {
     final p = clamped();
     var matrix = _identityMatrix();
+    matrix = _multiplyMatrix(_brightnessMatrix(p.brightness), matrix);
     matrix = _multiplyMatrix(
       _exposureMatrix(pow(2.0, p.exposure).toDouble()),
       matrix,
@@ -102,6 +125,32 @@ class ColorGradingParams {
 
 List<double> _identityMatrix() {
   return const [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+}
+
+List<double> _brightnessMatrix(double brightness) {
+  final offset = brightness * 255;
+  return [
+    1,
+    0,
+    0,
+    0,
+    offset,
+    0,
+    1,
+    0,
+    0,
+    offset,
+    0,
+    0,
+    1,
+    0,
+    offset,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
 }
 
 List<double> _exposureMatrix(double scale) {

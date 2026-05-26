@@ -8,11 +8,13 @@ import 'color_grading_params.dart';
 class ColorMatchResult {
   const ColorMatchResult({
     required this.targetParams,
+    required this.mode,
     required this.beforeScore,
     required this.afterScore,
   });
 
   final ColorGradingParams targetParams;
+  final ColorMatchMode mode;
   final int beforeScore;
   final int afterScore;
 }
@@ -20,10 +22,12 @@ class ColorMatchResult {
 Future<ColorMatchResult?> autoMatchColorTone({
   required Uint8List capturedBytes,
   required Uint8List referenceBytes,
+  required ColorMatchMode mode,
 }) async {
   final result = await compute(_autoMatchWorker, {
     'capturedBytes': capturedBytes,
     'referenceBytes': referenceBytes,
+    'mode': mode.name,
   });
   if (result == null) {
     return null;
@@ -32,6 +36,10 @@ Future<ColorMatchResult?> autoMatchColorTone({
   return ColorMatchResult(
     targetParams: ColorGradingParams.fromJson(
       Map<String, Object?>.from(result['params']! as Map),
+    ),
+    mode: ColorMatchMode.values.firstWhere(
+      (candidate) => candidate.name == result['mode'],
+      orElse: () => ColorMatchMode.standard,
     ),
     beforeScore: result['beforeScore']! as int,
     afterScore: result['afterScore']! as int,
@@ -51,6 +59,11 @@ Future<Uint8List> renderGradedJpeg({
 Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
   final capturedBytes = input['capturedBytes']! as Uint8List;
   final referenceBytes = input['referenceBytes']! as Uint8List;
+  final mode = ColorMatchMode.values.firstWhere(
+    (candidate) => candidate.name == input['mode'],
+    orElse: () => ColorMatchMode.standard,
+  );
+  final config = _ModeConfig.forMode(mode);
   final captured = _decodePrepared(capturedBytes, maxLongSide: 256);
   final reference = _decodePrepared(referenceBytes, maxLongSide: 256);
   if (captured == null || reference == null) {
@@ -59,7 +72,11 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
 
   final referenceStats = _ImageStats.fromImage(reference);
   final capturedStats = _ImageStats.fromImage(captured);
-  var bestParams = _estimateInitialParams(referenceStats, capturedStats);
+  var bestParams = _estimateInitialParams(
+    referenceStats,
+    capturedStats,
+    config,
+  );
   var bestLoss = _colorLoss(
     referenceStats,
     _adjustedStats(captured, bestParams),
@@ -67,14 +84,15 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
   final beforeLoss = _colorLoss(referenceStats, capturedStats);
 
   final steps = <String, double>{
-    'exposure': 0.18,
-    'contrast': 0.10,
-    'saturation': 0.12,
-    'temperature': 0.18,
-    'tint': 0.14,
+    'brightness': 0.05 * config.stepScale,
+    'exposure': 0.18 * config.stepScale,
+    'contrast': 0.10 * config.stepScale,
+    'saturation': 0.12 * config.stepScale,
+    'temperature': 0.18 * config.stepScale,
+    'tint': 0.14 * config.stepScale,
   };
 
-  for (var round = 0; round < 5; round += 1) {
+  for (var round = 0; round < config.rounds; round += 1) {
     var improved = false;
     for (final key in steps.keys) {
       for (final direction in const [-1.0, 1.0]) {
@@ -101,6 +119,7 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
 
   return {
     'params': bestParams.toJson(),
+    'mode': mode.name,
     'beforeScore': _scoreFromLoss(beforeLoss),
     'afterScore': _scoreFromLoss(bestLoss),
   };
@@ -145,24 +164,29 @@ img.Image? _decodePrepared(Uint8List bytes, {required int maxLongSide}) {
 ColorGradingParams _estimateInitialParams(
   _ImageStats reference,
   _ImageStats captured,
+  _ModeConfig config,
 ) {
   const epsilon = 0.0001;
   return ColorGradingParams(
+    brightness: ((reference.meanLuma - captured.meanLuma) * 0.5).clamp(
+      -config.maxBrightness,
+      config.maxBrightness,
+    ),
     exposure:
         (log((reference.meanLuma + epsilon) / (captured.meanLuma + epsilon)) /
                 ln2)
-            .clamp(-0.8, 0.8),
+            .clamp(-config.maxExposure, config.maxExposure),
     contrast: (reference.stdLuma / (captured.stdLuma + epsilon)).clamp(
-      0.75,
-      1.35,
+      config.minContrast,
+      config.maxContrast,
     ),
     saturation: (reference.meanSaturation / (captured.meanSaturation + epsilon))
-        .clamp(0.65, 1.45),
+        .clamp(config.minSaturation, config.maxSaturation),
     temperature: ((reference.redBlueBalance - captured.redBlueBalance) * 3.0)
-        .clamp(-1.0, 1.0),
+        .clamp(-config.maxColorBalance, config.maxColorBalance),
     tint: ((reference.greenBalance - captured.greenBalance) * 3.0).clamp(
-      -1.0,
-      1.0,
+      -config.maxColorBalance,
+      config.maxColorBalance,
     ),
   ).clamped();
 }
@@ -173,6 +197,7 @@ ColorGradingParams _shiftParam(
   double delta,
 ) {
   return switch (key) {
+    'brightness' => params.copyWith(brightness: params.brightness + delta),
     'exposure' => params.copyWith(exposure: params.exposure + delta),
     'contrast' => params.copyWith(contrast: params.contrast + delta),
     'saturation' => params.copyWith(saturation: params.saturation + delta),
@@ -209,7 +234,7 @@ int _scoreFromLoss(double loss) {
 void _applyColorGrading(img.Image image, ColorGradingParams params) {
   final p = params.clamped();
   final exposureMul = pow(2.0, p.exposure).toDouble();
-  final contrastOffset = 0.5 * (1 - p.contrast);
+  final contrastOffset = 0.5 * (1 - p.contrast) + p.brightness;
   final rBalance = 1 + 0.10 * p.temperature - 0.04 * p.tint;
   final gBalance = 1 + 0.08 * p.tint;
   final bBalance = 1 - 0.10 * p.temperature - 0.04 * p.tint;
@@ -240,6 +265,68 @@ void _applyColorGrading(img.Image image, ColorGradingParams params) {
       ..r = (r.clamp(0.0, 1.0) * 255).round()
       ..g = (g.clamp(0.0, 1.0) * 255).round()
       ..b = (b.clamp(0.0, 1.0) * 255).round();
+  }
+}
+
+class _ModeConfig {
+  const _ModeConfig({
+    required this.rounds,
+    required this.stepScale,
+    required this.maxBrightness,
+    required this.maxExposure,
+    required this.minContrast,
+    required this.maxContrast,
+    required this.minSaturation,
+    required this.maxSaturation,
+    required this.maxColorBalance,
+  });
+
+  final int rounds;
+  final double stepScale;
+  final double maxBrightness;
+  final double maxExposure;
+  final double minContrast;
+  final double maxContrast;
+  final double minSaturation;
+  final double maxSaturation;
+  final double maxColorBalance;
+
+  static _ModeConfig forMode(ColorMatchMode mode) {
+    return switch (mode) {
+      ColorMatchMode.natural => const _ModeConfig(
+        rounds: 4,
+        stepScale: 0.7,
+        maxBrightness: 0.10,
+        maxExposure: 0.45,
+        minContrast: 0.85,
+        maxContrast: 1.20,
+        minSaturation: 0.80,
+        maxSaturation: 1.25,
+        maxColorBalance: 0.55,
+      ),
+      ColorMatchMode.standard => const _ModeConfig(
+        rounds: 5,
+        stepScale: 1.0,
+        maxBrightness: 0.16,
+        maxExposure: 0.80,
+        minContrast: 0.75,
+        maxContrast: 1.35,
+        minSaturation: 0.65,
+        maxSaturation: 1.45,
+        maxColorBalance: 1.0,
+      ),
+      ColorMatchMode.strong => const _ModeConfig(
+        rounds: 7,
+        stepScale: 1.35,
+        maxBrightness: 0.24,
+        maxExposure: 1.0,
+        minContrast: 0.70,
+        maxContrast: 1.40,
+        minSaturation: 0.50,
+        maxSaturation: 1.60,
+        maxColorBalance: 1.0,
+      ),
+    };
   }
 }
 

@@ -57,6 +57,11 @@ class VisitRecords extends Table {
   TextColumn get pointId => text()();
   TextColumn get workId => text()();
   TextColumn get photoPath => text()();
+  TextColumn get originalPhotoPath => text().nullable()();
+  TextColumn get gradedPhotoPath => text().nullable()();
+  TextColumn get colorGradingMode => text().nullable()();
+  TextColumn get colorGradingParamsJson => text().nullable()();
+  RealColumn get colorGradingIntensity => real().nullable()();
   TextColumn get referenceImagePath => text().nullable()();
   TextColumn get referenceImageUrl => text().nullable()();
   TextColumn get referenceMode => text()();
@@ -83,7 +88,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +116,19 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           appSettingsEntries,
           appSettingsEntries.cameraMaxZoom,
+        );
+      }
+      if (from < 7) {
+        await migrator.addColumn(visitRecords, visitRecords.originalPhotoPath);
+        await migrator.addColumn(visitRecords, visitRecords.gradedPhotoPath);
+        await migrator.addColumn(visitRecords, visitRecords.colorGradingMode);
+        await migrator.addColumn(
+          visitRecords,
+          visitRecords.colorGradingParamsJson,
+        );
+        await migrator.addColumn(
+          visitRecords,
+          visitRecords.colorGradingIntensity,
         );
       }
     },

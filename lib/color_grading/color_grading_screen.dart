@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -5,72 +6,94 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../app_theme.dart';
-import '../widgets/image_viewer_screen.dart';
+import '../plan/pilgrimage_models.dart';
+import '../plan/pilgrimage_plan_controller.dart';
 import '../widgets/snackbar_helper.dart';
 import 'color_adjustment.dart';
 import 'color_grading_params.dart';
 import 'graded_photo_storage_stub.dart'
     if (dart.library.io) 'graded_photo_storage_io.dart';
 
-enum _PreviewTab { reference, original, adjusted, compare }
-
 class ColorGradingScreen extends StatefulWidget {
   const ColorGradingScreen({
-    required this.recordId,
-    required this.capturedPath,
-    this.referenceImagePath,
-    this.referenceImageUrl,
+    required this.record,
+    required this.controller,
     super.key,
   });
 
-  final String recordId;
-  final String capturedPath;
-  final String? referenceImagePath;
-  final String? referenceImageUrl;
+  final PilgrimageVisitRecord record;
+  final PilgrimagePlanController controller;
 
   @override
   State<ColorGradingScreen> createState() => _ColorGradingScreenState();
 }
 
 class _ColorGradingScreenState extends State<ColorGradingScreen> {
-  var _tab = _PreviewTab.adjusted;
   var _loading = true;
   var _matching = false;
   var _saving = false;
+  var _showOriginal = false;
   var _intensity = 1.0;
+  var _selectedMode = ColorMatchMode.standard;
   Uint8List? _capturedBytes;
   Uint8List? _referenceBytes;
-  ColorMatchResult? _matchResult;
+  ColorGradingParams? _targetParams;
+  int? _beforeScore;
+  int? _afterScore;
   Object? _loadError;
+
+  PilgrimageVisitRecord get _record => widget.record;
 
   ColorGradingParams get _activeParams {
     return ColorGradingParams.lerp(
       ColorGradingParams.defaults,
-      _matchResult?.targetParams ?? ColorGradingParams.defaults,
+      _targetParams ?? ColorGradingParams.defaults,
       _intensity,
     );
   }
 
   int? get _currentToneScore {
-    final result = _matchResult;
-    if (result == null) {
+    final before = _beforeScore;
+    final after = _afterScore;
+    if (before == null || after == null) {
       return null;
     }
-    return (result.beforeScore +
-            (result.afterScore - result.beforeScore) * _intensity)
-        .round()
-        .clamp(0, 100);
+    return (before + (after - before) * _intensity).round().clamp(0, 100);
   }
 
   @override
   void initState() {
     super.initState();
+    _restoreSavedGrading();
     _loadImages();
+  }
+
+  void _restoreSavedGrading() {
+    final savedMode = _record.colorGradingMode;
+    if (savedMode != null) {
+      _selectedMode = ColorMatchMode.values.firstWhere(
+        (mode) => mode.name == savedMode,
+        orElse: () => ColorMatchMode.standard,
+      );
+    }
+
+    _intensity = (_record.colorGradingIntensity ?? 1).clamp(0.0, 1.0);
+    final paramsJson = _record.colorGradingParamsJson;
+    if (paramsJson == null || paramsJson.isEmpty) {
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(paramsJson);
+      if (decoded is Map<String, Object?>) {
+        _targetParams = ColorGradingParams.fromJson(decoded);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadImages() async {
     try {
-      final capturedBytes = await File(widget.capturedPath).readAsBytes();
+      final capturedBytes = await File(_record.sourcePhotoPath).readAsBytes();
       final referenceBytes = await _loadReferenceBytes();
       if (!mounted) {
         return;
@@ -94,7 +117,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   }
 
   Future<Uint8List?> _loadReferenceBytes() async {
-    final path = widget.referenceImagePath;
+    final path = _record.referenceImagePath;
     if (path != null) {
       final file = File(path);
       if (file.existsSync()) {
@@ -102,7 +125,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       }
     }
 
-    final url = widget.referenceImageUrl;
+    final url = _record.referenceImageUrl;
     if (url == null || url.isEmpty) {
       return null;
     }
@@ -136,6 +159,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     final result = await autoMatchColorTone(
       capturedBytes: captured,
       referenceBytes: reference,
+      mode: _selectedMode,
     );
     if (!mounted) {
       return;
@@ -144,9 +168,11 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     setState(() {
       _matching = false;
       if (result != null) {
-        _matchResult = result;
+        _targetParams = result.targetParams;
+        _selectedMode = result.mode;
+        _beforeScore = result.beforeScore;
+        _afterScore = result.afterScore;
         _intensity = 1.0;
-        _tab = _PreviewTab.adjusted;
       }
     });
 
@@ -157,11 +183,12 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
 
   Future<void> _save() async {
     final captured = _capturedBytes;
+    final targetParams = _targetParams;
     final messenger = ScaffoldMessenger.of(context);
     if (captured == null || _saving) {
       return;
     }
-    if (_matchResult == null) {
+    if (targetParams == null) {
       messenger.showReplacingSnackBar(
         const SnackBar(content: Text('请先自动匹配色调')),
       );
@@ -173,22 +200,40 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       imageBytes: captured,
       params: _activeParams,
     );
-    final path = await saveGradedPhoto(bytes: bytes, recordId: widget.recordId);
+    final path = await saveGradedPhoto(bytes: bytes, recordId: _record.id);
+    if (path == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _saving = false);
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('保存失败')));
+      return;
+    }
+
+    final updated = await widget.controller.updateVisitRecordColorGrading(
+      record: _record,
+      originalPhotoPath: _record.sourcePhotoPath,
+      gradedPhotoPath: path,
+      colorGradingMode: _selectedMode.name,
+      colorGradingParamsJson: jsonEncode(targetParams.toJson()),
+      colorGradingIntensity: _intensity,
+    );
     if (!mounted) {
       return;
     }
 
     setState(() => _saving = false);
-    messenger.showReplacingSnackBar(
-      SnackBar(content: Text(path != null ? '已保存调色副本' : '保存失败')),
-    );
+    messenger.showReplacingSnackBar(const SnackBar(content: Text('已保存调色结果')));
+    Navigator.of(context).pop(updated);
   }
 
   void _reset() {
     setState(() {
-      _matchResult = null;
+      _targetParams = null;
+      _beforeScore = null;
+      _afterScore = null;
       _intensity = 1.0;
-      _tab = _PreviewTab.adjusted;
+      _showOriginal = false;
     });
   }
 
@@ -215,30 +260,39 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        _PreviewTabBar(
-          tab: _tab,
-          hasReference: _referenceBytes != null,
-          onChanged: (tab) => setState(() => _tab = tab),
+        _StackedPreview(
+          referenceBytes: _referenceBytes,
+          capturedBytes: _capturedBytes!,
+          activeParams: _activeParams,
+          showOriginal: _showOriginal || _targetParams == null,
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: (MediaQuery.sizeOf(context).height * 0.42).clamp(300, 430),
-          child: _PreviewSurface(
-            tab: _tab,
-            referenceBytes: _referenceBytes,
-            capturedBytes: _capturedBytes!,
-            activeParams: _activeParams,
-            onOpenReference: _referenceBytes == null
-                ? null
-                : () => ImageViewerScreen.show(context, bytes: _referenceBytes),
-            onOpenCaptured: () =>
-                ImageViewerScreen.show(context, filePath: widget.capturedPath),
-          ),
+        const SizedBox(height: 12),
+        _OriginalHoldButton(
+          enabled: _targetParams != null,
+          showOriginal: _showOriginal,
+          onChanged: (showOriginal) {
+            setState(() => _showOriginal = showOriginal);
+          },
+        ),
+        const SizedBox(height: 12),
+        _ModeSelector(
+          selectedMode: _selectedMode,
+          onChanged: (mode) {
+            setState(() {
+              _selectedMode = mode;
+              _targetParams = null;
+              _beforeScore = null;
+              _afterScore = null;
+              _intensity = 1.0;
+            });
+          },
         ),
         const SizedBox(height: 12),
         _ScorePanel(
-          matchResult: _matchResult,
+          hasSavedParams: _targetParams != null,
+          beforeScore: _beforeScore,
           currentToneScore: _currentToneScore,
+          afterScore: _afterScore,
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -255,7 +309,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
               : const Icon(Icons.auto_fix_high_outlined, size: 18),
           label: Text(_matching ? '匹配中...' : '自动匹配色调'),
         ),
-        if (_matchResult != null) ...[
+        if (_targetParams != null) ...[
           const SizedBox(height: 12),
           _IntensityControl(
             value: _intensity,
@@ -263,243 +317,216 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
           ),
         ],
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save_outlined, size: 18),
-          label: Text(_saving ? '保存中...' : '保存调色副本'),
-        ),
+        _SavePanel(saving: _saving, onSave: _save),
       ],
     );
   }
 }
 
-class _PreviewSurface extends StatelessWidget {
-  const _PreviewSurface({
-    required this.tab,
+class _StackedPreview extends StatelessWidget {
+  const _StackedPreview({
     required this.referenceBytes,
     required this.capturedBytes,
     required this.activeParams,
-    required this.onOpenReference,
-    required this.onOpenCaptured,
+    required this.showOriginal,
   });
 
-  final _PreviewTab tab;
   final Uint8List? referenceBytes;
   final Uint8List capturedBytes;
   final ColorGradingParams activeParams;
-  final VoidCallback? onOpenReference;
-  final VoidCallback onOpenCaptured;
+  final bool showOriginal;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: switch (tab) {
-        _PreviewTab.reference => _referencePreview(),
-        _PreviewTab.original => _imageButton(
-          onTap: onOpenCaptured,
-          child: _capturedImage(),
-        ),
-        _PreviewTab.adjusted => _imageButton(
-          onTap: onOpenCaptured,
-          child: _adjustedImage(),
-        ),
-        _PreviewTab.compare => _comparePreview(),
-      },
-    );
-  }
-
-  Widget _referencePreview() {
-    final bytes = referenceBytes;
-    if (bytes == null) {
-      return const Center(child: Text('没有参考图'));
-    }
-    return _imageButton(
-      onTap: onOpenReference,
-      child: Image.memory(bytes, fit: BoxFit.contain),
-    );
-  }
-
-  Widget _comparePreview() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 520;
-        final children = [
-          Expanded(
-            child: _ComparePane(label: '原图', child: _capturedImage()),
+      child: Column(
+        children: [
+          _PreviewPane(
+            label: '参考图',
+            child: referenceBytes == null
+                ? const Center(child: Text('没有参考图'))
+                : Image.memory(referenceBytes!, fit: BoxFit.contain),
           ),
-          const SizedBox(width: 1, height: 1),
-          Expanded(
-            child: _ComparePane(label: '调色后', child: _adjustedImage()),
+          const SizedBox(height: 8),
+          _PreviewPane(
+            label: showOriginal ? '原图' : '调色后',
+            child: showOriginal
+                ? Image.memory(capturedBytes, fit: BoxFit.contain)
+                : ColorFiltered(
+                    colorFilter: ColorFilter.matrix(
+                      activeParams.toColorMatrix(),
+                    ),
+                    child: Image.memory(capturedBytes, fit: BoxFit.contain),
+                  ),
           ),
-        ];
-        if (isWide) {
-          return Row(children: children);
-        }
-        return Column(children: children);
-      },
-    );
-  }
-
-  Widget _capturedImage() {
-    return Image.memory(capturedBytes, fit: BoxFit.contain);
-  }
-
-  Widget _adjustedImage() {
-    return ColorFiltered(
-      colorFilter: ColorFilter.matrix(activeParams.toColorMatrix()),
-      child: Image.memory(capturedBytes, fit: BoxFit.contain),
-    );
-  }
-
-  Widget _imageButton({required Widget child, VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Center(child: child),
+        ],
+      ),
     );
   }
 }
 
-class _ComparePane extends StatelessWidget {
-  const _ComparePane({required this.label, required this.child});
+class _PreviewPane extends StatelessWidget {
+  const _PreviewPane({required this.label, required this.child});
 
   final String label;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Center(child: child),
-        Positioned(
-          left: 8,
-          top: 8,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: ColoredBox(
+          color: AppColors.surfaceMuted,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(child: child),
+              Positioned(
+                left: 8,
+                top: 8,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _PreviewTabBar extends StatelessWidget {
-  const _PreviewTabBar({
-    required this.tab,
-    required this.hasReference,
+class _OriginalHoldButton extends StatelessWidget {
+  const _OriginalHoldButton({
+    required this.enabled,
+    required this.showOriginal,
     required this.onChanged,
   });
 
-  final _PreviewTab tab;
-  final bool hasReference;
-  final ValueChanged<_PreviewTab> onChanged;
+  final bool enabled;
+  final bool showOriginal;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _TabChip(
-          label: '参考',
-          selected: tab == _PreviewTab.reference,
-          enabled: hasReference,
-          onTap: () => onChanged(_PreviewTab.reference),
-        ),
-        _TabChip(
-          label: '原图',
-          selected: tab == _PreviewTab.original,
-          onTap: () => onChanged(_PreviewTab.original),
-        ),
-        _TabChip(
-          label: '调色后',
-          selected: tab == _PreviewTab.adjusted,
-          onTap: () => onChanged(_PreviewTab.adjusted),
-        ),
-        _TabChip(
-          label: '对比',
-          selected: tab == _PreviewTab.compare,
-          onTap: () => onChanged(_PreviewTab.compare),
-        ),
-      ],
+    return Listener(
+      onPointerDown: enabled ? (_) => onChanged(true) : null,
+      onPointerUp: enabled ? (_) => onChanged(false) : null,
+      onPointerCancel: enabled ? (_) => onChanged(false) : null,
+      child: OutlinedButton.icon(
+        onPressed: enabled ? () {} : null,
+        icon: Icon(showOriginal ? Icons.visibility : Icons.visibility_outlined),
+        label: Text(showOriginal ? '正在显示原图' : '按住显示原图'),
+      ),
     );
   }
 }
 
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.enabled = true,
-  });
+class _ModeSelector extends StatelessWidget {
+  const _ModeSelector({required this.selectedMode, required this.onChanged});
 
-  final String label;
-  final bool selected;
-  final bool enabled;
-  final VoidCallback onTap;
+  final ColorMatchMode selectedMode;
+  final ValueChanged<ColorMatchMode> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: enabled ? (_) => onTap() : null,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.textPrimary,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
       ),
-      selectedColor: AppColors.accent,
-      backgroundColor: AppColors.surface,
-      disabledColor: AppColors.surfaceMuted,
-      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '匹配模式',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final mode in ColorMatchMode.values)
+                ChoiceChip(
+                  label: Text(mode.label),
+                  selected: selectedMode == mode,
+                  showCheckmark: false,
+                  onSelected: (_) => onChanged(mode),
+                  selectedColor: AppColors.accent,
+                  backgroundColor: AppColors.surface,
+                  side: BorderSide(
+                    color: selectedMode == mode
+                        ? AppColors.accent
+                        : AppColors.border,
+                  ),
+                  labelStyle: TextStyle(
+                    color: selectedMode == mode
+                        ? Colors.white
+                        : AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _ScorePanel extends StatelessWidget {
   const _ScorePanel({
-    required this.matchResult,
+    required this.hasSavedParams,
+    required this.beforeScore,
     required this.currentToneScore,
+    required this.afterScore,
   });
 
-  final ColorMatchResult? matchResult;
+  final bool hasSavedParams;
+  final int? beforeScore;
   final int? currentToneScore;
+  final int? afterScore;
 
   @override
   Widget build(BuildContext context) {
-    final result = matchResult;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -507,15 +534,18 @@ class _ScorePanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: result == null
-          ? const Row(
+      child: beforeScore == null || afterScore == null
+          ? Row(
               children: [
-                Icon(Icons.auto_fix_high_outlined, color: AppColors.accent),
-                SizedBox(width: 8),
+                const Icon(
+                  Icons.auto_fix_high_outlined,
+                  color: AppColors.accent,
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '自动匹配后可用强度滑块实时预览',
-                    style: TextStyle(
+                    hasSavedParams ? '已恢复上次调色参数' : '自动匹配后可保存调色结果',
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -539,7 +569,7 @@ class _ScorePanel extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _ScoreValue(label: '原图', score: result.beforeScore),
+                    _ScoreValue(label: '原图', score: beforeScore!),
                     const Icon(
                       Icons.arrow_forward,
                       size: 18,
@@ -551,7 +581,7 @@ class _ScorePanel extends StatelessWidget {
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
-                    _ScoreValue(label: '100%', score: result.afterScore),
+                    _ScoreValue(label: '100%', score: afterScore!),
                   ],
                 ),
               ],
@@ -642,6 +672,62 @@ class _IntensityControl extends StatelessWidget {
             max: 1,
             divisions: 100,
             onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavePanel extends StatelessWidget {
+  const _SavePanel({required this.saving, required this.onSave});
+
+  final bool saving;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '保存结果',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '保存后记录详情和导出会使用调色后的图片，原图和调色参数会保留。',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: saving ? null : onSave,
+            icon: saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.save_outlined, size: 18),
+            label: Text(saving ? '保存中...' : '保存调色结果'),
           ),
         ],
       ),

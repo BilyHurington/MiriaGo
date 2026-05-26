@@ -180,6 +180,41 @@ void main() {
     expect(records.single.referenceMode, '叠影');
   });
 
+  test('persists color grading metadata for visit records', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+
+    final record = await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: '/tmp/original.jpg',
+      referenceMode: '叠影',
+    );
+
+    await repository.updateVisitRecordColorGrading(
+      planId: plan.id,
+      recordId: record.id,
+      originalPhotoPath: '/tmp/original.jpg',
+      gradedPhotoPath: '/tmp/graded.jpg',
+      colorGradingMode: 'strong',
+      colorGradingParamsJson: '{"exposure":0.2}',
+      colorGradingIntensity: 0.7,
+    );
+
+    final records = await repository.loadVisitRecords(plan.id);
+
+    expect(records.single.sourcePhotoPath, '/tmp/original.jpg');
+    expect(records.single.displayPhotoPath, '/tmp/graded.jpg');
+    expect(records.single.colorGradingMode, 'strong');
+    expect(records.single.colorGradingParamsJson, '{"exposure":0.2}');
+    expect(records.single.colorGradingIntensity, 0.7);
+  });
+
   test('deletes visit records without changing point completion', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);

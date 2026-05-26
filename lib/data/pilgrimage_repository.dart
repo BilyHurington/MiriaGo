@@ -101,6 +101,16 @@ abstract interface class PilgrimageRepository {
     required String referenceMode,
   });
 
+  Future<PilgrimageVisitRecord> updateVisitRecordColorGrading({
+    required String planId,
+    required String recordId,
+    required String originalPhotoPath,
+    required String gradedPhotoPath,
+    required String colorGradingMode,
+    required String colorGradingParamsJson,
+    required double colorGradingIntensity,
+  });
+
   Future<void> deleteVisitRecord({
     required String planId,
     required String recordId,

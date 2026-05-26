@@ -1966,6 +1966,62 @@ class $VisitRecordsTable extends VisitRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _originalPhotoPathMeta = const VerificationMeta(
+    'originalPhotoPath',
+  );
+  @override
+  late final GeneratedColumn<String> originalPhotoPath =
+      GeneratedColumn<String>(
+        'original_photo_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _gradedPhotoPathMeta = const VerificationMeta(
+    'gradedPhotoPath',
+  );
+  @override
+  late final GeneratedColumn<String> gradedPhotoPath = GeneratedColumn<String>(
+    'graded_photo_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorGradingModeMeta = const VerificationMeta(
+    'colorGradingMode',
+  );
+  @override
+  late final GeneratedColumn<String> colorGradingMode = GeneratedColumn<String>(
+    'color_grading_mode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorGradingParamsJsonMeta =
+      const VerificationMeta('colorGradingParamsJson');
+  @override
+  late final GeneratedColumn<String> colorGradingParamsJson =
+      GeneratedColumn<String>(
+        'color_grading_params_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _colorGradingIntensityMeta =
+      const VerificationMeta('colorGradingIntensity');
+  @override
+  late final GeneratedColumn<double> colorGradingIntensity =
+      GeneratedColumn<double>(
+        'color_grading_intensity',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _referenceImagePathMeta =
       const VerificationMeta('referenceImagePath');
   @override
@@ -2018,6 +2074,11 @@ class $VisitRecordsTable extends VisitRecords
     pointId,
     workId,
     photoPath,
+    originalPhotoPath,
+    gradedPhotoPath,
+    colorGradingMode,
+    colorGradingParamsJson,
+    colorGradingIntensity,
     referenceImagePath,
     referenceImageUrl,
     referenceMode,
@@ -2071,6 +2132,51 @@ class $VisitRecordsTable extends VisitRecords
       );
     } else if (isInserting) {
       context.missing(_photoPathMeta);
+    }
+    if (data.containsKey('original_photo_path')) {
+      context.handle(
+        _originalPhotoPathMeta,
+        originalPhotoPath.isAcceptableOrUnknown(
+          data['original_photo_path']!,
+          _originalPhotoPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('graded_photo_path')) {
+      context.handle(
+        _gradedPhotoPathMeta,
+        gradedPhotoPath.isAcceptableOrUnknown(
+          data['graded_photo_path']!,
+          _gradedPhotoPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_grading_mode')) {
+      context.handle(
+        _colorGradingModeMeta,
+        colorGradingMode.isAcceptableOrUnknown(
+          data['color_grading_mode']!,
+          _colorGradingModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_grading_params_json')) {
+      context.handle(
+        _colorGradingParamsJsonMeta,
+        colorGradingParamsJson.isAcceptableOrUnknown(
+          data['color_grading_params_json']!,
+          _colorGradingParamsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_grading_intensity')) {
+      context.handle(
+        _colorGradingIntensityMeta,
+        colorGradingIntensity.isAcceptableOrUnknown(
+          data['color_grading_intensity']!,
+          _colorGradingIntensityMeta,
+        ),
+      );
     }
     if (data.containsKey('reference_image_path')) {
       context.handle(
@@ -2138,6 +2244,26 @@ class $VisitRecordsTable extends VisitRecords
         DriftSqlType.string,
         data['${effectivePrefix}photo_path'],
       )!,
+      originalPhotoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_photo_path'],
+      ),
+      gradedPhotoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}graded_photo_path'],
+      ),
+      colorGradingMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_grading_mode'],
+      ),
+      colorGradingParamsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_grading_params_json'],
+      ),
+      colorGradingIntensity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}color_grading_intensity'],
+      ),
       referenceImagePath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}reference_image_path'],
@@ -2169,6 +2295,11 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
   final String pointId;
   final String workId;
   final String photoPath;
+  final String? originalPhotoPath;
+  final String? gradedPhotoPath;
+  final String? colorGradingMode;
+  final String? colorGradingParamsJson;
+  final double? colorGradingIntensity;
   final String? referenceImagePath;
   final String? referenceImageUrl;
   final String referenceMode;
@@ -2179,6 +2310,11 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     required this.pointId,
     required this.workId,
     required this.photoPath,
+    this.originalPhotoPath,
+    this.gradedPhotoPath,
+    this.colorGradingMode,
+    this.colorGradingParamsJson,
+    this.colorGradingIntensity,
     this.referenceImagePath,
     this.referenceImageUrl,
     required this.referenceMode,
@@ -2192,6 +2328,23 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     map['point_id'] = Variable<String>(pointId);
     map['work_id'] = Variable<String>(workId);
     map['photo_path'] = Variable<String>(photoPath);
+    if (!nullToAbsent || originalPhotoPath != null) {
+      map['original_photo_path'] = Variable<String>(originalPhotoPath);
+    }
+    if (!nullToAbsent || gradedPhotoPath != null) {
+      map['graded_photo_path'] = Variable<String>(gradedPhotoPath);
+    }
+    if (!nullToAbsent || colorGradingMode != null) {
+      map['color_grading_mode'] = Variable<String>(colorGradingMode);
+    }
+    if (!nullToAbsent || colorGradingParamsJson != null) {
+      map['color_grading_params_json'] = Variable<String>(
+        colorGradingParamsJson,
+      );
+    }
+    if (!nullToAbsent || colorGradingIntensity != null) {
+      map['color_grading_intensity'] = Variable<double>(colorGradingIntensity);
+    }
     if (!nullToAbsent || referenceImagePath != null) {
       map['reference_image_path'] = Variable<String>(referenceImagePath);
     }
@@ -2210,6 +2363,21 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       pointId: Value(pointId),
       workId: Value(workId),
       photoPath: Value(photoPath),
+      originalPhotoPath: originalPhotoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalPhotoPath),
+      gradedPhotoPath: gradedPhotoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gradedPhotoPath),
+      colorGradingMode: colorGradingMode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorGradingMode),
+      colorGradingParamsJson: colorGradingParamsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorGradingParamsJson),
+      colorGradingIntensity: colorGradingIntensity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorGradingIntensity),
       referenceImagePath: referenceImagePath == null && nullToAbsent
           ? const Value.absent()
           : Value(referenceImagePath),
@@ -2232,6 +2400,17 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       pointId: serializer.fromJson<String>(json['pointId']),
       workId: serializer.fromJson<String>(json['workId']),
       photoPath: serializer.fromJson<String>(json['photoPath']),
+      originalPhotoPath: serializer.fromJson<String?>(
+        json['originalPhotoPath'],
+      ),
+      gradedPhotoPath: serializer.fromJson<String?>(json['gradedPhotoPath']),
+      colorGradingMode: serializer.fromJson<String?>(json['colorGradingMode']),
+      colorGradingParamsJson: serializer.fromJson<String?>(
+        json['colorGradingParamsJson'],
+      ),
+      colorGradingIntensity: serializer.fromJson<double?>(
+        json['colorGradingIntensity'],
+      ),
       referenceImagePath: serializer.fromJson<String?>(
         json['referenceImagePath'],
       ),
@@ -2251,6 +2430,15 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       'pointId': serializer.toJson<String>(pointId),
       'workId': serializer.toJson<String>(workId),
       'photoPath': serializer.toJson<String>(photoPath),
+      'originalPhotoPath': serializer.toJson<String?>(originalPhotoPath),
+      'gradedPhotoPath': serializer.toJson<String?>(gradedPhotoPath),
+      'colorGradingMode': serializer.toJson<String?>(colorGradingMode),
+      'colorGradingParamsJson': serializer.toJson<String?>(
+        colorGradingParamsJson,
+      ),
+      'colorGradingIntensity': serializer.toJson<double?>(
+        colorGradingIntensity,
+      ),
       'referenceImagePath': serializer.toJson<String?>(referenceImagePath),
       'referenceImageUrl': serializer.toJson<String?>(referenceImageUrl),
       'referenceMode': serializer.toJson<String>(referenceMode),
@@ -2264,6 +2452,11 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     String? pointId,
     String? workId,
     String? photoPath,
+    Value<String?> originalPhotoPath = const Value.absent(),
+    Value<String?> gradedPhotoPath = const Value.absent(),
+    Value<String?> colorGradingMode = const Value.absent(),
+    Value<String?> colorGradingParamsJson = const Value.absent(),
+    Value<double?> colorGradingIntensity = const Value.absent(),
     Value<String?> referenceImagePath = const Value.absent(),
     Value<String?> referenceImageUrl = const Value.absent(),
     String? referenceMode,
@@ -2274,6 +2467,21 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     pointId: pointId ?? this.pointId,
     workId: workId ?? this.workId,
     photoPath: photoPath ?? this.photoPath,
+    originalPhotoPath: originalPhotoPath.present
+        ? originalPhotoPath.value
+        : this.originalPhotoPath,
+    gradedPhotoPath: gradedPhotoPath.present
+        ? gradedPhotoPath.value
+        : this.gradedPhotoPath,
+    colorGradingMode: colorGradingMode.present
+        ? colorGradingMode.value
+        : this.colorGradingMode,
+    colorGradingParamsJson: colorGradingParamsJson.present
+        ? colorGradingParamsJson.value
+        : this.colorGradingParamsJson,
+    colorGradingIntensity: colorGradingIntensity.present
+        ? colorGradingIntensity.value
+        : this.colorGradingIntensity,
     referenceImagePath: referenceImagePath.present
         ? referenceImagePath.value
         : this.referenceImagePath,
@@ -2290,6 +2498,21 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       pointId: data.pointId.present ? data.pointId.value : this.pointId,
       workId: data.workId.present ? data.workId.value : this.workId,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
+      originalPhotoPath: data.originalPhotoPath.present
+          ? data.originalPhotoPath.value
+          : this.originalPhotoPath,
+      gradedPhotoPath: data.gradedPhotoPath.present
+          ? data.gradedPhotoPath.value
+          : this.gradedPhotoPath,
+      colorGradingMode: data.colorGradingMode.present
+          ? data.colorGradingMode.value
+          : this.colorGradingMode,
+      colorGradingParamsJson: data.colorGradingParamsJson.present
+          ? data.colorGradingParamsJson.value
+          : this.colorGradingParamsJson,
+      colorGradingIntensity: data.colorGradingIntensity.present
+          ? data.colorGradingIntensity.value
+          : this.colorGradingIntensity,
       referenceImagePath: data.referenceImagePath.present
           ? data.referenceImagePath.value
           : this.referenceImagePath,
@@ -2313,6 +2536,11 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
           ..write('pointId: $pointId, ')
           ..write('workId: $workId, ')
           ..write('photoPath: $photoPath, ')
+          ..write('originalPhotoPath: $originalPhotoPath, ')
+          ..write('gradedPhotoPath: $gradedPhotoPath, ')
+          ..write('colorGradingMode: $colorGradingMode, ')
+          ..write('colorGradingParamsJson: $colorGradingParamsJson, ')
+          ..write('colorGradingIntensity: $colorGradingIntensity, ')
           ..write('referenceImagePath: $referenceImagePath, ')
           ..write('referenceImageUrl: $referenceImageUrl, ')
           ..write('referenceMode: $referenceMode, ')
@@ -2328,6 +2556,11 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     pointId,
     workId,
     photoPath,
+    originalPhotoPath,
+    gradedPhotoPath,
+    colorGradingMode,
+    colorGradingParamsJson,
+    colorGradingIntensity,
     referenceImagePath,
     referenceImageUrl,
     referenceMode,
@@ -2342,6 +2575,11 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
           other.pointId == this.pointId &&
           other.workId == this.workId &&
           other.photoPath == this.photoPath &&
+          other.originalPhotoPath == this.originalPhotoPath &&
+          other.gradedPhotoPath == this.gradedPhotoPath &&
+          other.colorGradingMode == this.colorGradingMode &&
+          other.colorGradingParamsJson == this.colorGradingParamsJson &&
+          other.colorGradingIntensity == this.colorGradingIntensity &&
           other.referenceImagePath == this.referenceImagePath &&
           other.referenceImageUrl == this.referenceImageUrl &&
           other.referenceMode == this.referenceMode &&
@@ -2354,6 +2592,11 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
   final Value<String> pointId;
   final Value<String> workId;
   final Value<String> photoPath;
+  final Value<String?> originalPhotoPath;
+  final Value<String?> gradedPhotoPath;
+  final Value<String?> colorGradingMode;
+  final Value<String?> colorGradingParamsJson;
+  final Value<double?> colorGradingIntensity;
   final Value<String?> referenceImagePath;
   final Value<String?> referenceImageUrl;
   final Value<String> referenceMode;
@@ -2365,6 +2608,11 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     this.pointId = const Value.absent(),
     this.workId = const Value.absent(),
     this.photoPath = const Value.absent(),
+    this.originalPhotoPath = const Value.absent(),
+    this.gradedPhotoPath = const Value.absent(),
+    this.colorGradingMode = const Value.absent(),
+    this.colorGradingParamsJson = const Value.absent(),
+    this.colorGradingIntensity = const Value.absent(),
     this.referenceImagePath = const Value.absent(),
     this.referenceImageUrl = const Value.absent(),
     this.referenceMode = const Value.absent(),
@@ -2377,6 +2625,11 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     required String pointId,
     required String workId,
     required String photoPath,
+    this.originalPhotoPath = const Value.absent(),
+    this.gradedPhotoPath = const Value.absent(),
+    this.colorGradingMode = const Value.absent(),
+    this.colorGradingParamsJson = const Value.absent(),
+    this.colorGradingIntensity = const Value.absent(),
     this.referenceImagePath = const Value.absent(),
     this.referenceImageUrl = const Value.absent(),
     required String referenceMode,
@@ -2395,6 +2648,11 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     Expression<String>? pointId,
     Expression<String>? workId,
     Expression<String>? photoPath,
+    Expression<String>? originalPhotoPath,
+    Expression<String>? gradedPhotoPath,
+    Expression<String>? colorGradingMode,
+    Expression<String>? colorGradingParamsJson,
+    Expression<double>? colorGradingIntensity,
     Expression<String>? referenceImagePath,
     Expression<String>? referenceImageUrl,
     Expression<String>? referenceMode,
@@ -2407,6 +2665,13 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
       if (pointId != null) 'point_id': pointId,
       if (workId != null) 'work_id': workId,
       if (photoPath != null) 'photo_path': photoPath,
+      if (originalPhotoPath != null) 'original_photo_path': originalPhotoPath,
+      if (gradedPhotoPath != null) 'graded_photo_path': gradedPhotoPath,
+      if (colorGradingMode != null) 'color_grading_mode': colorGradingMode,
+      if (colorGradingParamsJson != null)
+        'color_grading_params_json': colorGradingParamsJson,
+      if (colorGradingIntensity != null)
+        'color_grading_intensity': colorGradingIntensity,
       if (referenceImagePath != null)
         'reference_image_path': referenceImagePath,
       if (referenceImageUrl != null) 'reference_image_url': referenceImageUrl,
@@ -2422,6 +2687,11 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     Value<String>? pointId,
     Value<String>? workId,
     Value<String>? photoPath,
+    Value<String?>? originalPhotoPath,
+    Value<String?>? gradedPhotoPath,
+    Value<String?>? colorGradingMode,
+    Value<String?>? colorGradingParamsJson,
+    Value<double?>? colorGradingIntensity,
     Value<String?>? referenceImagePath,
     Value<String?>? referenceImageUrl,
     Value<String>? referenceMode,
@@ -2434,6 +2704,13 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
       pointId: pointId ?? this.pointId,
       workId: workId ?? this.workId,
       photoPath: photoPath ?? this.photoPath,
+      originalPhotoPath: originalPhotoPath ?? this.originalPhotoPath,
+      gradedPhotoPath: gradedPhotoPath ?? this.gradedPhotoPath,
+      colorGradingMode: colorGradingMode ?? this.colorGradingMode,
+      colorGradingParamsJson:
+          colorGradingParamsJson ?? this.colorGradingParamsJson,
+      colorGradingIntensity:
+          colorGradingIntensity ?? this.colorGradingIntensity,
       referenceImagePath: referenceImagePath ?? this.referenceImagePath,
       referenceImageUrl: referenceImageUrl ?? this.referenceImageUrl,
       referenceMode: referenceMode ?? this.referenceMode,
@@ -2459,6 +2736,25 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     }
     if (photoPath.present) {
       map['photo_path'] = Variable<String>(photoPath.value);
+    }
+    if (originalPhotoPath.present) {
+      map['original_photo_path'] = Variable<String>(originalPhotoPath.value);
+    }
+    if (gradedPhotoPath.present) {
+      map['graded_photo_path'] = Variable<String>(gradedPhotoPath.value);
+    }
+    if (colorGradingMode.present) {
+      map['color_grading_mode'] = Variable<String>(colorGradingMode.value);
+    }
+    if (colorGradingParamsJson.present) {
+      map['color_grading_params_json'] = Variable<String>(
+        colorGradingParamsJson.value,
+      );
+    }
+    if (colorGradingIntensity.present) {
+      map['color_grading_intensity'] = Variable<double>(
+        colorGradingIntensity.value,
+      );
     }
     if (referenceImagePath.present) {
       map['reference_image_path'] = Variable<String>(referenceImagePath.value);
@@ -2486,6 +2782,11 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
           ..write('pointId: $pointId, ')
           ..write('workId: $workId, ')
           ..write('photoPath: $photoPath, ')
+          ..write('originalPhotoPath: $originalPhotoPath, ')
+          ..write('gradedPhotoPath: $gradedPhotoPath, ')
+          ..write('colorGradingMode: $colorGradingMode, ')
+          ..write('colorGradingParamsJson: $colorGradingParamsJson, ')
+          ..write('colorGradingIntensity: $colorGradingIntensity, ')
           ..write('referenceImagePath: $referenceImagePath, ')
           ..write('referenceImageUrl: $referenceImageUrl, ')
           ..write('referenceMode: $referenceMode, ')
@@ -4386,6 +4687,11 @@ typedef $$VisitRecordsTableCreateCompanionBuilder =
       required String pointId,
       required String workId,
       required String photoPath,
+      Value<String?> originalPhotoPath,
+      Value<String?> gradedPhotoPath,
+      Value<String?> colorGradingMode,
+      Value<String?> colorGradingParamsJson,
+      Value<double?> colorGradingIntensity,
       Value<String?> referenceImagePath,
       Value<String?> referenceImageUrl,
       required String referenceMode,
@@ -4399,6 +4705,11 @@ typedef $$VisitRecordsTableUpdateCompanionBuilder =
       Value<String> pointId,
       Value<String> workId,
       Value<String> photoPath,
+      Value<String?> originalPhotoPath,
+      Value<String?> gradedPhotoPath,
+      Value<String?> colorGradingMode,
+      Value<String?> colorGradingParamsJson,
+      Value<double?> colorGradingIntensity,
       Value<String?> referenceImagePath,
       Value<String?> referenceImageUrl,
       Value<String> referenceMode,
@@ -4437,6 +4748,31 @@ class $$VisitRecordsTableFilterComposer
 
   ColumnFilters<String> get photoPath => $composableBuilder(
     column: $table.photoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalPhotoPath => $composableBuilder(
+    column: $table.originalPhotoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gradedPhotoPath => $composableBuilder(
+    column: $table.gradedPhotoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorGradingMode => $composableBuilder(
+    column: $table.colorGradingMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorGradingParamsJson => $composableBuilder(
+    column: $table.colorGradingParamsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get colorGradingIntensity => $composableBuilder(
+    column: $table.colorGradingIntensity,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4495,6 +4831,31 @@ class $$VisitRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get originalPhotoPath => $composableBuilder(
+    column: $table.originalPhotoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get gradedPhotoPath => $composableBuilder(
+    column: $table.gradedPhotoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorGradingMode => $composableBuilder(
+    column: $table.colorGradingMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorGradingParamsJson => $composableBuilder(
+    column: $table.colorGradingParamsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get colorGradingIntensity => $composableBuilder(
+    column: $table.colorGradingIntensity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get referenceImagePath => $composableBuilder(
     column: $table.referenceImagePath,
     builder: (column) => ColumnOrderings(column),
@@ -4539,6 +4900,31 @@ class $$VisitRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get photoPath =>
       $composableBuilder(column: $table.photoPath, builder: (column) => column);
+
+  GeneratedColumn<String> get originalPhotoPath => $composableBuilder(
+    column: $table.originalPhotoPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get gradedPhotoPath => $composableBuilder(
+    column: $table.gradedPhotoPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorGradingMode => $composableBuilder(
+    column: $table.colorGradingMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorGradingParamsJson => $composableBuilder(
+    column: $table.colorGradingParamsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get colorGradingIntensity => $composableBuilder(
+    column: $table.colorGradingIntensity,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get referenceImagePath => $composableBuilder(
     column: $table.referenceImagePath,
@@ -4597,6 +4983,11 @@ class $$VisitRecordsTableTableManager
                 Value<String> pointId = const Value.absent(),
                 Value<String> workId = const Value.absent(),
                 Value<String> photoPath = const Value.absent(),
+                Value<String?> originalPhotoPath = const Value.absent(),
+                Value<String?> gradedPhotoPath = const Value.absent(),
+                Value<String?> colorGradingMode = const Value.absent(),
+                Value<String?> colorGradingParamsJson = const Value.absent(),
+                Value<double?> colorGradingIntensity = const Value.absent(),
                 Value<String?> referenceImagePath = const Value.absent(),
                 Value<String?> referenceImageUrl = const Value.absent(),
                 Value<String> referenceMode = const Value.absent(),
@@ -4608,6 +4999,11 @@ class $$VisitRecordsTableTableManager
                 pointId: pointId,
                 workId: workId,
                 photoPath: photoPath,
+                originalPhotoPath: originalPhotoPath,
+                gradedPhotoPath: gradedPhotoPath,
+                colorGradingMode: colorGradingMode,
+                colorGradingParamsJson: colorGradingParamsJson,
+                colorGradingIntensity: colorGradingIntensity,
                 referenceImagePath: referenceImagePath,
                 referenceImageUrl: referenceImageUrl,
                 referenceMode: referenceMode,
@@ -4621,6 +5017,11 @@ class $$VisitRecordsTableTableManager
                 required String pointId,
                 required String workId,
                 required String photoPath,
+                Value<String?> originalPhotoPath = const Value.absent(),
+                Value<String?> gradedPhotoPath = const Value.absent(),
+                Value<String?> colorGradingMode = const Value.absent(),
+                Value<String?> colorGradingParamsJson = const Value.absent(),
+                Value<double?> colorGradingIntensity = const Value.absent(),
                 Value<String?> referenceImagePath = const Value.absent(),
                 Value<String?> referenceImageUrl = const Value.absent(),
                 required String referenceMode,
@@ -4632,6 +5033,11 @@ class $$VisitRecordsTableTableManager
                 pointId: pointId,
                 workId: workId,
                 photoPath: photoPath,
+                originalPhotoPath: originalPhotoPath,
+                gradedPhotoPath: gradedPhotoPath,
+                colorGradingMode: colorGradingMode,
+                colorGradingParamsJson: colorGradingParamsJson,
+                colorGradingIntensity: colorGradingIntensity,
                 referenceImagePath: referenceImagePath,
                 referenceImageUrl: referenceImageUrl,
                 referenceMode: referenceMode,

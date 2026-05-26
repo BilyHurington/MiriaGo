@@ -65,6 +65,11 @@ class PilgrimageVisitRecord {
     required this.pointId,
     required this.workId,
     required this.photoPath,
+    this.originalPhotoPath,
+    this.gradedPhotoPath,
+    this.colorGradingMode,
+    this.colorGradingParamsJson,
+    this.colorGradingIntensity,
     this.referenceImagePath,
     this.referenceImageUrl,
     required this.referenceMode,
@@ -76,10 +81,49 @@ class PilgrimageVisitRecord {
   final String pointId;
   final String workId;
   final String photoPath;
+  final String? originalPhotoPath;
+  final String? gradedPhotoPath;
+  final String? colorGradingMode;
+  final String? colorGradingParamsJson;
+  final double? colorGradingIntensity;
   final String? referenceImagePath;
   final String? referenceImageUrl;
   final String referenceMode;
   final DateTime capturedAt;
+
+  String get sourcePhotoPath => originalPhotoPath ?? photoPath;
+
+  String get displayPhotoPath => gradedPhotoPath ?? photoPath;
+
+  bool get hasColorGrading =>
+      gradedPhotoPath != null && colorGradingParamsJson != null;
+
+  PilgrimageVisitRecord copyWith({
+    String? originalPhotoPath,
+    String? gradedPhotoPath,
+    String? colorGradingMode,
+    String? colorGradingParamsJson,
+    double? colorGradingIntensity,
+  }) {
+    return PilgrimageVisitRecord(
+      id: id,
+      planId: planId,
+      pointId: pointId,
+      workId: workId,
+      photoPath: photoPath,
+      originalPhotoPath: originalPhotoPath ?? this.originalPhotoPath,
+      gradedPhotoPath: gradedPhotoPath ?? this.gradedPhotoPath,
+      colorGradingMode: colorGradingMode ?? this.colorGradingMode,
+      colorGradingParamsJson:
+          colorGradingParamsJson ?? this.colorGradingParamsJson,
+      colorGradingIntensity:
+          colorGradingIntensity ?? this.colorGradingIntensity,
+      referenceImagePath: referenceImagePath,
+      referenceImageUrl: referenceImageUrl,
+      referenceMode: referenceMode,
+      capturedAt: capturedAt,
+    );
+  }
 }
 
 class PilgrimageWork {

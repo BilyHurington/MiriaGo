@@ -85,6 +85,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         builder: (_) => VisitRecordDetailScreen(
           record: record,
           point: controller.pointById(record.pointId),
+          controller: controller,
           onDelete: () => controller.deleteVisitRecord(record),
         ),
       ),
@@ -564,7 +565,7 @@ class _VisitRecordCard extends StatelessWidget {
             SizedBox(
               width: 104,
               height: 104,
-              child: VisitRecordPhoto(path: record.photoPath),
+              child: VisitRecordPhoto(path: record.displayPhotoPath),
             ),
             Expanded(
               child: Padding(

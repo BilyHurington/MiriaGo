@@ -177,6 +177,36 @@ class PilgrimagePlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<PilgrimageVisitRecord?> updateVisitRecordColorGrading({
+    required PilgrimageVisitRecord record,
+    required String originalPhotoPath,
+    required String gradedPhotoPath,
+    required String colorGradingMode,
+    required String colorGradingParamsJson,
+    required double colorGradingIntensity,
+  }) async {
+    final repository = _repository;
+    if (repository == null) {
+      return null;
+    }
+
+    final updated = await repository.updateVisitRecordColorGrading(
+      planId: _plan.id,
+      recordId: record.id,
+      originalPhotoPath: originalPhotoPath,
+      gradedPhotoPath: gradedPhotoPath,
+      colorGradingMode: colorGradingMode,
+      colorGradingParamsJson: colorGradingParamsJson,
+      colorGradingIntensity: colorGradingIntensity,
+    );
+    _visitRecords = [
+      for (final candidate in _visitRecords)
+        candidate.id == updated.id ? updated : candidate,
+    ];
+    notifyListeners();
+    return updated;
+  }
+
   void _persistSetCurrent(PilgrimagePoint point) {
     final repository = _repository;
     if (repository == null) {

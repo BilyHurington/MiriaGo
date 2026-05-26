@@ -60,9 +60,9 @@ class PointDetailSheet extends StatelessWidget {
   Future<void> _openNavigation(BuildContext context) async {
     final opened = await navigationLauncher.openGoogleMapsWalking(point);
     if (!opened && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('无法打开 Google Maps。')));
+      ScaffoldMessenger.of(context).showReplacingSnackBar(
+        const SnackBar(content: Text('无法打开 Google Maps。')),
+      );
     }
   }
 
@@ -82,148 +82,148 @@ class PointDetailSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Row(
-                children: [
-                  _ReferencePreview(point: point, status: status),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _StatusBadge(status: status),
-                        const SizedBox(height: 8),
-                        Text(
-                          point.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
+                Row(
+                  children: [
+                    _ReferencePreview(point: point, status: status),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _StatusBadge(status: status),
+                          const SizedBox(height: 8),
+                          Text(
+                            point.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${point.work.title} / ${point.subtitle}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                            letterSpacing: 0,
+                          const SizedBox(height: 4),
+                          Text(
+                            '${point.work.title} / ${point.subtitle}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _InfoRow(
+                  icon: Icons.movie_filter_outlined,
+                  label: '作品',
+                  value: '${point.work.title} / ${point.work.subtitle}',
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.local_movies_outlined,
+                  label: '场景',
+                  value: point.episodeLabel,
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.location_on_outlined,
+                  label: '坐标',
+                  value:
+                      '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.image_outlined,
+                  label: '参考',
+                  value: point.referenceLabel,
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.source_outlined,
+                  label: '来源',
+                  value: _sourceText,
+                ),
+                if (point.sourceId != null) ...[
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.tag_outlined,
+                    label: 'ID',
+                    value: point.sourceId!,
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              _InfoRow(
-                icon: Icons.movie_filter_outlined,
-                label: '作品',
-                value: '${point.work.title} / ${point.work.subtitle}',
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.local_movies_outlined,
-                label: '场景',
-                value: point.episodeLabel,
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.location_on_outlined,
-                label: '坐标',
-                value:
-                    '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.image_outlined,
-                label: '参考',
-                value: point.referenceLabel,
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.source_outlined,
-                label: '来源',
-                value: _sourceText,
-              ),
-              if (point.sourceId != null) ...[
-                const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.tag_outlined,
-                  label: 'ID',
-                  value: point.sourceId!,
-                ),
-              ],
-              if (point.sourceUrl != null) ...[
-                const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.link_outlined,
-                  label: '链接',
-                  value: point.sourceUrl!,
-                ),
-              ],
-              if (records.isNotEmpty) ...[
+                if (point.sourceUrl != null) ...[
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.link_outlined,
+                    label: '链接',
+                    value: point.sourceUrl!,
+                  ),
+                ],
+                if (records.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  _PointRecordsPreview(records: records),
+                ],
                 const SizedBox(height: 18),
-                _PointRecordsPreview(records: records),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _openNavigation(context),
+                        icon: const Icon(Icons.near_me_outlined, size: 18),
+                        label: const Text('导航'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onOpenCamera();
+                        },
+                        icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                        label: const Text('拍摄参考'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: status == VisitStatus.current
+                            ? null
+                            : () {
+                                Navigator.of(context).pop();
+                                onSetCurrent();
+                              },
+                        icon: const Icon(Icons.flag_outlined, size: 18),
+                        label: const Text('设为当前'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onComplete();
+                        },
+                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        label: const Text('标记完成'),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _openNavigation(context),
-                      icon: const Icon(Icons.near_me_outlined, size: 18),
-                      label: const Text('导航'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onOpenCamera();
-                      },
-                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                      label: const Text('拍摄参考'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: status == VisitStatus.current
-                          ? null
-                          : () {
-                              Navigator.of(context).pop();
-                              onSetCurrent();
-                            },
-                      icon: const Icon(Icons.flag_outlined, size: 18),
-                      label: const Text('设为当前'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onComplete();
-                      },
-                      icon: const Icon(Icons.check_circle_outline, size: 18),
-                      label: const Text('标记完成'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -406,7 +406,7 @@ class _PointRecordsPreview extends StatelessWidget {
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: VisitRecordPhoto(path: record.photoPath),
+                        child: VisitRecordPhoto(path: record.displayPhotoPath),
                       ),
                     ),
                     const SizedBox(height: 4),

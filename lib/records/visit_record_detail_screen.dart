@@ -5,27 +5,38 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/pilgrimage_plan_controller.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
 
-class VisitRecordDetailScreen extends StatelessWidget {
+class VisitRecordDetailScreen extends StatefulWidget {
   const VisitRecordDetailScreen({
     required this.record,
     required this.point,
+    required this.controller,
     required this.onDelete,
     super.key,
   });
 
   final PilgrimageVisitRecord record;
   final PilgrimagePoint? point;
+  final PilgrimagePlanController controller;
   final Future<void> Function() onDelete;
 
   @override
+  State<VisitRecordDetailScreen> createState() =>
+      _VisitRecordDetailScreenState();
+}
+
+class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
+  late PilgrimageVisitRecord _record = widget.record;
+
+  @override
   Widget build(BuildContext context) {
-    final resolvedPoint = point;
+    final resolvedPoint = widget.point;
 
     return Scaffold(
       appBar: AppBar(
@@ -52,7 +63,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _RecordComparisonPanel(
-            record: record,
+            record: _record,
             fallbackReferenceUrl: resolvedPoint?.referenceImageUrl,
           ),
           const SizedBox(height: 16),
@@ -67,7 +78,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             resolvedPoint == null
-                ? record.workId
+                ? _record.workId
                 : '${resolvedPoint.work.title} / ${resolvedPoint.subtitle}',
             style: const TextStyle(
               color: AppColors.textSecondary,
@@ -81,24 +92,31 @@ class VisitRecordDetailScreen extends StatelessWidget {
               _DetailRow(
                 icon: Icons.schedule,
                 label: '拍摄时间',
-                value: _formatDateTime(record.capturedAt),
+                value: _formatDateTime(_record.capturedAt),
               ),
               _DetailRow(
                 icon: Icons.layers_outlined,
                 label: '参考模式',
-                value: record.referenceMode,
+                value: _record.referenceMode,
               ),
               _DetailRow(
                 icon: Icons.photo_outlined,
-                label: '照片路径',
-                value: record.photoPath,
+                label: _record.hasColorGrading ? '显示照片' : '照片路径',
+                value: _record.displayPhotoPath,
               ),
-              if (record.referenceImagePath != null ||
-                  record.referenceImageUrl != null)
+              if (_record.hasColorGrading)
+                _DetailRow(
+                  icon: Icons.photo_library_outlined,
+                  label: '原图',
+                  value: _record.sourcePhotoPath,
+                ),
+              if (_record.referenceImagePath != null ||
+                  _record.referenceImageUrl != null)
                 _DetailRow(
                   icon: Icons.image_outlined,
                   label: '参考图',
-                  value: record.referenceImagePath ?? record.referenceImageUrl!,
+                  value:
+                      _record.referenceImagePath ?? _record.referenceImageUrl!,
                 ),
               if (resolvedPoint != null) ...[
                 _DetailRow(
@@ -126,17 +144,17 @@ class VisitRecordDetailScreen extends StatelessWidget {
     );
   }
 
-  void _openColorGrading(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ColorGradingScreen(
-          recordId: record.id,
-          capturedPath: record.photoPath,
-          referenceImagePath: record.referenceImagePath,
-          referenceImageUrl: record.referenceImageUrl,
-        ),
+  Future<void> _openColorGrading(BuildContext context) async {
+    final updated = await Navigator.of(context).push<PilgrimageVisitRecord>(
+      MaterialPageRoute<PilgrimageVisitRecord>(
+        builder: (_) =>
+            ColorGradingScreen(record: _record, controller: widget.controller),
       ),
     );
+    if (updated == null || !mounted) {
+      return;
+    }
+    setState(() => _record = updated);
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
@@ -189,10 +207,16 @@ class VisitRecordDetailScreen extends StatelessWidget {
     }
 
     if (deleteFiles) {
-      try {
-        File(record.photoPath).deleteSync();
-      } catch (_) {}
-      final refPath = record.referenceImagePath;
+      for (final path in {
+        _record.photoPath,
+        _record.originalPhotoPath,
+        _record.gradedPhotoPath,
+      }.whereType<String>()) {
+        try {
+          File(path).deleteSync();
+        } catch (_) {}
+      }
+      final refPath = _record.referenceImagePath;
       if (refPath != null) {
         try {
           File(refPath).deleteSync();
@@ -200,7 +224,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
       }
     }
 
-    await onDelete();
+    await widget.onDelete();
     if (!context.mounted) {
       return;
     }
@@ -209,7 +233,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
 
   void _exportComparison(BuildContext context, PilgrimagePoint? resolvedPoint) {
     final meta = <ComparisonMetadataField, String>{
-      ComparisonMetadataField.capturedAt: _formatDateTime(record.capturedAt),
+      ComparisonMetadataField.capturedAt: _formatDateTime(_record.capturedAt),
     };
 
     if (resolvedPoint != null) {
@@ -226,9 +250,9 @@ class VisitRecordDetailScreen extends StatelessWidget {
 
     ComparisonExportSheet.show(
       context,
-      referenceImagePath: record.referenceImagePath,
-      referenceImageUrl: record.referenceImageUrl,
-      capturedPath: record.photoPath,
+      referenceImagePath: _record.referenceImagePath,
+      referenceImageUrl: _record.referenceImageUrl,
+      capturedPath: _record.displayPhotoPath,
       metadata: meta,
     );
   }
@@ -263,9 +287,14 @@ class _RecordComparisonPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _RecordImageTile(
           label: '巡礼图',
-          child: VisitRecordPhoto(path: record.photoPath, fit: BoxFit.contain),
-          onTap: () =>
-              ImageViewerScreen.show(context, filePath: record.photoPath),
+          child: VisitRecordPhoto(
+            path: record.displayPhotoPath,
+            fit: BoxFit.contain,
+          ),
+          onTap: () => ImageViewerScreen.show(
+            context,
+            filePath: record.displayPhotoPath,
+          ),
         ),
       ],
     );

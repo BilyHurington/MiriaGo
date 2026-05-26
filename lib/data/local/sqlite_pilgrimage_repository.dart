@@ -152,6 +152,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
                 pointId: pointIdMap[record.pointId] ?? record.pointId,
                 workId: workIdMap[record.workId] ?? record.workId,
                 photoPath: record.photoPath,
+                originalPhotoPath: Value(record.originalPhotoPath),
+                gradedPhotoPath: Value(record.gradedPhotoPath),
+                colorGradingMode: Value(record.colorGradingMode),
+                colorGradingParamsJson: Value(record.colorGradingParamsJson),
+                colorGradingIntensity: Value(record.colorGradingIntensity),
                 referenceImagePath: Value(record.referenceImagePath),
                 referenceImageUrl: Value(record.referenceImageUrl),
                 referenceMode: record.referenceMode,
@@ -451,6 +456,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             pointId: record.pointId,
             workId: record.workId,
             photoPath: record.photoPath,
+            originalPhotoPath: Value(record.originalPhotoPath),
+            gradedPhotoPath: Value(record.gradedPhotoPath),
+            colorGradingMode: Value(record.colorGradingMode),
+            colorGradingParamsJson: Value(record.colorGradingParamsJson),
+            colorGradingIntensity: Value(record.colorGradingIntensity),
             referenceImagePath: Value(record.referenceImagePath),
             referenceImageUrl: Value(record.referenceImageUrl),
             referenceMode: record.referenceMode,
@@ -459,6 +469,32 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         );
     await _touchPlan(planId);
     return record;
+  }
+
+  @override
+  Future<PilgrimageVisitRecord> updateVisitRecordColorGrading({
+    required String planId,
+    required String recordId,
+    required String originalPhotoPath,
+    required String gradedPhotoPath,
+    required String colorGradingMode,
+    required String colorGradingParamsJson,
+    required double colorGradingIntensity,
+  }) async {
+    await (_database.update(_database.visitRecords)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(recordId),
+        ))
+        .write(
+          VisitRecordsCompanion(
+            originalPhotoPath: Value(originalPhotoPath),
+            gradedPhotoPath: Value(gradedPhotoPath),
+            colorGradingMode: Value(colorGradingMode),
+            colorGradingParamsJson: Value(colorGradingParamsJson),
+            colorGradingIntensity: Value(colorGradingIntensity),
+          ),
+        );
+    await _touchPlan(planId);
+    return _visitRecordFromRow(await _visitRecordRowById(planId, recordId));
   }
 
   @override
@@ -532,6 +568,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       pointId: row.pointId,
       workId: row.workId,
       photoPath: row.photoPath,
+      originalPhotoPath: row.originalPhotoPath,
+      gradedPhotoPath: row.gradedPhotoPath,
+      colorGradingMode: row.colorGradingMode,
+      colorGradingParamsJson: row.colorGradingParamsJson,
+      colorGradingIntensity: row.colorGradingIntensity,
       referenceImagePath: row.referenceImagePath,
       referenceImageUrl: row.referenceImageUrl,
       referenceMode: row.referenceMode,
@@ -872,6 +913,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return (_database.select(
       _database.plans,
     )..where((table) => table.id.equals(planId))).getSingle();
+  }
+
+  Future<VisitRecord> _visitRecordRowById(String planId, String recordId) {
+    return (_database.select(_database.visitRecords)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(recordId),
+        ))
+        .getSingle();
   }
 
   Future<void> _touchPlan(String planId) {
