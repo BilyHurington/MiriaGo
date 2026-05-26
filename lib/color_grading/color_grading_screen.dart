@@ -18,11 +18,15 @@ class ColorGradingScreen extends StatefulWidget {
   const ColorGradingScreen({
     required this.record,
     required this.controller,
+    this.fallbackReferenceImagePath,
+    this.fallbackReferenceImageUrl,
     super.key,
   });
 
   final PilgrimageVisitRecord record;
   final PilgrimagePlanController controller;
+  final String? fallbackReferenceImagePath;
+  final String? fallbackReferenceImageUrl;
 
   @override
   State<ColorGradingScreen> createState() => _ColorGradingScreenState();
@@ -117,15 +121,17 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   }
 
   Future<Uint8List?> _loadReferenceBytes() async {
-    final path = _record.referenceImagePath;
-    if (path != null) {
+    for (final path in [
+      _record.referenceImagePath,
+      widget.fallbackReferenceImagePath,
+    ].whereType<String>()) {
       final file = File(path);
       if (file.existsSync()) {
         return file.readAsBytes();
       }
     }
 
-    final url = _record.referenceImageUrl;
+    final url = _record.referenceImageUrl ?? widget.fallbackReferenceImageUrl;
     if (url == null || url.isEmpty) {
       return null;
     }

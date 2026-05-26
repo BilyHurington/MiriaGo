@@ -39,6 +39,8 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final resolvedPoint = widget.point;
+    final referenceImagePath = _resolvedReferenceImagePath(resolvedPoint);
+    final referenceImageUrl = _resolvedReferenceImageUrl(resolvedPoint);
 
     return Scaffold(
       appBar: AppBar(
@@ -66,7 +68,8 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         children: [
           _RecordComparisonPanel(
             record: _record,
-            fallbackReferenceUrl: resolvedPoint?.referenceImageUrl,
+            referenceImagePath: referenceImagePath,
+            referenceImageUrl: referenceImageUrl,
           ),
           const SizedBox(height: 16),
           Text(
@@ -112,13 +115,11 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
                   label: '原图',
                   value: _record.sourcePhotoPath,
                 ),
-              if (_record.referenceImagePath != null ||
-                  _record.referenceImageUrl != null)
+              if (referenceImagePath != null || referenceImageUrl != null)
                 _DetailRow(
                   icon: Icons.image_outlined,
                   label: '参考图',
-                  value:
-                      _record.referenceImagePath ?? _record.referenceImageUrl!,
+                  value: referenceImagePath ?? referenceImageUrl!,
                 ),
               if (resolvedPoint != null) ...[
                 _DetailRow(
@@ -147,10 +148,17 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   }
 
   Future<void> _openColorGrading(BuildContext context) async {
+    final resolvedPoint = widget.point;
     final updated = await Navigator.of(context).push<PilgrimageVisitRecord>(
       MaterialPageRoute<PilgrimageVisitRecord>(
-        builder: (_) =>
-            ColorGradingScreen(record: _record, controller: widget.controller),
+        builder: (_) => ColorGradingScreen(
+          record: _record,
+          controller: widget.controller,
+          fallbackReferenceImagePath: _resolvedReferenceImagePath(
+            resolvedPoint,
+          ),
+          fallbackReferenceImageUrl: _resolvedReferenceImageUrl(resolvedPoint),
+        ),
       ),
     );
     if (updated == null || !mounted) {
@@ -253,12 +261,28 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 
     ComparisonExportSheet.show(
       context,
-      referenceImagePath: _record.referenceImagePath,
-      referenceImageUrl: _record.referenceImageUrl,
+      referenceImagePath: _resolvedReferenceImagePath(resolvedPoint),
+      referenceImageUrl: _resolvedReferenceImageUrl(resolvedPoint),
       capturedPath: _record.displayPhotoPath,
       metadata: meta,
       colorGradingSummary: _colorGradingSummary(),
     );
+  }
+
+  String? _resolvedReferenceImagePath(PilgrimagePoint? resolvedPoint) {
+    for (final path in [
+      _record.referenceImagePath,
+      resolvedPoint?.referenceFullImagePath,
+    ].whereType<String>()) {
+      if (File(path).existsSync()) {
+        return path;
+      }
+    }
+    return null;
+  }
+
+  String? _resolvedReferenceImageUrl(PilgrimagePoint? resolvedPoint) {
+    return _record.referenceImageUrl ?? resolvedPoint?.referenceImageUrl;
   }
 
   String? _colorGradingSummary() {
@@ -339,11 +363,13 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 class _RecordComparisonPanel extends StatelessWidget {
   const _RecordComparisonPanel({
     required this.record,
-    required this.fallbackReferenceUrl,
+    required this.referenceImagePath,
+    required this.referenceImageUrl,
   });
 
   final PilgrimageVisitRecord record;
-  final String? fallbackReferenceUrl;
+  final String? referenceImagePath;
+  final String? referenceImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -353,13 +379,13 @@ class _RecordComparisonPanel extends StatelessWidget {
         _RecordImageTile(
           label: '参考图',
           child: _RecordReferencePhoto(
-            path: record.referenceImagePath,
-            url: record.referenceImageUrl ?? fallbackReferenceUrl,
+            path: referenceImagePath,
+            url: referenceImageUrl,
           ),
           onTap: () => ImageViewerScreen.show(
             context,
-            filePath: record.referenceImagePath,
-            imageUrl: record.referenceImageUrl ?? fallbackReferenceUrl,
+            filePath: referenceImagePath,
+            imageUrl: referenceImageUrl,
           ),
         ),
         const SizedBox(height: 12),

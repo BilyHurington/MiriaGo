@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../records/gallery_saver_stub.dart'
@@ -76,9 +78,7 @@ class ImageViewerScreen extends StatelessWidget {
   }
 
   void _showSaveSheet(BuildContext context) {
-    final savePath = filePath;
-    if (savePath == null) return;
-
+    final messenger = ScaffoldMessenger.of(context);
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -88,30 +88,29 @@ class ImageViewerScreen extends StatelessWidget {
             const SizedBox(height: 12),
             ListTile(
               leading: const Icon(Icons.share_outlined, color: Colors.white),
-              title: const Text(
-                '分享',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
+              title: const Text('分享', style: TextStyle(color: Colors.white)),
+              onTap: () async {
                 Navigator.of(ctx).pop();
+                final savePath = await _resolveLocalImagePath();
+                if (savePath == null) {
+                  _showSnackBar(messenger, '图片读取失败');
+                  return;
+                }
                 Share.shareXFiles([XFile(savePath)]);
               },
             ),
             ListTile(
               leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
-              title: const Text(
-                '保存到相册',
-                style: TextStyle(color: Colors.white),
-              ),
+              title: const Text('保存到相册', style: TextStyle(color: Colors.white)),
               onTap: () async {
                 Navigator.of(ctx).pop();
+                final savePath = await _resolveLocalImagePath();
+                if (savePath == null) {
+                  _showSnackBar(messenger, '图片读取失败');
+                  return;
+                }
                 final success = await saveImageToGallery(savePath);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(success ? '已保存到相册' : '保存失败'),
-                  ),
-                );
+                _showSnackBar(messenger, success ? '已保存到相册' : '保存失败');
               },
             ),
             const SizedBox(height: 12),
@@ -120,6 +119,67 @@ class ImageViewerScreen extends StatelessWidget {
       ),
       backgroundColor: const Color(0xFF2C2C2E),
     );
+  }
+
+  Future<String?> _resolveLocalImagePath() async {
+    final path = filePath;
+    if (path != null) {
+      final file = File(path);
+      if (file.existsSync()) {
+        return path;
+      }
+    }
+
+    final imageBytes = bytes;
+    if (imageBytes != null) {
+      return _writeTemporaryImage(imageBytes, extension: 'jpg');
+    }
+
+    final url = imageUrl;
+    if (url == null || url.isEmpty) {
+      return null;
+    }
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      return _writeTemporaryImage(
+        response.bodyBytes,
+        extension: _extensionFromUrl(url),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _writeTemporaryImage(
+    Uint8List imageBytes, {
+    required String extension,
+  }) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/seichi_image_${DateTime.now().microsecondsSinceEpoch}.$extension';
+      final file = File(path);
+      await file.writeAsBytes(imageBytes, flush: true);
+      return file.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _extensionFromUrl(String url) {
+    final path = Uri.tryParse(url)?.path.toLowerCase() ?? '';
+    if (path.endsWith('.png')) return 'png';
+    if (path.endsWith('.webp')) return 'webp';
+    if (path.endsWith('.jpeg')) return 'jpg';
+    return 'jpg';
+  }
+
+  void _showSnackBar(ScaffoldMessengerState messenger, String message) {
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildImage() {
@@ -149,7 +209,11 @@ class ImageViewerScreen extends StatelessWidget {
         },
         errorBuilder: (context, error, stackTrace) {
           return const Center(
-            child: Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48),
+            child: Icon(
+              Icons.broken_image_outlined,
+              color: Colors.white54,
+              size: 48,
+            ),
           );
         },
       );
