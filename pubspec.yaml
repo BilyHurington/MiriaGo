@@ -47,8 +47,6 @@ dependencies:
   path: ^1.9.1
   camerawesome: ^2.5.0
   share_plus: ^10.1.4
-  image: ^4.6.0
-  flutter_colorpicker: ^1.1.0
 
 dev_dependencies:
   flutter_test:

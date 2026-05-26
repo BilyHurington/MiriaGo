@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
-import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
@@ -31,19 +30,6 @@ class VisitRecordDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('记录详情'),
         actions: [
-          IconButton(
-            tooltip: '调色',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ColorGradingScreen(
-                    capturedPath: record.photoPath,
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.colorize_outlined),
-          ),
           IconButton(
             tooltip: '导出对比图',
             onPressed: () => _exportComparison(context, resolvedPoint),
