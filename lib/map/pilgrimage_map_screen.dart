@@ -12,6 +12,7 @@ import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'map_navigation_launcher.dart';
 import '../widgets/reference_thumbnail_stub.dart'
@@ -530,8 +531,9 @@ class _PointCard extends StatelessWidget {
                         _StatusBadge(status: status),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            point.name,
+                          child: CopyableText(
+                            text: point.name,
+                            copyLabel: '点位名称',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -544,8 +546,10 @@ class _PointCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      _metaText,
+                    CopyableText(
+                      text: _metaText,
+                      copyText: _copySummary,
+                      copyLabel: '点位信息',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -627,6 +631,16 @@ class _PointCard extends StatelessWidget {
     }
 
     return '${point.work.title} / ${distance.round()} m';
+  }
+
+  String get _copySummary {
+    return [
+      point.name,
+      '${point.work.title} / ${point.work.subtitle}',
+      point.subtitle,
+      point.displayEpisodeLabel,
+      '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
+    ].where((value) => value.trim().isNotEmpty).join('\n');
   }
 }
 

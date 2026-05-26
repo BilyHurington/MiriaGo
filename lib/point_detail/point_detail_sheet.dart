@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
@@ -7,6 +6,7 @@ import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
+import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -348,20 +348,13 @@ class _InfoRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: value));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已复制：$label')),
-              );
-            },
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 13,
-                letterSpacing: 0,
-              ),
+          child: CopyableText(
+            text: value,
+            copyLabel: label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              letterSpacing: 0,
             ),
           ),
         ),

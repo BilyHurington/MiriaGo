@@ -11,6 +11,7 @@ import '../data/pilgrimage_repository.dart';
 import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
+import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'pilgrimage_models.dart';
 
@@ -453,8 +454,9 @@ class _AnitabiPointCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  point.name,
+                CopyableText(
+                  text: point.name,
+                  copyLabel: '点位名称',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -464,8 +466,10 @@ class _AnitabiPointCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  '${point.subtitle} / ${point.episodeLabel}',
+                CopyableText(
+                  text: '${point.subtitle} / ${point.episodeLabel}',
+                  copyText: _copySummary,
+                  copyLabel: '点位信息',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -475,8 +479,9 @@ class _AnitabiPointCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  point.origin,
+                CopyableText(
+                  text: point.origin,
+                  copyLabel: '来源',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -500,6 +505,16 @@ class _AnitabiPointCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String get _copySummary {
+    return [
+      point.name,
+      point.subtitle,
+      point.episodeLabel,
+      point.origin,
+      '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
+    ].where((value) => value.trim().isNotEmpty).join('\n');
   }
 }
 

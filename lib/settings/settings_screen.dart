@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
+import '../widgets/copyable_text.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -261,8 +262,9 @@ class _InfoRow extends StatelessWidget {
         Icon(icon, color: AppColors.textSecondary, size: 20),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(
-            text,
+          child: CopyableText(
+            text: text,
+            copyLabel: text,
             style: const TextStyle(fontSize: 14, letterSpacing: 0),
           ),
         ),

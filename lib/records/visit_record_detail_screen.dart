@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
 import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
@@ -542,20 +542,13 @@ class _DetailRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: value));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已复制：$label')),
-              );
-            },
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 13,
-                letterSpacing: 0,
-              ),
+          child: CopyableText(
+            text: value,
+            copyLabel: label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              letterSpacing: 0,
             ),
           ),
         ),
