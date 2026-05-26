@@ -41,5 +41,11 @@ Future<void> copyValue(
   }
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text('已复制：$label')));
+    ..showSnackBar(
+      SnackBar(
+        content: Text('已复制：$label'),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      ),
+    );
 }

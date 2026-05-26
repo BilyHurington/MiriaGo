@@ -9,6 +9,7 @@ import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
 import '../point_detail/point_detail_sheet.dart';
+import '../widgets/copyable_text.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
 
@@ -381,8 +382,9 @@ class _CurrentTargetCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            point.name,
+          CopyableText(
+            text: point.name,
+            copyLabel: '当前目标',
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -390,8 +392,11 @@ class _CurrentTargetCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
+          CopyableText(
+            text:
+                '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
+            copyText: _copySummary,
+            copyLabel: '当前目标信息',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
@@ -441,6 +446,16 @@ class _CurrentTargetCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String get _copySummary {
+    return [
+      point.name,
+      '${point.work.title} / ${point.work.subtitle}',
+      point.subtitle,
+      point.displayEpisodeLabel,
+      '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
+    ].where((value) => value.trim().isNotEmpty).join('\n');
   }
 }
 
