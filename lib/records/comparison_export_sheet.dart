@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
+import 'comparison_export_config_storage_stub.dart'
+    if (dart.library.io) 'comparison_export_config_storage_io.dart';
 import 'comparison_exporter_stub.dart'
     if (dart.library.io) 'comparison_exporter_io.dart';
 
@@ -58,6 +60,30 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   static const _borderColorLabels = <String>['白色', '黑色', '主题绿'];
 
   @override
+  void initState() {
+    super.initState();
+    _loadSavedConfig();
+  }
+
+  Future<void> _loadSavedConfig() async {
+    final saved = await loadComparisonExportConfig();
+    if (!mounted || saved == null) {
+      return;
+    }
+
+    setState(() {
+      _config = saved;
+      ComparisonExportConfig.lastUsed = saved;
+    });
+  }
+
+  void _updateConfig(ComparisonExportConfig config) {
+    setState(() => _config = config);
+    ComparisonExportConfig.lastUsed = config;
+    saveComparisonExportConfig(config);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final sheetHeight = MediaQuery.sizeOf(context).height * 0.84;
@@ -81,13 +107,10 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
                       config: _config,
                       borderColorOptions: _borderColorOptions,
                       borderColorLabels: _borderColorLabels,
-                      onChanged: (config) => setState(() => _config = config),
+                      onChanged: _updateConfig,
                     ),
                     const SizedBox(height: 18),
-                    _MetadataSection(
-                      config: _config,
-                      onChanged: (config) => setState(() => _config = config),
-                    ),
+                    _MetadataSection(config: _config, onChanged: _updateConfig),
                   ],
                 ),
               ),
@@ -106,6 +129,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   Future<void> _doExport() async {
     setState(() => _exporting = true);
     ComparisonExportConfig.lastUsed = _config;
+    await saveComparisonExportConfig(_config);
 
     final path = await exportComparisonImage(
       referenceImagePath: widget.referenceImagePath,

@@ -61,6 +61,54 @@ class ComparisonExportConfig {
 
   static ComparisonExportConfig lastUsed = const ComparisonExportConfig();
 
+  Map<String, Object?> toJson() {
+    return {
+      'borderWidthPercent': borderWidthPercent,
+      'borderColor': borderColor.toARGB32(),
+      'outputWidth': outputWidth.name,
+      'showLabels': showLabels,
+      'metadataFields': metadataFields.map((field) => field.name).toList(),
+    };
+  }
+
+  factory ComparisonExportConfig.fromJson(Map<String, Object?> json) {
+    T enumValue<T extends Enum>(List<T> values, Object? value, T fallback) {
+      return values.firstWhere(
+        (candidate) => candidate.name == value,
+        orElse: () => fallback,
+      );
+    }
+
+    final fields = json['metadataFields'];
+    return ComparisonExportConfig(
+      borderWidthPercent:
+          (json['borderWidthPercent'] as num?)?.toDouble().clamp(0.0, 3.0) ??
+          0.5,
+      borderColor: Color((json['borderColor'] as num?)?.toInt() ?? 0xFFFFFFFF),
+      outputWidth: enumValue(
+        ComparisonOutputWidth.values,
+        json['outputWidth'],
+        ComparisonOutputWidth.auto,
+      ),
+      showLabels: json['showLabels'] as bool? ?? false,
+      metadataFields: fields is List
+          ? fields
+                .map(
+                  (field) => enumValue(
+                    ComparisonMetadataField.values,
+                    field,
+                    ComparisonMetadataField.capturedAt,
+                  ),
+                )
+                .toSet()
+          : const {
+              ComparisonMetadataField.capturedAt,
+              ComparisonMetadataField.workTitle,
+              ComparisonMetadataField.pointName,
+            },
+    );
+  }
+
   ComparisonExportConfig copyWith({
     double? borderWidthPercent,
     Color? borderColor,

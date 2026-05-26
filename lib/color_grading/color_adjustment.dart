@@ -63,7 +63,6 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
     (candidate) => candidate.name == input['mode'],
     orElse: () => ColorMatchMode.standard,
   );
-  final config = _ModeConfig.forMode(mode);
   final captured = _decodePrepared(capturedBytes, maxLongSide: 256);
   final reference = _decodePrepared(referenceBytes, maxLongSide: 256);
   if (captured == null || reference == null) {
@@ -72,16 +71,67 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
 
   final referenceStats = _ImageStats.fromImage(reference);
   final capturedStats = _ImageStats.fromImage(captured);
+  final candidates = <_MatchCandidate>[
+    _matchWithConfig(
+      captured: captured,
+      referenceStats: referenceStats,
+      capturedStats: capturedStats,
+      mode: mode,
+    ),
+  ];
+  if (mode == ColorMatchMode.strong) {
+    candidates.add(
+      _matchWithConfig(
+        captured: captured,
+        referenceStats: referenceStats,
+        capturedStats: capturedStats,
+        mode: ColorMatchMode.standard,
+      ),
+    );
+  }
+
+  final beforeLoss = _colorLoss(referenceStats, capturedStats);
+  final best = candidates.reduce((a, b) => a.loss <= b.loss ? a : b);
+  final result = best.loss < beforeLoss
+      ? best
+      : _MatchCandidate(
+          params: ColorGradingParams.defaults,
+          mode: mode,
+          loss: beforeLoss,
+        );
+  final afterLoss = _colorLoss(
+    referenceStats,
+    result.params == ColorGradingParams.defaults
+        ? capturedStats
+        : _adjustedStats(captured, result.params),
+  );
+
+  return {
+    'params': result.params.toJson(),
+    'mode': result.mode.name,
+    'beforeScore': _scoreFromLoss(beforeLoss),
+    'afterScore': _scoreFromLoss(min(beforeLoss, afterLoss)),
+  };
+}
+
+_MatchCandidate _matchWithConfig({
+  required img.Image captured,
+  required _ImageStats referenceStats,
+  required _ImageStats capturedStats,
+  required ColorMatchMode mode,
+}) {
+  final config = _ModeConfig.forMode(mode);
   var bestParams = _estimateInitialParams(
     referenceStats,
     capturedStats,
     config,
   );
-  var bestLoss = _colorLoss(
+  var bestLoss = _protectedColorLoss(
     referenceStats,
+    capturedStats,
     _adjustedStats(captured, bestParams),
+    config,
   );
-  final beforeLoss = _colorLoss(referenceStats, capturedStats);
 
   final steps = <String, double>{
     'brightness': 0.05 * config.stepScale,
@@ -109,10 +159,17 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
     var improved = false;
     for (final key in steps.keys) {
       for (final direction in const [-1.0, 1.0]) {
-        final trial = _shiftParam(bestParams, key, steps[key]! * direction);
-        final loss = _colorLoss(
+        final trial = _shiftParam(
+          bestParams,
+          key,
+          steps[key]! * direction,
+          config,
+        );
+        final loss = _protectedColorLoss(
           referenceStats,
+          capturedStats,
           _adjustedStats(captured, trial),
+          config,
         );
         if (loss < bestLoss) {
           bestLoss = loss;
@@ -130,12 +187,7 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
     }
   }
 
-  return {
-    'params': bestParams.toJson(),
-    'mode': mode.name,
-    'beforeScore': _scoreFromLoss(beforeLoss),
-    'afterScore': _scoreFromLoss(bestLoss),
-  };
+  return _MatchCandidate(params: bestParams, mode: mode, loss: bestLoss);
 }
 
 Uint8List _renderGradedWorker(Map<String, Object?> input) {
@@ -180,7 +232,7 @@ ColorGradingParams _estimateInitialParams(
   _ModeConfig config,
 ) {
   const epsilon = 0.0001;
-  return ColorGradingParams(
+  final params = ColorGradingParams(
     brightness: ((reference.meanLuma - captured.meanLuma) * 0.5).clamp(
       -config.maxBrightness,
       config.maxBrightness,
@@ -222,7 +274,8 @@ ColorGradingParams _estimateInitialParams(
     blueCurve: config.matchRgbCurves
         ? _initialCurve(reference.meanB, captured.meanB, config)
         : 0,
-  ).clamped();
+  );
+  return _clampForConfig(params, config);
 }
 
 double _initialCurve(
@@ -240,8 +293,9 @@ ColorGradingParams _shiftParam(
   ColorGradingParams params,
   String key,
   double delta,
+  _ModeConfig config,
 ) {
-  return switch (key) {
+  final shifted = switch (key) {
     'brightness' => params.copyWith(brightness: params.brightness + delta),
     'exposure' => params.copyWith(exposure: params.exposure + delta),
     'contrast' => params.copyWith(contrast: params.contrast + delta),
@@ -254,7 +308,42 @@ ColorGradingParams _shiftParam(
     'greenCurve' => params.copyWith(greenCurve: params.greenCurve + delta),
     'blueCurve' => params.copyWith(blueCurve: params.blueCurve + delta),
     _ => params,
-  }.clamped();
+  };
+  return _clampForConfig(shifted, config);
+}
+
+ColorGradingParams _clampForConfig(
+  ColorGradingParams params,
+  _ModeConfig config,
+) {
+  return params.clamped().copyWith(
+    brightness: params.brightness.clamp(
+      -config.maxBrightness,
+      config.maxBrightness,
+    ),
+    exposure: params.exposure.clamp(-config.maxExposure, config.maxExposure),
+    contrast: params.contrast.clamp(config.minContrast, config.maxContrast),
+    saturation: params.saturation.clamp(
+      config.minSaturation,
+      config.maxSaturation,
+    ),
+    temperature: params.temperature.clamp(
+      -config.maxColorBalance,
+      config.maxColorBalance,
+    ),
+    tint: params.tint.clamp(-config.maxColorBalance, config.maxColorBalance),
+    highlights: params.highlights.clamp(
+      -config.maxToneZone,
+      config.maxToneZone,
+    ),
+    shadows: params.shadows.clamp(-config.maxToneZone, config.maxToneZone),
+    redCurve: params.redCurve.clamp(-config.maxRgbCurve, config.maxRgbCurve),
+    greenCurve: params.greenCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    blueCurve: params.blueCurve.clamp(-config.maxRgbCurve, config.maxRgbCurve),
+  );
 }
 
 _ImageStats _adjustedStats(img.Image source, ColorGradingParams params) {
@@ -285,6 +374,28 @@ double _colorLoss(_ImageStats reference, _ImageStats candidate) {
       0.03 * red +
       0.03 * green +
       0.02 * blue;
+}
+
+double _protectedColorLoss(
+  _ImageStats reference,
+  _ImageStats original,
+  _ImageStats candidate,
+  _ModeConfig config,
+) {
+  final base = _colorLoss(reference, candidate);
+  final contrastFloor = original.stdLuma * config.minContrastRetention;
+  final contrastPenalty = max(0.0, contrastFloor - candidate.stdLuma) * 1.8;
+  final shadowLiftPenalty =
+      max(0.0, candidate.shadowLuma - original.shadowLuma - 0.06) * 1.2;
+  final highlightDropPenalty =
+      max(0.0, original.highlightLuma - candidate.highlightLuma - 0.10) * 0.7;
+  final washedOutPenalty =
+      max(0.0, original.meanSaturation * 0.82 - candidate.meanSaturation) * 0.9;
+  return base +
+      contrastPenalty +
+      shadowLiftPenalty +
+      highlightDropPenalty +
+      washedOutPenalty;
 }
 
 int _scoreFromLoss(double loss) {
@@ -359,6 +470,7 @@ class _ModeConfig {
     required this.matchRgbCurves,
     required this.maxToneZone,
     required this.maxRgbCurve,
+    required this.minContrastRetention,
   });
 
   final int rounds;
@@ -374,6 +486,7 @@ class _ModeConfig {
   final bool matchRgbCurves;
   final double maxToneZone;
   final double maxRgbCurve;
+  final double minContrastRetention;
 
   static _ModeConfig forMode(ColorMatchMode mode) {
     return switch (mode) {
@@ -391,6 +504,7 @@ class _ModeConfig {
         matchRgbCurves: false,
         maxToneZone: 0,
         maxRgbCurve: 0,
+        minContrastRetention: 0.92,
       ),
       ColorMatchMode.standard => const _ModeConfig(
         rounds: 6,
@@ -404,26 +518,40 @@ class _ModeConfig {
         maxColorBalance: 1.0,
         matchToneZones: true,
         matchRgbCurves: false,
-        maxToneZone: 0.65,
+        maxToneZone: 0.45,
         maxRgbCurve: 0,
+        minContrastRetention: 0.90,
       ),
       ColorMatchMode.strong => const _ModeConfig(
         rounds: 8,
-        stepScale: 1.45,
-        maxBrightness: 0.24,
+        stepScale: 1.15,
+        maxBrightness: 0.18,
         maxExposure: 1.0,
-        minContrast: 0.70,
+        minContrast: 0.78,
         maxContrast: 1.40,
-        minSaturation: 0.50,
+        minSaturation: 0.62,
         maxSaturation: 1.60,
         maxColorBalance: 1.0,
         matchToneZones: true,
         matchRgbCurves: true,
-        maxToneZone: 1.0,
-        maxRgbCurve: 1.0,
+        maxToneZone: 0.50,
+        maxRgbCurve: 0.45,
+        minContrastRetention: 0.92,
       ),
     };
   }
+}
+
+class _MatchCandidate {
+  const _MatchCandidate({
+    required this.params,
+    required this.mode,
+    required this.loss,
+  });
+
+  final ColorGradingParams params;
+  final ColorMatchMode mode;
+  final double loss;
 }
 
 class _ImageStats {

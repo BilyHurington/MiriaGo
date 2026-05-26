@@ -104,7 +104,6 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     setState(() {
       _selectedPoint = point;
     });
-    _mapController.move(point.position, 17);
   }
 
   Future<void> _importSelectedPoint() async {
