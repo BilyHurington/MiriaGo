@@ -75,14 +75,8 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 本项目代码使用 MIT License 开源，但应用中显示或访问的第三方数据不属于本项目。
 
 - 地图瓦片和地图数据来自 OpenStreetMap。使用时应保留 `OpenStreetMap contributors` 署名，并遵守 OpenStreetMap 官方瓦片使用政策。
-- 作品搜索使用 Bangumi API。非浏览器 API 请求需要设置清晰的 User-Agent，当前格式包含开发者 ID、应用名称、版本号和项目主页。
+- 作品搜索使用 Bangumi API。非浏览器 API 请求需要设置清晰的 User-Agent。
 - 巡礼点位和参考图来自 Anitabi。点位、截图、图片和相关元数据的版权归原平台、贡献者或权利方所有。本项目只提供客户端访问与用户本地缓存能力，不在仓库中分发这些数据。
-
-当前 Bangumi User-Agent：
-
-```text
-bilyhurington/MiriaGo/1.0.0 (https://github.com/bilyhurington/MiriaGo)
-```
 
 ## 文档
 
