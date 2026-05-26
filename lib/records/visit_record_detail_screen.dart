@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
@@ -30,6 +31,11 @@ class VisitRecordDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('记录详情'),
         actions: [
+          IconButton(
+            tooltip: '自动调色',
+            onPressed: () => _openColorGrading(context),
+            icon: const Icon(Icons.auto_fix_high_outlined),
+          ),
           IconButton(
             tooltip: '导出对比图',
             onPressed: () => _exportComparison(context, resolvedPoint),
@@ -120,6 +126,19 @@ class VisitRecordDetailScreen extends StatelessWidget {
     );
   }
 
+  void _openColorGrading(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ColorGradingScreen(
+          recordId: record.id,
+          capturedPath: record.photoPath,
+          referenceImagePath: record.referenceImagePath,
+          referenceImageUrl: record.referenceImageUrl,
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(BuildContext context) async {
     var deleteFiles = false;
 
@@ -142,8 +161,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
                         value: deleteFiles,
                         onChanged: (v) =>
                             setState(() => deleteFiles = v ?? false),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                       ),
                       const Text('同时删除照片文件'),
@@ -191,8 +209,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
 
   void _exportComparison(BuildContext context, PilgrimagePoint? resolvedPoint) {
     final meta = <ComparisonMetadataField, String>{
-      ComparisonMetadataField.capturedAt:
-          _formatDateTime(record.capturedAt),
+      ComparisonMetadataField.capturedAt: _formatDateTime(record.capturedAt),
     };
 
     if (resolvedPoint != null) {
@@ -201,7 +218,7 @@ class VisitRecordDetailScreen extends StatelessWidget {
       meta[ComparisonMetadataField.episodeLabel] = resolvedPoint.episodeLabel;
       meta[ComparisonMetadataField.coordinates] =
           '${resolvedPoint.position.latitude.toStringAsFixed(5)}, '
-              '${resolvedPoint.position.longitude.toStringAsFixed(5)}';
+          '${resolvedPoint.position.longitude.toStringAsFixed(5)}';
       if (resolvedPoint.sourceId != null) {
         meta[ComparisonMetadataField.anitabiId] = resolvedPoint.sourceId!;
       }
@@ -273,10 +290,7 @@ class _RecordImageTile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            onTap: onTap,
-            child: child,
-          ),
+          child: InkWell(onTap: onTap, child: child),
         ),
         const SizedBox(height: 6),
         Text(
