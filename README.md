@@ -1,8 +1,8 @@
 # MiriaGo
 
-MiriaGo 是一个使用 Flutter 开发的开源跨平台应用，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录与对比图。
+MiriaGo 是一个使用 Flutter 开发的开源 Android 应用，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录与对比图。
 
-当前主要面向 Android，Web 版本用于开发预览。
+当前主要面向 Android，Web 版本仅用于开发预览。
 
 ## 功能
 
@@ -23,13 +23,11 @@ MiriaGo 是一个使用 Flutter 开发的开源跨平台应用，用于规划动
 
 ## 下载与安装
 
-当前还没有正式 Release。开发构建出的 Android release APK 位置为：
+当前还没有正式发布版本。开发构建出的 Android release APK 位置为：
 
 ```text
 build/app/outputs/flutter-apk/app-release.apk
 ```
-
-如果仓库启用 GitHub Actions，可以在 GitHub Release 页面下载自动构建的 APK。
 
 ## 开发环境
 
@@ -89,7 +87,6 @@ bilyhurington/MiriaGo/1.0.0 (https://github.com/bilyhurington/MiriaGo)
 ## 文档
 
 - [使用指南](docs/USAGE.md)
-- [GitHub Release 与自动构建](docs/RELEASE.md)
 
 ## 开源协议
 
