@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -229,7 +230,7 @@ class ComparisonExportRenderer {
         textDirection: TextDirection.ltr,
         maxLines: 2,
         ellipsis: '...',
-      )..layout(maxWidth: width - layout.paddingH * 2);
+      )..layout(maxWidth: layout.mainWidth);
       titlePainter.paint(canvas, Offset(x + layout.paddingH, currentY));
       currentY += titlePainter.height + layout.titleSubtitleGap;
     }
@@ -249,7 +250,7 @@ class ComparisonExportRenderer {
         textDirection: TextDirection.ltr,
         maxLines: 2,
         ellipsis: '...',
-      )..layout(maxWidth: width - layout.paddingH * 2);
+      )..layout(maxWidth: layout.mainWidth);
       subtitlePainter.paint(canvas, Offset(x + layout.paddingH, currentY));
       currentY += subtitlePainter.height;
     }
@@ -258,7 +259,7 @@ class ComparisonExportRenderer {
       currentY += layout.subtitleTagGap;
       var tagX = x + layout.paddingH;
       var tagY = currentY;
-      final maxX = x + width - layout.paddingH;
+      final maxX = x + layout.paddingH + layout.mainWidth;
       for (final tag in layout.tags) {
         final tagPainter = TextPainter(
           text: TextSpan(
@@ -297,6 +298,57 @@ class ComparisonExportRenderer {
         tagX += tagWidth + layout.tagGap;
       }
     }
+
+    if (layout.pilgrimName.isNotEmpty) {
+      final labelPainter = TextPainter(
+        text: TextSpan(
+          text: '巡礼者',
+          style: TextStyle(
+            color: const Color(0xFF8A9099),
+            fontSize: layout.pilgrimLabelFontSize,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.right,
+        maxLines: 1,
+      )..layout(maxWidth: layout.signatureWidth);
+      final namePainter = TextPainter(
+        text: TextSpan(
+          text: layout.pilgrimName,
+          style: TextStyle(
+            color: const Color(0xFF1D1F23),
+            fontSize: layout.pilgrimNameFontSize,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+            height: 1.1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.right,
+        maxLines: 2,
+        ellipsis: '...',
+      )..layout(maxWidth: layout.signatureWidth);
+      final signatureHeight =
+          labelPainter.height + layout.pilgrimGap + namePainter.height;
+      final signatureX = x + width - layout.paddingH - layout.signatureWidth;
+      final signatureY = y + (layout.height - signatureHeight) / 2;
+      labelPainter.paint(
+        canvas,
+        Offset(
+          signatureX + layout.signatureWidth - labelPainter.width,
+          signatureY,
+        ),
+      );
+      namePainter.paint(
+        canvas,
+        Offset(
+          signatureX + layout.signatureWidth - namePainter.width,
+          signatureY + labelPainter.height + layout.pilgrimGap,
+        ),
+      );
+    }
   }
 
   Future<ui.Image?> _decodeImage(Uint8List bytes) {
@@ -311,7 +363,10 @@ class _ComparisonMetaLayout {
     required this.title,
     required this.subtitle,
     required this.tags,
+    required this.pilgrimName,
     required this.height,
+    required this.mainWidth,
+    required this.signatureWidth,
     required this.paddingH,
     required this.paddingV,
     required this.radius,
@@ -324,12 +379,18 @@ class _ComparisonMetaLayout {
     required this.tagPadH,
     required this.tagPadV,
     required this.tagRadius,
+    required this.pilgrimLabelFontSize,
+    required this.pilgrimNameFontSize,
+    required this.pilgrimGap,
   });
 
   final String title;
   final String subtitle;
   final List<String> tags;
+  final String pilgrimName;
   final double height;
+  final double mainWidth;
+  final double signatureWidth;
   final double paddingH;
   final double paddingV;
   final double radius;
@@ -342,9 +403,15 @@ class _ComparisonMetaLayout {
   final double tagPadH;
   final double tagPadV;
   final double tagRadius;
+  final double pilgrimLabelFontSize;
+  final double pilgrimNameFontSize;
+  final double pilgrimGap;
 
   bool get hasContent =>
-      title.isNotEmpty || subtitle.isNotEmpty || tags.isNotEmpty;
+      title.isNotEmpty ||
+      subtitle.isNotEmpty ||
+      tags.isNotEmpty ||
+      pilgrimName.isNotEmpty;
 
   factory _ComparisonMetaLayout.from({
     required double width,
@@ -364,6 +431,18 @@ class _ComparisonMetaLayout {
     final tagPadV = 8.0 * scale;
     final radius = 12.0 * scale;
     final tagRadius = 6.0 * scale;
+    final pilgrimName = config.showPilgrimName ? config.pilgrimName.trim() : '';
+    final signatureWidth = pilgrimName.isEmpty
+        ? 0.0
+        : min(width * 0.28, 300.0 * scale);
+    final signatureGap = pilgrimName.isEmpty ? 0.0 : 34.0 * scale;
+    final mainWidth = max(
+      width - paddingH * 2 - signatureWidth - signatureGap,
+      width * 0.52,
+    );
+    final pilgrimLabelFontSize = 18.0 * scale;
+    final pilgrimNameFontSize = 30.0 * scale;
+    final pilgrimGap = 8.0 * scale;
 
     String value(ComparisonMetadataField field) {
       if (!config.metadataFields.contains(field)) return '';
@@ -413,7 +492,7 @@ class _ComparisonMetaLayout {
         textDirection: TextDirection.ltr,
         maxLines: maxLines,
         ellipsis: '...',
-      )..layout(maxWidth: width - paddingH * 2);
+      )..layout(maxWidth: mainWidth);
       return painter.height;
     }
 
@@ -428,7 +507,7 @@ class _ComparisonMetaLayout {
     if (tags.isNotEmpty) {
       var rowWidth = 0.0;
       tagRows = 1;
-      final maxTagAreaWidth = width - paddingH * 2;
+      final maxTagAreaWidth = mainWidth;
       for (final tag in tags) {
         final painter = TextPainter(
           text: TextSpan(
@@ -457,7 +536,7 @@ class _ComparisonMetaLayout {
     final tagHeight = tagRows == 0
         ? 0.0
         : tagRows * (tagFontSize * 1.25 + tagPadV * 2) + (tagRows - 1) * tagGap;
-    final height = title.isEmpty && subtitle.isEmpty && tags.isEmpty
+    final mainHeight = title.isEmpty && subtitle.isEmpty && tags.isEmpty
         ? 0.0
         : paddingV * 2 +
               titleHeight +
@@ -467,12 +546,22 @@ class _ComparisonMetaLayout {
                   ? subtitleTagGap
                   : 0) +
               tagHeight;
+    final signatureHeight = pilgrimName.isEmpty
+        ? 0.0
+        : paddingV * 2 +
+              pilgrimLabelFontSize * 1.2 +
+              pilgrimGap +
+              pilgrimNameFontSize * 2.2;
+    final height = max(mainHeight, signatureHeight);
 
     return _ComparisonMetaLayout(
       title: title,
       subtitle: subtitle,
       tags: tags,
+      pilgrimName: pilgrimName,
       height: height,
+      mainWidth: mainWidth,
+      signatureWidth: signatureWidth,
       paddingH: paddingH,
       paddingV: paddingV,
       radius: radius,
@@ -485,6 +574,9 @@ class _ComparisonMetaLayout {
       tagPadH: tagPadH,
       tagPadV: tagPadV,
       tagRadius: tagRadius,
+      pilgrimLabelFontSize: pilgrimLabelFontSize,
+      pilgrimNameFontSize: pilgrimNameFontSize,
+      pilgrimGap: pilgrimGap,
     );
   }
 }

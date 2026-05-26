@@ -294,6 +294,31 @@ class _MetadataSection extends StatelessWidget {
       children: [
         const _SectionLabel('元数据'),
         const SizedBox(height: 8),
+        TextFormField(
+          initialValue: config.pilgrimName,
+          decoration: const InputDecoration(
+            labelText: '巡礼者名字',
+            prefixIcon: Icon(Icons.person_outline),
+          ),
+          textInputAction: TextInputAction.done,
+          onChanged: (value) => onChanged(config.copyWith(pilgrimName: value)),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '在右侧显示巡礼者',
+                style: TextStyle(fontSize: 14, letterSpacing: 0),
+              ),
+            ),
+            Switch(
+              value: config.showPilgrimName,
+              onChanged: (v) => onChanged(config.copyWith(showPilgrimName: v)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         LayoutBuilder(
           builder: (context, constraints) {
             final itemWidth = constraints.maxWidth >= 360
@@ -469,13 +494,33 @@ class _ColorOption extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(
                 color: selected
-                    ? AppColors.accent
+                    ? (color == AppColors.accent
+                          ? AppColors.textPrimary
+                          : AppColors.accent)
                     : color == Colors.white
                     ? AppColors.border
                     : Colors.transparent,
                 width: selected ? 3 : 1,
               ),
+              boxShadow: selected
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 1),
+                      ),
+                    ]
+                  : null,
             ),
+            child: selected
+                ? Icon(
+                    Icons.check,
+                    size: 18,
+                    color: color.computeLuminance() > 0.55
+                        ? AppColors.textPrimary
+                        : Colors.white,
+                  )
+                : null,
           ),
           const SizedBox(width: 4),
           Text(

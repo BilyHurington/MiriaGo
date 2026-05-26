@@ -46,6 +46,8 @@ class ComparisonExportConfig {
     this.borderColor = Colors.white,
     this.outputWidth = ComparisonOutputWidth.auto,
     this.showLabels = false,
+    this.showPilgrimName = false,
+    this.pilgrimName = '',
     this.metadataFields = const {
       ComparisonMetadataField.capturedAt,
       ComparisonMetadataField.workTitle,
@@ -57,6 +59,8 @@ class ComparisonExportConfig {
   final Color borderColor;
   final ComparisonOutputWidth outputWidth;
   final bool showLabels;
+  final bool showPilgrimName;
+  final String pilgrimName;
   final Set<ComparisonMetadataField> metadataFields;
 
   static ComparisonExportConfig lastUsed = const ComparisonExportConfig();
@@ -67,6 +71,8 @@ class ComparisonExportConfig {
       'borderColor': borderColor.toARGB32(),
       'outputWidth': outputWidth.name,
       'showLabels': showLabels,
+      'showPilgrimName': showPilgrimName,
+      'pilgrimName': pilgrimName,
       'metadataFields': metadataFields.map((field) => field.name).toList(),
     };
   }
@@ -91,6 +97,8 @@ class ComparisonExportConfig {
         ComparisonOutputWidth.auto,
       ),
       showLabels: json['showLabels'] as bool? ?? false,
+      showPilgrimName: json['showPilgrimName'] as bool? ?? false,
+      pilgrimName: json['pilgrimName'] as String? ?? '',
       metadataFields: fields is List
           ? fields
                 .map(
@@ -114,6 +122,8 @@ class ComparisonExportConfig {
     Color? borderColor,
     ComparisonOutputWidth? outputWidth,
     bool? showLabels,
+    bool? showPilgrimName,
+    String? pilgrimName,
     Set<ComparisonMetadataField>? metadataFields,
   }) {
     return ComparisonExportConfig(
@@ -121,6 +131,8 @@ class ComparisonExportConfig {
       borderColor: borderColor ?? this.borderColor,
       outputWidth: outputWidth ?? this.outputWidth,
       showLabels: showLabels ?? this.showLabels,
+      showPilgrimName: showPilgrimName ?? this.showPilgrimName,
+      pilgrimName: pilgrimName ?? this.pilgrimName,
       metadataFields: metadataFields ?? this.metadataFields,
     );
   }

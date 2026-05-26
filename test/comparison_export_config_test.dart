@@ -9,6 +9,8 @@ void main() {
       borderColor: Colors.black,
       outputWidth: ComparisonOutputWidth.w1920,
       showLabels: true,
+      showPilgrimName: true,
+      pilgrimName: 'BilyHurington',
       metadataFields: {
         ComparisonMetadataField.pointName,
         ComparisonMetadataField.episodeLabel,
@@ -21,6 +23,8 @@ void main() {
     expect(restored.borderColor, Colors.black);
     expect(restored.outputWidth, ComparisonOutputWidth.w1920);
     expect(restored.showLabels, isTrue);
+    expect(restored.showPilgrimName, isTrue);
+    expect(restored.pilgrimName, 'BilyHurington');
     expect(restored.metadataFields, {
       ComparisonMetadataField.pointName,
       ComparisonMetadataField.episodeLabel,

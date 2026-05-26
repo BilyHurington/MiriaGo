@@ -315,6 +315,11 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
             value: _intensity,
             onChanged: (value) => setState(() => _intensity = value),
           ),
+          const SizedBox(height: 12),
+          _ParameterSummary(
+            targetParams: _targetParams!,
+            activeParams: _activeParams,
+          ),
         ],
         const SizedBox(height: 12),
         _SavePanel(saving: _saving, onSave: _save),
@@ -675,6 +680,258 @@ class _IntensityControl extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ParameterSummary extends StatelessWidget {
+  const _ParameterSummary({
+    required this.targetParams,
+    required this.activeParams,
+  });
+
+  final ColorGradingParams targetParams;
+  final ColorGradingParams activeParams;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '调色参数',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _showParameterSheet(context),
+                icon: const Icon(Icons.tune, size: 18),
+                label: const Text('查看'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '显示自动匹配生成的目标参数和当前强度下实际使用的参数。',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showParameterSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      builder: (context) => _ParameterSheet(
+        targetParams: targetParams,
+        activeParams: activeParams,
+      ),
+    );
+  }
+}
+
+class _ParameterSheet extends StatelessWidget {
+  const _ParameterSheet({
+    required this.targetParams,
+    required this.activeParams,
+  });
+
+  final ColorGradingParams targetParams;
+  final ColorGradingParams activeParams;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <_ParameterItem>[
+      _ParameterItem(
+        '亮度',
+        activeParams.brightness,
+        targetParams.brightness,
+        -0.25,
+        0.25,
+      ),
+      _ParameterItem(
+        '曝光',
+        activeParams.exposure,
+        targetParams.exposure,
+        -1.0,
+        1.0,
+      ),
+      _ParameterItem(
+        '对比度',
+        activeParams.contrast,
+        targetParams.contrast,
+        0.7,
+        1.4,
+      ),
+      _ParameterItem(
+        '饱和度',
+        activeParams.saturation,
+        targetParams.saturation,
+        0.5,
+        1.6,
+      ),
+      _ParameterItem(
+        '色温',
+        activeParams.temperature,
+        targetParams.temperature,
+        -1.0,
+        1.0,
+      ),
+      _ParameterItem('色调', activeParams.tint, targetParams.tint, -1.0, 1.0),
+      _ParameterItem(
+        '高光',
+        activeParams.highlights,
+        targetParams.highlights,
+        -1.0,
+        1.0,
+      ),
+      _ParameterItem(
+        '阴影',
+        activeParams.shadows,
+        targetParams.shadows,
+        -1.0,
+        1.0,
+      ),
+      _ParameterItem(
+        '红色曲线',
+        activeParams.redCurve,
+        targetParams.redCurve,
+        -1.0,
+        1.0,
+      ),
+      _ParameterItem(
+        '绿色曲线',
+        activeParams.greenCurve,
+        targetParams.greenCurve,
+        -1.0,
+        1.0,
+      ),
+      _ParameterItem(
+        '蓝色曲线',
+        activeParams.blueCurve,
+        targetParams.blueCurve,
+        -1.0,
+        1.0,
+      ),
+    ];
+
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.74,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          itemCount: items.length + 1,
+          separatorBuilder: (_, index) => index == 0
+              ? const SizedBox(height: 10)
+              : const Divider(height: 18),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return const Text(
+                '调色参数',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              );
+            }
+            return _ParameterRow(item: items[index - 1]);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ParameterItem {
+  const _ParameterItem(
+    this.label,
+    this.activeValue,
+    this.targetValue,
+    this.min,
+    this.max,
+  );
+
+  final String label;
+  final double activeValue;
+  final double targetValue;
+  final double min;
+  final double max;
+}
+
+class _ParameterRow extends StatelessWidget {
+  const _ParameterRow({required this.item});
+
+  final _ParameterItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeT = ((item.activeValue - item.min) / (item.max - item.min))
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final targetText = item.targetValue.toStringAsFixed(3);
+    final activeText = item.activeValue.toStringAsFixed(3);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            Text(
+              '当前 $activeText / 目标 $targetText',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: activeT,
+            minHeight: 7,
+            backgroundColor: AppColors.surfaceMuted,
+            color: AppColors.accent,
+          ),
+        ),
+      ],
     );
   }
 }

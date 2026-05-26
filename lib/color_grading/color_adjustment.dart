@@ -71,46 +71,23 @@ Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
 
   final referenceStats = _ImageStats.fromImage(reference);
   final capturedStats = _ImageStats.fromImage(captured);
-  final candidates = <_MatchCandidate>[
-    _matchWithConfig(
-      captured: captured,
-      referenceStats: referenceStats,
-      capturedStats: capturedStats,
-      mode: mode,
-    ),
-  ];
-  if (mode == ColorMatchMode.strong) {
-    candidates.add(
-      _matchWithConfig(
-        captured: captured,
-        referenceStats: referenceStats,
-        capturedStats: capturedStats,
-        mode: ColorMatchMode.standard,
-      ),
-    );
-  }
-
   final beforeLoss = _colorLoss(referenceStats, capturedStats);
-  final best = candidates.reduce((a, b) => a.loss <= b.loss ? a : b);
-  final result = best.loss < beforeLoss
-      ? best
-      : _MatchCandidate(
-          params: ColorGradingParams.defaults,
-          mode: mode,
-          loss: beforeLoss,
-        );
+  final result = _matchWithConfig(
+    captured: captured,
+    referenceStats: referenceStats,
+    capturedStats: capturedStats,
+    mode: mode,
+  );
   final afterLoss = _colorLoss(
     referenceStats,
-    result.params == ColorGradingParams.defaults
-        ? capturedStats
-        : _adjustedStats(captured, result.params),
+    _adjustedStats(captured, result.params),
   );
 
   return {
     'params': result.params.toJson(),
     'mode': result.mode.name,
     'beforeScore': _scoreFromLoss(beforeLoss),
-    'afterScore': _scoreFromLoss(min(beforeLoss, afterLoss)),
+    'afterScore': _scoreFromLoss(afterLoss),
   };
 }
 

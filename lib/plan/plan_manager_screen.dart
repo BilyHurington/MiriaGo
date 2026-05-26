@@ -241,26 +241,31 @@ class _PlanCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              Expanded(
+              Padding(
+                padding: const EdgeInsets.only(right: 42),
                 child: Text(
                   plan.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 16,
+                    height: 1.25,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              _CompactPlanButton(
-                tooltip: '导出计划',
-                onPressed: onExport,
-                icon: const Icon(Icons.ios_share_outlined, size: 22),
+              Positioned(
+                right: 0,
+                top: -5,
+                child: _CompactPlanButton(
+                  tooltip: '导出计划',
+                  onPressed: onExport,
+                  icon: const Icon(Icons.ios_share_outlined, size: 20),
+                ),
               ),
             ],
           ),
