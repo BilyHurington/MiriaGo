@@ -93,8 +93,9 @@ class PointDetailSheet extends StatelessWidget {
                         children: [
                           _StatusBadge(status: status),
                           const SizedBox(height: 8),
-                          Text(
-                            point.name,
+                          CopyableText(
+                            text: point.name,
+                            copyLabel: '点位名称',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(

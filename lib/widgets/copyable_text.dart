@@ -66,6 +66,8 @@ class _CopyableTextState extends State<CopyableText> {
       ancestor: overlayBox,
     );
     final targetSize = renderBox.size;
+    final textWidth = _visibleTextWidth(context, maxWidth: targetSize.width);
+    final anchorWidth = textWidth.clamp(0.0, targetSize.width);
     final overlaySize = overlayBox.size;
     const buttonWidth = 82.0;
     const buttonHeight = 42.0;
@@ -73,8 +75,10 @@ class _CopyableTextState extends State<CopyableText> {
       8.0,
       overlaySize.height - buttonHeight - 8,
     );
-    final left = (targetTopLeft.dx + (targetSize.width - buttonWidth) / 2)
-        .clamp(8.0, overlaySize.width - buttonWidth - 8);
+    final left = (targetTopLeft.dx + (anchorWidth - buttonWidth) / 2).clamp(
+      8.0,
+      overlaySize.width - buttonWidth - 8,
+    );
 
     _activeCopyOverlay = OverlayEntry(
       builder: (overlayContext) => _CopyOverlay(
@@ -88,6 +92,21 @@ class _CopyableTextState extends State<CopyableText> {
       ),
     );
     overlay.insert(_activeCopyOverlay!);
+  }
+
+  double _visibleTextWidth(BuildContext context, {required double maxWidth}) {
+    final direction = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final defaultStyle = DefaultTextStyle.of(context);
+    final painter = TextPainter(
+      text: TextSpan(
+        text: widget.text,
+        style: defaultStyle.style.merge(widget.style),
+      ),
+      maxLines: widget.maxLines,
+      textDirection: direction,
+      ellipsis: widget.overflow == TextOverflow.ellipsis ? '...' : null,
+    )..layout(maxWidth: maxWidth);
+    return painter.width;
   }
 }
 
