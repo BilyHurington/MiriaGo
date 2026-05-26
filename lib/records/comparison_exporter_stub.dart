@@ -6,6 +6,7 @@ Future<String?> exportComparisonImage({
   required String capturedPath,
   required ComparisonExportConfig config,
   required Map<ComparisonMetadataField, String> metadata,
+  required String? colorGradingSummary,
 }) async {
   return null;
 }

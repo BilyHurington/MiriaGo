@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
@@ -255,7 +257,42 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       referenceImageUrl: _record.referenceImageUrl,
       capturedPath: _record.displayPhotoPath,
       metadata: meta,
+      colorGradingSummary: _colorGradingSummary(),
     );
+  }
+
+  String? _colorGradingSummary() {
+    final paramsJson = _record.colorGradingParamsJson;
+    if (paramsJson == null || paramsJson.isEmpty) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(paramsJson);
+      if (decoded is! Map) {
+        return null;
+      }
+      final params = ColorGradingParams.fromJson(
+        Map<String, Object?>.from(decoded),
+      );
+      final mode = ColorMatchMode.values
+          .firstWhere(
+            (candidate) => candidate.name == _record.colorGradingMode,
+            orElse: () => ColorMatchMode.standard,
+          )
+          .label;
+      final intensity =
+          ((_record.colorGradingIntensity ?? 1).clamp(0.0, 1.0) * 100).round();
+      String f(double value) => value.toStringAsFixed(2);
+      return '调色 $mode $intensity%  '
+          '曝光 ${f(params.exposure)}  对比 ${f(params.contrast)}  饱和 ${f(params.saturation)}  '
+          '高光 ${f(params.highlights)}  阴影 ${f(params.shadows)}  '
+          'R ${f(params.redShadowCurve)}/${f(params.redMidCurve)}/${f(params.redHighlightCurve)}  '
+          'G ${f(params.greenShadowCurve)}/${f(params.greenMidCurve)}/${f(params.greenHighlightCurve)}  '
+          'B ${f(params.blueShadowCurve)}/${f(params.blueMidCurve)}/${f(params.blueHighlightCurve)}';
+    } catch (_) {
+      return null;
+    }
   }
 }
 

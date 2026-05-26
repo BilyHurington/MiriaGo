@@ -126,9 +126,15 @@ _MatchCandidate _matchWithConfig({
   }
   if (config.matchRgbCurves) {
     steps.addAll({
-      'redCurve': 0.18 * config.stepScale,
-      'greenCurve': 0.18 * config.stepScale,
-      'blueCurve': 0.18 * config.stepScale,
+      'redShadowCurve': 0.14 * config.stepScale,
+      'redMidCurve': 0.18 * config.stepScale,
+      'redHighlightCurve': 0.14 * config.stepScale,
+      'greenShadowCurve': 0.14 * config.stepScale,
+      'greenMidCurve': 0.18 * config.stepScale,
+      'greenHighlightCurve': 0.14 * config.stepScale,
+      'blueShadowCurve': 0.14 * config.stepScale,
+      'blueMidCurve': 0.18 * config.stepScale,
+      'blueHighlightCurve': 0.14 * config.stepScale,
     });
   }
 
@@ -242,13 +248,13 @@ ColorGradingParams _estimateInitialParams(
             config.maxToneZone,
           )
         : 0,
-    redCurve: config.matchRgbCurves
+    redMidCurve: config.matchRgbCurves
         ? _initialCurve(reference.meanR, captured.meanR, config)
         : 0,
-    greenCurve: config.matchRgbCurves
+    greenMidCurve: config.matchRgbCurves
         ? _initialCurve(reference.meanG, captured.meanG, config)
         : 0,
-    blueCurve: config.matchRgbCurves
+    blueMidCurve: config.matchRgbCurves
         ? _initialCurve(reference.meanB, captured.meanB, config)
         : 0,
   );
@@ -281,9 +287,31 @@ ColorGradingParams _shiftParam(
     'tint' => params.copyWith(tint: params.tint + delta),
     'highlights' => params.copyWith(highlights: params.highlights + delta),
     'shadows' => params.copyWith(shadows: params.shadows + delta),
-    'redCurve' => params.copyWith(redCurve: params.redCurve + delta),
-    'greenCurve' => params.copyWith(greenCurve: params.greenCurve + delta),
-    'blueCurve' => params.copyWith(blueCurve: params.blueCurve + delta),
+    'redShadowCurve' => params.copyWith(
+      redShadowCurve: params.redShadowCurve + delta,
+    ),
+    'redMidCurve' => params.copyWith(redMidCurve: params.redMidCurve + delta),
+    'redHighlightCurve' => params.copyWith(
+      redHighlightCurve: params.redHighlightCurve + delta,
+    ),
+    'greenShadowCurve' => params.copyWith(
+      greenShadowCurve: params.greenShadowCurve + delta,
+    ),
+    'greenMidCurve' => params.copyWith(
+      greenMidCurve: params.greenMidCurve + delta,
+    ),
+    'greenHighlightCurve' => params.copyWith(
+      greenHighlightCurve: params.greenHighlightCurve + delta,
+    ),
+    'blueShadowCurve' => params.copyWith(
+      blueShadowCurve: params.blueShadowCurve + delta,
+    ),
+    'blueMidCurve' => params.copyWith(
+      blueMidCurve: params.blueMidCurve + delta,
+    ),
+    'blueHighlightCurve' => params.copyWith(
+      blueHighlightCurve: params.blueHighlightCurve + delta,
+    ),
     _ => params,
   };
   return _clampForConfig(shifted, config);
@@ -314,12 +342,42 @@ ColorGradingParams _clampForConfig(
       config.maxToneZone,
     ),
     shadows: params.shadows.clamp(-config.maxToneZone, config.maxToneZone),
-    redCurve: params.redCurve.clamp(-config.maxRgbCurve, config.maxRgbCurve),
-    greenCurve: params.greenCurve.clamp(
+    redShadowCurve: params.redShadowCurve.clamp(
       -config.maxRgbCurve,
       config.maxRgbCurve,
     ),
-    blueCurve: params.blueCurve.clamp(-config.maxRgbCurve, config.maxRgbCurve),
+    redMidCurve: params.redMidCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    redHighlightCurve: params.redHighlightCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    greenShadowCurve: params.greenShadowCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    greenMidCurve: params.greenMidCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    greenHighlightCurve: params.greenHighlightCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    blueShadowCurve: params.blueShadowCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    blueMidCurve: params.blueMidCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
+    blueHighlightCurve: params.blueHighlightCurve.clamp(
+      -config.maxRgbCurve,
+      config.maxRgbCurve,
+    ),
   );
 }
 
@@ -386,9 +444,6 @@ void _applyColorGrading(img.Image image, ColorGradingParams params) {
   final rBalance = 1 + 0.10 * p.temperature - 0.04 * p.tint;
   final gBalance = 1 + 0.08 * p.tint;
   final bBalance = 1 - 0.10 * p.temperature - 0.04 * p.tint;
-  final redGamma = pow(2.0, -0.42 * p.redCurve).toDouble();
-  final greenGamma = pow(2.0, -0.42 * p.greenCurve).toDouble();
-  final blueGamma = pow(2.0, -0.42 * p.blueCurve).toDouble();
 
   for (final pixel in image) {
     var r = pixel.rNormalized.toDouble();
@@ -421,9 +476,25 @@ void _applyColorGrading(img.Image image, ColorGradingParams params) {
     g += toneOffset;
     b += toneOffset;
 
-    r = pow(r.clamp(0.0, 1.0), redGamma).toDouble();
-    g = pow(g.clamp(0.0, 1.0), greenGamma).toDouble();
-    b = pow(b.clamp(0.0, 1.0), blueGamma).toDouble();
+    final curveLuma = (0.2126 * r + 0.7152 * g + 0.0722 * b).clamp(0.0, 1.0);
+    final curveShadow = (1 - curveLuma) * (1 - curveLuma);
+    final curveMid = 1 - (curveLuma * 2 - 1).abs();
+    final curveHighlight = curveLuma * curveLuma;
+    r +=
+        0.12 *
+        (p.redShadowCurve * curveShadow +
+            p.redMidCurve * curveMid +
+            p.redHighlightCurve * curveHighlight);
+    g +=
+        0.12 *
+        (p.greenShadowCurve * curveShadow +
+            p.greenMidCurve * curveMid +
+            p.greenHighlightCurve * curveHighlight);
+    b +=
+        0.12 *
+        (p.blueShadowCurve * curveShadow +
+            p.blueMidCurve * curveMid +
+            p.blueHighlightCurve * curveHighlight);
 
     pixel
       ..r = (r.clamp(0.0, 1.0) * 255).round()

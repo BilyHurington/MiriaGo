@@ -11,6 +11,7 @@ void main() {
       showLabels: true,
       showPilgrimName: true,
       pilgrimName: 'BilyHurington',
+      showColorGradingParams: true,
       metadataFields: {
         ComparisonMetadataField.pointName,
         ComparisonMetadataField.episodeLabel,
@@ -25,6 +26,7 @@ void main() {
     expect(restored.showLabels, isTrue);
     expect(restored.showPilgrimName, isTrue);
     expect(restored.pilgrimName, 'BilyHurington');
+    expect(restored.showColorGradingParams, isTrue);
     expect(restored.metadataFields, {
       ComparisonMetadataField.pointName,
       ComparisonMetadataField.episodeLabel,

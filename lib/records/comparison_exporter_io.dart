@@ -13,6 +13,7 @@ Future<String?> exportComparisonImage({
   required String capturedPath,
   required ComparisonExportConfig config,
   required Map<ComparisonMetadataField, String> metadata,
+  required String? colorGradingSummary,
 }) async {
   Uint8List? refBytes;
   if (referenceImagePath != null) {
@@ -40,6 +41,7 @@ Future<String?> exportComparisonImage({
     capturedBytes: capBytes,
     config: config,
     metadata: metadata,
+    colorGradingSummary: colorGradingSummary,
   );
 
   if (outputBytes == null) return null;

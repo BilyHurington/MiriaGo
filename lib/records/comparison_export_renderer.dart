@@ -19,6 +19,7 @@ class ComparisonExportRenderer {
     required Uint8List capturedBytes,
     required ComparisonExportConfig config,
     required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
   }) async {
     final refImg = referenceBytes != null
         ? await _decodeImage(referenceBytes)
@@ -57,6 +58,7 @@ class ComparisonExportRenderer {
       width: contentWidth,
       config: config,
       metadata: metadata,
+      colorGradingSummary: colorGradingSummary,
     );
 
     final imgAreaHeight =
@@ -349,6 +351,31 @@ class ComparisonExportRenderer {
         ),
       );
     }
+
+    if (layout.colorGradingSummary.isNotEmpty) {
+      final summaryPainter = TextPainter(
+        text: TextSpan(
+          text: layout.colorGradingSummary,
+          style: TextStyle(
+            color: const Color(0xFF8A9099),
+            fontSize: layout.gradingFontSize,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+            height: 1.25,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 2,
+        ellipsis: '...',
+      )..layout(maxWidth: width - layout.paddingH * 2);
+      summaryPainter.paint(
+        canvas,
+        Offset(
+          x + layout.paddingH,
+          y + layout.height - layout.paddingV - summaryPainter.height,
+        ),
+      );
+    }
   }
 
   Future<ui.Image?> _decodeImage(Uint8List bytes) {
@@ -364,6 +391,7 @@ class _ComparisonMetaLayout {
     required this.subtitle,
     required this.tags,
     required this.pilgrimName,
+    required this.colorGradingSummary,
     required this.height,
     required this.mainWidth,
     required this.signatureWidth,
@@ -382,12 +410,14 @@ class _ComparisonMetaLayout {
     required this.pilgrimLabelFontSize,
     required this.pilgrimNameFontSize,
     required this.pilgrimGap,
+    required this.gradingFontSize,
   });
 
   final String title;
   final String subtitle;
   final List<String> tags;
   final String pilgrimName;
+  final String colorGradingSummary;
   final double height;
   final double mainWidth;
   final double signatureWidth;
@@ -406,17 +436,20 @@ class _ComparisonMetaLayout {
   final double pilgrimLabelFontSize;
   final double pilgrimNameFontSize;
   final double pilgrimGap;
+  final double gradingFontSize;
 
   bool get hasContent =>
       title.isNotEmpty ||
       subtitle.isNotEmpty ||
       tags.isNotEmpty ||
-      pilgrimName.isNotEmpty;
+      pilgrimName.isNotEmpty ||
+      colorGradingSummary.isNotEmpty;
 
   factory _ComparisonMetaLayout.from({
     required double width,
     required ComparisonExportConfig config,
     required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
   }) {
     final scale = (width / 1080).clamp(0.78, 2.4).toDouble();
     final paddingH = 40.0 * scale;
@@ -443,6 +476,10 @@ class _ComparisonMetaLayout {
     final pilgrimLabelFontSize = 18.0 * scale;
     final pilgrimNameFontSize = 30.0 * scale;
     final pilgrimGap = 8.0 * scale;
+    final gradingFontSize = 17.0 * scale;
+    final gradingSummary = config.showColorGradingParams
+        ? (colorGradingSummary?.trim() ?? '')
+        : '';
 
     String value(ComparisonMetadataField field) {
       if (!config.metadataFields.contains(field)) return '';
@@ -536,7 +573,14 @@ class _ComparisonMetaLayout {
     final tagHeight = tagRows == 0
         ? 0.0
         : tagRows * (tagFontSize * 1.25 + tagPadV * 2) + (tagRows - 1) * tagGap;
-    final mainHeight = title.isEmpty && subtitle.isEmpty && tags.isEmpty
+    final gradingHeight = gradingSummary.isEmpty
+        ? 0.0
+        : gradingFontSize * 2.5 + 16.0 * scale;
+    final mainHeight =
+        title.isEmpty &&
+            subtitle.isEmpty &&
+            tags.isEmpty &&
+            gradingSummary.isEmpty
         ? 0.0
         : paddingV * 2 +
               titleHeight +
@@ -545,7 +589,8 @@ class _ComparisonMetaLayout {
               ((title.isNotEmpty || subtitle.isNotEmpty) && tags.isNotEmpty
                   ? subtitleTagGap
                   : 0) +
-              tagHeight;
+              tagHeight +
+              gradingHeight;
     final signatureHeight = pilgrimName.isEmpty
         ? 0.0
         : paddingV * 2 +
@@ -559,6 +604,7 @@ class _ComparisonMetaLayout {
       subtitle: subtitle,
       tags: tags,
       pilgrimName: pilgrimName,
+      colorGradingSummary: gradingSummary,
       height: height,
       mainWidth: mainWidth,
       signatureWidth: signatureWidth,
@@ -577,6 +623,7 @@ class _ComparisonMetaLayout {
       pilgrimLabelFontSize: pilgrimLabelFontSize,
       pilgrimNameFontSize: pilgrimNameFontSize,
       pilgrimGap: pilgrimGap,
+      gradingFontSize: gradingFontSize,
     );
   }
 }

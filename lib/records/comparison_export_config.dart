@@ -48,6 +48,7 @@ class ComparisonExportConfig {
     this.showLabels = false,
     this.showPilgrimName = false,
     this.pilgrimName = '',
+    this.showColorGradingParams = false,
     this.metadataFields = const {
       ComparisonMetadataField.capturedAt,
       ComparisonMetadataField.workTitle,
@@ -61,6 +62,7 @@ class ComparisonExportConfig {
   final bool showLabels;
   final bool showPilgrimName;
   final String pilgrimName;
+  final bool showColorGradingParams;
   final Set<ComparisonMetadataField> metadataFields;
 
   static ComparisonExportConfig lastUsed = const ComparisonExportConfig();
@@ -73,6 +75,7 @@ class ComparisonExportConfig {
       'showLabels': showLabels,
       'showPilgrimName': showPilgrimName,
       'pilgrimName': pilgrimName,
+      'showColorGradingParams': showColorGradingParams,
       'metadataFields': metadataFields.map((field) => field.name).toList(),
     };
   }
@@ -99,6 +102,7 @@ class ComparisonExportConfig {
       showLabels: json['showLabels'] as bool? ?? false,
       showPilgrimName: json['showPilgrimName'] as bool? ?? false,
       pilgrimName: json['pilgrimName'] as String? ?? '',
+      showColorGradingParams: json['showColorGradingParams'] as bool? ?? false,
       metadataFields: fields is List
           ? fields
                 .map(
@@ -124,6 +128,7 @@ class ComparisonExportConfig {
     bool? showLabels,
     bool? showPilgrimName,
     String? pilgrimName,
+    bool? showColorGradingParams,
     Set<ComparisonMetadataField>? metadataFields,
   }) {
     return ComparisonExportConfig(
@@ -133,6 +138,8 @@ class ComparisonExportConfig {
       showLabels: showLabels ?? this.showLabels,
       showPilgrimName: showPilgrimName ?? this.showPilgrimName,
       pilgrimName: pilgrimName ?? this.pilgrimName,
+      showColorGradingParams:
+          showColorGradingParams ?? this.showColorGradingParams,
       metadataFields: metadataFields ?? this.metadataFields,
     );
   }

@@ -14,6 +14,7 @@ class ComparisonExportSheet extends StatefulWidget {
     required this.referenceImageUrl,
     required this.capturedPath,
     required this.metadata,
+    required this.colorGradingSummary,
     super.key,
   });
 
@@ -21,6 +22,7 @@ class ComparisonExportSheet extends StatefulWidget {
   final String? referenceImageUrl;
   final String capturedPath;
   final Map<ComparisonMetadataField, String> metadata;
+  final String? colorGradingSummary;
 
   static Future<void> show(
     BuildContext context, {
@@ -28,6 +30,7 @@ class ComparisonExportSheet extends StatefulWidget {
     required String? referenceImageUrl,
     required String capturedPath,
     required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -39,6 +42,7 @@ class ComparisonExportSheet extends StatefulWidget {
         referenceImageUrl: referenceImageUrl,
         capturedPath: capturedPath,
         metadata: metadata,
+        colorGradingSummary: colorGradingSummary,
       ),
     );
   }
@@ -137,6 +141,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       capturedPath: widget.capturedPath,
       config: _config,
       metadata: widget.metadata,
+      colorGradingSummary: widget.colorGradingSummary,
     );
 
     if (!mounted) return;
@@ -315,6 +320,22 @@ class _MetadataSection extends StatelessWidget {
             Switch(
               value: config.showPilgrimName,
               onChanged: (v) => onChanged(config.copyWith(showPilgrimName: v)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '底部显示调色参数',
+                style: TextStyle(fontSize: 14, letterSpacing: 0),
+              ),
+            ),
+            Switch(
+              value: config.showColorGradingParams,
+              onChanged: (v) =>
+                  onChanged(config.copyWith(showColorGradingParams: v)),
             ),
           ],
         ),

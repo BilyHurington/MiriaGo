@@ -24,9 +24,15 @@ class ColorGradingParams {
     this.tint = 0,
     this.highlights = 0,
     this.shadows = 0,
-    this.redCurve = 0,
-    this.greenCurve = 0,
-    this.blueCurve = 0,
+    this.redShadowCurve = 0,
+    this.redMidCurve = 0,
+    this.redHighlightCurve = 0,
+    this.greenShadowCurve = 0,
+    this.greenMidCurve = 0,
+    this.greenHighlightCurve = 0,
+    this.blueShadowCurve = 0,
+    this.blueMidCurve = 0,
+    this.blueHighlightCurve = 0,
   });
 
   final double brightness;
@@ -37,9 +43,15 @@ class ColorGradingParams {
   final double tint;
   final double highlights;
   final double shadows;
-  final double redCurve;
-  final double greenCurve;
-  final double blueCurve;
+  final double redShadowCurve;
+  final double redMidCurve;
+  final double redHighlightCurve;
+  final double greenShadowCurve;
+  final double greenMidCurve;
+  final double greenHighlightCurve;
+  final double blueShadowCurve;
+  final double blueMidCurve;
+  final double blueHighlightCurve;
 
   static const defaults = ColorGradingParams();
 
@@ -52,9 +64,15 @@ class ColorGradingParams {
     double? tint,
     double? highlights,
     double? shadows,
-    double? redCurve,
-    double? greenCurve,
-    double? blueCurve,
+    double? redShadowCurve,
+    double? redMidCurve,
+    double? redHighlightCurve,
+    double? greenShadowCurve,
+    double? greenMidCurve,
+    double? greenHighlightCurve,
+    double? blueShadowCurve,
+    double? blueMidCurve,
+    double? blueHighlightCurve,
   }) {
     return ColorGradingParams(
       brightness: brightness ?? this.brightness,
@@ -65,9 +83,15 @@ class ColorGradingParams {
       tint: tint ?? this.tint,
       highlights: highlights ?? this.highlights,
       shadows: shadows ?? this.shadows,
-      redCurve: redCurve ?? this.redCurve,
-      greenCurve: greenCurve ?? this.greenCurve,
-      blueCurve: blueCurve ?? this.blueCurve,
+      redShadowCurve: redShadowCurve ?? this.redShadowCurve,
+      redMidCurve: redMidCurve ?? this.redMidCurve,
+      redHighlightCurve: redHighlightCurve ?? this.redHighlightCurve,
+      greenShadowCurve: greenShadowCurve ?? this.greenShadowCurve,
+      greenMidCurve: greenMidCurve ?? this.greenMidCurve,
+      greenHighlightCurve: greenHighlightCurve ?? this.greenHighlightCurve,
+      blueShadowCurve: blueShadowCurve ?? this.blueShadowCurve,
+      blueMidCurve: blueMidCurve ?? this.blueMidCurve,
+      blueHighlightCurve: blueHighlightCurve ?? this.blueHighlightCurve,
     );
   }
 
@@ -81,9 +105,15 @@ class ColorGradingParams {
       tint: tint.clamp(-1.0, 1.0),
       highlights: highlights.clamp(-1.0, 1.0),
       shadows: shadows.clamp(-1.0, 1.0),
-      redCurve: redCurve.clamp(-1.0, 1.0),
-      greenCurve: greenCurve.clamp(-1.0, 1.0),
-      blueCurve: blueCurve.clamp(-1.0, 1.0),
+      redShadowCurve: redShadowCurve.clamp(-1.0, 1.0),
+      redMidCurve: redMidCurve.clamp(-1.0, 1.0),
+      redHighlightCurve: redHighlightCurve.clamp(-1.0, 1.0),
+      greenShadowCurve: greenShadowCurve.clamp(-1.0, 1.0),
+      greenMidCurve: greenMidCurve.clamp(-1.0, 1.0),
+      greenHighlightCurve: greenHighlightCurve.clamp(-1.0, 1.0),
+      blueShadowCurve: blueShadowCurve.clamp(-1.0, 1.0),
+      blueMidCurve: blueMidCurve.clamp(-1.0, 1.0),
+      blueHighlightCurve: blueHighlightCurve.clamp(-1.0, 1.0),
     );
   }
 
@@ -103,9 +133,15 @@ class ColorGradingParams {
       tint: mix(a.tint, b.tint),
       highlights: mix(a.highlights, b.highlights),
       shadows: mix(a.shadows, b.shadows),
-      redCurve: mix(a.redCurve, b.redCurve),
-      greenCurve: mix(a.greenCurve, b.greenCurve),
-      blueCurve: mix(a.blueCurve, b.blueCurve),
+      redShadowCurve: mix(a.redShadowCurve, b.redShadowCurve),
+      redMidCurve: mix(a.redMidCurve, b.redMidCurve),
+      redHighlightCurve: mix(a.redHighlightCurve, b.redHighlightCurve),
+      greenShadowCurve: mix(a.greenShadowCurve, b.greenShadowCurve),
+      greenMidCurve: mix(a.greenMidCurve, b.greenMidCurve),
+      greenHighlightCurve: mix(a.greenHighlightCurve, b.greenHighlightCurve),
+      blueShadowCurve: mix(a.blueShadowCurve, b.blueShadowCurve),
+      blueMidCurve: mix(a.blueMidCurve, b.blueMidCurve),
+      blueHighlightCurve: mix(a.blueHighlightCurve, b.blueHighlightCurve),
     ).clamped();
   }
 
@@ -119,9 +155,15 @@ class ColorGradingParams {
       'tint': tint,
       'highlights': highlights,
       'shadows': shadows,
-      'redCurve': redCurve,
-      'greenCurve': greenCurve,
-      'blueCurve': blueCurve,
+      'redShadowCurve': redShadowCurve,
+      'redMidCurve': redMidCurve,
+      'redHighlightCurve': redHighlightCurve,
+      'greenShadowCurve': greenShadowCurve,
+      'greenMidCurve': greenMidCurve,
+      'greenHighlightCurve': greenHighlightCurve,
+      'blueShadowCurve': blueShadowCurve,
+      'blueMidCurve': blueMidCurve,
+      'blueHighlightCurve': blueHighlightCurve,
     };
   }
 
@@ -139,9 +181,15 @@ class ColorGradingParams {
       tint: value('tint', 0),
       highlights: value('highlights', 0),
       shadows: value('shadows', 0),
-      redCurve: value('redCurve', 0),
-      greenCurve: value('greenCurve', 0),
-      blueCurve: value('blueCurve', 0),
+      redShadowCurve: value('redShadowCurve', 0),
+      redMidCurve: value('redMidCurve', value('redCurve', 0)),
+      redHighlightCurve: value('redHighlightCurve', 0),
+      greenShadowCurve: value('greenShadowCurve', 0),
+      greenMidCurve: value('greenMidCurve', value('greenCurve', 0)),
+      greenHighlightCurve: value('greenHighlightCurve', 0),
+      blueShadowCurve: value('blueShadowCurve', 0),
+      blueMidCurve: value('blueMidCurve', value('blueCurve', 0)),
+      blueHighlightCurve: value('blueHighlightCurve', 0),
     ).clamped();
   }
 
@@ -164,11 +212,24 @@ class ColorGradingParams {
       matrix,
     );
     matrix = _multiplyMatrix(
-      _rgbCurveApproximationMatrix(p.redCurve, p.greenCurve, p.blueCurve),
+      _rgbCurveApproximationMatrix(
+        p.redCurvePreview,
+        p.greenCurvePreview,
+        p.blueCurvePreview,
+      ),
       matrix,
     );
     return matrix;
   }
+
+  double get redCurvePreview =>
+      redShadowCurve * 0.25 + redMidCurve * 0.50 + redHighlightCurve * 0.25;
+  double get greenCurvePreview =>
+      greenShadowCurve * 0.25 +
+      greenMidCurve * 0.50 +
+      greenHighlightCurve * 0.25;
+  double get blueCurvePreview =>
+      blueShadowCurve * 0.25 + blueMidCurve * 0.50 + blueHighlightCurve * 0.25;
 }
 
 List<double> _identityMatrix() {
