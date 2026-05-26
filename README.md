@@ -1,5 +1,9 @@
 # MiriaGo
 
+<p align="center">
+  <img src="icon.jpg" alt="MiriaGo icon" width="128" height="128">
+</p>
+
 MiriaGo 是一个使用 Flutter 开发的开源应用，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录与对比图。
 
 当前仅支持 Android，计划后续增加 iOS 支持。Web 版本仅用于开发预览。
