@@ -6,6 +6,7 @@ import '../data/pilgrimage_repository.dart';
 import '../plan_transfer/plan_package.dart';
 import '../plan_transfer/plan_package_file_stub.dart'
     if (dart.library.io) '../plan_transfer/plan_package_file_io.dart';
+import '../widgets/copyable_text.dart';
 import '../widgets/snackbar_helper.dart';
 import 'pilgrimage_models.dart';
 
@@ -228,6 +229,8 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusText = selected ? '当前计划' : '可切换';
     final statusColor = selected ? AppColors.accent : AppColors.textSecondary;
+    final summaryText =
+        '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -246,8 +249,9 @@ class _PlanCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(right: 42),
-                child: Text(
-                  plan.name,
+                child: CopyableText(
+                  text: plan.name,
+                  copyLabel: '计划名称',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -270,8 +274,11 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          Text(
-            '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
+          CopyableText(
+            text: summaryText,
+            copyText:
+                '${plan.name}\n${plan.area}\n${plan.points.length} 个点位\n${_workCountText(plan)}',
+            copyLabel: '计划信息',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(

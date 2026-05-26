@@ -13,6 +13,8 @@ import '../data/reference_image_cache_stub.dart'
     as reference_image_cache;
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'pilgrimage_models.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
@@ -34,6 +36,7 @@ class AnitabiMapImportScreen extends StatefulWidget {
 class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   final MapController _mapController = MapController();
   late final Set<String> _importedPointIds;
+  late PilgrimagePlan _importedPlan = widget.plan;
   PilgrimageWork? _selectedWork;
   AnitabiBangumiLite? _lite;
   List<AnitabiPoint> _points = const [];
@@ -108,6 +111,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
   }
 
+  PilgrimagePoint? _importedPointFor(AnitabiPoint point) {
+    final importedPointId = point.toPilgrimagePoint(_selectedWork!).id;
+    for (final importedPoint in _importedPlan.points) {
+      if (importedPoint.id == importedPointId) {
+        return importedPoint;
+      }
+    }
+    return null;
+  }
+
   Future<void> _importSelectedPoint() async {
     final work = _selectedWork;
     final point = _selectedPoint;
@@ -147,6 +160,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       }
 
       setState(() {
+        _importedPlan = importedPlan;
         _importedPointIds.add(pilgrimagePoint.id);
         _didImportPoints = true;
       });
@@ -298,6 +312,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                       ? const _NoPointSelectedCard()
                       : _AnitabiPointCard(
                           point: selectedPoint,
+                          importedPoint: _importedPointFor(selectedPoint),
                           imported: _importedPointIds.contains(
                             selectedPoint.toPilgrimagePoint(_selectedWork!).id,
                           ),
@@ -400,12 +415,14 @@ class _ImportSummary extends StatelessWidget {
 class _AnitabiPointCard extends StatelessWidget {
   const _AnitabiPointCard({
     required this.point,
+    required this.importedPoint,
     required this.imported,
     required this.isImporting,
     required this.onImport,
   });
 
   final AnitabiPoint point;
+  final PilgrimagePoint? importedPoint;
   final bool imported;
   final bool isImporting;
   final VoidCallback onImport;
@@ -415,6 +432,8 @@ class _AnitabiPointCard extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final imageUrl = _anitabiThumbnailUrl(point.referenceImageUrl);
     final fullImageUrl = anitabiFullResolutionImageUrl(point.referenceImageUrl);
+    final localThumbnailPath = importedPoint?.referenceThumbnailPath;
+    final localFullPath = importedPoint?.referenceFullImagePath;
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
@@ -436,14 +455,17 @@ class _AnitabiPointCard extends StatelessWidget {
                     ? null
                     : () => ImageViewerScreen.show(
                         context,
+                        filePath: localFullPath,
                         imageUrl: fullImageUrl,
                       ),
                 child: SizedBox(
                   width: 86,
                   height: 86,
-                  child: imageUrl == null
-                      ? const Icon(Icons.image_outlined)
-                      : Image.network(imageUrl, fit: BoxFit.cover),
+                  child: ReferenceThumbnail(
+                    localPath: localThumbnailPath,
+                    imageUrl: imageUrl,
+                    placeholder: const Icon(Icons.image_outlined),
+                  ),
                 ),
               ),
             ),

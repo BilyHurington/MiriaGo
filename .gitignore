@@ -3,6 +3,8 @@
 *.log
 *.pyc
 *.swp
+*.jks
+*.keystore
 .DS_Store
 DESIGN_RULES.md
 PROJECT_MEMORY.md
@@ -46,3 +48,4 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/build/
+/android/key.properties

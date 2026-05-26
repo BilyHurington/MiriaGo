@@ -170,8 +170,42 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const _SettingsSection(
-            title: '作者',
+            title: '关于',
             children: [
+              Row(
+                children: [
+                  _AppIconMark(),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CopyableText(
+                          text: 'MiriaGo',
+                          copyLabel: 'MiriaGo',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          '动漫圣地巡礼计划与拍摄参考工具',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 14),
+              _InfoRow(icon: Icons.new_releases_outlined, text: '版本 1.0.0'),
+              SizedBox(height: 10),
               _InfoRow(icon: Icons.person_outline, text: 'BilyHurington'),
               SizedBox(height: 10),
               _InfoRow(
@@ -182,6 +216,18 @@ class SettingsScreen extends StatelessWidget {
               _InfoRow(
                 icon: Icons.code_outlined,
                 text: 'github.com/BilyHurington/MiriaGo',
+              ),
+              SizedBox(height: 10),
+              _InfoRow(icon: Icons.balance_outlined, text: 'MIT License'),
+              SizedBox(height: 12),
+              Text(
+                '地图来自 OpenStreetMap；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.45,
+                  letterSpacing: 0,
+                ),
               ),
             ],
           ),
@@ -222,6 +268,31 @@ class _SettingsSection extends StatelessWidget {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+class _AppIconMark extends StatelessWidget {
+  const _AppIconMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Icon(Icons.explore_outlined, color: AppColors.onAccent, size: 28),
     );
   }
 }

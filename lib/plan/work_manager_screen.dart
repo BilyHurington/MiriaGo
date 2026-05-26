@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
-import '../widgets/snackbar_helper.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
+import '../widgets/copyable_text.dart';
+import '../widgets/snackbar_helper.dart';
 import 'add_points_screen.dart';
 import 'pilgrimage_models.dart';
 
@@ -244,6 +245,7 @@ class _WorkManageCard extends StatelessWidget {
     final sourceText = work.bangumiId == null
         ? '手动添加'
         : 'Bangumi #${work.bangumiId}';
+    final infoText = '${work.subtitle} / $sourceText / $pointCount 个点位';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
@@ -260,8 +262,9 @@ class _WorkManageCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  work.title,
+                CopyableText(
+                  text: work.title,
+                  copyLabel: '作品名称',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -271,8 +274,15 @@ class _WorkManageCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  '${work.subtitle} / $sourceText / $pointCount 个点位',
+                CopyableText(
+                  text: infoText,
+                  copyText: [
+                    work.title,
+                    work.subtitle,
+                    sourceText,
+                    '$pointCount 个点位',
+                  ].where((value) => value.trim().isNotEmpty).join('\n'),
+                  copyLabel: '作品信息',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 
 OverlayEntry? _activeCopyOverlay;
 
+final NavigatorObserver copyOverlayNavigatorObserver =
+    _CopyOverlayNavigatorObserver();
+
 class CopyableText extends StatefulWidget {
   const CopyableText({
     required this.text,
@@ -28,7 +31,7 @@ class CopyableText extends StatefulWidget {
 class _CopyableTextState extends State<CopyableText> {
   @override
   void dispose() {
-    _hideActiveCopyOverlay();
+    hideActiveCopyOverlay();
     super.dispose();
   }
 
@@ -36,7 +39,7 @@ class _CopyableTextState extends State<CopyableText> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _hideActiveCopyOverlay(),
+      onTapDown: (_) => hideActiveCopyOverlay(),
       onLongPress: _showCopyOverlay,
       child: Text(
         widget.text,
@@ -48,7 +51,7 @@ class _CopyableTextState extends State<CopyableText> {
   }
 
   void _showCopyOverlay() {
-    _hideActiveCopyOverlay();
+    hideActiveCopyOverlay();
 
     final overlay = Overlay.of(context);
     final renderBox = context.findRenderObject() as RenderBox?;
@@ -84,9 +87,9 @@ class _CopyableTextState extends State<CopyableText> {
       builder: (overlayContext) => _CopyOverlay(
         left: left,
         top: top,
-        onDismiss: _hideActiveCopyOverlay,
+        onDismiss: hideActiveCopyOverlay,
         onCopy: () {
-          _hideActiveCopyOverlay();
+          hideActiveCopyOverlay();
           copyValue(value: widget.copyText ?? widget.text);
         },
       ),
@@ -160,11 +163,41 @@ class _CopyOverlay extends StatelessWidget {
   }
 }
 
-void _hideActiveCopyOverlay() {
+void hideActiveCopyOverlay() {
   _activeCopyOverlay?.remove();
   _activeCopyOverlay = null;
 }
 
 Future<void> copyValue({required String value}) async {
   await Clipboard.setData(ClipboardData(text: value));
+}
+
+class _CopyOverlayNavigatorObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    hideActiveCopyOverlay();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    hideActiveCopyOverlay();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    hideActiveCopyOverlay();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    hideActiveCopyOverlay();
+  }
+
+  @override
+  void didStartUserGesture(
+    Route<dynamic> route,
+    Route<dynamic>? previousRoute,
+  ) {
+    hideActiveCopyOverlay();
+  }
 }

@@ -7,6 +7,7 @@ import 'app_theme.dart';
 import 'data/local/sqlite_pilgrimage_repository.dart';
 import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
+import 'widgets/copyable_text.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ class MiriaGoApp extends StatelessWidget {
       title: 'MiriaGo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      navigatorObservers: [copyOverlayNavigatorObserver],
       home: AppShell(
         repository:
             repository ??
