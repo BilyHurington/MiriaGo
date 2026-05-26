@@ -281,12 +281,55 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         targetParams,
         intensity,
       );
-      String f(double value) => value.toStringAsFixed(2);
-      return '曝光 ${f(params.exposure)}  对比 ${f(params.contrast)}  饱和 ${f(params.saturation)}  '
-          '高光 ${f(params.highlights)}  阴影 ${f(params.shadows)}  '
-          'R ${f(params.redShadowCurve)}/${f(params.redMidCurve)}/${f(params.redHighlightCurve)}  '
-          'G ${f(params.greenShadowCurve)}/${f(params.greenMidCurve)}/${f(params.greenHighlightCurve)}  '
-          'B ${f(params.blueShadowCurve)}/${f(params.blueMidCurve)}/${f(params.blueHighlightCurve)}';
+      const threshold = 0.005;
+      final defaults = ColorGradingParams.defaults;
+      final parts = <String>[];
+
+      String signed(double value) =>
+          '${value >= 0 ? '+' : ''}${value.toStringAsFixed(2)}';
+      String plain(double value) => value.toStringAsFixed(2);
+      bool changed(double value, double fallback) =>
+          (value - fallback).abs() >= threshold;
+      void addZeroBased(String label, double value, double fallback) {
+        if (changed(value, fallback)) {
+          parts.add('$label ${signed(value)}');
+        }
+      }
+
+      addZeroBased('亮度', params.brightness, defaults.brightness);
+      addZeroBased('曝光', params.exposure, defaults.exposure);
+      if (changed(params.contrast, defaults.contrast)) {
+        parts.add('对比 ${plain(params.contrast)}');
+      }
+      if (changed(params.saturation, defaults.saturation)) {
+        parts.add('饱和 ${plain(params.saturation)}');
+      }
+      addZeroBased('色温', params.temperature, defaults.temperature);
+      addZeroBased('色调', params.tint, defaults.tint);
+      addZeroBased('高光', params.highlights, defaults.highlights);
+      addZeroBased('阴影', params.shadows, defaults.shadows);
+      addZeroBased('R暗', params.redShadowCurve, defaults.redShadowCurve);
+      addZeroBased('R中', params.redMidCurve, defaults.redMidCurve);
+      addZeroBased('R亮', params.redHighlightCurve, defaults.redHighlightCurve);
+      addZeroBased('G暗', params.greenShadowCurve, defaults.greenShadowCurve);
+      addZeroBased('G中', params.greenMidCurve, defaults.greenMidCurve);
+      addZeroBased(
+        'G亮',
+        params.greenHighlightCurve,
+        defaults.greenHighlightCurve,
+      );
+      addZeroBased('B暗', params.blueShadowCurve, defaults.blueShadowCurve);
+      addZeroBased('B中', params.blueMidCurve, defaults.blueMidCurve);
+      addZeroBased(
+        'B亮',
+        params.blueHighlightCurve,
+        defaults.blueHighlightCurve,
+      );
+
+      if (parts.isEmpty) {
+        return null;
+      }
+      return parts.join('  ');
     } catch (_) {
       return null;
     }
