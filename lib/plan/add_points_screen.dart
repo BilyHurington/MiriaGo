@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
+import '../data/user_reference_image_stub.dart'
+    if (dart.library.io) '../data/user_reference_image_io.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'anitabi_map_import_screen.dart';
 import 'pilgrimage_models.dart';
 import 'work_manager_screen.dart';
@@ -485,6 +490,7 @@ class _ManualPointFormScreen extends StatefulWidget {
 
 class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
   final _fallbackWorkTitleController = TextEditingController();
   final _fallbackWorkSubtitleController = TextEditingController();
   final _fallbackWorkCityController = TextEditingController();
@@ -495,6 +501,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
   PilgrimageWork? _selectedWork;
+  XFile? _pickedReferenceImage;
   bool _isSaving = false;
 
   @override
@@ -530,8 +537,15 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     try {
       final now = DateTime.now();
       final work = _selectedWork ?? _fallbackWork(now);
+      final pointId = 'manual-${now.microsecondsSinceEpoch}';
+      final storedReference = _pickedReferenceImage == null
+          ? null
+          : await storeUserReferenceImage(
+              sourcePath: _pickedReferenceImage!.path,
+              pointId: pointId,
+            );
       final point = PilgrimagePoint(
-        id: 'manual-${now.microsecondsSinceEpoch}',
+        id: pointId,
         work: work,
         name: _nameController.text.trim(),
         subtitle: _subtitleController.text.trim(),
@@ -541,6 +555,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
         ),
         episodeLabel: _episodeController.text.trim(),
         referenceLabel: _referenceController.text.trim(),
+        referenceThumbnailPath: storedReference?.thumbnailPath,
+        referenceFullImagePath: storedReference?.fullImagePath,
       );
 
       await widget.repository.addPointToPlan(
@@ -580,6 +596,23 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       city: city.isEmpty ? widget.plan.area : city,
       source: WorkSource.manual,
     );
+  }
+
+  Future<void> _pickReferenceImage() async {
+    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (picked == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _pickedReferenceImage = picked;
+    });
+  }
+
+  void _removeReferenceImage() {
+    setState(() {
+      _pickedReferenceImage = null;
+    });
   }
 
   @override
@@ -715,6 +748,14 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _ManualReferenceImagePicker(
+              imagePath: _pickedReferenceImage?.path,
+              onPick: _isSaving ? null : _pickReferenceImage,
+              onRemove: _isSaving || _pickedReferenceImage == null
+                  ? null
+                  : _removeReferenceImage,
+            ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _isSaving ? null : _savePoint,
@@ -805,6 +846,96 @@ class _WorkSummary extends StatelessWidget {
                 fontSize: 13,
                 letterSpacing: 0,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManualReferenceImagePicker extends StatelessWidget {
+  const _ManualReferenceImagePicker({
+    required this.imagePath,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final String? imagePath;
+  final VoidCallback? onPick;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = imagePath;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 72,
+              height: 72,
+              color: AppColors.surfaceMuted,
+              child: ReferenceThumbnail(
+                localPath: path,
+                imageUrl: null,
+                fit: BoxFit.cover,
+                placeholder: const Icon(
+                  Icons.image_outlined,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '参考图片',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  path == null ? '可选，保存时会复制到 App 本地目录。' : '已选择本地图片',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: onPick,
+                      icon: const Icon(Icons.photo_library_outlined, size: 18),
+                      label: Text(path == null ? '上传参考图' : '重新选择'),
+                    ),
+                    if (path != null)
+                      TextButton.icon(
+                        onPressed: onRemove,
+                        icon: const Icon(Icons.close_outlined, size: 18),
+                        label: const Text('移除'),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

@@ -148,6 +148,11 @@ class PlanScreen extends StatelessWidget {
       onSetCurrent: () => controller.setCurrentPoint(point),
       onOpenCamera: () => _openCamera(context, point),
       onComplete: () => controller.completePoint(point),
+      onReplaceReference: (point, image) => controller.updatePointImageCache(
+        point,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
       records: controller.recordsForPoint(point.id),
     );
   }

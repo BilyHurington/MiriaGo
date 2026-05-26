@@ -159,6 +159,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       onSetCurrent: () => _controller.setCurrentPoint(point),
       onOpenCamera: () => _openCamera(point),
       onComplete: () => _controller.completePoint(point),
+      onReplaceReference: (point, image) => _controller.updatePointImageCache(
+        point,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
       records: _controller.recordsForPoint(point.id),
     );
   }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../app_theme.dart';
+import '../data/user_reference_image_stub.dart'
+    if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../widgets/snackbar_helper.dart';
 import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
@@ -18,6 +21,7 @@ class PointDetailSheet extends StatelessWidget {
     required this.onSetCurrent,
     required this.onOpenCamera,
     required this.onComplete,
+    required this.onReplaceReference,
     this.records = const [],
     this.navigationLauncher = const MapNavigationLauncher(),
     super.key,
@@ -28,6 +32,11 @@ class PointDetailSheet extends StatelessWidget {
   final VoidCallback onSetCurrent;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
+  final Future<void> Function(
+    PilgrimagePoint point,
+    StoredUserReferenceImage image,
+  )
+  onReplaceReference;
   final List<PilgrimageVisitRecord> records;
   final MapNavigationLauncher navigationLauncher;
 
@@ -38,6 +47,11 @@ class PointDetailSheet extends StatelessWidget {
     required VoidCallback onSetCurrent,
     required VoidCallback onOpenCamera,
     required VoidCallback onComplete,
+    required Future<void> Function(
+      PilgrimagePoint point,
+      StoredUserReferenceImage image,
+    )
+    onReplaceReference,
     List<PilgrimageVisitRecord> records = const [],
   }) {
     return showModalBottomSheet<void>(
@@ -52,10 +66,42 @@ class PointDetailSheet extends StatelessWidget {
           onSetCurrent: onSetCurrent,
           onOpenCamera: onOpenCamera,
           onComplete: onComplete,
+          onReplaceReference: onReplaceReference,
           records: records,
         );
       },
     );
+  }
+
+  Future<void> _replaceReferenceImage(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null || !context.mounted) {
+      return;
+    }
+
+    messenger.showReplacingSnackBar(
+      const SnackBar(content: Text('正在替换参考图...')),
+    );
+    final stored = await storeUserReferenceImage(
+      sourcePath: picked.path,
+      pointId: point.id,
+    );
+    if (stored == null || !context.mounted) {
+      messenger.showReplacingSnackBar(
+        const SnackBar(content: Text('参考图替换失败，请稍后重试。')),
+      );
+      return;
+    }
+
+    await onReplaceReference(point, stored);
+    if (!context.mounted) {
+      return;
+    }
+
+    messenger.showReplacingSnackBar(const SnackBar(content: Text('已替换参考图')));
+    navigator.pop();
   }
 
   Future<void> _openNavigation(BuildContext context) async {
@@ -221,6 +267,15 @@ class PointDetailSheet extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _replaceReferenceImage(context),
+                    icon: const Icon(Icons.image_search_outlined, size: 18),
+                    label: const Text('替换参考图'),
+                  ),
                 ),
               ],
             ),

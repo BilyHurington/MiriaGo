@@ -108,7 +108,7 @@ class _CamerawesomeReferenceScreenState
   }
 
   Future<void> _pickReferenceImage() async {
-    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+    final picked = await _pickImageInPortrait();
     if (picked == null || !mounted) {
       return;
     }
@@ -141,7 +141,7 @@ class _CamerawesomeReferenceScreenState
   }
 
   Future<void> _pickGalleryImage() async {
-    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+    final picked = await _pickImageInPortrait();
     if (picked == null || !mounted) {
       return;
     }
@@ -151,6 +151,26 @@ class _CamerawesomeReferenceScreenState
     });
     final capturedAt = await readGalleryCaptureTime(picked.path);
     await _openConfirmation(picked.path, capturedAtOverride: capturedAt);
+  }
+
+  Future<XFile?> _pickImageInPortrait() async {
+    final shouldRestoreLandscape = _landscapeLocked;
+    if (shouldRestoreLandscape) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
+
+    try {
+      return await _imagePicker.pickImage(source: ImageSource.gallery);
+    } finally {
+      if (shouldRestoreLandscape && mounted) {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
+    }
   }
 
   Future<void> _handleCaptureEvent(MediaCapture event) async {
