@@ -11,6 +11,7 @@ import '../data/pilgrimage_repository.dart';
 import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
+import '../widgets/image_viewer_screen.dart';
 import 'pilgrimage_models.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
@@ -413,6 +414,7 @@ class _AnitabiPointCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final imageUrl = _anitabiThumbnailUrl(point.referenceImageUrl);
+    final fullImageUrl = anitabiFullResolutionImageUrl(point.referenceImageUrl);
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
@@ -427,13 +429,23 @@ class _AnitabiPointCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: 86,
-              height: 86,
+            child: Material(
               color: AppColors.surfaceMuted,
-              child: imageUrl == null
-                  ? const Icon(Icons.image_outlined)
-                  : Image.network(imageUrl, fit: BoxFit.cover),
+              child: InkWell(
+                onTap: fullImageUrl == null
+                    ? null
+                    : () => ImageViewerScreen.show(
+                        context,
+                        imageUrl: fullImageUrl,
+                      ),
+                child: SizedBox(
+                  width: 86,
+                  height: 86,
+                  child: imageUrl == null
+                      ? const Icon(Icons.image_outlined)
+                      : Image.network(imageUrl, fit: BoxFit.cover),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
