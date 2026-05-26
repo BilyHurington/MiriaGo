@@ -332,10 +332,8 @@ class ComparisonExportRenderer {
         maxLines: 2,
         ellipsis: '...',
       )..layout(maxWidth: layout.signatureWidth);
-      final signatureHeight =
-          labelPainter.height + layout.pilgrimGap + namePainter.height;
       final signatureX = x + width - layout.paddingH - layout.signatureWidth;
-      final signatureY = y + (layout.height - signatureHeight) / 2;
+      final signatureY = y + layout.paddingV;
       labelPainter.paint(
         canvas,
         Offset(

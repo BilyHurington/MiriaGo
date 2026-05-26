@@ -272,20 +272,17 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       if (decoded is! Map) {
         return null;
       }
-      final params = ColorGradingParams.fromJson(
+      final targetParams = ColorGradingParams.fromJson(
         Map<String, Object?>.from(decoded),
       );
-      final mode = ColorMatchMode.values
-          .firstWhere(
-            (candidate) => candidate.name == _record.colorGradingMode,
-            orElse: () => ColorMatchMode.standard,
-          )
-          .label;
-      final intensity =
-          ((_record.colorGradingIntensity ?? 1).clamp(0.0, 1.0) * 100).round();
+      final intensity = (_record.colorGradingIntensity ?? 1).clamp(0.0, 1.0);
+      final params = ColorGradingParams.lerp(
+        ColorGradingParams.defaults,
+        targetParams,
+        intensity,
+      );
       String f(double value) => value.toStringAsFixed(2);
-      return '调色 $mode $intensity%  '
-          '曝光 ${f(params.exposure)}  对比 ${f(params.contrast)}  饱和 ${f(params.saturation)}  '
+      return '曝光 ${f(params.exposure)}  对比 ${f(params.contrast)}  饱和 ${f(params.saturation)}  '
           '高光 ${f(params.highlights)}  阴影 ${f(params.shadows)}  '
           'R ${f(params.redShadowCurve)}/${f(params.redMidCurve)}/${f(params.redHighlightCurve)}  '
           'G ${f(params.greenShadowCurve)}/${f(params.greenMidCurve)}/${f(params.greenHighlightCurve)}  '

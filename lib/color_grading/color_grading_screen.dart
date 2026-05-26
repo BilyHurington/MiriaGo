@@ -316,10 +316,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
             onChanged: (value) => setState(() => _intensity = value),
           ),
           const SizedBox(height: 12),
-          _ParameterSummary(
-            targetParams: _targetParams!,
-            activeParams: _activeParams,
-          ),
+          _ParameterSummary(activeParams: _activeParams),
         ],
         const SizedBox(height: 12),
         _SavePanel(saving: _saving, onSave: _save),
@@ -685,12 +682,8 @@ class _IntensityControl extends StatelessWidget {
 }
 
 class _ParameterSummary extends StatelessWidget {
-  const _ParameterSummary({
-    required this.targetParams,
-    required this.activeParams,
-  });
+  const _ParameterSummary({required this.activeParams});
 
-  final ColorGradingParams targetParams;
   final ColorGradingParams activeParams;
 
   @override
@@ -726,7 +719,7 @@ class _ParameterSummary extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            '显示自动匹配生成的目标参数和当前强度下实际使用的参数。',
+            '显示当前调色强度下实际生效的参数。',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
@@ -744,139 +737,36 @@ class _ParameterSummary extends StatelessWidget {
       showDragHandle: true,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
-      builder: (context) => _ParameterSheet(
-        targetParams: targetParams,
-        activeParams: activeParams,
-      ),
+      builder: (context) => _ParameterSheet(activeParams: activeParams),
     );
   }
 }
 
 class _ParameterSheet extends StatelessWidget {
-  const _ParameterSheet({
-    required this.targetParams,
-    required this.activeParams,
-  });
+  const _ParameterSheet({required this.activeParams});
 
-  final ColorGradingParams targetParams;
   final ColorGradingParams activeParams;
 
   @override
   Widget build(BuildContext context) {
     final items = <_ParameterItem>[
-      _ParameterItem(
-        '亮度',
-        activeParams.brightness,
-        targetParams.brightness,
-        -0.25,
-        0.25,
-      ),
-      _ParameterItem(
-        '曝光',
-        activeParams.exposure,
-        targetParams.exposure,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '对比度',
-        activeParams.contrast,
-        targetParams.contrast,
-        0.7,
-        1.4,
-      ),
-      _ParameterItem(
-        '饱和度',
-        activeParams.saturation,
-        targetParams.saturation,
-        0.5,
-        1.6,
-      ),
-      _ParameterItem(
-        '色温',
-        activeParams.temperature,
-        targetParams.temperature,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem('色调', activeParams.tint, targetParams.tint, -1.0, 1.0),
-      _ParameterItem(
-        '高光',
-        activeParams.highlights,
-        targetParams.highlights,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '阴影',
-        activeParams.shadows,
-        targetParams.shadows,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '红暗部曲线',
-        activeParams.redShadowCurve,
-        targetParams.redShadowCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '红中间调曲线',
-        activeParams.redMidCurve,
-        targetParams.redMidCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '红高光曲线',
-        activeParams.redHighlightCurve,
-        targetParams.redHighlightCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '绿暗部曲线',
-        activeParams.greenShadowCurve,
-        targetParams.greenShadowCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '绿中间调曲线',
-        activeParams.greenMidCurve,
-        targetParams.greenMidCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '绿高光曲线',
-        activeParams.greenHighlightCurve,
-        targetParams.greenHighlightCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '蓝暗部曲线',
-        activeParams.blueShadowCurve,
-        targetParams.blueShadowCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '蓝中间调曲线',
-        activeParams.blueMidCurve,
-        targetParams.blueMidCurve,
-        -1.0,
-        1.0,
-      ),
-      _ParameterItem(
-        '蓝高光曲线',
-        activeParams.blueHighlightCurve,
-        targetParams.blueHighlightCurve,
-        -1.0,
-        1.0,
-      ),
+      _ParameterItem('亮度', activeParams.brightness, -0.25, 0.25),
+      _ParameterItem('曝光', activeParams.exposure, -1.0, 1.0),
+      _ParameterItem('对比度', activeParams.contrast, 0.7, 1.4),
+      _ParameterItem('饱和度', activeParams.saturation, 0.5, 1.6),
+      _ParameterItem('色温', activeParams.temperature, -1.0, 1.0),
+      _ParameterItem('色调', activeParams.tint, -1.0, 1.0),
+      _ParameterItem('高光', activeParams.highlights, -1.0, 1.0),
+      _ParameterItem('阴影', activeParams.shadows, -1.0, 1.0),
+      _ParameterItem('红暗部曲线', activeParams.redShadowCurve, -1.0, 1.0),
+      _ParameterItem('红中间调曲线', activeParams.redMidCurve, -1.0, 1.0),
+      _ParameterItem('红高光曲线', activeParams.redHighlightCurve, -1.0, 1.0),
+      _ParameterItem('绿暗部曲线', activeParams.greenShadowCurve, -1.0, 1.0),
+      _ParameterItem('绿中间调曲线', activeParams.greenMidCurve, -1.0, 1.0),
+      _ParameterItem('绿高光曲线', activeParams.greenHighlightCurve, -1.0, 1.0),
+      _ParameterItem('蓝暗部曲线', activeParams.blueShadowCurve, -1.0, 1.0),
+      _ParameterItem('蓝中间调曲线', activeParams.blueMidCurve, -1.0, 1.0),
+      _ParameterItem('蓝高光曲线', activeParams.blueHighlightCurve, -1.0, 1.0),
     ];
 
     return SafeArea(
@@ -909,17 +799,10 @@ class _ParameterSheet extends StatelessWidget {
 }
 
 class _ParameterItem {
-  const _ParameterItem(
-    this.label,
-    this.activeValue,
-    this.targetValue,
-    this.min,
-    this.max,
-  );
+  const _ParameterItem(this.label, this.value, this.min, this.max);
 
   final String label;
-  final double activeValue;
-  final double targetValue;
+  final double value;
   final double min;
   final double max;
 }
@@ -931,11 +814,10 @@ class _ParameterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeT = ((item.activeValue - item.min) / (item.max - item.min))
+    final activeT = ((item.value - item.min) / (item.max - item.min))
         .clamp(0.0, 1.0)
         .toDouble();
-    final targetText = item.targetValue.toStringAsFixed(3);
-    final activeText = item.activeValue.toStringAsFixed(3);
+    final activeText = item.value.toStringAsFixed(3);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -953,7 +835,7 @@ class _ParameterRow extends StatelessWidget {
               ),
             ),
             Text(
-              '当前 $activeText / 目标 $targetText',
+              activeText,
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,
