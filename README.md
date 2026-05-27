@@ -67,10 +67,8 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
   </tr>
   <tr>
     <td align="center" width="33%">
-      <a href="docs/sample_images/相机拍摄参考页面.jpg">
-        <img src="docs/sample_images/呼唤少女-地图页面.jpg" alt="拍摄参考展示占位" width="240">
-      </a><br>
-      <sub>拍摄参考（展示图待补充）</sub>
+      <img src="docs/sample_images/叠层相机画面.jpg" alt="叠层拍摄参考" width="240"><br>
+      <sub>叠层拍摄参考</sub>
     </td>
     <td align="center" width="33%">
       <img src="docs/sample_images/铃音-自动调色页面.jpg" alt="自动调色" width="240"><br>
@@ -81,9 +79,21 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
       <sub>对比图导出</sub>
     </td>
   </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/上下相机画面.jpg" alt="上下拍摄参考" width="240"><br>
+      <sub>上下拍摄参考</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/导出对比图页面.jpg" alt="对比图配置" width="240"><br>
+      <sub>对比图配置</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/sample_images/切换计划-导出计划.jpg" alt="计划导出" width="240"><br>
+      <sub>计划导出</sub>
+    </td>
+  </tr>
 </table>
-
-> 相机拍摄参考展示图稍后补充。当前占位链接预留为 `docs/sample_images/相机拍摄参考页面.jpg`。
 
 ## 开发
 
