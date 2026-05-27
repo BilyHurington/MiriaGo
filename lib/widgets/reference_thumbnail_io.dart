@@ -32,7 +32,13 @@ class ReferenceThumbnail extends StatelessWidget {
 
     final url = imageUrl;
     if (url != null) {
-      return Image.network(url, width: width, height: height, fit: fit);
+      return Image.network(
+        url,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (_, _, _) => placeholder,
+      );
     }
 
     return placeholder;

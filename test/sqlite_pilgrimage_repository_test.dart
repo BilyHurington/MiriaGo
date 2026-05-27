@@ -60,6 +60,8 @@ void main() {
       plan.points[0].id,
       plan.points[1].id,
       plan.points[3].id,
+      plan.points[4].id,
+      plan.points[5].id,
     ];
 
     await repository.reorderPoints(planId: plan.id, pointIds: reorderedIds);

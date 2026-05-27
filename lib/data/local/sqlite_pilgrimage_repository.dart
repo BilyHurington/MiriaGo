@@ -696,7 +696,6 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     await _database.transaction(() async {
       await _insertPlan(samplePilgrimagePlan, active: true);
-      await _insertPlan(sampleEmptyPlan, active: false);
     });
   }
 
