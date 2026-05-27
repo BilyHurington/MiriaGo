@@ -373,9 +373,11 @@ double _captureAspectRatio({
   required AppSettings settings,
   required bool landscapeLocked,
 }) {
-  final baseRatio =
-      referenceAspectRatio ??
-      _defaultLandscapeAspectRatio(settings.cameraAspectRatio);
+  final configuredRatio = settings.cameraCaptureAspectRatio;
+  final baseRatio = configuredRatio == CameraPhotoAspectRatio.auto
+      ? referenceAspectRatio ??
+            _defaultLandscapeAspectRatio(settings.cameraFallbackAspectRatio)
+      : _defaultLandscapeAspectRatio(configuredRatio);
   if (baseRatio <= 0) {
     return 1;
   }

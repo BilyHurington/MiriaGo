@@ -136,10 +136,10 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _SettingsSection(
-            title: '无参考图时比例',
+            title: '拍摄图片比例',
             children: [
               const Text(
-                '有参考图时会优先使用参考图真实比例。',
+                '自动会优先跟随参考图比例；选择固定比例后会按该比例拍摄。',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -153,13 +153,53 @@ class SettingsScreen extends StatelessWidget {
                 children: CameraPhotoAspectRatio.values
                     .where((ratio) => ratio != CameraPhotoAspectRatio.square1x1)
                     .map((ratio) {
-                      final selected = settings.cameraAspectRatio == ratio;
+                      final selected =
+                          settings.cameraCaptureAspectRatio == ratio;
                       return ChoiceChip(
                         label: Text(ratio.label),
                         selected: selected,
                         onSelected: (_) {
                           onChanged(
-                            settings.copyWith(cameraAspectRatio: ratio),
+                            settings.copyWith(cameraCaptureAspectRatio: ratio),
+                          );
+                        },
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SettingsSection(
+            title: '无参考图时比例',
+            children: [
+              const Text(
+                '拍摄图片比例为自动、且没有参考图可对齐时使用。',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: CameraPhotoAspectRatio.values
+                    .where(
+                      (ratio) =>
+                          ratio != CameraPhotoAspectRatio.auto &&
+                          ratio != CameraPhotoAspectRatio.square1x1,
+                    )
+                    .map((ratio) {
+                      final selected =
+                          settings.cameraFallbackAspectRatio == ratio;
+                      return ChoiceChip(
+                        label: Text(ratio.label),
+                        selected: selected,
+                        onSelected: (_) {
+                          onChanged(
+                            settings.copyWith(cameraFallbackAspectRatio: ratio),
                           );
                         },
                       );

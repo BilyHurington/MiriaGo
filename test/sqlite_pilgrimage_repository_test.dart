@@ -144,7 +144,8 @@ void main() {
     await repository.saveAppSettings(
       const AppSettings(
         uiScale: 1.5,
-        cameraAspectRatio: CameraPhotoAspectRatio.square1x1,
+        cameraCaptureAspectRatio: CameraPhotoAspectRatio.photo3x2,
+        cameraFallbackAspectRatio: CameraPhotoAspectRatio.standard4x3,
       ),
     );
 
@@ -153,7 +154,11 @@ void main() {
 
     expect(reloadedPlan.name, '改名后的计划');
     expect(settings.uiScale, 1.5);
-    expect(settings.cameraAspectRatio, CameraPhotoAspectRatio.square1x1);
+    expect(settings.cameraCaptureAspectRatio, CameraPhotoAspectRatio.photo3x2);
+    expect(
+      settings.cameraFallbackAspectRatio,
+      CameraPhotoAspectRatio.standard4x3,
+    );
   });
 
   test('deletes work with related points and visit records', () async {

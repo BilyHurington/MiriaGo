@@ -45,28 +45,34 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
 class AppSettings {
   const AppSettings({
     this.uiScale = 1,
-    this.cameraAspectRatio = CameraPhotoAspectRatio.auto,
+    this.cameraCaptureAspectRatio = CameraPhotoAspectRatio.auto,
+    this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.landscape16x9,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
     this.themePalette = AppThemePalette.classicGreen,
   });
 
   final double uiScale;
-  final CameraPhotoAspectRatio cameraAspectRatio;
+  final CameraPhotoAspectRatio cameraCaptureAspectRatio;
+  final CameraPhotoAspectRatio cameraFallbackAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
   final AppThemePalette themePalette;
 
   AppSettings copyWith({
     double? uiScale,
-    CameraPhotoAspectRatio? cameraAspectRatio,
+    CameraPhotoAspectRatio? cameraCaptureAspectRatio,
+    CameraPhotoAspectRatio? cameraFallbackAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
     AppThemePalette? themePalette,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
-      cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
+      cameraCaptureAspectRatio:
+          cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
+      cameraFallbackAspectRatio:
+          cameraFallbackAspectRatio ?? this.cameraFallbackAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
       themePalette: themePalette ?? this.themePalette,

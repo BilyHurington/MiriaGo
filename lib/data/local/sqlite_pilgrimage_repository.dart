@@ -50,7 +50,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     return AppSettings(
       uiScale: row.uiScale.clamp(0.5, 2.0),
-      cameraAspectRatio: _cameraAspectRatioFromName(row.cameraAspectRatio),
+      cameraCaptureAspectRatio: _cameraAspectRatioFromName(
+        row.cameraCaptureAspectRatio,
+      ),
+      cameraFallbackAspectRatio: _fallbackCameraAspectRatioFromName(
+        row.cameraAspectRatio,
+      ),
       cameraMinZoom: row.cameraMinZoom.clamp(0.1, 10.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
       themePalette: _themePaletteFromName(row.themePalette),
@@ -582,7 +587,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           AppSettingsEntriesCompanion.insert(
             id: 'default',
             uiScale: Value(settings.uiScale.clamp(0.5, 2.0)),
-            cameraAspectRatio: Value(settings.cameraAspectRatio.name),
+            cameraAspectRatio: Value(settings.cameraFallbackAspectRatio.name),
+            cameraCaptureAspectRatio: Value(
+              settings.cameraCaptureAspectRatio.name,
+            ),
             cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 10.0)),
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
             themePalette: Value(settings.themePalette.name),
@@ -958,6 +966,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       (ratio) => ratio.name == name,
       orElse: () => CameraPhotoAspectRatio.auto,
     );
+  }
+
+  CameraPhotoAspectRatio _fallbackCameraAspectRatioFromName(String name) {
+    final ratio = _cameraAspectRatioFromName(name);
+    return ratio == CameraPhotoAspectRatio.auto
+        ? CameraPhotoAspectRatio.landscape16x9
+        : ratio;
   }
 
   AppThemePalette _themePaletteFromName(String name) {
