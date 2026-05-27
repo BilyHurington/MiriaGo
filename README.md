@@ -68,7 +68,8 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
   <tr>
     <td align="center" width="33%">
       <img src="docs/sample_images/叠层相机画面.jpg" alt="叠层拍摄参考" width="240"><br>
-      <sub>叠层拍摄参考</sub>
+      <img src="docs/sample_images/上下相机画面.jpg" alt="上下拍摄参考" width="240"><br>
+      <sub>拍摄参考：叠层 / 上下</sub>
     </td>
     <td align="center" width="33%">
       <img src="docs/sample_images/铃音-自动调色页面.jpg" alt="自动调色" width="240"><br>
@@ -77,20 +78,6 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
     <td align="center" width="33%">
       <img src="docs/sample_images/铃音-导出对比图.png" alt="导出对比图" width="240"><br>
       <sub>对比图导出</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="33%">
-      <img src="docs/sample_images/上下相机画面.jpg" alt="上下拍摄参考" width="240"><br>
-      <sub>上下拍摄参考</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/sample_images/导出对比图页面.jpg" alt="对比图配置" width="240"><br>
-      <sub>对比图配置</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/sample_images/切换计划-导出计划.jpg" alt="计划导出" width="240"><br>
-      <sub>计划导出</sub>
     </td>
   </tr>
 </table>
