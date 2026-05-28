@@ -874,10 +874,14 @@ class _NativeCameraPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AndroidView(
-      viewType: 'seichi/native_camera_preview',
-      onPlatformViewCreated: controller.attach,
-    );
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidView(
+        viewType: 'seichi/native_camera_preview',
+        onPlatformViewCreated: controller.attach,
+      );
+    }
+
+    return const _FallbackPreview();
   }
 }
 
