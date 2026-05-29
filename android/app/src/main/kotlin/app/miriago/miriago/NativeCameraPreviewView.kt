@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.view.MotionEvent
 import android.view.View
 import androidx.camera.core.AspectRatio
@@ -17,6 +18,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -228,9 +230,7 @@ class NativeCameraPreviewView(
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                     try {
-                        if (cropCaptureToAspectRatio) {
-                            cropImageToTargetAspectRatio(file)
-                        }
+                        normalizeAndCropImage(file)
                         activity.runOnUiThread { result.success(file.absolutePath) }
                     } catch (error: Exception) {
                         activity.runOnUiThread {
@@ -270,12 +270,57 @@ class NativeCameraPreviewView(
         }
     }
 
-    private fun cropImageToTargetAspectRatio(file: File) {
+    private fun normalizeAndCropImage(file: File) {
         val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+        val oriented = applyExifOrientation(bitmap, file)
+        val output = if (cropCaptureToAspectRatio) {
+            cropBitmapToTargetAspectRatio(oriented)
+        } else {
+            oriented
+        }
+
+        file.outputStream().use { stream ->
+            output.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+        }
+        if (output != oriented) {
+            output.recycle()
+        }
+        if (oriented != bitmap) {
+            oriented.recycle()
+        }
+        bitmap.recycle()
+    }
+
+    private fun applyExifOrientation(bitmap: Bitmap, file: File): Bitmap {
+        val orientation = ExifInterface(file.absolutePath).getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL,
+        )
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.preScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.preScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.preScale(-1f, 1f)
+                matrix.postRotate(90f)
+            }
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.preScale(-1f, 1f)
+                matrix.postRotate(270f)
+            }
+            else -> return bitmap
+        }
+
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    private fun cropBitmapToTargetAspectRatio(bitmap: Bitmap): Bitmap {
         val currentRatio = bitmap.width.toDouble() / bitmap.height.toDouble()
         if (abs(currentRatio - targetAspectRatio) < 0.01) {
-            bitmap.recycle()
-            return
+            return bitmap
         }
 
         val cropWidth: Int
@@ -290,14 +335,7 @@ class NativeCameraPreviewView(
 
         val left = ((bitmap.width - cropWidth) / 2).coerceAtLeast(0)
         val top = ((bitmap.height - cropHeight) / 2).coerceAtLeast(0)
-        val cropped = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
-        file.outputStream().use { output ->
-            cropped.compress(Bitmap.CompressFormat.JPEG, 95, output)
-        }
-        if (cropped != bitmap) {
-            cropped.recycle()
-        }
-        bitmap.recycle()
+        return Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
     }
 
     private fun zoomStateMap(overrideZoom: Float? = null): Map<String, Any> {
