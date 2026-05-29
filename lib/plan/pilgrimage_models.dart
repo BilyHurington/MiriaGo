@@ -8,12 +8,39 @@ enum WorkSource { bangumi, manual }
 
 enum PointSource { manual, anitabi }
 
+enum BangumiSubjectType {
+  book(1, '书籍'),
+  anime(2, '动画'),
+  music(3, '音乐'),
+  game(4, '游戏'),
+  real(6, '三次元');
+
+  const BangumiSubjectType(this.code, this.label);
+
+  final int code;
+  final String label;
+
+  static BangumiSubjectType? fromCode(int? code) {
+    for (final type in BangumiSubjectType.values) {
+      if (type.code == code) {
+        return type;
+      }
+    }
+    return null;
+  }
+}
+
 enum CameraPhotoAspectRatio {
   auto,
+  native,
   landscape16x9,
   cinema21x9,
   standard4x3,
   photo3x2,
+  portrait9x16,
+  portrait9x21,
+  portrait3x4,
+  portrait2x3,
   square1x1,
 }
 
@@ -33,10 +60,15 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {
     return switch (this) {
       CameraPhotoAspectRatio.auto => '自动',
+      CameraPhotoAspectRatio.native => '原生比例',
       CameraPhotoAspectRatio.landscape16x9 => '16:9',
       CameraPhotoAspectRatio.cinema21x9 => '21:9',
       CameraPhotoAspectRatio.standard4x3 => '4:3',
       CameraPhotoAspectRatio.photo3x2 => '3:2',
+      CameraPhotoAspectRatio.portrait9x16 => '9:16',
+      CameraPhotoAspectRatio.portrait9x21 => '9:21',
+      CameraPhotoAspectRatio.portrait3x4 => '3:4',
+      CameraPhotoAspectRatio.portrait2x3 => '2:3',
       CameraPhotoAspectRatio.square1x1 => '1:1',
     };
   }
@@ -46,9 +78,10 @@ class AppSettings {
   const AppSettings({
     this.uiScale = 1,
     this.cameraCaptureAspectRatio = CameraPhotoAspectRatio.auto,
-    this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.landscape16x9,
+    this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.native,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
+    this.referenceImageScale = 1,
     this.themePalette = AppThemePalette.classicGreen,
   });
 
@@ -57,6 +90,7 @@ class AppSettings {
   final CameraPhotoAspectRatio cameraFallbackAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final double referenceImageScale;
   final AppThemePalette themePalette;
 
   AppSettings copyWith({
@@ -65,6 +99,7 @@ class AppSettings {
     CameraPhotoAspectRatio? cameraFallbackAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    double? referenceImageScale,
     AppThemePalette? themePalette,
   }) {
     return AppSettings(
@@ -75,6 +110,7 @@ class AppSettings {
           cameraFallbackAspectRatio ?? this.cameraFallbackAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      referenceImageScale: referenceImageScale ?? this.referenceImageScale,
       themePalette: themePalette ?? this.themePalette,
     );
   }
@@ -164,14 +200,30 @@ class PilgrimageWork {
     required this.city,
     required this.source,
     this.bangumiId,
+    this.bangumiSubjectType,
   });
 
   final String id;
   final int? bangumiId;
+  final BangumiSubjectType? bangumiSubjectType;
   final String title;
   final String subtitle;
   final String city;
   final WorkSource source;
+
+  BangumiSubjectType? get displayBangumiSubjectType {
+    if (bangumiSubjectType != null) {
+      return bangumiSubjectType;
+    }
+
+    final cityType = city.split('/').first.trim();
+    for (final type in BangumiSubjectType.values) {
+      if (type.label == cityType) {
+        return type;
+      }
+    }
+    return null;
+  }
 }
 
 class PilgrimagePoint {

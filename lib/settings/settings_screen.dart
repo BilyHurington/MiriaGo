@@ -132,6 +132,36 @@ class SettingsScreen extends StatelessWidget {
                   );
                 },
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.photo_size_select_large_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '参考图显示 ${(settings.referenceImageScale * 100).round()}%',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Slider(
+                min: 0.8,
+                max: 1,
+                divisions: 20,
+                value: settings.referenceImageScale.clamp(0.8, 1.0),
+                label: '${(settings.referenceImageScale * 100).round()}%',
+                onChanged: (value) {
+                  onChanged(settings.copyWith(referenceImageScale: value));
+                },
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -150,22 +180,30 @@ class SettingsScreen extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: CameraPhotoAspectRatio.values
-                    .where((ratio) => ratio != CameraPhotoAspectRatio.square1x1)
-                    .map((ratio) {
-                      final selected =
-                          settings.cameraCaptureAspectRatio == ratio;
-                      return ChoiceChip(
-                        label: Text(ratio.label),
-                        selected: selected,
-                        onSelected: (_) {
-                          onChanged(
-                            settings.copyWith(cameraCaptureAspectRatio: ratio),
+                children:
+                    [
+                          CameraPhotoAspectRatio.auto,
+                          ..._cameraAspectRatioGroup(
+                            includePortrait: true,
+                            includeSquare: false,
+                          ),
+                        ]
+                        .map((ratio) {
+                          final selected =
+                              settings.cameraCaptureAspectRatio == ratio;
+                          return ChoiceChip(
+                            label: Text(ratio.label),
+                            selected: selected,
+                            onSelected: (_) {
+                              onChanged(
+                                settings.copyWith(
+                                  cameraCaptureAspectRatio: ratio,
+                                ),
+                              );
+                            },
                           );
-                        },
-                      );
-                    })
-                    .toList(growable: false),
+                        })
+                        .toList(growable: false),
               ),
             ],
           ),
@@ -185,26 +223,30 @@ class SettingsScreen extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: CameraPhotoAspectRatio.values
-                    .where(
-                      (ratio) =>
-                          ratio != CameraPhotoAspectRatio.auto &&
-                          ratio != CameraPhotoAspectRatio.square1x1,
-                    )
-                    .map((ratio) {
-                      final selected =
-                          settings.cameraFallbackAspectRatio == ratio;
-                      return ChoiceChip(
-                        label: Text(ratio.label),
-                        selected: selected,
-                        onSelected: (_) {
-                          onChanged(
-                            settings.copyWith(cameraFallbackAspectRatio: ratio),
+                children:
+                    [
+                          CameraPhotoAspectRatio.native,
+                          ..._cameraAspectRatioGroup(
+                            includePortrait: true,
+                            includeSquare: false,
+                          ),
+                        ]
+                        .map((ratio) {
+                          final selected =
+                              settings.cameraFallbackAspectRatio == ratio;
+                          return ChoiceChip(
+                            label: Text(ratio.label),
+                            selected: selected,
+                            onSelected: (_) {
+                              onChanged(
+                                settings.copyWith(
+                                  cameraFallbackAspectRatio: ratio,
+                                ),
+                              );
+                            },
                           );
-                        },
-                      );
-                    })
-                    .toList(growable: false),
+                        })
+                        .toList(growable: false),
               ),
             ],
           ),
@@ -275,6 +317,25 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+List<CameraPhotoAspectRatio> _cameraAspectRatioGroup({
+  required bool includePortrait,
+  required bool includeSquare,
+}) {
+  return [
+    CameraPhotoAspectRatio.landscape16x9,
+    CameraPhotoAspectRatio.cinema21x9,
+    CameraPhotoAspectRatio.standard4x3,
+    CameraPhotoAspectRatio.photo3x2,
+    if (includePortrait) ...[
+      CameraPhotoAspectRatio.portrait9x16,
+      CameraPhotoAspectRatio.portrait9x21,
+      CameraPhotoAspectRatio.portrait3x4,
+      CameraPhotoAspectRatio.portrait2x3,
+    ],
+    if (includeSquare) CameraPhotoAspectRatio.square1x1,
+  ];
 }
 
 class _SettingsSection extends StatelessWidget {

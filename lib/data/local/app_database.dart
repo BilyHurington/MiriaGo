@@ -80,6 +80,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant('auto'))();
   RealColumn get cameraMinZoom => real().withDefault(const Constant(0.6))();
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
+  RealColumn get referenceImageScale =>
+      real().withDefault(const Constant(1.0))();
   TextColumn get themePalette =>
       text().withDefault(const Constant('classicGreen'))();
 
@@ -92,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -145,6 +147,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           appSettingsEntries,
           appSettingsEntries.cameraCaptureAspectRatio,
+        );
+      }
+      if (from < 10) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.referenceImageScale,
         );
       }
     },

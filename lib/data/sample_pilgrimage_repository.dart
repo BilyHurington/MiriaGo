@@ -5,7 +5,7 @@ import 'pilgrimage_repository.dart';
 
 class SamplePilgrimageRepository implements PilgrimageRepository {
   SamplePilgrimageRepository()
-    : _plans = [samplePilgrimagePlan, sampleEmptyPlan],
+    : _plans = [samplePilgrimagePlan],
       _visitRecords = [],
       _settings = const AppSettings(),
       _activePlanId = samplePilgrimagePlan.id;
@@ -496,9 +496,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       uiScale: settings.uiScale.clamp(0.5, 2.0),
       cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 10.0),
       cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
+      referenceImageScale: settings.referenceImageScale.clamp(0.8, 1.0),
       cameraFallbackAspectRatio:
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
-          ? CameraPhotoAspectRatio.landscape16x9
+          ? CameraPhotoAspectRatio.native
           : settings.cameraFallbackAspectRatio,
     );
   }
@@ -559,68 +560,98 @@ const _hibikeWork = PilgrimageWork(
   source: WorkSource.bangumi,
 );
 
-const _tamakoWork = PilgrimageWork(
-  id: 'tamako-market',
-  bangumiId: 55113,
-  title: '玉子市场',
-  subtitle: 'たまこまーけっと',
-  city: '京都市',
-  source: WorkSource.bangumi,
-);
-
 final samplePilgrimagePlan = PilgrimagePlan(
   id: 'sample-uji-hibike',
-  name: '京都南部一日巡礼',
-  area: '宇治市 / 京都市',
-  works: const [_hibikeWork, _tamakoWork],
+  name: '示例计划',
+  area: '宇治市',
+  works: const [_hibikeWork],
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,
+  currentPointId: 'anitabi-115908-7evkbmy2',
   points: const [
     PilgrimagePoint(
-      id: 'uji-bridge',
+      id: 'anitabi-115908-7evkbmy2',
+      work: _hibikeWork,
+      name: '井用机前步行道',
+      subtitle: 'あじろぎの道',
+      position: LatLng(34.8899, 135.8081),
+      episodeLabel: 'EP 1 / 2:08',
+      referenceLabel: 'Anitabi@卜卜口',
+      source: PointSource.anitabi,
+      sourceId: '7evkbmy2',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-7gs3o1mm',
       work: _hibikeWork,
       name: '宇治桥',
-      subtitle: '宇治川沿岸',
-      position: LatLng(34.8917, 135.8077),
-      episodeLabel: '示例点位 1',
-      referenceLabel: '参考图待接入',
+      subtitle: '宇治橋',
+      position: LatLng(34.8929, 135.8065),
+      episodeLabel: 'EP 2 / 13:29',
+      referenceLabel: 'Anitabi@卜卜口',
+      source: PointSource.anitabi,
+      sourceId: '7gs3o1mm',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
+      sourceUrl: 'https://anitabi.cn/',
     ),
     PilgrimagePoint(
-      id: 'agata-dori',
-      work: _hibikeWork,
-      name: 'あがた通り',
-      subtitle: '县神社方向街道',
-      position: LatLng(34.8899, 135.8081),
-      episodeLabel: '示例点位 2',
-      referenceLabel: '参考图待接入',
-    ),
-    PilgrimagePoint(
-      id: 'uji-station',
+      id: 'anitabi-115908-3plnxvy',
       work: _hibikeWork,
       name: 'JR 宇治站',
-      subtitle: 'JR 奈良线车站',
-      position: LatLng(34.8905, 135.8008),
-      episodeLabel: '示例点位 3',
-      referenceLabel: '参考图待接入',
+      subtitle: 'JR宇治駅',
+      position: LatLng(34.8903, 135.8009),
+      episodeLabel: 'EP 8 / 11:53',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: '3plnxvy',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/3plnxvy-1755088794974.jpg',
+      sourceUrl: 'https://anitabi.cn/',
     ),
     PilgrimagePoint(
-      id: 'demachi-masugata',
-      work: _tamakoWork,
-      name: '出町桝形商店街',
-      subtitle: '商店街入口',
-      position: LatLng(35.0306, 135.7721),
-      episodeLabel: '示例点位 4',
-      referenceLabel: '参考图待接入',
+      id: 'anitabi-115908-qys7ia',
+      work: _hibikeWork,
+      name: '大吉山（仏徳山）登山口',
+      subtitle: '大吉山（仏徳山）登山口',
+      position: LatLng(34.8928, 135.8107),
+      episodeLabel: 'EP 8 / 14:23',
+      referenceLabel: 'Google Maps',
+      source: PointSource.anitabi,
+      sourceId: 'qys7ia',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/qys7ia-1697123425329.jpg',
+      sourceUrl:
+          'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.892848%2C135.810794&z=17',
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-7mt52rr',
+      work: _hibikeWork,
+      name: '大吉山展望台',
+      subtitle: '大吉山展望台',
+      position: LatLng(34.8927, 135.812),
+      episodeLabel: 'EP 8 / 19:57',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: '7mt52rr',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/7mt52rr-1763627079224.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-qys7ix',
+      work: _hibikeWork,
+      name: '縣神社',
+      subtitle: '縣神社',
+      position: LatLng(34.8884, 135.8058),
+      episodeLabel: 'EP 8 / 15:19',
+      referenceLabel: 'Google Maps',
+      source: PointSource.anitabi,
+      sourceId: 'qys7ix',
+      referenceImageUrl:
+          'https://image.anitabi.cn/points/115908/75cc58c61b40fdd8a8e64bd8b9bacd0c.png',
+      sourceUrl:
+          'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.888488%2C135.80587&z=17',
     ),
   ],
-);
-
-final sampleEmptyPlan = PilgrimagePlan(
-  id: 'sample-empty-kyoto',
-  name: '京都空计划',
-  area: '京都市',
-  works: const [],
-  points: const [],
-  createdAt: _sampleCreatedAt,
-  updatedAt: _sampleCreatedAt,
 );

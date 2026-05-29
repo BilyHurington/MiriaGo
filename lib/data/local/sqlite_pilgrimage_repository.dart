@@ -58,6 +58,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       ),
       cameraMinZoom: row.cameraMinZoom.clamp(0.1, 10.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
+      referenceImageScale: row.referenceImageScale.clamp(0.8, 1.0),
       themePalette: _themePaletteFromName(row.themePalette),
     );
   }
@@ -593,6 +594,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 10.0)),
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
+            referenceImageScale: Value(
+              settings.referenceImageScale.clamp(0.8, 1.0),
+            ),
             themePalette: Value(settings.themePalette.name),
           ),
         );
@@ -696,7 +700,6 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     await _database.transaction(() async {
       await _insertPlan(samplePilgrimagePlan, active: true);
-      await _insertPlan(sampleEmptyPlan, active: false);
     });
   }
 
@@ -970,8 +973,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
   CameraPhotoAspectRatio _fallbackCameraAspectRatioFromName(String name) {
     final ratio = _cameraAspectRatioFromName(name);
-    return ratio == CameraPhotoAspectRatio.auto
-        ? CameraPhotoAspectRatio.landscape16x9
+    return ratio == CameraPhotoAspectRatio.auto ||
+            ratio == CameraPhotoAspectRatio.landscape16x9
+        ? CameraPhotoAspectRatio.native
         : ratio;
   }
 

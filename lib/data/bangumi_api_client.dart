@@ -11,7 +11,10 @@ class BangumiApiClient {
 
   final http.Client _httpClient;
 
-  Future<List<PilgrimageWork>> searchAnime(String keyword) async {
+  Future<List<PilgrimageWork>> searchSubjects(
+    String keyword, {
+    required Set<BangumiSubjectType> types,
+  }) async {
     final query = keyword.trim();
     if (query.isEmpty) {
       return const [];
@@ -30,9 +33,10 @@ class BangumiApiClient {
       body: jsonEncode({
         'keyword': query,
         'sort': 'match',
-        'filter': {
-          'type': [2],
-        },
+        if (types.isNotEmpty)
+          'filter': {
+            'type': types.map((type) => type.code).toList(growable: false),
+          },
       }),
     );
 
@@ -52,20 +56,31 @@ class BangumiApiClient {
         .toList(growable: false);
   }
 
+  Future<List<PilgrimageWork>> searchAnime(String keyword) {
+    return searchSubjects(keyword, types: const {BangumiSubjectType.anime});
+  }
+
   PilgrimageWork _workFromSubject(Map<String, Object?> subject) {
     final bangumiId = subject['id'] as int;
+    final subjectType = BangumiSubjectType.fromCode(subject['type'] as int?);
     final name = subject['name'] as String? ?? 'Bangumi #$bangumiId';
     final nameCn = subject['name_cn'] as String? ?? '';
     final date = subject['date'] as String? ?? '';
     final title = nameCn.isEmpty ? name : nameCn;
     final subtitle = nameCn.isEmpty ? 'Bangumi #$bangumiId' : name;
 
+    final metaParts = [
+      if (subjectType != null) subjectType.label,
+      if (date.isNotEmpty) date,
+    ];
+
     return PilgrimageWork(
       id: 'bangumi-$bangumiId',
       bangumiId: bangumiId,
+      bangumiSubjectType: subjectType,
       title: title,
       subtitle: subtitle,
-      city: date.isEmpty ? '未设置地区' : 'Bangumi $date',
+      city: metaParts.isEmpty ? '未设置地区' : metaParts.join(' / '),
       source: WorkSource.bangumi,
     );
   }
