@@ -245,7 +245,13 @@ class _WorkManageCard extends StatelessWidget {
     final sourceText = work.bangumiId == null
         ? '手动添加'
         : 'Bangumi #${work.bangumiId}';
-    final infoText = '${work.subtitle} / $sourceText / $pointCount 个点位';
+    final typeText = work.displayBangumiSubjectType?.label;
+    final infoText = [
+      work.subtitle,
+      ?typeText,
+      sourceText,
+      '$pointCount 个点位',
+    ].where((value) => value.trim().isNotEmpty).join(' / ');
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
@@ -279,6 +285,7 @@ class _WorkManageCard extends StatelessWidget {
                   copyText: [
                     work.title,
                     work.subtitle,
+                    ?typeText,
                     sourceText,
                     '$pointCount 个点位',
                   ].where((value) => value.trim().isNotEmpty).join('\n'),

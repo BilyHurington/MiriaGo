@@ -8,6 +8,28 @@ enum WorkSource { bangumi, manual }
 
 enum PointSource { manual, anitabi }
 
+enum BangumiSubjectType {
+  book(1, '书籍'),
+  anime(2, '动画'),
+  music(3, '音乐'),
+  game(4, '游戏'),
+  real(6, '三次元');
+
+  const BangumiSubjectType(this.code, this.label);
+
+  final int code;
+  final String label;
+
+  static BangumiSubjectType? fromCode(int? code) {
+    for (final type in BangumiSubjectType.values) {
+      if (type.code == code) {
+        return type;
+      }
+    }
+    return null;
+  }
+}
+
 enum CameraPhotoAspectRatio {
   auto,
   native,
@@ -174,14 +196,30 @@ class PilgrimageWork {
     required this.city,
     required this.source,
     this.bangumiId,
+    this.bangumiSubjectType,
   });
 
   final String id;
   final int? bangumiId;
+  final BangumiSubjectType? bangumiSubjectType;
   final String title;
   final String subtitle;
   final String city;
   final WorkSource source;
+
+  BangumiSubjectType? get displayBangumiSubjectType {
+    if (bangumiSubjectType != null) {
+      return bangumiSubjectType;
+    }
+
+    final cityType = city.split('/').first.trim();
+    for (final type in BangumiSubjectType.values) {
+      if (type.label == cityType) {
+        return type;
+      }
+    }
+    return null;
+  }
 }
 
 class PilgrimagePoint {

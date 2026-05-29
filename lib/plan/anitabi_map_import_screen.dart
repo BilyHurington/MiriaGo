@@ -214,7 +214,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         for (final work in works)
                           DropdownMenuItem<PilgrimageWork>(
                             value: work,
-                            child: Text(work.title),
+                            child: Text(
+                              work.displayBangumiSubjectType == null
+                                  ? work.title
+                                  : '${work.title} · ${work.displayBangumiSubjectType!.label}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                       ],
                       onChanged: (work) {
@@ -233,7 +238,11 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
             }
 
             if (_error != null) {
-              return _ImportErrorState(onRetry: () => _loadPoints(works.first));
+              return _ImportErrorState(
+                message: _errorMessageFor(_error),
+                detail: _errorDetailFor(_error),
+                onRetry: () => _loadPoints(_selectedWork ?? works.first),
+              );
             }
 
             return Stack(
@@ -309,7 +318,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: selectedPoint == null
-                      ? const _NoPointSelectedCard()
+                      ? _NoPointSelectedCard(
+                          hasPoints: _points.isNotEmpty,
+                          expectedCount: _lite?.pointsLength,
+                        )
                       : _AnitabiPointCard(
                           point: selectedPoint,
                           importedPoint: _importedPointFor(selectedPoint),
@@ -326,6 +338,22 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         ),
       ),
     );
+  }
+
+  String _errorMessageFor(Object? error) {
+    if (error is AnitabiException && error.statusCode == 404) {
+      return '这个 Bangumi 条目暂无 Anitabi 地图数据';
+    }
+
+    return 'Anitabi 点位加载失败';
+  }
+
+  String _errorDetailFor(Object? error) {
+    if (error is AnitabiException && error.statusCode == 404) {
+      return '可以尝试在作品管理中添加同名的原作、游戏或其他关联条目。';
+    }
+
+    return '请检查网络后重试，或稍后再重新加载。';
   }
 }
 
@@ -541,11 +569,22 @@ class _AnitabiPointCard extends StatelessWidget {
 }
 
 class _NoPointSelectedCard extends StatelessWidget {
-  const _NoPointSelectedCard();
+  const _NoPointSelectedCard({
+    required this.hasPoints,
+    required this.expectedCount,
+  });
+
+  final bool hasPoints;
+  final int? expectedCount;
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final message = hasPoints
+        ? '点击地图上的点位查看缩略图和详情。'
+        : expectedCount == null || expectedCount == 0
+        ? '当前作品没有可导入的 Anitabi 点位。'
+        : '当前作品共有 $expectedCount 个点位，但没有可导入的带图参考点位。';
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
@@ -561,7 +600,7 @@ class _NoPointSelectedCard extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              '点击地图上的点位查看缩略图和详情。',
+              message,
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
@@ -614,17 +653,53 @@ class _EmptyImportState extends StatelessWidget {
 }
 
 class _ImportErrorState extends StatelessWidget {
-  const _ImportErrorState({required this.onRetry});
+  const _ImportErrorState({
+    required this.message,
+    required this.detail,
+    required this.onRetry,
+  });
 
+  final String message;
+  final String detail;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: OutlinedButton.icon(
-        onPressed: onRetry,
-        icon: const Icon(Icons.refresh),
-        label: const Text('重新加载 Anitabi 点位'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_outlined, color: AppColors.textSecondary, size: 32),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              detail,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重新加载 Anitabi 点位'),
+            ),
+          ],
+        ),
       ),
     );
   }

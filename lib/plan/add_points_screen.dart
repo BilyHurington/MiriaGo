@@ -194,6 +194,10 @@ class BangumiWorkSearchScreen extends StatefulWidget {
 class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
   final _queryController = TextEditingController();
   List<PilgrimageWork> _results = const [];
+  Set<BangumiSubjectType> _selectedTypes = const {
+    BangumiSubjectType.anime,
+    BangumiSubjectType.game,
+  };
   Object? _error;
   bool _isSearching = false;
   bool _isAdding = false;
@@ -216,7 +220,10 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
     });
 
     try {
-      final results = await widget.bangumiApiClient.searchAnime(query);
+      final results = await widget.bangumiApiClient.searchSubjects(
+        query,
+        types: _selectedTypes,
+      );
       if (!mounted) {
         return;
       }
@@ -294,6 +301,15 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
                 onSubmitted: (_) => _search(),
               ),
               const SizedBox(height: 12),
+              _BangumiTypeFilter(
+                selectedTypes: _selectedTypes,
+                onChanged: (types) {
+                  setState(() {
+                    _selectedTypes = types;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: _isSearching ? null : _search,
                 icon: _isSearching
@@ -334,6 +350,48 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
 
   bool _hasWork(PilgrimagePlan plan, PilgrimageWork work) {
     return plan.works.any((candidate) => candidate.id == work.id);
+  }
+}
+
+class _BangumiTypeFilter extends StatelessWidget {
+  const _BangumiTypeFilter({
+    required this.selectedTypes,
+    required this.onChanged,
+  });
+
+  final Set<BangumiSubjectType> selectedTypes;
+  final ValueChanged<Set<BangumiSubjectType>> onChanged;
+
+  static const _types = [
+    BangumiSubjectType.anime,
+    BangumiSubjectType.game,
+    BangumiSubjectType.book,
+    BangumiSubjectType.music,
+    BangumiSubjectType.real,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        for (final type in _types)
+          FilterChip(
+            label: Text(type.label),
+            selected: selectedTypes.contains(type),
+            onSelected: (selected) {
+              final nextTypes = {...selectedTypes};
+              if (selected) {
+                nextTypes.add(type);
+              } else if (nextTypes.length > 1) {
+                nextTypes.remove(type);
+              }
+              onChanged(nextTypes);
+            },
+          ),
+      ],
+    );
   }
 }
 
@@ -645,7 +703,12 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       for (final work in widget.plan.works)
                         DropdownMenuItem<PilgrimageWork>(
                           value: work,
-                          child: Text(work.title),
+                          child: Text(
+                            work.displayBangumiSubjectType == null
+                                ? work.title
+                                : '${work.title} · ${work.displayBangumiSubjectType!.label}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                     ],
                     onChanged: (work) {
@@ -944,7 +1007,7 @@ class _ManualReferenceImagePicker extends StatelessWidget {
   }
 }
 
-class _WorkResultCard extends StatelessWidget {
+class _WorkResultCard extends StatefulWidget {
   const _WorkResultCard({
     required this.work,
     required this.disabled,
@@ -956,7 +1019,17 @@ class _WorkResultCard extends StatelessWidget {
   final VoidCallback onAdd;
 
   @override
+  State<_WorkResultCard> createState() => _WorkResultCardState();
+}
+
+class _WorkResultCardState extends State<_WorkResultCard> {
+  var _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final work = widget.work;
+    final bangumiId = work.bangumiId;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -966,7 +1039,10 @@ class _WorkResultCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+          Icon(
+            _iconForType(work.displayBangumiSubjectType),
+            color: AppColors.accent,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -982,15 +1058,40 @@ class _WorkResultCard extends StatelessWidget {
                     letterSpacing: 0,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${work.subtitle} / Bangumi #${work.bangumiId}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (work.displayBangumiSubjectType != null)
+                      _SubjectTypePill(type: work.displayBangumiSubjectType!),
+                    if (bangumiId != null)
+                      _InfoPill(label: 'Bangumi #$bangumiId'),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _expanded = !_expanded;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      work.subtitle,
+                      maxLines: _expanded ? null : 1,
+                      overflow: _expanded
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        letterSpacing: 0,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -998,10 +1099,59 @@ class _WorkResultCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           TextButton(
-            onPressed: disabled ? null : onAdd,
-            child: Text(disabled ? '已添加' : '加入'),
+            onPressed: widget.disabled ? null : widget.onAdd,
+            child: Text(widget.disabled ? '已添加' : '加入'),
           ),
         ],
+      ),
+    );
+  }
+
+  IconData _iconForType(BangumiSubjectType? type) {
+    return switch (type) {
+      BangumiSubjectType.book => Icons.menu_book_outlined,
+      BangumiSubjectType.anime => Icons.movie_filter_outlined,
+      BangumiSubjectType.music => Icons.music_note_outlined,
+      BangumiSubjectType.game => Icons.sports_esports_outlined,
+      BangumiSubjectType.real => Icons.live_tv_outlined,
+      null => Icons.movie_filter_outlined,
+    };
+  }
+}
+
+class _SubjectTypePill extends StatelessWidget {
+  const _SubjectTypePill({required this.type});
+
+  final BangumiSubjectType type;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoPill(label: type.label);
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
       ),
     );
   }
