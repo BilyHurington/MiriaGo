@@ -15,20 +15,23 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     AppDelegate.shared = self
+    GeneratedPluginRegistrant.register(with: self)
+    if let appRegistrar = registrar(forPlugin: "AppDelegate") {
+      registerNativeCameraPreview(
+        registry: self,
+        messenger: appRegistrar.messenger()
+      )
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let messenger = engineBridge.applicationRegistrar.messenger()
-    if let nativeCameraRegistrar = engineBridge.pluginRegistry.registrar(
-      forPlugin: "NativeCameraPreviewPlugin"
-    ) {
-      nativeCameraRegistrar.register(
-        NativeCameraPreviewFactory(messenger: messenger),
-        withId: "seichi/native_camera_preview"
-      )
-    }
+    registerNativeCameraPreview(
+      registry: engineBridge.pluginRegistry,
+      messenger: messenger
+    )
 
     planFileChannel = FlutterMethodChannel(
       name: "seichi/plan_file",
@@ -70,6 +73,24 @@ import UIKit
 
       self.saveImageToGallery(filePath: filePath, result: result)
     }
+  }
+
+  private func registerNativeCameraPreview(
+    registry: FlutterPluginRegistry,
+    messenger: FlutterBinaryMessenger
+  ) {
+    guard
+      let nativeCameraRegistrar = registry.registrar(
+        forPlugin: "NativeCameraPreviewPlugin"
+      )
+    else {
+      return
+    }
+
+    nativeCameraRegistrar.register(
+      NativeCameraPreviewFactory(messenger: messenger),
+      withId: "seichi/native_camera_preview"
+    )
   }
 
   override func application(

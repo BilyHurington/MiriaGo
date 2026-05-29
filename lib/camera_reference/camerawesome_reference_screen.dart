@@ -65,6 +65,7 @@ class _CamerawesomeReferenceScreenState
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   bool _nativeCameraFailed = false;
+  String? _nativeCameraError;
   double? _referenceAspectRatio;
   int _referenceAspectRatioRequest = 0;
 
@@ -283,7 +284,10 @@ class _CamerawesomeReferenceScreenState
               referenceImageScale: widget.settings.referenceImageScale,
               cropCaptureToAspectRatio: shouldCropNativeCapture,
               onNativeUnavailable: () {
-                setState(() => _nativeCameraFailed = true);
+                setState(() {
+                  _nativeCameraFailed = true;
+                  _nativeCameraError = _nativeCameraController.error;
+                });
               },
               onModeChanged: (mode) => setState(() => _mode = mode),
               onOpacityChanged: (value) => _overlayOpacity.value = value,
@@ -310,6 +314,12 @@ class _CamerawesomeReferenceScreenState
               enablePhysicalButton: true,
               onMediaCaptureEvent: _handleCaptureEvent,
               builder: (cameraState, preview) {
+                if (_nativeCameraError != null &&
+                    defaultTargetPlatform == TargetPlatform.iOS) {
+                  return _NativeCameraUnavailableMessage(
+                    message: _nativeCameraError!,
+                  );
+                }
                 return _ReferenceCameraOverlay(
                   point: widget.point,
                   state: cameraState,
@@ -3280,6 +3290,62 @@ class _FallbackPreview extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NativeCameraUnavailableMessage extends StatelessWidget {
+  const _NativeCameraUnavailableMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF090A0D),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.white70,
+                  size: 36,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'iOS 原生相机未启动',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('返回'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
