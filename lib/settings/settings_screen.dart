@@ -194,10 +194,13 @@ class SettingsScreen extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children:
-                    _cameraAspectRatioGroup(
-                          includePortrait: true,
-                          includeSquare: false,
-                        )
+                    [
+                          CameraPhotoAspectRatio.native,
+                          ..._cameraAspectRatioGroup(
+                            includePortrait: true,
+                            includeSquare: false,
+                          ),
+                        ]
                         .map((ratio) {
                           final selected =
                               settings.cameraFallbackAspectRatio == ratio;

@@ -498,7 +498,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
       cameraFallbackAspectRatio:
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
-          ? CameraPhotoAspectRatio.landscape16x9
+          ? CameraPhotoAspectRatio.native
           : settings.cameraFallbackAspectRatio,
     );
   }

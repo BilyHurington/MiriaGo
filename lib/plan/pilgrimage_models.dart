@@ -10,6 +10,7 @@ enum PointSource { manual, anitabi }
 
 enum CameraPhotoAspectRatio {
   auto,
+  native,
   landscape16x9,
   cinema21x9,
   standard4x3,
@@ -37,6 +38,7 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {
     return switch (this) {
       CameraPhotoAspectRatio.auto => '自动',
+      CameraPhotoAspectRatio.native => '原生比例',
       CameraPhotoAspectRatio.landscape16x9 => '16:9',
       CameraPhotoAspectRatio.cinema21x9 => '21:9',
       CameraPhotoAspectRatio.standard4x3 => '4:3',
@@ -54,7 +56,7 @@ class AppSettings {
   const AppSettings({
     this.uiScale = 1,
     this.cameraCaptureAspectRatio = CameraPhotoAspectRatio.auto,
-    this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.landscape16x9,
+    this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.native,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
     this.themePalette = AppThemePalette.classicGreen,

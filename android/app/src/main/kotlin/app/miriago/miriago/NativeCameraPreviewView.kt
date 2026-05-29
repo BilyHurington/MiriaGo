@@ -48,6 +48,7 @@ class NativeCameraPreviewView(
     private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var flashMode = ImageCapture.FLASH_MODE_AUTO
     private var targetAspectRatio = 1.0
+    private var cropCaptureToAspectRatio = true
 
     init {
         previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -75,6 +76,7 @@ class NativeCameraPreviewView(
             "getZoomState" -> result.success(zoomStateMap())
             "setZoomRatio" -> setZoomRatio(call, result)
             "setTargetAspectRatio" -> setTargetAspectRatio(call, result)
+            "setCropCaptureToAspectRatio" -> setCropCaptureToAspectRatio(call, result)
             "setFlashMode" -> setFlashMode(call, result)
             "switchCamera" -> switchCamera(result)
             "takePicture" -> takePicture(result)
@@ -161,6 +163,11 @@ class NativeCameraPreviewView(
         }
     }
 
+    private fun setCropCaptureToAspectRatio(call: MethodCall, result: MethodChannel.Result) {
+        cropCaptureToAspectRatio = call.argument<Boolean>("enabled") ?: cropCaptureToAspectRatio
+        result.success(null)
+    }
+
     private fun setFlashMode(call: MethodCall, result: MethodChannel.Result) {
         when (call.argument<String>("flashMode") ?: "auto") {
             "off" -> {
@@ -221,7 +228,9 @@ class NativeCameraPreviewView(
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                     try {
-                        cropImageToTargetAspectRatio(file)
+                        if (cropCaptureToAspectRatio) {
+                            cropImageToTargetAspectRatio(file)
+                        }
                         activity.runOnUiThread { result.success(file.absolutePath) }
                     } catch (error: Exception) {
                         activity.runOnUiThread {

@@ -243,6 +243,11 @@ class _CamerawesomeReferenceScreenState
     final captureAspectRatio = _captureAspectRatio(
       referenceAspectRatio: _referenceAspectRatio,
       settings: widget.settings,
+      orientation: MediaQuery.orientationOf(context),
+    );
+    final shouldCropNativeCapture = _shouldCropNativeCapture(
+      referenceAspectRatio: _referenceAspectRatio,
+      settings: widget.settings,
     );
 
     return Scaffold(
@@ -269,6 +274,7 @@ class _CamerawesomeReferenceScreenState
               overlayOpacity: _overlayOpacity,
               settings: widget.settings,
               captureAspectRatio: captureAspectRatio,
+              cropCaptureToAspectRatio: shouldCropNativeCapture,
               onNativeUnavailable: () {
                 setState(() => _nativeCameraFailed = true);
               },
@@ -336,6 +342,7 @@ CameraAspectRatios _cameraAspectRatioFromDouble(double ratio) {
 double _aspectRatioValue(CameraPhotoAspectRatio ratio) {
   return switch (ratio) {
     CameraPhotoAspectRatio.auto => 16 / 9,
+    CameraPhotoAspectRatio.native => 4 / 3,
     CameraPhotoAspectRatio.landscape16x9 => 16 / 9,
     CameraPhotoAspectRatio.cinema21x9 => 21 / 9,
     CameraPhotoAspectRatio.standard4x3 => 4 / 3,
@@ -351,16 +358,43 @@ double _aspectRatioValue(CameraPhotoAspectRatio ratio) {
 double _captureAspectRatio({
   required double? referenceAspectRatio,
   required AppSettings settings,
+  required Orientation orientation,
 }) {
   final configuredRatio = settings.cameraCaptureAspectRatio;
   final baseRatio = configuredRatio == CameraPhotoAspectRatio.auto
       ? referenceAspectRatio ??
-            _aspectRatioValue(settings.cameraFallbackAspectRatio)
+            _fallbackAspectRatioValue(
+              settings.cameraFallbackAspectRatio,
+              orientation,
+            )
       : _aspectRatioValue(configuredRatio);
   if (baseRatio <= 0) {
     return 1;
   }
   return baseRatio;
+}
+
+double _fallbackAspectRatioValue(
+  CameraPhotoAspectRatio ratio,
+  Orientation orientation,
+) {
+  if (ratio == CameraPhotoAspectRatio.native) {
+    return orientation == Orientation.landscape ? 4 / 3 : 3 / 4;
+  }
+  return _aspectRatioValue(ratio);
+}
+
+bool _shouldCropNativeCapture({
+  required double? referenceAspectRatio,
+  required AppSettings settings,
+}) {
+  if (settings.cameraCaptureAspectRatio != CameraPhotoAspectRatio.auto) {
+    return true;
+  }
+  if (referenceAspectRatio != null && referenceAspectRatio > 0) {
+    return true;
+  }
+  return settings.cameraFallbackAspectRatio != CameraPhotoAspectRatio.native;
 }
 
 Future<double?> _resolveReferenceAspectRatio({
@@ -517,6 +551,16 @@ class _NativeCameraController extends ChangeNotifier {
     });
   }
 
+  Future<void> setCropCaptureToAspectRatio(bool enabled) async {
+    final channel = _channel;
+    if (channel == null || !_ready) {
+      return;
+    }
+    await channel.invokeMethod<void>('setCropCaptureToAspectRatio', {
+      'enabled': enabled,
+    });
+  }
+
   Future<void> cycleFlashMode() async {
     final nextMode = switch (_flashMode) {
       'auto' => 'on',
@@ -595,6 +639,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
     required this.overlayOpacity,
     required this.settings,
     required this.captureAspectRatio,
+    required this.cropCaptureToAspectRatio,
     required this.onNativeUnavailable,
     required this.onModeChanged,
     required this.onOpacityChanged,
@@ -611,6 +656,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
   final ValueListenable<double> overlayOpacity;
   final AppSettings settings;
   final double captureAspectRatio;
+  final bool cropCaptureToAspectRatio;
   final VoidCallback onNativeUnavailable;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
@@ -624,6 +670,9 @@ class _NativeReferenceCameraBody extends StatelessWidget {
       animation: controller,
       builder: (context, child) {
         unawaited(controller.setCaptureAspectRatio(captureAspectRatio));
+        unawaited(
+          controller.setCropCaptureToAspectRatio(cropCaptureToAspectRatio),
+        );
         if (controller.error != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             onNativeUnavailable();
@@ -1133,7 +1182,6 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
                   children: [
                     _NativeLandscapeLeftRail(
                       metrics: metrics,
-                      controller: controller,
                       mode: mode,
                       onModeChanged: onModeChanged,
                       onBack: () => Navigator.of(context).maybePop(),
@@ -1182,7 +1230,6 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
 class _NativeLandscapeLeftRail extends StatelessWidget {
   const _NativeLandscapeLeftRail({
     required this.metrics,
-    required this.controller,
     required this.mode,
     required this.onModeChanged,
     required this.onBack,
@@ -1190,7 +1237,6 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
   });
 
   final _CameraLayoutMetrics metrics;
-  final _NativeCameraController controller;
   final AwesomeReferenceMode mode;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final VoidCallback onBack;
@@ -1221,14 +1267,6 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
                 tooltip: null,
                 icon: Icons.image_outlined,
                 onPressed: onPickReference,
-              ),
-              SizedBox(height: metrics.leftGap),
-              _CameraCircleButton(
-                size: metrics.controlButtonSize,
-                iconSize: metrics.controlIconSize,
-                tooltip: null,
-                icon: Icons.cameraswitch_outlined,
-                onPressed: controller.switchCamera,
               ),
               SizedBox(height: metrics.leftGap + 2),
               _ModeColumnSelector(
@@ -1356,6 +1394,14 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                           iconSize: metrics.controlIconSize,
                           controller: controller,
                           showTooltip: false,
+                        ),
+                        SizedBox(height: metrics.rightGap),
+                        _CameraCircleButton(
+                          size: metrics.controlButtonSize,
+                          iconSize: metrics.controlIconSize,
+                          tooltip: null,
+                          icon: Icons.cameraswitch_outlined,
+                          onPressed: controller.switchCamera,
                         ),
                       ],
                     ),

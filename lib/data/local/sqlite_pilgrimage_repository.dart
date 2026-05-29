@@ -969,8 +969,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
   CameraPhotoAspectRatio _fallbackCameraAspectRatioFromName(String name) {
     final ratio = _cameraAspectRatioFromName(name);
-    return ratio == CameraPhotoAspectRatio.auto
-        ? CameraPhotoAspectRatio.landscape16x9
+    return ratio == CameraPhotoAspectRatio.auto ||
+            ratio == CameraPhotoAspectRatio.landscape16x9
+        ? CameraPhotoAspectRatio.native
         : ratio;
   }
 
