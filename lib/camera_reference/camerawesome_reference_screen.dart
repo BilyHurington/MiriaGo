@@ -64,7 +64,7 @@ class _CamerawesomeReferenceScreenState
   Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
-  bool _landscapeLocked = true;
+  bool _landscapeLocked = false;
   bool _nativeCameraFailed = false;
   double? _referenceAspectRatio;
   int _referenceAspectRatioRequest = 0;
@@ -75,10 +75,15 @@ class _CamerawesomeReferenceScreenState
     _overlayOpacity = ValueNotifier<double>(0.46);
     _zoom = ValueNotifier<double>(0);
     _nativeCameraController = _NativeCameraController();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    _landscapeLocked = _supportsCameraOrientationLock;
+    if (_landscapeLocked) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
     _refreshReferenceAspectRatio();
   }
 
@@ -233,6 +238,14 @@ class _CamerawesomeReferenceScreenState
   }
 
   void _toggleOrientation() {
+    if (!_supportsCameraOrientationLock) {
+      setState(() {
+        _landscapeLocked = false;
+      });
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      return;
+    }
+
     setState(() {
       _landscapeLocked = !_landscapeLocked;
     });
@@ -250,6 +263,10 @@ class _CamerawesomeReferenceScreenState
     return !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
         !_nativeCameraFailed;
+  }
+
+  bool get _supportsCameraOrientationLock {
+    return !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   }
 
   @override
@@ -328,6 +345,7 @@ class _CamerawesomeReferenceScreenState
                   zoom: _zoom,
                   settings: widget.settings,
                   landscapeLocked: _landscapeLocked,
+                  canToggleOrientation: _supportsCameraOrientationLock,
                   onModeChanged: (mode) => setState(() => _mode = mode),
                   onOpacityChanged: (value) => _overlayOpacity.value = value,
                   onZoomChanged: (value) => _setZoom(cameraState, value),
@@ -1619,6 +1637,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
     required this.zoom,
     required this.settings,
     required this.landscapeLocked,
+    required this.canToggleOrientation,
     required this.onModeChanged,
     required this.onOpacityChanged,
     required this.onZoomChanged,
@@ -1636,6 +1655,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
   final ValueListenable<double> zoom;
   final AppSettings settings;
   final bool landscapeLocked;
+  final bool canToggleOrientation;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
   final ValueChanged<double> onZoomChanged;
@@ -1677,6 +1697,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
                   onZoomChanged: onZoomChanged,
                   onPickReference: onPickReference,
                   onPickGallery: onPickGallery,
+                  canToggleOrientation: canToggleOrientation,
                   onToggleOrientation: onToggleOrientation,
                 )
               : Column(
@@ -1685,6 +1706,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
                       state: state,
                       isLandscapeUi: false,
                       onPickReference: onPickReference,
+                      canToggleOrientation: canToggleOrientation,
                       onToggleOrientation: onToggleOrientation,
                     ),
                     const Spacer(),
@@ -1892,12 +1914,14 @@ class _CameraTopBar extends StatelessWidget {
     required this.state,
     required this.isLandscapeUi,
     required this.onPickReference,
+    required this.canToggleOrientation,
     required this.onToggleOrientation,
   });
 
   final CameraState state;
   final bool isLandscapeUi;
   final VoidCallback onPickReference;
+  final bool canToggleOrientation;
   final VoidCallback onToggleOrientation;
 
   @override
@@ -1918,12 +1942,14 @@ class _CameraTopBar extends StatelessWidget {
             onPressed: onPickReference,
           ),
           const SizedBox(width: 8),
-          _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '切换横屏 UI',
-            icon: Icons.screen_rotation_alt_outlined,
-            onPressed: onToggleOrientation,
-          ),
-          const SizedBox(width: 8),
+          if (canToggleOrientation) ...[
+            _CameraCircleButton(
+              tooltip: isLandscapeUi ? null : '切换横屏 UI',
+              icon: Icons.screen_rotation_alt_outlined,
+              onPressed: onToggleOrientation,
+            ),
+            const SizedBox(width: 8),
+          ],
           _CompactFlashButton(state: state, showTooltip: !isLandscapeUi),
           const SizedBox(width: 8),
           _CompactCameraSwitchButton(state: state, showTooltip: !isLandscapeUi),
@@ -1946,6 +1972,7 @@ class _LandscapeCameraLayout extends StatelessWidget {
     required this.onZoomChanged,
     required this.onPickReference,
     required this.onPickGallery,
+    required this.canToggleOrientation,
     required this.onToggleOrientation,
   });
 
@@ -1960,6 +1987,7 @@ class _LandscapeCameraLayout extends StatelessWidget {
   final ValueChanged<double> onZoomChanged;
   final VoidCallback onPickReference;
   final VoidCallback onPickGallery;
+  final bool canToggleOrientation;
   final VoidCallback onToggleOrientation;
 
   @override
@@ -1971,6 +1999,7 @@ class _LandscapeCameraLayout extends StatelessWidget {
             state: state,
             isLandscapeUi: true,
             onPickReference: onPickReference,
+            canToggleOrientation: canToggleOrientation,
             onToggleOrientation: onToggleOrientation,
           ),
           Positioned(
