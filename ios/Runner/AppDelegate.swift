@@ -15,7 +15,6 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     AppDelegate.shared = self
-    GeneratedPluginRegistrant.register(with: self)
     if let appRegistrar = registrar(forPlugin: "AppDelegate") {
       registerNativeCameraPreview(
         registry: self,
@@ -79,9 +78,13 @@ import UIKit
     registry: FlutterPluginRegistry,
     messenger: FlutterBinaryMessenger
   ) {
+    let pluginKey = "NativeCameraPreviewPlugin"
+    guard !registry.hasPlugin(pluginKey) else {
+      return
+    }
     guard
       let nativeCameraRegistrar = registry.registrar(
-        forPlugin: "NativeCameraPreviewPlugin"
+        forPlugin: pluginKey
       )
     else {
       return
