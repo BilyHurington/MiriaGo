@@ -233,7 +233,8 @@ class _CamerawesomeReferenceScreenState
 
   bool get _shouldUseNativeCamera {
     return !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS) &&
         !_nativeCameraFailed;
   }
 
@@ -922,6 +923,12 @@ class _NativeCameraPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     if (defaultTargetPlatform == TargetPlatform.android) {
       return AndroidView(
+        viewType: 'seichi/native_camera_preview',
+        onPlatformViewCreated: controller.attach,
+      );
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
         viewType: 'seichi/native_camera_preview',
         onPlatformViewCreated: controller.attach,
       );
