@@ -81,6 +81,7 @@ class AppSettings {
     this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.native,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
+    this.referenceImageScale = 1,
     this.themePalette = AppThemePalette.classicGreen,
   });
 
@@ -89,6 +90,7 @@ class AppSettings {
   final CameraPhotoAspectRatio cameraFallbackAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final double referenceImageScale;
   final AppThemePalette themePalette;
 
   AppSettings copyWith({
@@ -97,6 +99,7 @@ class AppSettings {
     CameraPhotoAspectRatio? cameraFallbackAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    double? referenceImageScale,
     AppThemePalette? themePalette,
   }) {
     return AppSettings(
@@ -107,6 +110,7 @@ class AppSettings {
           cameraFallbackAspectRatio ?? this.cameraFallbackAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      referenceImageScale: referenceImageScale ?? this.referenceImageScale,
       themePalette: themePalette ?? this.themePalette,
     );
   }

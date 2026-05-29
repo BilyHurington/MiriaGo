@@ -132,6 +132,36 @@ class SettingsScreen extends StatelessWidget {
                   );
                 },
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.photo_size_select_large_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '参考图显示 ${(settings.referenceImageScale * 100).round()}%',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Slider(
+                min: 0.8,
+                max: 1,
+                divisions: 20,
+                value: settings.referenceImageScale.clamp(0.8, 1.0),
+                label: '${(settings.referenceImageScale * 100).round()}%',
+                onChanged: (value) {
+                  onChanged(settings.copyWith(referenceImageScale: value));
+                },
+              ),
             ],
           ),
           const SizedBox(height: 12),

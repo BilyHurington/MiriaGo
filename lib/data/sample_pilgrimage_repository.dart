@@ -496,6 +496,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       uiScale: settings.uiScale.clamp(0.5, 2.0),
       cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 10.0),
       cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
+      referenceImageScale: settings.referenceImageScale.clamp(0.8, 1.0),
       cameraFallbackAspectRatio:
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
           ? CameraPhotoAspectRatio.native

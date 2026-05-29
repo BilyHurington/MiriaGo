@@ -227,6 +227,10 @@ class _CamerawesomeReferenceScreenState
     state.sensorConfig.setZoom(nextZoom);
   }
 
+  void _preferPortraitCameraUi() {
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
+
   bool get _shouldUseNativeCamera {
     return !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
@@ -259,6 +263,7 @@ class _CamerawesomeReferenceScreenState
               galleryImage: _galleryImage,
               mode: _mode,
               overlayOpacity: _overlayOpacity.value,
+              referenceImageScale: widget.settings.referenceImageScale,
               onModeChanged: (mode) => setState(() => _mode = mode),
               onOpacityChanged: (value) => _overlayOpacity.value = value,
               onPickReference: _pickReferenceImage,
@@ -274,6 +279,7 @@ class _CamerawesomeReferenceScreenState
               overlayOpacity: _overlayOpacity,
               settings: widget.settings,
               captureAspectRatio: captureAspectRatio,
+              referenceImageScale: widget.settings.referenceImageScale,
               cropCaptureToAspectRatio: shouldCropNativeCapture,
               onNativeUnavailable: () {
                 setState(() => _nativeCameraFailed = true);
@@ -288,6 +294,7 @@ class _CamerawesomeReferenceScreenState
               },
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
+              onPreferPortraitUi: _preferPortraitCameraUi,
             )
           : CameraAwesomeBuilder.custom(
               saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
@@ -639,6 +646,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
     required this.overlayOpacity,
     required this.settings,
     required this.captureAspectRatio,
+    required this.referenceImageScale,
     required this.cropCaptureToAspectRatio,
     required this.onNativeUnavailable,
     required this.onModeChanged,
@@ -646,6 +654,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
     required this.onCapture,
     required this.onPickReference,
     required this.onPickGallery,
+    required this.onPreferPortraitUi,
   });
 
   final PilgrimagePoint point;
@@ -656,6 +665,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
   final ValueListenable<double> overlayOpacity;
   final AppSettings settings;
   final double captureAspectRatio;
+  final double referenceImageScale;
   final bool cropCaptureToAspectRatio;
   final VoidCallback onNativeUnavailable;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
@@ -663,6 +673,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
   final Future<void> Function() onCapture;
   final VoidCallback onPickReference;
   final VoidCallback onPickGallery;
+  final VoidCallback onPreferPortraitUi;
 
   @override
   Widget build(BuildContext context) {
@@ -687,12 +698,14 @@ class _NativeReferenceCameraBody extends StatelessWidget {
             overlayOpacity: overlayOpacity,
             settings: settings,
             captureAspectRatio: captureAspectRatio,
+            referenceImageScale: referenceImageScale,
             galleryImage: galleryImage,
             onModeChanged: onModeChanged,
             onOpacityChanged: onOpacityChanged,
             onCapture: onCapture,
             onPickReference: onPickReference,
             onPickGallery: onPickGallery,
+            onPreferPortraitUi: onPreferPortraitUi,
           );
         }
 
@@ -705,6 +718,12 @@ class _NativeReferenceCameraBody extends StatelessWidget {
                   controller: controller,
                   isLandscapeUi: false,
                   onPickReference: onPickReference,
+                  onPreferLandscapeUi: () {
+                    SystemChrome.setPreferredOrientations([
+                      DeviceOrientation.landscapeLeft,
+                      DeviceOrientation.landscapeRight,
+                    ]);
+                  },
                 ),
                 Expanded(
                   child: Center(
@@ -714,6 +733,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
                       mode: mode,
                       overlayOpacity: overlayOpacity,
                       captureAspectRatio: captureAspectRatio,
+                      referenceImageScale: referenceImageScale,
                       landscape: false,
                     ),
                   ),
@@ -745,6 +765,7 @@ class _NativeCameraStage extends StatelessWidget {
     required this.mode,
     required this.overlayOpacity,
     required this.captureAspectRatio,
+    required this.referenceImageScale,
     required this.landscape,
     this.metrics,
   });
@@ -754,6 +775,7 @@ class _NativeCameraStage extends StatelessWidget {
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
   final double captureAspectRatio;
+  final double referenceImageScale;
   final bool landscape;
   final _CameraLayoutMetrics? metrics;
 
@@ -799,6 +821,7 @@ class _NativeCameraStage extends StatelessWidget {
                             child: _ReferenceImageView(
                               source: reference,
                               fit: BoxFit.contain,
+                              scale: referenceImageScale,
                             ),
                           ),
                         ),
@@ -837,6 +860,7 @@ class _NativeCameraStage extends StatelessWidget {
                       child: _ReferenceImageView(
                         source: reference,
                         fit: BoxFit.contain,
+                        scale: referenceImageScale,
                       ),
                     ),
                   ),
@@ -1016,11 +1040,13 @@ class _NativeCameraTopBar extends StatelessWidget {
     required this.controller,
     required this.isLandscapeUi,
     required this.onPickReference,
+    required this.onPreferLandscapeUi,
   });
 
   final _NativeCameraController controller;
   final bool isLandscapeUi;
   final VoidCallback onPickReference;
+  final VoidCallback onPreferLandscapeUi;
 
   @override
   Widget build(BuildContext context) {
@@ -1046,9 +1072,9 @@ class _NativeCameraTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '切换摄像头',
-            icon: Icons.cameraswitch_outlined,
-            onPressed: controller.switchCamera,
+            tooltip: isLandscapeUi ? null : '切换横屏 UI',
+            icon: Icons.screen_rotation_alt_outlined,
+            onPressed: onPreferLandscapeUi,
           ),
         ],
       ),
@@ -1113,14 +1139,11 @@ class _NativeCameraBottomPanel extends StatelessWidget {
               const Spacer(),
               _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
               const Spacer(),
-              if (galleryImage == null)
-                const SizedBox(width: 50)
-              else
-                _CameraActionButton(
-                  tooltip: '检查照片',
-                  icon: Icons.fact_check_outlined,
-                  onPressed: () {},
-                ),
+              _CameraActionButton(
+                tooltip: '切换摄像头',
+                icon: Icons.cameraswitch_outlined,
+                onPressed: controller.switchCamera,
+              ),
             ],
           ),
         ],
@@ -1137,12 +1160,14 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
     required this.overlayOpacity,
     required this.settings,
     required this.captureAspectRatio,
+    required this.referenceImageScale,
     required this.galleryImage,
     required this.onModeChanged,
     required this.onOpacityChanged,
     required this.onCapture,
     required this.onPickReference,
     required this.onPickGallery,
+    required this.onPreferPortraitUi,
   });
 
   final _NativeCameraController controller;
@@ -1151,12 +1176,14 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
   final ValueListenable<double> overlayOpacity;
   final AppSettings settings;
   final double captureAspectRatio;
+  final double referenceImageScale;
   final XFile? galleryImage;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
   final Future<void> Function() onCapture;
   final VoidCallback onPickReference;
   final VoidCallback onPickGallery;
+  final VoidCallback onPreferPortraitUi;
 
   @override
   Widget build(BuildContext context) {
@@ -1197,6 +1224,7 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
                           mode: mode,
                           overlayOpacity: overlayOpacity,
                           captureAspectRatio: captureAspectRatio,
+                          referenceImageScale: referenceImageScale,
                           landscape: true,
                           metrics: metrics,
                         ),
@@ -1215,6 +1243,7 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
                       onOpacityChanged: onOpacityChanged,
                       onCapture: onCapture,
                       onPickGallery: onPickGallery,
+                      onPreferPortraitUi: onPreferPortraitUi,
                     ),
                   ],
                 ),
@@ -1342,6 +1371,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
     required this.onOpacityChanged,
     required this.onCapture,
     required this.onPickGallery,
+    required this.onPreferPortraitUi,
   });
 
   final _CameraLayoutMetrics metrics;
@@ -1351,9 +1381,39 @@ class _NativeLandscapeRightRail extends StatelessWidget {
   final ValueChanged<double> onOpacityChanged;
   final Future<void> Function() onCapture;
   final VoidCallback onPickGallery;
+  final VoidCallback onPreferPortraitUi;
 
   @override
   Widget build(BuildContext context) {
+    final topControlButtons = <Widget>[
+      _NativeFlashButton(
+        size: metrics.controlButtonSize,
+        iconSize: metrics.controlIconSize,
+        controller: controller,
+        showTooltip: false,
+      ),
+      _CameraCircleButton(
+        size: metrics.controlButtonSize,
+        iconSize: metrics.controlIconSize,
+        tooltip: null,
+        icon: Icons.cameraswitch_outlined,
+        onPressed: controller.switchCamera,
+      ),
+      _CameraCircleButton(
+        size: metrics.controlButtonSize,
+        iconSize: metrics.controlIconSize,
+        tooltip: null,
+        icon: Icons.screen_rotation_alt_outlined,
+        onPressed: onPreferPortraitUi,
+      ),
+    ];
+    final topControlGap = _compressedCameraButtonGap(
+      availableHeight: metrics.opacitySliderHeight,
+      buttonSize: metrics.controlButtonSize,
+      buttonCount: topControlButtons.length,
+      preferredGap: metrics.rightGap,
+    );
+
     return _CameraDebugFrame(
       color: _CameraDebugColors.rightRail,
       label: 'right',
@@ -1387,23 +1447,21 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 3),
-                    Column(
-                      children: [
-                        _NativeFlashButton(
-                          size: metrics.controlButtonSize,
-                          iconSize: metrics.controlIconSize,
-                          controller: controller,
-                          showTooltip: false,
-                        ),
-                        SizedBox(height: metrics.rightGap),
-                        _CameraCircleButton(
-                          size: metrics.controlButtonSize,
-                          iconSize: metrics.controlIconSize,
-                          tooltip: null,
-                          icon: Icons.cameraswitch_outlined,
-                          onPressed: controller.switchCamera,
-                        ),
-                      ],
+                    SizedBox(
+                      height: metrics.opacitySliderHeight,
+                      child: Column(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < topControlButtons.length;
+                            index++
+                          ) ...[
+                            topControlButtons[index],
+                            if (index != topControlButtons.length - 1)
+                              SizedBox(height: topControlGap),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1437,6 +1495,20 @@ class _NativeLandscapeRightRail extends StatelessWidget {
       ),
     );
   }
+}
+
+double _compressedCameraButtonGap({
+  required double availableHeight,
+  required double buttonSize,
+  required int buttonCount,
+  required double preferredGap,
+}) {
+  if (buttonCount <= 1) {
+    return 0;
+  }
+  final maxGap =
+      (availableHeight - buttonSize * buttonCount) / (buttonCount - 1);
+  return maxGap.clamp(0.0, preferredGap);
 }
 
 class _NativeFlashButton extends StatelessWidget {
@@ -1656,6 +1728,7 @@ class _ReferenceCameraOverlay extends StatelessWidget {
               reference: reference,
               overlayOpacity: opacity,
               isLandscape: usesLandscapeUi,
+              referenceImageScale: settings.referenceImageScale,
             );
           },
         ),
@@ -1709,12 +1782,14 @@ class _ReferenceModeLayer extends StatelessWidget {
     required this.reference,
     required this.overlayOpacity,
     required this.isLandscape,
+    required this.referenceImageScale,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
   final bool isLandscape;
+  final double referenceImageScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1727,6 +1802,7 @@ class _ReferenceModeLayer extends StatelessWidget {
         mode: mode,
         reference: reference,
         overlayOpacity: overlayOpacity,
+        referenceImageScale: referenceImageScale,
       );
     }
 
@@ -1734,7 +1810,11 @@ class _ReferenceModeLayer extends StatelessWidget {
       AwesomeReferenceMode.overlay => IgnorePointer(
         child: Opacity(
           opacity: overlayOpacity,
-          child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+          child: _ReferenceImageView(
+            source: reference,
+            fit: BoxFit.contain,
+            scale: referenceImageScale,
+          ),
         ),
       ),
       AwesomeReferenceMode.split => Align(
@@ -1744,7 +1824,11 @@ class _ReferenceModeLayer extends StatelessWidget {
           child: _ReferenceFrame(
             height: MediaQuery.sizeOf(context).height * 0.34,
             margin: const EdgeInsets.fromLTRB(12, 72, 12, 0),
-            child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+            child: _ReferenceImageView(
+              source: reference,
+              fit: BoxFit.contain,
+              scale: referenceImageScale,
+            ),
           ),
         ),
       ),
@@ -1755,7 +1839,11 @@ class _ReferenceModeLayer extends StatelessWidget {
             width: 116,
             height: 154,
             margin: const EdgeInsets.fromLTRB(14, 82, 0, 0),
-            child: _ReferenceImageView(source: reference, fit: BoxFit.contain),
+            child: _ReferenceImageView(
+              source: reference,
+              fit: BoxFit.contain,
+              scale: referenceImageScale,
+            ),
           ),
         ),
       ),
@@ -1798,11 +1886,13 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
     required this.mode,
     required this.reference,
     required this.overlayOpacity,
+    required this.referenceImageScale,
   });
 
   final AwesomeReferenceMode mode;
   final _ReferenceImageSource reference;
   final double overlayOpacity;
+  final double referenceImageScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1817,6 +1907,7 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
                 child: _ReferenceImageView(
                   source: reference,
                   fit: BoxFit.contain,
+                  scale: referenceImageScale,
                 ),
               ),
             ),
@@ -1829,6 +1920,7 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
                 child: _ReferenceImageView(
                   source: reference,
                   fit: BoxFit.contain,
+                  scale: referenceImageScale,
                 ),
               ),
             ),
@@ -1841,6 +1933,7 @@ class _LandscapeReferenceModeLayer extends StatelessWidget {
                 child: _ReferenceImageView(
                   source: reference,
                   fit: BoxFit.contain,
+                  scale: referenceImageScale,
                 ),
               ),
             ),
@@ -3018,6 +3111,7 @@ class _WebCameraFallback extends StatelessWidget {
     required this.galleryImage,
     required this.mode,
     required this.overlayOpacity,
+    required this.referenceImageScale,
     required this.onModeChanged,
     required this.onOpacityChanged,
     required this.onPickReference,
@@ -3029,6 +3123,7 @@ class _WebCameraFallback extends StatelessWidget {
   final XFile? galleryImage;
   final AwesomeReferenceMode mode;
   final double overlayOpacity;
+  final double referenceImageScale;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final ValueChanged<double> onOpacityChanged;
   final VoidCallback onPickReference;
@@ -3058,6 +3153,7 @@ class _WebCameraFallback extends StatelessWidget {
                     reference: reference,
                     overlayOpacity: overlayOpacity,
                     isLandscape: false,
+                    referenceImageScale: referenceImageScale,
                   ),
                 ],
               ),
@@ -3198,26 +3294,31 @@ class _ReferenceImageSource {
 }
 
 class _ReferenceImageView extends StatelessWidget {
-  const _ReferenceImageView({required this.source, required this.fit});
+  const _ReferenceImageView({
+    required this.source,
+    required this.fit,
+    this.scale = 1,
+  });
 
   final _ReferenceImageSource source;
   final BoxFit fit;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final safeScale = scale.clamp(0.8, 1.0);
     final bytes = source.bytes;
+    final Widget image;
     if (bytes != null) {
-      return Image.memory(
+      image = Image.memory(
         bytes,
         width: double.infinity,
         height: double.infinity,
         fit: fit,
         gaplessPlayback: true,
       );
-    }
-
-    if (source.localPath != null || source.url != null) {
-      return ReferenceThumbnail(
+    } else if (source.localPath != null || source.url != null) {
+      image = ReferenceThumbnail(
         localPath: source.localPath,
         imageUrl: source.url,
         placeholder: const _ReferenceError(),
@@ -3225,9 +3326,19 @@ class _ReferenceImageView extends StatelessWidget {
         height: double.infinity,
         fit: fit,
       );
+    } else {
+      return const SizedBox.shrink();
     }
 
-    return const SizedBox.shrink();
+    if (safeScale >= 0.999) {
+      return image;
+    }
+    return FractionallySizedBox(
+      widthFactor: safeScale,
+      heightFactor: safeScale,
+      alignment: Alignment.center,
+      child: image,
+    );
   }
 }
 

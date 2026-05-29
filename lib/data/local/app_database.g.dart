@@ -2873,6 +2873,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(5.0),
   );
+  static const VerificationMeta _referenceImageScaleMeta =
+      const VerificationMeta('referenceImageScale');
+  @override
+  late final GeneratedColumn<double> referenceImageScale =
+      GeneratedColumn<double>(
+        'reference_image_scale',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(1.0),
+      );
   static const VerificationMeta _themePaletteMeta = const VerificationMeta(
     'themePalette',
   );
@@ -2893,6 +2905,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     cameraCaptureAspectRatio,
     cameraMinZoom,
     cameraMaxZoom,
+    referenceImageScale,
     themePalette,
   ];
   @override
@@ -2954,6 +2967,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('reference_image_scale')) {
+      context.handle(
+        _referenceImageScaleMeta,
+        referenceImageScale.isAcceptableOrUnknown(
+          data['reference_image_scale']!,
+          _referenceImageScaleMeta,
+        ),
+      );
+    }
     if (data.containsKey('theme_palette')) {
       context.handle(
         _themePaletteMeta,
@@ -2996,6 +3018,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.double,
         data['${effectivePrefix}camera_max_zoom'],
       )!,
+      referenceImageScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}reference_image_scale'],
+      )!,
       themePalette: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}theme_palette'],
@@ -3017,6 +3043,7 @@ class AppSettingsEntry extends DataClass
   final String cameraCaptureAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final double referenceImageScale;
   final String themePalette;
   const AppSettingsEntry({
     required this.id,
@@ -3025,6 +3052,7 @@ class AppSettingsEntry extends DataClass
     required this.cameraCaptureAspectRatio,
     required this.cameraMinZoom,
     required this.cameraMaxZoom,
+    required this.referenceImageScale,
     required this.themePalette,
   });
   @override
@@ -3038,6 +3066,7 @@ class AppSettingsEntry extends DataClass
     );
     map['camera_min_zoom'] = Variable<double>(cameraMinZoom);
     map['camera_max_zoom'] = Variable<double>(cameraMaxZoom);
+    map['reference_image_scale'] = Variable<double>(referenceImageScale);
     map['theme_palette'] = Variable<String>(themePalette);
     return map;
   }
@@ -3050,6 +3079,7 @@ class AppSettingsEntry extends DataClass
       cameraCaptureAspectRatio: Value(cameraCaptureAspectRatio),
       cameraMinZoom: Value(cameraMinZoom),
       cameraMaxZoom: Value(cameraMaxZoom),
+      referenceImageScale: Value(referenceImageScale),
       themePalette: Value(themePalette),
     );
   }
@@ -3068,6 +3098,9 @@ class AppSettingsEntry extends DataClass
       ),
       cameraMinZoom: serializer.fromJson<double>(json['cameraMinZoom']),
       cameraMaxZoom: serializer.fromJson<double>(json['cameraMaxZoom']),
+      referenceImageScale: serializer.fromJson<double>(
+        json['referenceImageScale'],
+      ),
       themePalette: serializer.fromJson<String>(json['themePalette']),
     );
   }
@@ -3083,6 +3116,7 @@ class AppSettingsEntry extends DataClass
       ),
       'cameraMinZoom': serializer.toJson<double>(cameraMinZoom),
       'cameraMaxZoom': serializer.toJson<double>(cameraMaxZoom),
+      'referenceImageScale': serializer.toJson<double>(referenceImageScale),
       'themePalette': serializer.toJson<String>(themePalette),
     };
   }
@@ -3094,6 +3128,7 @@ class AppSettingsEntry extends DataClass
     String? cameraCaptureAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    double? referenceImageScale,
     String? themePalette,
   }) => AppSettingsEntry(
     id: id ?? this.id,
@@ -3103,6 +3138,7 @@ class AppSettingsEntry extends DataClass
         cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
     cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
     cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+    referenceImageScale: referenceImageScale ?? this.referenceImageScale,
     themePalette: themePalette ?? this.themePalette,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
@@ -3121,6 +3157,9 @@ class AppSettingsEntry extends DataClass
       cameraMaxZoom: data.cameraMaxZoom.present
           ? data.cameraMaxZoom.value
           : this.cameraMaxZoom,
+      referenceImageScale: data.referenceImageScale.present
+          ? data.referenceImageScale.value
+          : this.referenceImageScale,
       themePalette: data.themePalette.present
           ? data.themePalette.value
           : this.themePalette,
@@ -3136,6 +3175,7 @@ class AppSettingsEntry extends DataClass
           ..write('cameraCaptureAspectRatio: $cameraCaptureAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
+          ..write('referenceImageScale: $referenceImageScale, ')
           ..write('themePalette: $themePalette')
           ..write(')'))
         .toString();
@@ -3149,6 +3189,7 @@ class AppSettingsEntry extends DataClass
     cameraCaptureAspectRatio,
     cameraMinZoom,
     cameraMaxZoom,
+    referenceImageScale,
     themePalette,
   );
   @override
@@ -3161,6 +3202,7 @@ class AppSettingsEntry extends DataClass
           other.cameraCaptureAspectRatio == this.cameraCaptureAspectRatio &&
           other.cameraMinZoom == this.cameraMinZoom &&
           other.cameraMaxZoom == this.cameraMaxZoom &&
+          other.referenceImageScale == this.referenceImageScale &&
           other.themePalette == this.themePalette);
 }
 
@@ -3171,6 +3213,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> cameraCaptureAspectRatio;
   final Value<double> cameraMinZoom;
   final Value<double> cameraMaxZoom;
+  final Value<double> referenceImageScale;
   final Value<String> themePalette;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
@@ -3180,6 +3223,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraCaptureAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
+    this.referenceImageScale = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3190,6 +3234,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraCaptureAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
+    this.referenceImageScale = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
@@ -3200,6 +3245,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? cameraCaptureAspectRatio,
     Expression<double>? cameraMinZoom,
     Expression<double>? cameraMaxZoom,
+    Expression<double>? referenceImageScale,
     Expression<String>? themePalette,
     Expression<int>? rowid,
   }) {
@@ -3211,6 +3257,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'camera_capture_aspect_ratio': cameraCaptureAspectRatio,
       if (cameraMinZoom != null) 'camera_min_zoom': cameraMinZoom,
       if (cameraMaxZoom != null) 'camera_max_zoom': cameraMaxZoom,
+      if (referenceImageScale != null)
+        'reference_image_scale': referenceImageScale,
       if (themePalette != null) 'theme_palette': themePalette,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3223,6 +3271,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? cameraCaptureAspectRatio,
     Value<double>? cameraMinZoom,
     Value<double>? cameraMaxZoom,
+    Value<double>? referenceImageScale,
     Value<String>? themePalette,
     Value<int>? rowid,
   }) {
@@ -3234,6 +3283,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      referenceImageScale: referenceImageScale ?? this.referenceImageScale,
       themePalette: themePalette ?? this.themePalette,
       rowid: rowid ?? this.rowid,
     );
@@ -3262,6 +3312,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     if (cameraMaxZoom.present) {
       map['camera_max_zoom'] = Variable<double>(cameraMaxZoom.value);
     }
+    if (referenceImageScale.present) {
+      map['reference_image_scale'] = Variable<double>(
+        referenceImageScale.value,
+      );
+    }
     if (themePalette.present) {
       map['theme_palette'] = Variable<String>(themePalette.value);
     }
@@ -3280,6 +3335,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('cameraCaptureAspectRatio: $cameraCaptureAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
+          ..write('referenceImageScale: $referenceImageScale, ')
           ..write('themePalette: $themePalette, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -5195,6 +5251,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> cameraCaptureAspectRatio,
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
+      Value<double> referenceImageScale,
       Value<String> themePalette,
       Value<int> rowid,
     });
@@ -5206,6 +5263,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> cameraCaptureAspectRatio,
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
+      Value<double> referenceImageScale,
       Value<String> themePalette,
       Value<int> rowid,
     });
@@ -5246,6 +5304,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<double> get cameraMaxZoom => $composableBuilder(
     column: $table.cameraMaxZoom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get referenceImageScale => $composableBuilder(
+    column: $table.referenceImageScale,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5294,6 +5357,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get referenceImageScale => $composableBuilder(
+    column: $table.referenceImageScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get themePalette => $composableBuilder(
     column: $table.themePalette,
     builder: (column) => ColumnOrderings(column),
@@ -5332,6 +5400,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get cameraMaxZoom => $composableBuilder(
     column: $table.cameraMaxZoom,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get referenceImageScale => $composableBuilder(
+    column: $table.referenceImageScale,
     builder: (column) => column,
   );
 
@@ -5387,6 +5460,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> cameraCaptureAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
+                Value<double> referenceImageScale = const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
@@ -5396,6 +5470,7 @@ class $$AppSettingsEntriesTableTableManager
                 cameraCaptureAspectRatio: cameraCaptureAspectRatio,
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
+                referenceImageScale: referenceImageScale,
                 themePalette: themePalette,
                 rowid: rowid,
               ),
@@ -5407,6 +5482,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> cameraCaptureAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
+                Value<double> referenceImageScale = const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
@@ -5416,6 +5492,7 @@ class $$AppSettingsEntriesTableTableManager
                 cameraCaptureAspectRatio: cameraCaptureAspectRatio,
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
+                referenceImageScale: referenceImageScale,
                 themePalette: themePalette,
                 rowid: rowid,
               ),
