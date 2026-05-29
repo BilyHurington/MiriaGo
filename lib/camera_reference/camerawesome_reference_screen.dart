@@ -647,38 +647,41 @@ class _NativeReferenceCameraBody extends StatelessWidget {
           );
         }
 
-        return SafeArea(
-          child: Column(
-            children: [
-              _NativeCameraTopBar(
-                controller: controller,
-                isLandscapeUi: false,
-                onPickReference: onPickReference,
-              ),
-              Expanded(
-                child: Center(
-                  child: _NativeCameraStage(
-                    controller: controller,
-                    reference: reference,
-                    mode: mode,
-                    overlayOpacity: overlayOpacity,
-                    captureAspectRatio: captureAspectRatio,
-                    landscape: false,
+        return ColoredBox(
+          color: const Color(0xFF090A0D),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _NativeCameraTopBar(
+                  controller: controller,
+                  isLandscapeUi: false,
+                  onPickReference: onPickReference,
+                ),
+                Expanded(
+                  child: Center(
+                    child: _NativeCameraStage(
+                      controller: controller,
+                      reference: reference,
+                      mode: mode,
+                      overlayOpacity: overlayOpacity,
+                      captureAspectRatio: captureAspectRatio,
+                      landscape: false,
+                    ),
                   ),
                 ),
-              ),
-              _NativeCameraBottomPanel(
-                controller: controller,
-                mode: mode,
-                overlayOpacity: overlayOpacity,
-                settings: settings,
-                galleryImage: galleryImage,
-                onModeChanged: onModeChanged,
-                onOpacityChanged: onOpacityChanged,
-                onCapture: onCapture,
-                onPickGallery: onPickGallery,
-              ),
-            ],
+                _NativeCameraBottomPanel(
+                  controller: controller,
+                  mode: mode,
+                  overlayOpacity: overlayOpacity,
+                  settings: settings,
+                  galleryImage: galleryImage,
+                  onModeChanged: onModeChanged,
+                  onOpacityChanged: onOpacityChanged,
+                  onCapture: onCapture,
+                  onPickGallery: onPickGallery,
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -1130,6 +1133,7 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
                   children: [
                     _NativeLandscapeLeftRail(
                       metrics: metrics,
+                      controller: controller,
                       mode: mode,
                       onModeChanged: onModeChanged,
                       onBack: () => Navigator.of(context).maybePop(),
@@ -1178,6 +1182,7 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
 class _NativeLandscapeLeftRail extends StatelessWidget {
   const _NativeLandscapeLeftRail({
     required this.metrics,
+    required this.controller,
     required this.mode,
     required this.onModeChanged,
     required this.onBack,
@@ -1185,6 +1190,7 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
   });
 
   final _CameraLayoutMetrics metrics;
+  final _NativeCameraController controller;
   final AwesomeReferenceMode mode;
   final ValueChanged<AwesomeReferenceMode> onModeChanged;
   final VoidCallback onBack;
@@ -1215,6 +1221,14 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
                 tooltip: null,
                 icon: Icons.image_outlined,
                 onPressed: onPickReference,
+              ),
+              SizedBox(height: metrics.leftGap),
+              _CameraCircleButton(
+                size: metrics.controlButtonSize,
+                iconSize: metrics.controlIconSize,
+                tooltip: null,
+                icon: Icons.cameraswitch_outlined,
+                onPressed: controller.switchCamera,
               ),
               SizedBox(height: metrics.leftGap + 2),
               _ModeColumnSelector(
@@ -1342,14 +1356,6 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                           iconSize: metrics.controlIconSize,
                           controller: controller,
                           showTooltip: false,
-                        ),
-                        SizedBox(height: metrics.rightGap),
-                        _CameraCircleButton(
-                          size: metrics.controlButtonSize,
-                          iconSize: metrics.controlIconSize,
-                          tooltip: null,
-                          icon: Icons.cameraswitch_outlined,
-                          onPressed: controller.switchCamera,
                         ),
                       ],
                     ),
@@ -2023,7 +2029,9 @@ class _LandscapeCaptureRail extends StatelessWidget {
                   : Icons.photo_library_outlined,
               onPressed: onPickGallery,
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: 12),
+            _CompactCameraSwitchButton(state: state, showTooltip: false),
+            const SizedBox(width: 12),
             _ReferenceCaptureButton(state: state, compact: true),
             if (hasGalleryImage) ...[
               const SizedBox(width: 18),
