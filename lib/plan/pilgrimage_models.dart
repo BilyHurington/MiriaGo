@@ -14,6 +14,10 @@ enum CameraPhotoAspectRatio {
   cinema21x9,
   standard4x3,
   photo3x2,
+  portrait9x16,
+  portrait9x21,
+  portrait3x4,
+  portrait2x3,
   square1x1,
 }
 
@@ -37,6 +41,10 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
       CameraPhotoAspectRatio.cinema21x9 => '21:9',
       CameraPhotoAspectRatio.standard4x3 => '4:3',
       CameraPhotoAspectRatio.photo3x2 => '3:2',
+      CameraPhotoAspectRatio.portrait9x16 => '9:16',
+      CameraPhotoAspectRatio.portrait9x21 => '9:21',
+      CameraPhotoAspectRatio.portrait3x4 => '3:4',
+      CameraPhotoAspectRatio.portrait2x3 => '2:3',
       CameraPhotoAspectRatio.square1x1 => '1:1',
     };
   }
