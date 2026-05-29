@@ -514,11 +514,13 @@ class _NativeCameraController extends ChangeNotifier {
       _ready = false;
     }
 
-    final permission = await Permission.camera.request();
-    if (!permission.isGranted) {
-      _error = '需要相机权限';
-      notifyListeners();
-      return;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final permission = await Permission.camera.request();
+      if (!permission.isGranted) {
+        _error = '需要相机权限';
+        notifyListeners();
+        return;
+      }
     }
 
     _viewId = viewId;
@@ -531,8 +533,10 @@ class _NativeCameraController extends ChangeNotifier {
       _applyZoomState(result);
       _ready = true;
       _error = null;
+    } on PlatformException catch (error) {
+      _error = error.message ?? '原生相机初始化失败';
     } catch (error) {
-      _error = '原生相机初始化失败';
+      _error = '原生相机初始化失败：$error';
     }
     notifyListeners();
   }
