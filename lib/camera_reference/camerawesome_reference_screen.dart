@@ -1406,35 +1406,6 @@ class _NativeLandscapeRightRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topControlButtons = <Widget>[
-      _NativeFlashButton(
-        size: metrics.controlButtonSize,
-        iconSize: metrics.controlIconSize,
-        controller: controller,
-        showTooltip: false,
-      ),
-      _CameraCircleButton(
-        size: metrics.controlButtonSize,
-        iconSize: metrics.controlIconSize,
-        tooltip: null,
-        icon: Icons.cameraswitch_outlined,
-        onPressed: controller.switchCamera,
-      ),
-      _CameraCircleButton(
-        size: metrics.controlButtonSize,
-        iconSize: metrics.controlIconSize,
-        tooltip: null,
-        icon: Icons.screen_rotation_alt_outlined,
-        onPressed: onPreferPortraitUi,
-      ),
-    ];
-    final topControlGap = _compressedCameraButtonGap(
-      availableHeight: metrics.opacitySliderHeight,
-      buttonSize: metrics.controlButtonSize,
-      buttonCount: topControlButtons.length,
-      preferredGap: metrics.rightGap,
-    );
-
     return _CameraDebugFrame(
       color: _CameraDebugColors.rightRail,
       label: 'right',
@@ -1442,78 +1413,192 @@ class _NativeLandscapeRightRail extends StatelessWidget {
         width: metrics.rightRailWidth,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(3, 5, 6, 5),
-          child: Column(
-            children: [
-              SizedBox(
-                height: math.max(
-                  metrics.opacitySliderHeight,
-                  metrics.controlButtonSize * 3 + metrics.rightGap * 2,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = _LandscapeRightRailLayout.from(
+                availableHeight: constraints.maxHeight,
+                metrics: metrics,
+              );
+              final topControlButtons = <Widget>[
+                _NativeFlashButton(
+                  size: layout.controlButtonSize,
+                  iconSize: layout.controlIconSize,
+                  controller: controller,
+                  showTooltip: false,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: metrics.opacitySliderWidth,
-                      child: ValueListenableBuilder<double>(
-                        valueListenable: overlayOpacity,
-                        builder: (context, opacity, child) {
-                          return _VerticalCameraSlider(
-                            compact: true,
-                            icon: Icons.opacity,
-                            value: opacity,
-                            label: '${(opacity * 100).round()}%',
-                            onChanged: onOpacityChanged,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    SizedBox(
-                      height: metrics.opacitySliderHeight,
-                      child: Column(
-                        children: [
-                          for (
-                            var index = 0;
-                            index < topControlButtons.length;
-                            index++
-                          ) ...[
-                            topControlButtons[index],
-                            if (index != topControlButtons.length - 1)
-                              SizedBox(height: topControlGap),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              _NativeCaptureButton(
-                size: metrics.captureButtonSize,
-                innerSize: metrics.captureInnerSize,
-                busy: controller.busy,
-                onPressed: onCapture,
-              ),
-              SizedBox(height: metrics.rightGap + 4),
-              if (galleryImage != null)
-                _CameraActionButton(
-                  size: metrics.actionButtonSize,
-                  iconSize: metrics.actionIconSize,
+                _CameraCircleButton(
+                  size: layout.controlButtonSize,
+                  iconSize: layout.controlIconSize,
                   tooltip: null,
-                  icon: Icons.fact_check_outlined,
-                  onPressed: () {},
-                )
-              else
-                _GalleryImportButton(
-                  showLabel: metrics.showGalleryText,
-                  size: metrics.actionButtonSize,
-                  iconSize: metrics.actionIconSize,
-                  onPressed: onPickGallery,
+                  icon: Icons.cameraswitch_outlined,
+                  onPressed: controller.switchCamera,
                 ),
-            ],
+                _CameraCircleButton(
+                  size: layout.controlButtonSize,
+                  iconSize: layout.controlIconSize,
+                  tooltip: null,
+                  icon: Icons.screen_rotation_alt_outlined,
+                  onPressed: onPreferPortraitUi,
+                ),
+              ];
+
+              return Column(
+                children: [
+                  SizedBox(
+                    height: layout.topHeight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: layout.opacitySliderWidth,
+                          child: ValueListenableBuilder<double>(
+                            valueListenable: overlayOpacity,
+                            builder: (context, opacity, child) {
+                              return _VerticalCameraSlider(
+                                compact: true,
+                                icon: Icons.opacity,
+                                value: opacity,
+                                label: '${(opacity * 100).round()}%',
+                                onChanged: onOpacityChanged,
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(width: layout.horizontalGap),
+                        Column(
+                          children: [
+                            for (
+                              var index = 0;
+                              index < topControlButtons.length;
+                              index++
+                            ) ...[
+                              topControlButtons[index],
+                              if (index != topControlButtons.length - 1)
+                                SizedBox(height: layout.topControlGap),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: layout.middleGap),
+                  _NativeCaptureButton(
+                    size: layout.captureButtonSize,
+                    innerSize: layout.captureInnerSize,
+                    busy: controller.busy,
+                    onPressed: onCapture,
+                  ),
+                  SizedBox(height: layout.bottomGap),
+                  if (galleryImage != null)
+                    _CameraActionButton(
+                      size: layout.actionButtonSize,
+                      iconSize: layout.actionIconSize,
+                      tooltip: null,
+                      icon: Icons.fact_check_outlined,
+                      onPressed: () {},
+                    )
+                  else
+                    _GalleryImportButton(
+                      showLabel: layout.showGalleryText,
+                      size: layout.actionButtonSize,
+                      iconSize: layout.actionIconSize,
+                      onPressed: onPickGallery,
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LandscapeRightRailLayout {
+  const _LandscapeRightRailLayout({
+    required this.controlButtonSize,
+    required this.controlIconSize,
+    required this.captureButtonSize,
+    required this.captureInnerSize,
+    required this.actionButtonSize,
+    required this.actionIconSize,
+    required this.opacitySliderWidth,
+    required this.topHeight,
+    required this.topControlGap,
+    required this.middleGap,
+    required this.bottomGap,
+    required this.horizontalGap,
+    required this.showGalleryText,
+  });
+
+  final double controlButtonSize;
+  final double controlIconSize;
+  final double captureButtonSize;
+  final double captureInnerSize;
+  final double actionButtonSize;
+  final double actionIconSize;
+  final double opacitySliderWidth;
+  final double topHeight;
+  final double topControlGap;
+  final double middleGap;
+  final double bottomGap;
+  final double horizontalGap;
+  final bool showGalleryText;
+
+  static _LandscapeRightRailLayout from({
+    required double availableHeight,
+    required _CameraLayoutMetrics metrics,
+  }) {
+    final safeHeight = math.max(availableHeight, 1.0);
+    final tightness = ((safeHeight - 310) / 170).clamp(0.0, 1.0);
+    final buttonSize = ui.lerpDouble(34, metrics.controlButtonSize, tightness)!;
+    final captureSize = ui.lerpDouble(
+      54,
+      metrics.captureButtonSize,
+      tightness,
+    )!;
+    final actionSize = ui.lerpDouble(38, metrics.actionButtonSize, tightness)!;
+    final bottomGap = ui.lerpDouble(3, metrics.rightGap + 4, tightness)!;
+    final reservedBottom = captureSize + bottomGap + actionSize;
+    final maxMiddleGap = ui.lerpDouble(8, 22, tightness)!;
+    final minTopHeight = buttonSize * 3;
+    final preferredTopHeight = math.max(
+      ui.lerpDouble(116, metrics.opacitySliderHeight, tightness)!,
+      minTopHeight,
+    );
+    final topHeight = preferredTopHeight
+        .clamp(
+          minTopHeight,
+          math.max(minTopHeight, safeHeight - reservedBottom - 4),
+        )
+        .toDouble();
+    final remaining = safeHeight - topHeight - reservedBottom;
+    final middleGap = remaining.clamp(0.0, maxMiddleGap).toDouble();
+    final topControlGap = _compressedCameraButtonGap(
+      availableHeight: topHeight,
+      buttonSize: buttonSize,
+      buttonCount: 3,
+      preferredGap: ui.lerpDouble(2, metrics.rightGap, tightness)!,
+    );
+
+    return _LandscapeRightRailLayout(
+      controlButtonSize: buttonSize,
+      controlIconSize: ui.lerpDouble(18, metrics.controlIconSize, tightness)!,
+      captureButtonSize: captureSize,
+      captureInnerSize: ui.lerpDouble(38, metrics.captureInnerSize, tightness)!,
+      actionButtonSize: actionSize,
+      actionIconSize: ui.lerpDouble(20, metrics.actionIconSize, tightness)!,
+      opacitySliderWidth: ui.lerpDouble(
+        34,
+        metrics.opacitySliderWidth,
+        tightness,
+      )!,
+      topHeight: topHeight,
+      topControlGap: topControlGap,
+      middleGap: middleGap,
+      bottomGap: bottomGap,
+      horizontalGap: ui.lerpDouble(2, 3, tightness)!,
+      showGalleryText: metrics.showGalleryText && tightness > 0.65,
     );
   }
 }
