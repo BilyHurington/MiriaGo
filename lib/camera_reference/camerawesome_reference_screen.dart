@@ -1551,17 +1551,33 @@ class _LandscapeRightRailLayout {
   }) {
     final safeHeight = math.max(availableHeight, 1.0);
     final tightness = ((safeHeight - 310) / 170).clamp(0.0, 1.0);
-    final buttonSize = ui.lerpDouble(34, metrics.controlButtonSize, tightness)!;
-    final captureSize = ui.lerpDouble(
-      54,
-      metrics.captureButtonSize,
-      tightness,
-    )!;
-    final actionSize = ui.lerpDouble(38, metrics.actionButtonSize, tightness)!;
-    final bottomGap = ui.lerpDouble(3, metrics.rightGap + 4, tightness)!;
+    var buttonSize = ui.lerpDouble(34, metrics.controlButtonSize, tightness)!;
+    var captureSize = ui.lerpDouble(54, metrics.captureButtonSize, tightness)!;
+    var actionSize = ui.lerpDouble(38, metrics.actionButtonSize, tightness)!;
+    var bottomGap = ui.lerpDouble(3, metrics.rightGap + 4, tightness)!;
+    var preferredTopGap = ui.lerpDouble(2, metrics.rightGap, tightness)!;
+    var maxMiddleGap = ui.lerpDouble(8, 22, tightness)!;
+    const minRestGap = 4.0;
+
+    final minRequiredHeight =
+        buttonSize * 3 +
+        preferredTopGap * 2 +
+        captureSize +
+        bottomGap +
+        actionSize +
+        minRestGap;
+    if (minRequiredHeight > safeHeight) {
+      final scale = (safeHeight / minRequiredHeight).clamp(0.72, 1.0);
+      buttonSize *= scale;
+      captureSize *= scale;
+      actionSize *= scale;
+      bottomGap *= scale;
+      preferredTopGap *= scale;
+      maxMiddleGap *= scale;
+    }
+
     final reservedBottom = captureSize + bottomGap + actionSize;
-    final maxMiddleGap = ui.lerpDouble(8, 22, tightness)!;
-    final minTopHeight = buttonSize * 3;
+    final minTopHeight = buttonSize * 3 + preferredTopGap * 2;
     final preferredTopHeight = math.max(
       ui.lerpDouble(116, metrics.opacitySliderHeight, tightness)!,
       minTopHeight,
@@ -1578,7 +1594,7 @@ class _LandscapeRightRailLayout {
       availableHeight: topHeight,
       buttonSize: buttonSize,
       buttonCount: 3,
-      preferredGap: ui.lerpDouble(2, metrics.rightGap, tightness)!,
+      preferredGap: preferredTopGap,
     );
 
     return _LandscapeRightRailLayout(
@@ -2310,9 +2326,11 @@ class _CameraCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.filled(
+    final button = IconButton.filled(
       tooltip: tooltip,
+      constraints: BoxConstraints.tight(Size(size, size)),
       style: IconButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Colors.black.withValues(alpha: 0.38),
         foregroundColor: Colors.white,
         minimumSize: Size(size, size),
@@ -2323,6 +2341,7 @@ class _CameraCircleButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, size: iconSize),
     );
+    return SizedBox.square(dimension: size, child: button);
   }
 }
 
@@ -3099,9 +3118,11 @@ class _CameraActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    final button = IconButton(
       tooltip: tooltip,
+      constraints: BoxConstraints.tight(Size(size, size)),
       style: IconButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         foregroundColor: onPressed == null ? Colors.white30 : Colors.white,
         backgroundColor: Colors.white.withValues(alpha: 0.12),
         disabledBackgroundColor: Colors.white.withValues(alpha: 0.06),
@@ -3113,6 +3134,7 @@ class _CameraActionButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, size: iconSize),
     );
+    return SizedBox.square(dimension: size, child: button);
   }
 }
 
