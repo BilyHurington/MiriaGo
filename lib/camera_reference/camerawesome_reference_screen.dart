@@ -1417,7 +1417,6 @@ class _NativeLandscapeRightRail extends StatelessWidget {
             builder: (context, constraints) {
               final layout = _LandscapeRightRailLayout.from(
                 availableHeight: constraints.maxHeight,
-                availableWidth: constraints.maxWidth,
                 metrics: metrics,
               );
               final topControlButtons = <Widget>[
@@ -1473,7 +1472,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                       child: topControlButtons[index],
                     ),
                   Positioned(
-                    left: layout.controlColumnLeft,
+                    left: layout.captureLeft,
                     top: layout.captureTop,
                     width: layout.captureButtonSize,
                     height: layout.captureButtonSize,
@@ -1485,10 +1484,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    left:
-                        layout.controlColumnLeft +
-                        (layout.captureButtonSize - layout.actionButtonSize) /
-                            2,
+                    left: layout.actionLeft,
                     top: layout.actionTop,
                     width: layout.actionButtonSize,
                     height: layout.actionButtonSize,
@@ -1527,6 +1523,8 @@ class _LandscapeRightRailLayout {
     required this.actionIconSize,
     required this.opacitySliderWidth,
     required this.controlColumnLeft,
+    required this.captureLeft,
+    required this.actionLeft,
     required this.controlButtonTops,
     required this.captureTop,
     required this.actionTop,
@@ -1543,6 +1541,8 @@ class _LandscapeRightRailLayout {
   final double actionIconSize;
   final double opacitySliderWidth;
   final double controlColumnLeft;
+  final double captureLeft;
+  final double actionLeft;
   final List<double> controlButtonTops;
   final double captureTop;
   final double actionTop;
@@ -1552,32 +1552,25 @@ class _LandscapeRightRailLayout {
 
   static _LandscapeRightRailLayout from({
     required double availableHeight,
-    required double availableWidth,
     required _CameraLayoutMetrics metrics,
   }) {
     final safeHeight = math.max(availableHeight, 1.0);
-    final safeWidth = math.max(availableWidth, 1.0);
-    final comfort = ((safeHeight - 300) / 190).clamp(0.0, 1.0);
-    var buttonSize = ui.lerpDouble(32, metrics.controlButtonSize, comfort)!;
-    var captureSize = ui.lerpDouble(52, metrics.captureButtonSize, comfort)!;
-    var actionSize = ui.lerpDouble(36, metrics.actionButtonSize, comfort)!;
-    var opacityWidth = ui.lerpDouble(34, metrics.opacitySliderWidth, comfort)!;
-    var horizontalGap = ui.lerpDouble(2, 3, comfort)!;
+    final comfort = ((safeHeight - 310) / 170).clamp(0.0, 1.0);
+    var buttonSize = ui.lerpDouble(34, metrics.controlButtonSize, comfort)!;
+    var captureSize = ui.lerpDouble(54, metrics.captureButtonSize, comfort)!;
+    var actionSize = ui.lerpDouble(38, metrics.actionButtonSize, comfort)!;
+    final opacityWidth = ui.lerpDouble(
+      34,
+      metrics.opacitySliderWidth,
+      comfort,
+    )!;
+    final horizontalGap = ui.lerpDouble(2, 3, comfort)!;
     double totalButtonHeight() => buttonSize * 3 + captureSize + actionSize;
     if (totalButtonHeight() > safeHeight) {
-      final scale = (safeHeight / totalButtonHeight()).clamp(0.70, 1.0);
+      final scale = (safeHeight / totalButtonHeight()).clamp(0.72, 1.0);
       buttonSize *= scale;
       captureSize *= scale;
       actionSize *= scale;
-    }
-    final requiredWidth = opacityWidth + horizontalGap + captureSize;
-    if (requiredWidth > safeWidth) {
-      final scale = (safeWidth / requiredWidth).clamp(0.72, 1.0);
-      buttonSize *= scale;
-      captureSize *= scale;
-      actionSize *= scale;
-      opacityWidth *= scale;
-      horizontalGap *= scale;
     }
 
     final equalGap = math.max((safeHeight - totalButtonHeight()) / 4, 0.0);
@@ -1587,16 +1580,19 @@ class _LandscapeRightRailLayout {
     final captureTop = thirdTop + buttonSize + equalGap;
     final actionTop = captureTop + captureSize + equalGap;
     final opacityHeight = thirdTop + buttonSize - firstTop;
+    final groupCenterX = (opacityWidth + horizontalGap + buttonSize) / 2;
 
     return _LandscapeRightRailLayout(
       controlButtonSize: buttonSize,
-      controlIconSize: ui.lerpDouble(17, metrics.controlIconSize, comfort)!,
+      controlIconSize: ui.lerpDouble(18, metrics.controlIconSize, comfort)!,
       captureButtonSize: captureSize,
-      captureInnerSize: ui.lerpDouble(36, metrics.captureInnerSize, comfort)!,
+      captureInnerSize: ui.lerpDouble(38, metrics.captureInnerSize, comfort)!,
       actionButtonSize: actionSize,
-      actionIconSize: ui.lerpDouble(19, metrics.actionIconSize, comfort)!,
+      actionIconSize: ui.lerpDouble(20, metrics.actionIconSize, comfort)!,
       opacitySliderWidth: opacityWidth,
       controlColumnLeft: opacityWidth + horizontalGap,
+      captureLeft: groupCenterX - captureSize / 2,
+      actionLeft: groupCenterX - actionSize / 2,
       controlButtonTops: [firstTop, secondTop, thirdTop],
       captureTop: captureTop,
       actionTop: actionTop,
