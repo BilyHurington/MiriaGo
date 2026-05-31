@@ -18,6 +18,7 @@ import '../widgets/reference_thumbnail_stub.dart'
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
+import 'camera_zoom_capabilities.dart';
 import 'gallery_capture_time_stub.dart'
     if (dart.library.io) 'gallery_capture_time_io.dart';
 import 'reference_image_bytes_stub.dart'
@@ -493,6 +494,8 @@ class _NativeCameraController extends ChangeNotifier {
   var _flashMode = 'auto';
   var _lensFacing = 'back';
   var _captureAspectRatio = 1.0;
+  double? _preferredInitialZoomRatio;
+  var _initialZoomApplied = false;
 
   bool get ready => _ready;
   bool get busy => _busy;
@@ -533,6 +536,7 @@ class _NativeCameraController extends ChangeNotifier {
       _applyZoomState(result);
       _ready = true;
       _error = null;
+      await _applyPreferredInitialZoomIfNeeded();
     } on PlatformException catch (error) {
       _error = error.message ?? '原生相机初始化失败';
     } catch (error) {
@@ -555,6 +559,17 @@ class _NativeCameraController extends ChangeNotifier {
     );
     _applyZoomState(result);
     notifyListeners();
+  }
+
+  void setPreferredInitialZoomRatio(double ratio) {
+    final safeRatio = ratio <= 0 ? 1.0 : ratio;
+    if ((_preferredInitialZoomRatio ?? -1) == safeRatio) {
+      return;
+    }
+
+    _preferredInitialZoomRatio = safeRatio;
+    _initialZoomApplied = false;
+    unawaited(_applyPreferredInitialZoomIfNeeded());
   }
 
   Future<void> setCaptureAspectRatio(double ratio) async {
@@ -614,6 +629,8 @@ class _NativeCameraController extends ChangeNotifier {
       'switchCamera',
     );
     _applyZoomState(result);
+    _initialZoomApplied = false;
+    await _applyPreferredInitialZoomIfNeeded();
     notifyListeners();
   }
 
@@ -648,6 +665,20 @@ class _NativeCameraController extends ChangeNotifier {
     _maxZoomRatio = (state['maxZoomRatio'] as num?)?.toDouble() ?? 1;
     _zoomRatio = (state['zoomRatio'] as num?)?.toDouble() ?? 1;
     _lensFacing = state['lensFacing'] as String? ?? _lensFacing;
+  }
+
+  Future<void> _applyPreferredInitialZoomIfNeeded() async {
+    final preferredZoom = _preferredInitialZoomRatio;
+    if (_initialZoomApplied ||
+        preferredZoom == null ||
+        _channel == null ||
+        !_ready ||
+        _maxZoomRatio <= _minZoomRatio) {
+      return;
+    }
+
+    _initialZoomApplied = true;
+    await setZoomRatio(preferredZoom.clamp(_minZoomRatio, _maxZoomRatio));
   }
 }
 
@@ -699,6 +730,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
         unawaited(
           controller.setCropCaptureToAspectRatio(cropCaptureToAspectRatio),
         );
+        controller.setPreferredInitialZoomRatio(settings.cameraMinZoom);
         if (controller.error != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             onNativeUnavailable();
@@ -1035,8 +1067,8 @@ class _CameraLayoutMetrics {
       textScale: textScale,
       leftRailWidth: ui.lerpDouble(54, 60, compactness)!,
       zoomRailWidth: ui.lerpDouble(46, 52, compactness)!,
-      rightRailWidth: ui.lerpDouble(96, 106, compactness)!,
-      opacitySliderWidth: ui.lerpDouble(42, 46, compactness)!,
+      rightRailWidth: ui.lerpDouble(100, 112, compactness)!,
+      opacitySliderWidth: ui.lerpDouble(40, 46, compactness)!,
       controlButtonSize: ui.lerpDouble(40, 44, compactness)!,
       controlIconSize: ui.lerpDouble(20, 22, compactness)!,
       modeButtonWidth: ui.lerpDouble(42, 48, compactness)!,
@@ -1076,24 +1108,21 @@ class _NativeCameraTopBar extends StatelessWidget {
       child: Row(
         children: [
           _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '返回',
+            tooltip: '返回',
             icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const Spacer(),
           _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '参考图',
+            tooltip: '参考图',
             icon: Icons.image_outlined,
             onPressed: onPickReference,
           ),
           const SizedBox(width: 8),
-          _NativeFlashButton(
-            controller: controller,
-            showTooltip: !isLandscapeUi,
-          ),
+          _NativeFlashButton(controller: controller, showTooltip: true),
           const SizedBox(width: 8),
           _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '切换横屏 UI',
+            tooltip: '切换横屏 UI',
             icon: Icons.screen_rotation_alt_outlined,
             onPressed: onPreferLandscapeUi,
           ),
@@ -1306,7 +1335,7 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
               _CameraCircleButton(
                 size: metrics.controlButtonSize,
                 iconSize: metrics.controlIconSize,
-                tooltip: null,
+                tooltip: '返回',
                 icon: Icons.arrow_back,
                 onPressed: onBack,
               ),
@@ -1314,7 +1343,7 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
               _CameraCircleButton(
                 size: metrics.controlButtonSize,
                 iconSize: metrics.controlIconSize,
-                tooltip: null,
+                tooltip: '参考图',
                 icon: Icons.image_outlined,
                 onPressed: onPickReference,
               ),
@@ -1424,19 +1453,19 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                   size: layout.controlButtonSize,
                   iconSize: layout.controlIconSize,
                   controller: controller,
-                  showTooltip: false,
+                  showTooltip: true,
                 ),
                 _CameraCircleButton(
                   size: layout.controlButtonSize,
                   iconSize: layout.controlIconSize,
-                  tooltip: null,
+                  tooltip: '切换摄像头',
                   icon: Icons.cameraswitch_outlined,
                   onPressed: controller.switchCamera,
                 ),
                 _CameraCircleButton(
                   size: layout.controlButtonSize,
                   iconSize: layout.controlIconSize,
-                  tooltip: null,
+                  tooltip: '切换竖屏 UI',
                   icon: Icons.screen_rotation_alt_outlined,
                   onPressed: onPreferPortraitUi,
                 ),
@@ -1492,7 +1521,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                         ? _CameraActionButton(
                             size: layout.actionButtonSize,
                             iconSize: layout.actionIconSize,
-                            tooltip: null,
+                            tooltip: '检查照片',
                             icon: Icons.fact_check_outlined,
                             onPressed: () {},
                           )
@@ -1559,11 +1588,7 @@ class _LandscapeRightRailLayout {
     var buttonSize = ui.lerpDouble(34, metrics.controlButtonSize, comfort)!;
     var captureSize = ui.lerpDouble(54, metrics.captureButtonSize, comfort)!;
     var actionSize = ui.lerpDouble(38, metrics.actionButtonSize, comfort)!;
-    final opacityWidth = ui.lerpDouble(
-      34,
-      metrics.opacitySliderWidth,
-      comfort,
-    )!;
+    final opacityWidth = metrics.opacitySliderWidth;
     final horizontalGap = ui.lerpDouble(2, 3, comfort)!;
     double totalButtonHeight() => buttonSize * 3 + captureSize + actionSize;
     if (totalButtonHeight() > safeHeight) {
@@ -1749,29 +1774,21 @@ double _realZoomFromSliderValue({
   required double minZoom,
   required double maxZoom,
   required double sliderValue,
-}) {
-  final safeMin = math.max(minZoom, 0.01);
-  final safeMax = math.max(maxZoom, safeMin);
-  if (safeMax <= safeMin) {
-    return safeMin;
-  }
-  return safeMin * math.pow(safeMax / safeMin, sliderValue).toDouble();
-}
+}) => realZoomFromCameraSliderValue(
+  minZoom: minZoom,
+  maxZoom: maxZoom,
+  sliderValue: sliderValue,
+);
 
 double _sliderValueFromRealZoom({
   required double minZoom,
   required double maxZoom,
   required double realZoom,
-}) {
-  final safeMin = math.max(minZoom, 0.01);
-  final safeMax = math.max(maxZoom, safeMin);
-  if (safeMax <= safeMin) {
-    return 0;
-  }
-  return (math.log(realZoom.clamp(safeMin, safeMax) / safeMin) /
-          math.log(safeMax / safeMin))
-      .clamp(0.0, 1.0);
-}
+}) => cameraZoomSliderValueFromRealZoom(
+  minZoom: minZoom,
+  maxZoom: maxZoom,
+  realZoom: realZoom,
+);
 
 class _ReferenceCameraOverlay extends StatelessWidget {
   const _ReferenceCameraOverlay({
@@ -2084,20 +2101,20 @@ class _CameraTopBar extends StatelessWidget {
       child: Row(
         children: [
           _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '返回',
+            tooltip: '返回',
             icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           const Spacer(),
           _CameraCircleButton(
-            tooltip: isLandscapeUi ? null : '参考图',
+            tooltip: '参考图',
             icon: Icons.image_outlined,
             onPressed: onPickReference,
           ),
           const SizedBox(width: 8),
-          _CompactFlashButton(state: state, showTooltip: !isLandscapeUi),
+          _CompactFlashButton(state: state, showTooltip: true),
           const SizedBox(width: 8),
-          _CompactCameraSwitchButton(state: state, showTooltip: !isLandscapeUi),
+          _CompactCameraSwitchButton(state: state, showTooltip: true),
         ],
       ),
     );
@@ -2254,20 +2271,20 @@ class _LandscapeCaptureRail extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _CameraActionButton(
-              tooltip: null,
+              tooltip: '相册导入',
               icon: hasGalleryImage
                   ? Icons.photo_library
                   : Icons.photo_library_outlined,
               onPressed: onPickGallery,
             ),
             const SizedBox(width: 12),
-            _CompactCameraSwitchButton(state: state, showTooltip: false),
+            _CompactCameraSwitchButton(state: state, showTooltip: true),
             const SizedBox(width: 12),
             _ReferenceCaptureButton(state: state, compact: true),
             if (hasGalleryImage) ...[
               const SizedBox(width: 18),
               _CameraActionButton(
-                tooltip: null,
+                tooltip: '检查照片',
                 icon: Icons.fact_check_outlined,
                 onPressed: () {},
               ),
@@ -2838,13 +2855,11 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
     double sliderValue,
   ) {
     final range = _effectiveZoomRange(deviceMinZoom, deviceMaxZoom);
-    final minZoom = math.max(range.$1, 0.01);
-    final maxZoom = math.max(range.$2, minZoom);
-    if (maxZoom <= minZoom) {
-      return minZoom;
-    }
-
-    return minZoom * math.pow(maxZoom / minZoom, sliderValue).toDouble();
+    return realZoomFromCameraSliderValue(
+      minZoom: range.$1,
+      maxZoom: range.$2,
+      sliderValue: sliderValue,
+    );
   }
 
   double _sliderValueFromNormalized(
@@ -2855,15 +2870,11 @@ class _CameraZoomSliderState extends State<_CameraZoomSlider> {
     final realZoom =
         deviceMinZoom + (deviceMaxZoom - deviceMinZoom) * normalizedZoom;
     final range = _effectiveZoomRange(deviceMinZoom, deviceMaxZoom);
-    final minZoom = math.max(range.$1, 0.01);
-    final maxZoom = math.max(range.$2, minZoom);
-    if (maxZoom <= minZoom) {
-      return 0;
-    }
-
-    return (math.log(realZoom.clamp(minZoom, maxZoom) / minZoom) /
-            math.log(maxZoom / minZoom))
-        .clamp(0.0, 1.0);
+    return cameraZoomSliderValueFromRealZoom(
+      minZoom: range.$1,
+      maxZoom: range.$2,
+      realZoom: realZoom,
+    );
   }
 
   double _normalizedFromSliderValue(

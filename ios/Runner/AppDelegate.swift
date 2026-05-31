@@ -3,6 +3,41 @@ import Flutter
 import Photos
 import UIKit
 
+private func bestNativeCameraDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+  let preferredDeviceTypes: [AVCaptureDevice.DeviceType] = position == .back
+    ? [
+      .builtInTripleCamera,
+      .builtInDualWideCamera,
+      .builtInDualCamera,
+      .builtInWideAngleCamera,
+    ]
+    : [
+      .builtInWideAngleCamera,
+      .builtInTrueDepthCamera,
+    ]
+  return preferredDeviceTypes.lazy.compactMap {
+    AVCaptureDevice.default($0, for: .video, position: position)
+  }.first
+}
+
+private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> CGFloat {
+  if #available(iOS 18.0, *) {
+    return max(device.displayVideoZoomFactorMultiplier, 0.01)
+  }
+
+  switch device.deviceType {
+  case .builtInDualWideCamera, .builtInTripleCamera:
+    guard
+      let mainLensSwitchFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first
+    else {
+      return 1
+    }
+    return 1 / max(CGFloat(truncating: mainLensSwitchFactor), 1)
+  default:
+    return 1
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var planFileChannel: FlutterMethodChannel?
@@ -50,6 +85,10 @@ import UIKit
       name: "seichi/gallery_saver",
       binaryMessenger: messenger
     )
+    let cameraCapabilitiesChannel = FlutterMethodChannel(
+      name: "seichi/camera_capabilities",
+      binaryMessenger: messenger
+    )
     galleryChannel.setMethodCallHandler { call, result in
       guard call.method == "saveToGallery" else {
         result(FlutterMethodNotImplemented)
@@ -71,6 +110,14 @@ import UIKit
       }
 
       self.saveImageToGallery(filePath: filePath, result: result)
+    }
+    cameraCapabilitiesChannel.setMethodCallHandler { call, result in
+      guard call.method == "getBackCameraZoomRange" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      self.getBackCameraZoomRange(result: result)
     }
   }
 
@@ -173,6 +220,21 @@ import UIKit
         completion(status == .authorized)
       }
     }
+  }
+
+  private func getBackCameraZoomRange(result: FlutterResult) {
+    guard let device = bestNativeCameraDevice(position: .back) else {
+      result(["minZoomRatio": 1.0, "maxZoomRatio": 20.0])
+      return
+    }
+
+    let displayMultiplier = nativeCameraDisplayZoomMultiplier(for: device)
+    result([
+      "minZoomRatio": Double(device.minAvailableVideoZoomFactor * displayMultiplier),
+      "maxZoomRatio": Double(
+        min(device.maxAvailableVideoZoomFactor * displayMultiplier, 20)
+      ),
+    ])
   }
 
   private func copyPlanFileToInbox(url: URL) -> String? {
@@ -370,21 +432,11 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   }
 
   private func bestDevice(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-    let discovery = AVCaptureDevice.DiscoverySession(
-      deviceTypes: [
-        .builtInTripleCamera,
-        .builtInDualWideCamera,
-        .builtInDualCamera,
-        .builtInWideAngleCamera,
-      ],
-      mediaType: .video,
-      position: position
-    )
-    return discovery.devices.first
+    bestNativeCameraDevice(position: position)
   }
 
   private func setZoomRatio(call: FlutterMethodCall, result: @escaping FlutterResult) {
-    let requested = CGFloat(doubleArgument(call, "zoomRatio") ?? 1.0)
+    let requestedDisplayZoom = CGFloat(doubleArgument(call, "zoomRatio") ?? 1.0)
     sessionQueue.async { [weak self] in
       guard let self, let device = self.currentInput?.device else {
         DispatchQueue.main.async { result(self?.zoomStateMap()) }
@@ -393,9 +445,17 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
 
       do {
         try device.lockForConfiguration()
-        let minZoom = device.minAvailableVideoZoomFactor
-        let maxZoom = min(device.maxAvailableVideoZoomFactor, 10)
-        device.videoZoomFactor = min(max(requested, minZoom), maxZoom)
+        let displayMultiplier = nativeCameraDisplayZoomMultiplier(for: device)
+        let requestedNativeZoom = requestedDisplayZoom / displayMultiplier
+        let minNativeZoom = device.minAvailableVideoZoomFactor
+        let maxNativeZoom = min(
+          device.maxAvailableVideoZoomFactor,
+          20 / displayMultiplier
+        )
+        device.videoZoomFactor = min(
+          max(requestedNativeZoom, minNativeZoom),
+          maxNativeZoom
+        )
         device.unlockForConfiguration()
         DispatchQueue.main.async { result(self.zoomStateMap()) }
       } catch {
@@ -559,10 +619,13 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
       ]
     }
 
+    let displayMultiplier = nativeCameraDisplayZoomMultiplier(for: device)
     return [
-      "minZoomRatio": Double(device.minAvailableVideoZoomFactor),
-      "maxZoomRatio": Double(min(device.maxAvailableVideoZoomFactor, 10)),
-      "zoomRatio": Double(device.videoZoomFactor),
+      "minZoomRatio": Double(device.minAvailableVideoZoomFactor * displayMultiplier),
+      "maxZoomRatio": Double(
+        min(device.maxAvailableVideoZoomFactor * displayMultiplier, 20)
+      ),
+      "zoomRatio": Double(device.videoZoomFactor * displayMultiplier),
       "lensFacing": lensFacing,
     ]
   }
