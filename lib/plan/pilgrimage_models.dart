@@ -8,6 +8,8 @@ enum WorkSource { bangumi, manual }
 
 enum PointSource { manual, anitabi }
 
+enum PlanGroupOrderMode { unordered, manual }
+
 enum BangumiSubjectType {
   book(1, '书籍'),
   anime(2, '动画'),
@@ -241,6 +243,8 @@ class PilgrimagePoint {
     this.referenceThumbnailPath,
     this.referenceFullImagePath,
     this.sourceUrl,
+    this.groupId,
+    this.groupOrderIndex,
   });
 
   final String id;
@@ -256,12 +260,16 @@ class PilgrimagePoint {
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
   final String? sourceUrl;
+  final String? groupId;
+  final int? groupOrderIndex;
 
   String get displayEpisodeLabel => formatEpisodeLabelForDisplay(episodeLabel);
 
   PilgrimagePoint copyWith({
     String? referenceThumbnailPath,
     String? referenceFullImagePath,
+    Object? groupId = _unset,
+    Object? groupOrderIndex = _unset,
   }) {
     return PilgrimagePoint(
       id: id,
@@ -279,8 +287,38 @@ class PilgrimagePoint {
       referenceFullImagePath:
           referenceFullImagePath ?? this.referenceFullImagePath,
       sourceUrl: sourceUrl,
+      groupId: groupId == _unset ? this.groupId : groupId as String?,
+      groupOrderIndex: groupOrderIndex == _unset
+          ? this.groupOrderIndex
+          : groupOrderIndex as int?,
     );
   }
+}
+
+class PilgrimagePlanGroup {
+  const PilgrimagePlanGroup({
+    required this.id,
+    required this.name,
+    required this.orderIndex,
+    this.orderMode = PlanGroupOrderMode.unordered,
+    this.anchorName,
+    this.anchorLatitude,
+    this.anchorLongitude,
+    this.anchorPointId,
+    this.note,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final int orderIndex;
+  final PlanGroupOrderMode orderMode;
+  final String? anchorName;
+  final double? anchorLatitude;
+  final double? anchorLongitude;
+  final String? anchorPointId;
+  final String? note;
+  final DateTime createdAt;
 }
 
 String formatEpisodeLabelForDisplay(String label) {
@@ -317,10 +355,12 @@ class PilgrimagePlan {
     required this.name,
     required this.area,
     required this.works,
+    this.groups = const [],
     required this.points,
     required this.createdAt,
     required this.updatedAt,
     this.currentPointId,
+    this.currentGroupId,
     this.completedPointIds = const <String>{},
   });
 
@@ -328,10 +368,12 @@ class PilgrimagePlan {
   final String name;
   final String area;
   final List<PilgrimageWork> works;
+  final List<PilgrimagePlanGroup> groups;
   final List<PilgrimagePoint> points;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? currentPointId;
+  final String? currentGroupId;
   final Set<String> completedPointIds;
 
   PilgrimagePlan copyWith({
@@ -339,10 +381,12 @@ class PilgrimagePlan {
     String? name,
     String? area,
     List<PilgrimageWork>? works,
+    List<PilgrimagePlanGroup>? groups,
     List<PilgrimagePoint>? points,
     DateTime? createdAt,
     DateTime? updatedAt,
     Object? currentPointId = _unset,
+    Object? currentGroupId = _unset,
     Set<String>? completedPointIds,
   }) {
     return PilgrimagePlan(
@@ -350,12 +394,16 @@ class PilgrimagePlan {
       name: name ?? this.name,
       area: area ?? this.area,
       works: works ?? this.works,
+      groups: groups ?? this.groups,
       points: points ?? this.points,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       currentPointId: currentPointId == _unset
           ? this.currentPointId
           : currentPointId as String?,
+      currentGroupId: currentGroupId == _unset
+          ? this.currentGroupId
+          : currentGroupId as String?,
       completedPointIds: completedPointIds ?? this.completedPointIds,
     );
   }

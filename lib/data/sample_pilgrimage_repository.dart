@@ -212,6 +212,104 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> createPlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: [...plan.groups, group],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> renamePlanGroup({
+    required String planId,
+    required String groupId,
+    required String name,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: [
+        for (final group in plan.groups)
+          group.id == groupId
+              ? PilgrimagePlanGroup(
+                  id: group.id,
+                  name: name,
+                  orderIndex: group.orderIndex,
+                  orderMode: group.orderMode,
+                  anchorName: group.anchorName,
+                  anchorLatitude: group.anchorLatitude,
+                  anchorLongitude: group.anchorLongitude,
+                  anchorPointId: group.anchorPointId,
+                  note: group.note,
+                  createdAt: group.createdAt,
+                )
+              : group,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> deletePlanGroup({
+    required String planId,
+    required String groupId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: plan.groups
+          .where((group) => group.id != groupId)
+          .toList(growable: false),
+      points: [
+        for (final point in plan.points)
+          point.groupId == groupId
+              ? point.copyWith(groupId: null, groupOrderIndex: null)
+              : point,
+      ],
+      currentGroupId: plan.currentGroupId == groupId
+          ? null
+          : plan.currentGroupId,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> movePointsToGroup({
+    required String planId,
+    required Set<String> pointIds,
+    required String? groupId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    var orderIndex = 0;
+    final updatedPlan = plan.copyWith(
+      points: [
+        for (final point in plan.points)
+          pointIds.contains(point.id)
+              ? point.copyWith(
+                  groupId: groupId,
+                  groupOrderIndex: groupId == null ? null : orderIndex++,
+                )
+              : point,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<PilgrimagePlan> deleteWorkFromPlan({
     required String planId,
     required String workId,
@@ -565,8 +663,33 @@ final samplePilgrimagePlan = PilgrimagePlan(
   name: '示例计划',
   area: '宇治市',
   works: const [_hibikeWork],
+  groups: [
+    PilgrimagePlanGroup(
+      id: 'sample-group-uji-station',
+      name: '宇治站附近',
+      orderIndex: 0,
+      orderMode: PlanGroupOrderMode.unordered,
+      anchorName: 'JR 宇治站',
+      anchorLatitude: 34.8903,
+      anchorLongitude: 135.8009,
+      anchorPointId: 'anitabi-115908-3plnxvy',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-daikichiyama',
+      name: '大吉山',
+      orderIndex: 1,
+      orderMode: PlanGroupOrderMode.manual,
+      anchorName: '大吉山展望台',
+      anchorLatitude: 34.8927,
+      anchorLongitude: 135.812,
+      anchorPointId: 'anitabi-115908-7mt52rr',
+      createdAt: _sampleCreatedAt,
+    ),
+  ],
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,
+  currentGroupId: 'sample-group-uji-station',
   currentPointId: 'anitabi-115908-7evkbmy2',
   points: const [
     PilgrimagePoint(
@@ -581,6 +704,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       sourceId: '7evkbmy2',
       referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 0,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-7gs3o1mm',
@@ -594,6 +719,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       sourceId: '7gs3o1mm',
       referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 1,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-3plnxvy',
@@ -608,6 +735,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       referenceImageUrl:
           'https://image.anitabi.cn/user/0/bangumi/115908/points/3plnxvy-1755088794974.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 2,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-qys7ia',
@@ -623,6 +752,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
           'https://image.anitabi.cn/user/0/bangumi/115908/points/qys7ia-1697123425329.jpg',
       sourceUrl:
           'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.892848%2C135.810794&z=17',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 0,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-7mt52rr',
@@ -637,6 +768,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       referenceImageUrl:
           'https://image.anitabi.cn/user/0/bangumi/115908/points/7mt52rr-1763627079224.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 1,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-qys7ix',
@@ -652,6 +785,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
           'https://image.anitabi.cn/points/115908/75cc58c61b40fdd8a8e64bd8b9bacd0c.png',
       sourceUrl:
           'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.888488%2C135.80587&z=17',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 3,
     ),
   ],
 );

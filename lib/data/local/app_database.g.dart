@@ -35,6 +35,17 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _currentGroupIdMeta = const VerificationMeta(
+    'currentGroupId',
+  );
+  @override
+  late final GeneratedColumn<String> currentGroupId = GeneratedColumn<String>(
+    'current_group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _activeMeta = const VerificationMeta('active');
   @override
   late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
@@ -75,6 +86,7 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
     id,
     name,
     area,
+    currentGroupId,
     active,
     createdAt,
     updatedAt,
@@ -111,6 +123,15 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
       );
     } else if (isInserting) {
       context.missing(_areaMeta);
+    }
+    if (data.containsKey('current_group_id')) {
+      context.handle(
+        _currentGroupIdMeta,
+        currentGroupId.isAcceptableOrUnknown(
+          data['current_group_id']!,
+          _currentGroupIdMeta,
+        ),
+      );
     }
     if (data.containsKey('active')) {
       context.handle(
@@ -155,6 +176,10 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
         DriftSqlType.string,
         data['${effectivePrefix}area'],
       )!,
+      currentGroupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}current_group_id'],
+      ),
       active: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}active'],
@@ -180,6 +205,7 @@ class Plan extends DataClass implements Insertable<Plan> {
   final String id;
   final String name;
   final String area;
+  final String? currentGroupId;
   final bool active;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -187,6 +213,7 @@ class Plan extends DataClass implements Insertable<Plan> {
     required this.id,
     required this.name,
     required this.area,
+    this.currentGroupId,
     required this.active,
     required this.createdAt,
     required this.updatedAt,
@@ -197,6 +224,9 @@ class Plan extends DataClass implements Insertable<Plan> {
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
     map['area'] = Variable<String>(area);
+    if (!nullToAbsent || currentGroupId != null) {
+      map['current_group_id'] = Variable<String>(currentGroupId);
+    }
     map['active'] = Variable<bool>(active);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -208,6 +238,9 @@ class Plan extends DataClass implements Insertable<Plan> {
       id: Value(id),
       name: Value(name),
       area: Value(area),
+      currentGroupId: currentGroupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(currentGroupId),
       active: Value(active),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -223,6 +256,7 @@ class Plan extends DataClass implements Insertable<Plan> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       area: serializer.fromJson<String>(json['area']),
+      currentGroupId: serializer.fromJson<String?>(json['currentGroupId']),
       active: serializer.fromJson<bool>(json['active']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -235,6 +269,7 @@ class Plan extends DataClass implements Insertable<Plan> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'area': serializer.toJson<String>(area),
+      'currentGroupId': serializer.toJson<String?>(currentGroupId),
       'active': serializer.toJson<bool>(active),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -245,6 +280,7 @@ class Plan extends DataClass implements Insertable<Plan> {
     String? id,
     String? name,
     String? area,
+    Value<String?> currentGroupId = const Value.absent(),
     bool? active,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -252,6 +288,9 @@ class Plan extends DataClass implements Insertable<Plan> {
     id: id ?? this.id,
     name: name ?? this.name,
     area: area ?? this.area,
+    currentGroupId: currentGroupId.present
+        ? currentGroupId.value
+        : this.currentGroupId,
     active: active ?? this.active,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -261,6 +300,9 @@ class Plan extends DataClass implements Insertable<Plan> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       area: data.area.present ? data.area.value : this.area,
+      currentGroupId: data.currentGroupId.present
+          ? data.currentGroupId.value
+          : this.currentGroupId,
       active: data.active.present ? data.active.value : this.active,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -273,6 +315,7 @@ class Plan extends DataClass implements Insertable<Plan> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('area: $area, ')
+          ..write('currentGroupId: $currentGroupId, ')
           ..write('active: $active, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -281,7 +324,8 @@ class Plan extends DataClass implements Insertable<Plan> {
   }
 
   @override
-  int get hashCode => Object.hash(id, name, area, active, createdAt, updatedAt);
+  int get hashCode =>
+      Object.hash(id, name, area, currentGroupId, active, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -289,6 +333,7 @@ class Plan extends DataClass implements Insertable<Plan> {
           other.id == this.id &&
           other.name == this.name &&
           other.area == this.area &&
+          other.currentGroupId == this.currentGroupId &&
           other.active == this.active &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -298,6 +343,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
   final Value<String> id;
   final Value<String> name;
   final Value<String> area;
+  final Value<String?> currentGroupId;
   final Value<bool> active;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -306,6 +352,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.area = const Value.absent(),
+    this.currentGroupId = const Value.absent(),
     this.active = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -315,6 +362,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     required String id,
     required String name,
     required String area,
+    this.currentGroupId = const Value.absent(),
     this.active = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -328,6 +376,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? area,
+    Expression<String>? currentGroupId,
     Expression<bool>? active,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -337,6 +386,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (area != null) 'area': area,
+      if (currentGroupId != null) 'current_group_id': currentGroupId,
       if (active != null) 'active': active,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -348,6 +398,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     Value<String>? id,
     Value<String>? name,
     Value<String>? area,
+    Value<String?>? currentGroupId,
     Value<bool>? active,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -357,6 +408,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
       id: id ?? this.id,
       name: name ?? this.name,
       area: area ?? this.area,
+      currentGroupId: currentGroupId ?? this.currentGroupId,
       active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -375,6 +427,9 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     }
     if (area.present) {
       map['area'] = Variable<String>(area.value);
+    }
+    if (currentGroupId.present) {
+      map['current_group_id'] = Variable<String>(currentGroupId.value);
     }
     if (active.present) {
       map['active'] = Variable<bool>(active.value);
@@ -397,9 +452,687 @@ class PlansCompanion extends UpdateCompanion<Plan> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('area: $area, ')
+          ..write('currentGroupId: $currentGroupId, ')
           ..write('active: $active, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlanGroupsTable extends PlanGroups
+    with TableInfo<$PlanGroupsTable, PlanGroup> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlanGroupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _planIdMeta = const VerificationMeta('planId');
+  @override
+  late final GeneratedColumn<String> planId = GeneratedColumn<String>(
+    'plan_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES plans (id)',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _orderIndexMeta = const VerificationMeta(
+    'orderIndex',
+  );
+  @override
+  late final GeneratedColumn<int> orderIndex = GeneratedColumn<int>(
+    'order_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _orderModeMeta = const VerificationMeta(
+    'orderMode',
+  );
+  @override
+  late final GeneratedColumn<String> orderMode = GeneratedColumn<String>(
+    'order_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unordered'),
+  );
+  static const VerificationMeta _anchorNameMeta = const VerificationMeta(
+    'anchorName',
+  );
+  @override
+  late final GeneratedColumn<String> anchorName = GeneratedColumn<String>(
+    'anchor_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _anchorLatitudeMeta = const VerificationMeta(
+    'anchorLatitude',
+  );
+  @override
+  late final GeneratedColumn<double> anchorLatitude = GeneratedColumn<double>(
+    'anchor_latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _anchorLongitudeMeta = const VerificationMeta(
+    'anchorLongitude',
+  );
+  @override
+  late final GeneratedColumn<double> anchorLongitude = GeneratedColumn<double>(
+    'anchor_longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _anchorPointIdMeta = const VerificationMeta(
+    'anchorPointId',
+  );
+  @override
+  late final GeneratedColumn<String> anchorPointId = GeneratedColumn<String>(
+    'anchor_point_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    planId,
+    name,
+    orderIndex,
+    orderMode,
+    anchorName,
+    anchorLatitude,
+    anchorLongitude,
+    anchorPointId,
+    note,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plan_groups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlanGroup> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('plan_id')) {
+      context.handle(
+        _planIdMeta,
+        planId.isAcceptableOrUnknown(data['plan_id']!, _planIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_planIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('order_index')) {
+      context.handle(
+        _orderIndexMeta,
+        orderIndex.isAcceptableOrUnknown(data['order_index']!, _orderIndexMeta),
+      );
+    }
+    if (data.containsKey('order_mode')) {
+      context.handle(
+        _orderModeMeta,
+        orderMode.isAcceptableOrUnknown(data['order_mode']!, _orderModeMeta),
+      );
+    }
+    if (data.containsKey('anchor_name')) {
+      context.handle(
+        _anchorNameMeta,
+        anchorName.isAcceptableOrUnknown(data['anchor_name']!, _anchorNameMeta),
+      );
+    }
+    if (data.containsKey('anchor_latitude')) {
+      context.handle(
+        _anchorLatitudeMeta,
+        anchorLatitude.isAcceptableOrUnknown(
+          data['anchor_latitude']!,
+          _anchorLatitudeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('anchor_longitude')) {
+      context.handle(
+        _anchorLongitudeMeta,
+        anchorLongitude.isAcceptableOrUnknown(
+          data['anchor_longitude']!,
+          _anchorLongitudeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('anchor_point_id')) {
+      context.handle(
+        _anchorPointIdMeta,
+        anchorPointId.isAcceptableOrUnknown(
+          data['anchor_point_id']!,
+          _anchorPointIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlanGroup map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlanGroup(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      planId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plan_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      orderIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}order_index'],
+      )!,
+      orderMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_mode'],
+      )!,
+      anchorName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}anchor_name'],
+      ),
+      anchorLatitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}anchor_latitude'],
+      ),
+      anchorLongitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}anchor_longitude'],
+      ),
+      anchorPointId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}anchor_point_id'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PlanGroupsTable createAlias(String alias) {
+    return $PlanGroupsTable(attachedDatabase, alias);
+  }
+}
+
+class PlanGroup extends DataClass implements Insertable<PlanGroup> {
+  final String id;
+  final String planId;
+  final String name;
+  final int orderIndex;
+  final String orderMode;
+  final String? anchorName;
+  final double? anchorLatitude;
+  final double? anchorLongitude;
+  final String? anchorPointId;
+  final String? note;
+  final DateTime createdAt;
+  const PlanGroup({
+    required this.id,
+    required this.planId,
+    required this.name,
+    required this.orderIndex,
+    required this.orderMode,
+    this.anchorName,
+    this.anchorLatitude,
+    this.anchorLongitude,
+    this.anchorPointId,
+    this.note,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['plan_id'] = Variable<String>(planId);
+    map['name'] = Variable<String>(name);
+    map['order_index'] = Variable<int>(orderIndex);
+    map['order_mode'] = Variable<String>(orderMode);
+    if (!nullToAbsent || anchorName != null) {
+      map['anchor_name'] = Variable<String>(anchorName);
+    }
+    if (!nullToAbsent || anchorLatitude != null) {
+      map['anchor_latitude'] = Variable<double>(anchorLatitude);
+    }
+    if (!nullToAbsent || anchorLongitude != null) {
+      map['anchor_longitude'] = Variable<double>(anchorLongitude);
+    }
+    if (!nullToAbsent || anchorPointId != null) {
+      map['anchor_point_id'] = Variable<String>(anchorPointId);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PlanGroupsCompanion toCompanion(bool nullToAbsent) {
+    return PlanGroupsCompanion(
+      id: Value(id),
+      planId: Value(planId),
+      name: Value(name),
+      orderIndex: Value(orderIndex),
+      orderMode: Value(orderMode),
+      anchorName: anchorName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(anchorName),
+      anchorLatitude: anchorLatitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(anchorLatitude),
+      anchorLongitude: anchorLongitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(anchorLongitude),
+      anchorPointId: anchorPointId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(anchorPointId),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PlanGroup.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlanGroup(
+      id: serializer.fromJson<String>(json['id']),
+      planId: serializer.fromJson<String>(json['planId']),
+      name: serializer.fromJson<String>(json['name']),
+      orderIndex: serializer.fromJson<int>(json['orderIndex']),
+      orderMode: serializer.fromJson<String>(json['orderMode']),
+      anchorName: serializer.fromJson<String?>(json['anchorName']),
+      anchorLatitude: serializer.fromJson<double?>(json['anchorLatitude']),
+      anchorLongitude: serializer.fromJson<double?>(json['anchorLongitude']),
+      anchorPointId: serializer.fromJson<String?>(json['anchorPointId']),
+      note: serializer.fromJson<String?>(json['note']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'planId': serializer.toJson<String>(planId),
+      'name': serializer.toJson<String>(name),
+      'orderIndex': serializer.toJson<int>(orderIndex),
+      'orderMode': serializer.toJson<String>(orderMode),
+      'anchorName': serializer.toJson<String?>(anchorName),
+      'anchorLatitude': serializer.toJson<double?>(anchorLatitude),
+      'anchorLongitude': serializer.toJson<double?>(anchorLongitude),
+      'anchorPointId': serializer.toJson<String?>(anchorPointId),
+      'note': serializer.toJson<String?>(note),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PlanGroup copyWith({
+    String? id,
+    String? planId,
+    String? name,
+    int? orderIndex,
+    String? orderMode,
+    Value<String?> anchorName = const Value.absent(),
+    Value<double?> anchorLatitude = const Value.absent(),
+    Value<double?> anchorLongitude = const Value.absent(),
+    Value<String?> anchorPointId = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+    DateTime? createdAt,
+  }) => PlanGroup(
+    id: id ?? this.id,
+    planId: planId ?? this.planId,
+    name: name ?? this.name,
+    orderIndex: orderIndex ?? this.orderIndex,
+    orderMode: orderMode ?? this.orderMode,
+    anchorName: anchorName.present ? anchorName.value : this.anchorName,
+    anchorLatitude: anchorLatitude.present
+        ? anchorLatitude.value
+        : this.anchorLatitude,
+    anchorLongitude: anchorLongitude.present
+        ? anchorLongitude.value
+        : this.anchorLongitude,
+    anchorPointId: anchorPointId.present
+        ? anchorPointId.value
+        : this.anchorPointId,
+    note: note.present ? note.value : this.note,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PlanGroup copyWithCompanion(PlanGroupsCompanion data) {
+    return PlanGroup(
+      id: data.id.present ? data.id.value : this.id,
+      planId: data.planId.present ? data.planId.value : this.planId,
+      name: data.name.present ? data.name.value : this.name,
+      orderIndex: data.orderIndex.present
+          ? data.orderIndex.value
+          : this.orderIndex,
+      orderMode: data.orderMode.present ? data.orderMode.value : this.orderMode,
+      anchorName: data.anchorName.present
+          ? data.anchorName.value
+          : this.anchorName,
+      anchorLatitude: data.anchorLatitude.present
+          ? data.anchorLatitude.value
+          : this.anchorLatitude,
+      anchorLongitude: data.anchorLongitude.present
+          ? data.anchorLongitude.value
+          : this.anchorLongitude,
+      anchorPointId: data.anchorPointId.present
+          ? data.anchorPointId.value
+          : this.anchorPointId,
+      note: data.note.present ? data.note.value : this.note,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlanGroup(')
+          ..write('id: $id, ')
+          ..write('planId: $planId, ')
+          ..write('name: $name, ')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('orderMode: $orderMode, ')
+          ..write('anchorName: $anchorName, ')
+          ..write('anchorLatitude: $anchorLatitude, ')
+          ..write('anchorLongitude: $anchorLongitude, ')
+          ..write('anchorPointId: $anchorPointId, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    planId,
+    name,
+    orderIndex,
+    orderMode,
+    anchorName,
+    anchorLatitude,
+    anchorLongitude,
+    anchorPointId,
+    note,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlanGroup &&
+          other.id == this.id &&
+          other.planId == this.planId &&
+          other.name == this.name &&
+          other.orderIndex == this.orderIndex &&
+          other.orderMode == this.orderMode &&
+          other.anchorName == this.anchorName &&
+          other.anchorLatitude == this.anchorLatitude &&
+          other.anchorLongitude == this.anchorLongitude &&
+          other.anchorPointId == this.anchorPointId &&
+          other.note == this.note &&
+          other.createdAt == this.createdAt);
+}
+
+class PlanGroupsCompanion extends UpdateCompanion<PlanGroup> {
+  final Value<String> id;
+  final Value<String> planId;
+  final Value<String> name;
+  final Value<int> orderIndex;
+  final Value<String> orderMode;
+  final Value<String?> anchorName;
+  final Value<double?> anchorLatitude;
+  final Value<double?> anchorLongitude;
+  final Value<String?> anchorPointId;
+  final Value<String?> note;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PlanGroupsCompanion({
+    this.id = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.orderIndex = const Value.absent(),
+    this.orderMode = const Value.absent(),
+    this.anchorName = const Value.absent(),
+    this.anchorLatitude = const Value.absent(),
+    this.anchorLongitude = const Value.absent(),
+    this.anchorPointId = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlanGroupsCompanion.insert({
+    required String id,
+    required String planId,
+    required String name,
+    this.orderIndex = const Value.absent(),
+    this.orderMode = const Value.absent(),
+    this.anchorName = const Value.absent(),
+    this.anchorLatitude = const Value.absent(),
+    this.anchorLongitude = const Value.absent(),
+    this.anchorPointId = const Value.absent(),
+    this.note = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       planId = Value(planId),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<PlanGroup> custom({
+    Expression<String>? id,
+    Expression<String>? planId,
+    Expression<String>? name,
+    Expression<int>? orderIndex,
+    Expression<String>? orderMode,
+    Expression<String>? anchorName,
+    Expression<double>? anchorLatitude,
+    Expression<double>? anchorLongitude,
+    Expression<String>? anchorPointId,
+    Expression<String>? note,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (planId != null) 'plan_id': planId,
+      if (name != null) 'name': name,
+      if (orderIndex != null) 'order_index': orderIndex,
+      if (orderMode != null) 'order_mode': orderMode,
+      if (anchorName != null) 'anchor_name': anchorName,
+      if (anchorLatitude != null) 'anchor_latitude': anchorLatitude,
+      if (anchorLongitude != null) 'anchor_longitude': anchorLongitude,
+      if (anchorPointId != null) 'anchor_point_id': anchorPointId,
+      if (note != null) 'note': note,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlanGroupsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? planId,
+    Value<String>? name,
+    Value<int>? orderIndex,
+    Value<String>? orderMode,
+    Value<String?>? anchorName,
+    Value<double?>? anchorLatitude,
+    Value<double?>? anchorLongitude,
+    Value<String?>? anchorPointId,
+    Value<String?>? note,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PlanGroupsCompanion(
+      id: id ?? this.id,
+      planId: planId ?? this.planId,
+      name: name ?? this.name,
+      orderIndex: orderIndex ?? this.orderIndex,
+      orderMode: orderMode ?? this.orderMode,
+      anchorName: anchorName ?? this.anchorName,
+      anchorLatitude: anchorLatitude ?? this.anchorLatitude,
+      anchorLongitude: anchorLongitude ?? this.anchorLongitude,
+      anchorPointId: anchorPointId ?? this.anchorPointId,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (planId.present) {
+      map['plan_id'] = Variable<String>(planId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (orderIndex.present) {
+      map['order_index'] = Variable<int>(orderIndex.value);
+    }
+    if (orderMode.present) {
+      map['order_mode'] = Variable<String>(orderMode.value);
+    }
+    if (anchorName.present) {
+      map['anchor_name'] = Variable<String>(anchorName.value);
+    }
+    if (anchorLatitude.present) {
+      map['anchor_latitude'] = Variable<double>(anchorLatitude.value);
+    }
+    if (anchorLongitude.present) {
+      map['anchor_longitude'] = Variable<double>(anchorLongitude.value);
+    }
+    if (anchorPointId.present) {
+      map['anchor_point_id'] = Variable<String>(anchorPointId.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlanGroupsCompanion(')
+          ..write('id: $id, ')
+          ..write('planId: $planId, ')
+          ..write('name: $name, ')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('orderMode: $orderMode, ')
+          ..write('anchorName: $anchorName, ')
+          ..write('anchorLatitude: $anchorLatitude, ')
+          ..write('anchorLongitude: $anchorLongitude, ')
+          ..write('anchorPointId: $anchorPointId, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1025,6 +1758,31 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES plan_groups (id)',
+    ),
+  );
+  static const VerificationMeta _groupOrderIndexMeta = const VerificationMeta(
+    'groupOrderIndex',
+  );
+  @override
+  late final GeneratedColumn<int> groupOrderIndex = GeneratedColumn<int>(
+    'group_order_index',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _sortOrderMeta = const VerificationMeta(
     'sortOrder',
   );
@@ -1080,6 +1838,8 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     referenceThumbnailPath,
     referenceFullImagePath,
     sourceUrl,
+    groupId,
+    groupOrderIndex,
     sortOrder,
     isCurrent,
     completedAt,
@@ -1218,6 +1978,21 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
       );
     }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    }
+    if (data.containsKey('group_order_index')) {
+      context.handle(
+        _groupOrderIndexMeta,
+        groupOrderIndex.isAcceptableOrUnknown(
+          data['group_order_index']!,
+          _groupOrderIndexMeta,
+        ),
+      );
+    }
     if (data.containsKey('sort_order')) {
       context.handle(
         _sortOrderMeta,
@@ -1308,6 +2083,14 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         DriftSqlType.string,
         data['${effectivePrefix}source_url'],
       ),
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      ),
+      groupOrderIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}group_order_index'],
+      ),
       sortOrder: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
@@ -1345,6 +2128,8 @@ class Point extends DataClass implements Insertable<Point> {
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
   final String? sourceUrl;
+  final String? groupId;
+  final int? groupOrderIndex;
   final int sortOrder;
   final bool isCurrent;
   final DateTime? completedAt;
@@ -1364,6 +2149,8 @@ class Point extends DataClass implements Insertable<Point> {
     this.referenceThumbnailPath,
     this.referenceFullImagePath,
     this.sourceUrl,
+    this.groupId,
+    this.groupOrderIndex,
     required this.sortOrder,
     required this.isCurrent,
     this.completedAt,
@@ -1400,6 +2187,12 @@ class Point extends DataClass implements Insertable<Point> {
     if (!nullToAbsent || sourceUrl != null) {
       map['source_url'] = Variable<String>(sourceUrl);
     }
+    if (!nullToAbsent || groupId != null) {
+      map['group_id'] = Variable<String>(groupId);
+    }
+    if (!nullToAbsent || groupOrderIndex != null) {
+      map['group_order_index'] = Variable<int>(groupOrderIndex);
+    }
     map['sort_order'] = Variable<int>(sortOrder);
     map['is_current'] = Variable<bool>(isCurrent);
     if (!nullToAbsent || completedAt != null) {
@@ -1435,6 +2228,12 @@ class Point extends DataClass implements Insertable<Point> {
       sourceUrl: sourceUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceUrl),
+      groupId: groupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupId),
+      groupOrderIndex: groupOrderIndex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupOrderIndex),
       sortOrder: Value(sortOrder),
       isCurrent: Value(isCurrent),
       completedAt: completedAt == null && nullToAbsent
@@ -1470,6 +2269,8 @@ class Point extends DataClass implements Insertable<Point> {
         json['referenceFullImagePath'],
       ),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
+      groupId: serializer.fromJson<String?>(json['groupId']),
+      groupOrderIndex: serializer.fromJson<int?>(json['groupOrderIndex']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       isCurrent: serializer.fromJson<bool>(json['isCurrent']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
@@ -1498,6 +2299,8 @@ class Point extends DataClass implements Insertable<Point> {
         referenceFullImagePath,
       ),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
+      'groupId': serializer.toJson<String?>(groupId),
+      'groupOrderIndex': serializer.toJson<int?>(groupOrderIndex),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'isCurrent': serializer.toJson<bool>(isCurrent),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
@@ -1520,6 +2323,8 @@ class Point extends DataClass implements Insertable<Point> {
     Value<String?> referenceThumbnailPath = const Value.absent(),
     Value<String?> referenceFullImagePath = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
+    Value<String?> groupId = const Value.absent(),
+    Value<int?> groupOrderIndex = const Value.absent(),
     int? sortOrder,
     bool? isCurrent,
     Value<DateTime?> completedAt = const Value.absent(),
@@ -1545,6 +2350,10 @@ class Point extends DataClass implements Insertable<Point> {
         ? referenceFullImagePath.value
         : this.referenceFullImagePath,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
+    groupId: groupId.present ? groupId.value : this.groupId,
+    groupOrderIndex: groupOrderIndex.present
+        ? groupOrderIndex.value
+        : this.groupOrderIndex,
     sortOrder: sortOrder ?? this.sortOrder,
     isCurrent: isCurrent ?? this.isCurrent,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
@@ -1576,6 +2385,10 @@ class Point extends DataClass implements Insertable<Point> {
           ? data.referenceFullImagePath.value
           : this.referenceFullImagePath,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      groupOrderIndex: data.groupOrderIndex.present
+          ? data.groupOrderIndex.value
+          : this.groupOrderIndex,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       isCurrent: data.isCurrent.present ? data.isCurrent.value : this.isCurrent,
       completedAt: data.completedAt.present
@@ -1602,6 +2415,8 @@ class Point extends DataClass implements Insertable<Point> {
           ..write('referenceThumbnailPath: $referenceThumbnailPath, ')
           ..write('referenceFullImagePath: $referenceFullImagePath, ')
           ..write('sourceUrl: $sourceUrl, ')
+          ..write('groupId: $groupId, ')
+          ..write('groupOrderIndex: $groupOrderIndex, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isCurrent: $isCurrent, ')
           ..write('completedAt: $completedAt')
@@ -1626,6 +2441,8 @@ class Point extends DataClass implements Insertable<Point> {
     referenceThumbnailPath,
     referenceFullImagePath,
     sourceUrl,
+    groupId,
+    groupOrderIndex,
     sortOrder,
     isCurrent,
     completedAt,
@@ -1649,6 +2466,8 @@ class Point extends DataClass implements Insertable<Point> {
           other.referenceThumbnailPath == this.referenceThumbnailPath &&
           other.referenceFullImagePath == this.referenceFullImagePath &&
           other.sourceUrl == this.sourceUrl &&
+          other.groupId == this.groupId &&
+          other.groupOrderIndex == this.groupOrderIndex &&
           other.sortOrder == this.sortOrder &&
           other.isCurrent == this.isCurrent &&
           other.completedAt == this.completedAt);
@@ -1670,6 +2489,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
   final Value<String?> referenceThumbnailPath;
   final Value<String?> referenceFullImagePath;
   final Value<String?> sourceUrl;
+  final Value<String?> groupId;
+  final Value<int?> groupOrderIndex;
   final Value<int> sortOrder;
   final Value<bool> isCurrent;
   final Value<DateTime?> completedAt;
@@ -1690,6 +2511,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.referenceThumbnailPath = const Value.absent(),
     this.referenceFullImagePath = const Value.absent(),
     this.sourceUrl = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.groupOrderIndex = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.isCurrent = const Value.absent(),
     this.completedAt = const Value.absent(),
@@ -1711,6 +2534,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.referenceThumbnailPath = const Value.absent(),
     this.referenceFullImagePath = const Value.absent(),
     this.sourceUrl = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.groupOrderIndex = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.isCurrent = const Value.absent(),
     this.completedAt = const Value.absent(),
@@ -1741,6 +2566,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Expression<String>? referenceThumbnailPath,
     Expression<String>? referenceFullImagePath,
     Expression<String>? sourceUrl,
+    Expression<String>? groupId,
+    Expression<int>? groupOrderIndex,
     Expression<int>? sortOrder,
     Expression<bool>? isCurrent,
     Expression<DateTime>? completedAt,
@@ -1764,6 +2591,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
       if (referenceFullImagePath != null)
         'reference_full_image_path': referenceFullImagePath,
       if (sourceUrl != null) 'source_url': sourceUrl,
+      if (groupId != null) 'group_id': groupId,
+      if (groupOrderIndex != null) 'group_order_index': groupOrderIndex,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (isCurrent != null) 'is_current': isCurrent,
       if (completedAt != null) 'completed_at': completedAt,
@@ -1787,6 +2616,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Value<String?>? referenceThumbnailPath,
     Value<String?>? referenceFullImagePath,
     Value<String?>? sourceUrl,
+    Value<String?>? groupId,
+    Value<int?>? groupOrderIndex,
     Value<int>? sortOrder,
     Value<bool>? isCurrent,
     Value<DateTime?>? completedAt,
@@ -1810,6 +2641,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
       referenceFullImagePath:
           referenceFullImagePath ?? this.referenceFullImagePath,
       sourceUrl: sourceUrl ?? this.sourceUrl,
+      groupId: groupId ?? this.groupId,
+      groupOrderIndex: groupOrderIndex ?? this.groupOrderIndex,
       sortOrder: sortOrder ?? this.sortOrder,
       isCurrent: isCurrent ?? this.isCurrent,
       completedAt: completedAt ?? this.completedAt,
@@ -1869,6 +2702,12 @@ class PointsCompanion extends UpdateCompanion<Point> {
     if (sourceUrl.present) {
       map['source_url'] = Variable<String>(sourceUrl.value);
     }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (groupOrderIndex.present) {
+      map['group_order_index'] = Variable<int>(groupOrderIndex.value);
+    }
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
@@ -1902,6 +2741,8 @@ class PointsCompanion extends UpdateCompanion<Point> {
           ..write('referenceThumbnailPath: $referenceThumbnailPath, ')
           ..write('referenceFullImagePath: $referenceFullImagePath, ')
           ..write('sourceUrl: $sourceUrl, ')
+          ..write('groupId: $groupId, ')
+          ..write('groupOrderIndex: $groupOrderIndex, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isCurrent: $isCurrent, ')
           ..write('completedAt: $completedAt, ')
@@ -3347,6 +4188,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $PlansTable plans = $PlansTable(this);
+  late final $PlanGroupsTable planGroups = $PlanGroupsTable(this);
   late final $WorksTable works = $WorksTable(this);
   late final $PointsTable points = $PointsTable(this);
   late final $VisitRecordsTable visitRecords = $VisitRecordsTable(this);
@@ -3358,6 +4200,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     plans,
+    planGroups,
     works,
     points,
     visitRecords,
@@ -3370,6 +4213,7 @@ typedef $$PlansTableCreateCompanionBuilder =
       required String id,
       required String name,
       required String area,
+      Value<String?> currentGroupId,
       Value<bool> active,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -3380,6 +4224,7 @@ typedef $$PlansTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String> area,
+      Value<String?> currentGroupId,
       Value<bool> active,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -3389,6 +4234,24 @@ typedef $$PlansTableUpdateCompanionBuilder =
 final class $$PlansTableReferences
     extends BaseReferences<_$AppDatabase, $PlansTable, Plan> {
   $$PlansTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$PlanGroupsTable, List<PlanGroup>>
+  _planGroupsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.planGroups,
+    aliasName: $_aliasNameGenerator(db.plans.id, db.planGroups.planId),
+  );
+
+  $$PlanGroupsTableProcessedTableManager get planGroupsRefs {
+    final manager = $$PlanGroupsTableTableManager(
+      $_db,
+      $_db.planGroups,
+    ).filter((f) => f.planId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_planGroupsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 
   static MultiTypedResultKey<$WorksTable, List<Work>> _worksRefsTable(
     _$AppDatabase db,
@@ -3452,6 +4315,11 @@ class $$PlansTableFilterComposer extends Composer<_$AppDatabase, $PlansTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get currentGroupId => $composableBuilder(
+    column: $table.currentGroupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get active => $composableBuilder(
     column: $table.active,
     builder: (column) => ColumnFilters(column),
@@ -3466,6 +4334,31 @@ class $$PlansTableFilterComposer extends Composer<_$AppDatabase, $PlansTable> {
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> planGroupsRefs(
+    Expression<bool> Function($$PlanGroupsTableFilterComposer f) f,
+  ) {
+    final $$PlanGroupsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.planGroups,
+      getReferencedColumn: (t) => t.planId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlanGroupsTableFilterComposer(
+            $db: $db,
+            $table: $db.planGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 
   Expression<bool> worksRefs(
     Expression<bool> Function($$WorksTableFilterComposer f) f,
@@ -3542,6 +4435,11 @@ class $$PlansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get currentGroupId => $composableBuilder(
+    column: $table.currentGroupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get active => $composableBuilder(
     column: $table.active,
     builder: (column) => ColumnOrderings(column),
@@ -3576,6 +4474,11 @@ class $$PlansTableAnnotationComposer
   GeneratedColumn<String> get area =>
       $composableBuilder(column: $table.area, builder: (column) => column);
 
+  GeneratedColumn<String> get currentGroupId => $composableBuilder(
+    column: $table.currentGroupId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get active =>
       $composableBuilder(column: $table.active, builder: (column) => column);
 
@@ -3584,6 +4487,31 @@ class $$PlansTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> planGroupsRefs<T extends Object>(
+    Expression<T> Function($$PlanGroupsTableAnnotationComposer a) f,
+  ) {
+    final $$PlanGroupsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.planGroups,
+      getReferencedColumn: (t) => t.planId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlanGroupsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.planGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 
   Expression<T> worksRefs<T extends Object>(
     Expression<T> Function($$WorksTableAnnotationComposer a) f,
@@ -3649,7 +4577,11 @@ class $$PlansTableTableManager
           $$PlansTableUpdateCompanionBuilder,
           (Plan, $$PlansTableReferences),
           Plan,
-          PrefetchHooks Function({bool worksRefs, bool pointsRefs})
+          PrefetchHooks Function({
+            bool planGroupsRefs,
+            bool worksRefs,
+            bool pointsRefs,
+          })
         > {
   $$PlansTableTableManager(_$AppDatabase db, $PlansTable table)
     : super(
@@ -3667,6 +4599,7 @@ class $$PlansTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> area = const Value.absent(),
+                Value<String?> currentGroupId = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -3675,6 +4608,7 @@ class $$PlansTableTableManager
                 id: id,
                 name: name,
                 area: area,
+                currentGroupId: currentGroupId,
                 active: active,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3685,6 +4619,7 @@ class $$PlansTableTableManager
                 required String id,
                 required String name,
                 required String area,
+                Value<String?> currentGroupId = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -3693,6 +4628,7 @@ class $$PlansTableTableManager
                 id: id,
                 name: name,
                 area: area,
+                currentGroupId: currentGroupId,
                 active: active,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3704,44 +4640,69 @@ class $$PlansTableTableManager
                     (e.readTable(table), $$PlansTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({worksRefs = false, pointsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (worksRefs) db.works,
-                if (pointsRefs) db.points,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (worksRefs)
-                    await $_getPrefetchedData<Plan, $PlansTable, Work>(
-                      currentTable: table,
-                      referencedTable: $$PlansTableReferences._worksRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$PlansTableReferences(db, table, p0).worksRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.planId == item.id),
-                      typedResults: items,
-                    ),
-                  if (pointsRefs)
-                    await $_getPrefetchedData<Plan, $PlansTable, Point>(
-                      currentTable: table,
-                      referencedTable: $$PlansTableReferences._pointsRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$PlansTableReferences(db, table, p0).pointsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.planId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                planGroupsRefs = false,
+                worksRefs = false,
+                pointsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (planGroupsRefs) db.planGroups,
+                    if (worksRefs) db.works,
+                    if (pointsRefs) db.points,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (planGroupsRefs)
+                        await $_getPrefetchedData<Plan, $PlansTable, PlanGroup>(
+                          currentTable: table,
+                          referencedTable: $$PlansTableReferences
+                              ._planGroupsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlansTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).planGroupsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.planId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (worksRefs)
+                        await $_getPrefetchedData<Plan, $PlansTable, Work>(
+                          currentTable: table,
+                          referencedTable: $$PlansTableReferences
+                              ._worksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlansTableReferences(db, table, p0).worksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.planId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (pointsRefs)
+                        await $_getPrefetchedData<Plan, $PlansTable, Point>(
+                          currentTable: table,
+                          referencedTable: $$PlansTableReferences
+                              ._pointsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlansTableReferences(db, table, p0).pointsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.planId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -3758,7 +4719,538 @@ typedef $$PlansTableProcessedTableManager =
       $$PlansTableUpdateCompanionBuilder,
       (Plan, $$PlansTableReferences),
       Plan,
-      PrefetchHooks Function({bool worksRefs, bool pointsRefs})
+      PrefetchHooks Function({
+        bool planGroupsRefs,
+        bool worksRefs,
+        bool pointsRefs,
+      })
+    >;
+typedef $$PlanGroupsTableCreateCompanionBuilder =
+    PlanGroupsCompanion Function({
+      required String id,
+      required String planId,
+      required String name,
+      Value<int> orderIndex,
+      Value<String> orderMode,
+      Value<String?> anchorName,
+      Value<double?> anchorLatitude,
+      Value<double?> anchorLongitude,
+      Value<String?> anchorPointId,
+      Value<String?> note,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$PlanGroupsTableUpdateCompanionBuilder =
+    PlanGroupsCompanion Function({
+      Value<String> id,
+      Value<String> planId,
+      Value<String> name,
+      Value<int> orderIndex,
+      Value<String> orderMode,
+      Value<String?> anchorName,
+      Value<double?> anchorLatitude,
+      Value<double?> anchorLongitude,
+      Value<String?> anchorPointId,
+      Value<String?> note,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$PlanGroupsTableReferences
+    extends BaseReferences<_$AppDatabase, $PlanGroupsTable, PlanGroup> {
+  $$PlanGroupsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PlansTable _planIdTable(_$AppDatabase db) => db.plans.createAlias(
+    $_aliasNameGenerator(db.planGroups.planId, db.plans.id),
+  );
+
+  $$PlansTableProcessedTableManager get planId {
+    final $_column = $_itemColumn<String>('plan_id')!;
+
+    final manager = $$PlansTableTableManager(
+      $_db,
+      $_db.plans,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_planIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$PointsTable, List<Point>> _pointsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.points,
+    aliasName: $_aliasNameGenerator(db.planGroups.id, db.points.groupId),
+  );
+
+  $$PointsTableProcessedTableManager get pointsRefs {
+    final manager = $$PointsTableTableManager(
+      $_db,
+      $_db.points,
+    ).filter((f) => f.groupId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_pointsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$PlanGroupsTableFilterComposer
+    extends Composer<_$AppDatabase, $PlanGroupsTable> {
+  $$PlanGroupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get orderIndex => $composableBuilder(
+    column: $table.orderIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderMode => $composableBuilder(
+    column: $table.orderMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get anchorName => $composableBuilder(
+    column: $table.anchorName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get anchorLatitude => $composableBuilder(
+    column: $table.anchorLatitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get anchorLongitude => $composableBuilder(
+    column: $table.anchorLongitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get anchorPointId => $composableBuilder(
+    column: $table.anchorPointId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PlansTableFilterComposer get planId {
+    final $$PlansTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.planId,
+      referencedTable: $db.plans,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlansTableFilterComposer(
+            $db: $db,
+            $table: $db.plans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> pointsRefs(
+    Expression<bool> Function($$PointsTableFilterComposer f) f,
+  ) {
+    final $$PointsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.points,
+      getReferencedColumn: (t) => t.groupId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PointsTableFilterComposer(
+            $db: $db,
+            $table: $db.points,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PlanGroupsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlanGroupsTable> {
+  $$PlanGroupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get orderIndex => $composableBuilder(
+    column: $table.orderIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderMode => $composableBuilder(
+    column: $table.orderMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get anchorName => $composableBuilder(
+    column: $table.anchorName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get anchorLatitude => $composableBuilder(
+    column: $table.anchorLatitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get anchorLongitude => $composableBuilder(
+    column: $table.anchorLongitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get anchorPointId => $composableBuilder(
+    column: $table.anchorPointId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PlansTableOrderingComposer get planId {
+    final $$PlansTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.planId,
+      referencedTable: $db.plans,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlansTableOrderingComposer(
+            $db: $db,
+            $table: $db.plans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlanGroupsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlanGroupsTable> {
+  $$PlanGroupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get orderIndex => $composableBuilder(
+    column: $table.orderIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get orderMode =>
+      $composableBuilder(column: $table.orderMode, builder: (column) => column);
+
+  GeneratedColumn<String> get anchorName => $composableBuilder(
+    column: $table.anchorName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get anchorLatitude => $composableBuilder(
+    column: $table.anchorLatitude,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get anchorLongitude => $composableBuilder(
+    column: $table.anchorLongitude,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get anchorPointId => $composableBuilder(
+    column: $table.anchorPointId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$PlansTableAnnotationComposer get planId {
+    final $$PlansTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.planId,
+      referencedTable: $db.plans,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlansTableAnnotationComposer(
+            $db: $db,
+            $table: $db.plans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> pointsRefs<T extends Object>(
+    Expression<T> Function($$PointsTableAnnotationComposer a) f,
+  ) {
+    final $$PointsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.points,
+      getReferencedColumn: (t) => t.groupId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PointsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.points,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PlanGroupsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlanGroupsTable,
+          PlanGroup,
+          $$PlanGroupsTableFilterComposer,
+          $$PlanGroupsTableOrderingComposer,
+          $$PlanGroupsTableAnnotationComposer,
+          $$PlanGroupsTableCreateCompanionBuilder,
+          $$PlanGroupsTableUpdateCompanionBuilder,
+          (PlanGroup, $$PlanGroupsTableReferences),
+          PlanGroup,
+          PrefetchHooks Function({bool planId, bool pointsRefs})
+        > {
+  $$PlanGroupsTableTableManager(_$AppDatabase db, $PlanGroupsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlanGroupsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlanGroupsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlanGroupsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> planId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> orderIndex = const Value.absent(),
+                Value<String> orderMode = const Value.absent(),
+                Value<String?> anchorName = const Value.absent(),
+                Value<double?> anchorLatitude = const Value.absent(),
+                Value<double?> anchorLongitude = const Value.absent(),
+                Value<String?> anchorPointId = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlanGroupsCompanion(
+                id: id,
+                planId: planId,
+                name: name,
+                orderIndex: orderIndex,
+                orderMode: orderMode,
+                anchorName: anchorName,
+                anchorLatitude: anchorLatitude,
+                anchorLongitude: anchorLongitude,
+                anchorPointId: anchorPointId,
+                note: note,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String planId,
+                required String name,
+                Value<int> orderIndex = const Value.absent(),
+                Value<String> orderMode = const Value.absent(),
+                Value<String?> anchorName = const Value.absent(),
+                Value<double?> anchorLatitude = const Value.absent(),
+                Value<double?> anchorLongitude = const Value.absent(),
+                Value<String?> anchorPointId = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PlanGroupsCompanion.insert(
+                id: id,
+                planId: planId,
+                name: name,
+                orderIndex: orderIndex,
+                orderMode: orderMode,
+                anchorName: anchorName,
+                anchorLatitude: anchorLatitude,
+                anchorLongitude: anchorLongitude,
+                anchorPointId: anchorPointId,
+                note: note,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PlanGroupsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({planId = false, pointsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (pointsRefs) db.points],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (planId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.planId,
+                                referencedTable: $$PlanGroupsTableReferences
+                                    ._planIdTable(db),
+                                referencedColumn: $$PlanGroupsTableReferences
+                                    ._planIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (pointsRefs)
+                    await $_getPrefetchedData<
+                      PlanGroup,
+                      $PlanGroupsTable,
+                      Point
+                    >(
+                      currentTable: table,
+                      referencedTable: $$PlanGroupsTableReferences
+                          ._pointsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$PlanGroupsTableReferences(db, table, p0).pointsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.groupId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PlanGroupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlanGroupsTable,
+      PlanGroup,
+      $$PlanGroupsTableFilterComposer,
+      $$PlanGroupsTableOrderingComposer,
+      $$PlanGroupsTableAnnotationComposer,
+      $$PlanGroupsTableCreateCompanionBuilder,
+      $$PlanGroupsTableUpdateCompanionBuilder,
+      (PlanGroup, $$PlanGroupsTableReferences),
+      PlanGroup,
+      PrefetchHooks Function({bool planId, bool pointsRefs})
     >;
 typedef $$WorksTableCreateCompanionBuilder =
     WorksCompanion Function({
@@ -4211,6 +5703,8 @@ typedef $$PointsTableCreateCompanionBuilder =
       Value<String?> referenceThumbnailPath,
       Value<String?> referenceFullImagePath,
       Value<String?> sourceUrl,
+      Value<String?> groupId,
+      Value<int?> groupOrderIndex,
       Value<int> sortOrder,
       Value<bool> isCurrent,
       Value<DateTime?> completedAt,
@@ -4233,6 +5727,8 @@ typedef $$PointsTableUpdateCompanionBuilder =
       Value<String?> referenceThumbnailPath,
       Value<String?> referenceFullImagePath,
       Value<String?> sourceUrl,
+      Value<String?> groupId,
+      Value<int?> groupOrderIndex,
       Value<int> sortOrder,
       Value<bool> isCurrent,
       Value<DateTime?> completedAt,
@@ -4271,6 +5767,23 @@ final class $$PointsTableReferences
       $_db.works,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_workIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlanGroupsTable _groupIdTable(_$AppDatabase db) => db.planGroups
+      .createAlias($_aliasNameGenerator(db.points.groupId, db.planGroups.id));
+
+  $$PlanGroupsTableProcessedTableManager? get groupId {
+    final $_column = $_itemColumn<String>('group_id');
+    if ($_column == null) return null;
+    final manager = $$PlanGroupsTableTableManager(
+      $_db,
+      $_db.planGroups,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_groupIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -4352,6 +5865,11 @@ class $$PointsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get groupOrderIndex => $composableBuilder(
+    column: $table.groupOrderIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
@@ -4404,6 +5922,29 @@ class $$PointsTableFilterComposer
           }) => $$WorksTableFilterComposer(
             $db: $db,
             $table: $db.works,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlanGroupsTableFilterComposer get groupId {
+    final $$PlanGroupsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.groupId,
+      referencedTable: $db.planGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlanGroupsTableFilterComposer(
+            $db: $db,
+            $table: $db.planGroups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4488,6 +6029,11 @@ class $$PointsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get groupOrderIndex => $composableBuilder(
+    column: $table.groupOrderIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
@@ -4540,6 +6086,29 @@ class $$PointsTableOrderingComposer
           }) => $$WorksTableOrderingComposer(
             $db: $db,
             $table: $db.works,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlanGroupsTableOrderingComposer get groupId {
+    final $$PlanGroupsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.groupId,
+      referencedTable: $db.planGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlanGroupsTableOrderingComposer(
+            $db: $db,
+            $table: $db.planGroups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4608,6 +6177,11 @@ class $$PointsTableAnnotationComposer
   GeneratedColumn<String> get sourceUrl =>
       $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
 
+  GeneratedColumn<int> get groupOrderIndex => $composableBuilder(
+    column: $table.groupOrderIndex,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 
@@ -4664,6 +6238,29 @@ class $$PointsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$PlanGroupsTableAnnotationComposer get groupId {
+    final $$PlanGroupsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.groupId,
+      referencedTable: $db.planGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlanGroupsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.planGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PointsTableTableManager
@@ -4679,7 +6276,7 @@ class $$PointsTableTableManager
           $$PointsTableUpdateCompanionBuilder,
           (Point, $$PointsTableReferences),
           Point,
-          PrefetchHooks Function({bool planId, bool workId})
+          PrefetchHooks Function({bool planId, bool workId, bool groupId})
         > {
   $$PointsTableTableManager(_$AppDatabase db, $PointsTable table)
     : super(
@@ -4709,6 +6306,8 @@ class $$PointsTableTableManager
                 Value<String?> referenceThumbnailPath = const Value.absent(),
                 Value<String?> referenceFullImagePath = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
+                Value<String?> groupId = const Value.absent(),
+                Value<int?> groupOrderIndex = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> isCurrent = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
@@ -4729,6 +6328,8 @@ class $$PointsTableTableManager
                 referenceThumbnailPath: referenceThumbnailPath,
                 referenceFullImagePath: referenceFullImagePath,
                 sourceUrl: sourceUrl,
+                groupId: groupId,
+                groupOrderIndex: groupOrderIndex,
                 sortOrder: sortOrder,
                 isCurrent: isCurrent,
                 completedAt: completedAt,
@@ -4751,6 +6352,8 @@ class $$PointsTableTableManager
                 Value<String?> referenceThumbnailPath = const Value.absent(),
                 Value<String?> referenceFullImagePath = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
+                Value<String?> groupId = const Value.absent(),
+                Value<int?> groupOrderIndex = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> isCurrent = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
@@ -4771,6 +6374,8 @@ class $$PointsTableTableManager
                 referenceThumbnailPath: referenceThumbnailPath,
                 referenceFullImagePath: referenceFullImagePath,
                 sourceUrl: sourceUrl,
+                groupId: groupId,
+                groupOrderIndex: groupOrderIndex,
                 sortOrder: sortOrder,
                 isCurrent: isCurrent,
                 completedAt: completedAt,
@@ -4782,60 +6387,74 @@ class $$PointsTableTableManager
                     (e.readTable(table), $$PointsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({planId = false, workId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (planId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.planId,
-                                referencedTable: $$PointsTableReferences
-                                    ._planIdTable(db),
-                                referencedColumn: $$PointsTableReferences
-                                    ._planIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (workId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.workId,
-                                referencedTable: $$PointsTableReferences
-                                    ._workIdTable(db),
-                                referencedColumn: $$PointsTableReferences
-                                    ._workIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({planId = false, workId = false, groupId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (planId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.planId,
+                                    referencedTable: $$PointsTableReferences
+                                        ._planIdTable(db),
+                                    referencedColumn: $$PointsTableReferences
+                                        ._planIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (workId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.workId,
+                                    referencedTable: $$PointsTableReferences
+                                        ._workIdTable(db),
+                                    referencedColumn: $$PointsTableReferences
+                                        ._workIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (groupId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.groupId,
+                                    referencedTable: $$PointsTableReferences
+                                        ._groupIdTable(db),
+                                    referencedColumn: $$PointsTableReferences
+                                        ._groupIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -4852,7 +6471,7 @@ typedef $$PointsTableProcessedTableManager =
       $$PointsTableUpdateCompanionBuilder,
       (Point, $$PointsTableReferences),
       Point,
-      PrefetchHooks Function({bool planId, bool workId})
+      PrefetchHooks Function({bool planId, bool workId, bool groupId})
     >;
 typedef $$VisitRecordsTableCreateCompanionBuilder =
     VisitRecordsCompanion Function({
@@ -5531,6 +7150,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$PlansTableTableManager get plans =>
       $$PlansTableTableManager(_db, _db.plans);
+  $$PlanGroupsTableTableManager get planGroups =>
+      $$PlanGroupsTableTableManager(_db, _db.planGroups);
   $$WorksTableTableManager get works =>
       $$WorksTableTableManager(_db, _db.works);
   $$PointsTableTableManager get points =>
