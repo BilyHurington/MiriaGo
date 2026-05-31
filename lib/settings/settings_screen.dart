@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../camera_reference/camera_zoom_capabilities.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/copyable_text.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.settings,
     required this.onChanged,
@@ -15,7 +16,59 @@ class SettingsScreen extends StatelessWidget {
   final ValueChanged<AppSettings> onChanged;
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  CameraZoomCapabilities _zoomCapabilities = CameraZoomCapabilities.fallback;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZoomCapabilities();
+  }
+
+  Future<void> _loadZoomCapabilities() async {
+    final capabilities = await CameraZoomCapabilities.load();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _zoomCapabilities = capabilities;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final settings = widget.settings;
+    final onChanged = widget.onChanged;
+    final zoomRangeMin = _zoomCapabilities.minZoom;
+    final zoomRangeMax = _zoomCapabilities.maxZoom.clamp(
+      zoomRangeMin,
+      cameraZoomUpperLimit,
+    );
+    final cameraMinZoom = settings.cameraMinZoom.clamp(
+      zoomRangeMin,
+      zoomRangeMax,
+    );
+    final cameraMaxZoom = settings.cameraMaxZoom.clamp(
+      cameraMinZoom,
+      zoomRangeMax,
+    );
+    final zoomSliderValues = RangeValues(
+      cameraZoomSliderValueFromRealZoom(
+        minZoom: zoomRangeMin,
+        maxZoom: zoomRangeMax,
+        realZoom: cameraMinZoom,
+      ),
+      cameraZoomSliderValueFromRealZoom(
+        minZoom: zoomRangeMin,
+        maxZoom: zoomRangeMax,
+        realZoom: cameraMaxZoom,
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -112,22 +165,29 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
               RangeSlider(
-                min: 0.1,
-                max: 20,
-                divisions: 199,
-                values: RangeValues(
-                  settings.cameraMinZoom.clamp(0.1, settings.cameraMaxZoom),
-                  settings.cameraMaxZoom.clamp(settings.cameraMinZoom, 20.0),
-                ),
+                min: 0,
+                max: 1,
+                divisions: 200,
+                values: zoomSliderValues,
                 labels: RangeLabels(
-                  '${settings.cameraMinZoom.toStringAsFixed(1)}x',
-                  '${settings.cameraMaxZoom.toStringAsFixed(1)}x',
+                  '${cameraMinZoom.toStringAsFixed(1)}x',
+                  '${cameraMaxZoom.toStringAsFixed(1)}x',
                 ),
                 onChanged: (values) {
+                  final minZoom = realZoomFromCameraSliderValue(
+                    minZoom: zoomRangeMin,
+                    maxZoom: zoomRangeMax,
+                    sliderValue: values.start,
+                  ).snapToZoomStep();
+                  final maxZoom = realZoomFromCameraSliderValue(
+                    minZoom: zoomRangeMin,
+                    maxZoom: zoomRangeMax,
+                    sliderValue: values.end,
+                  ).snapToZoomStep();
                   onChanged(
                     settings.copyWith(
-                      cameraMinZoom: values.start,
-                      cameraMaxZoom: values.end,
+                      cameraMinZoom: minZoom.clamp(zoomRangeMin, zoomRangeMax),
+                      cameraMaxZoom: maxZoom.clamp(minZoom, zoomRangeMax),
                     ),
                   );
                 },
@@ -336,6 +396,10 @@ List<CameraPhotoAspectRatio> _cameraAspectRatioGroup({
     ],
     if (includeSquare) CameraPhotoAspectRatio.square1x1,
   ];
+}
+
+extension _ZoomStepSnap on double {
+  double snapToZoomStep() => (this * 10).round() / 10;
 }
 
 class _SettingsSection extends StatelessWidget {

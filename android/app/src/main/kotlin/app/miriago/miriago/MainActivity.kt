@@ -3,6 +3,8 @@ package app.miriago.miriago
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -29,6 +31,10 @@ class MainActivity : FlutterActivity() {
         val galleryChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "seichi/gallery_saver"
+        )
+        val cameraCapabilitiesChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "seichi/camera_capabilities"
         )
         planFileChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -58,6 +64,14 @@ class MainActivity : FlutterActivity() {
                 } catch (e: Exception) {
                     result.error("SAVE_FAILED", e.message, null)
                 }
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        cameraCapabilitiesChannel.setMethodCallHandler { call, result ->
+            if (call.method == "getBackCameraZoomRange") {
+                getBackCameraZoomRange(result)
             } else {
                 result.notImplemented()
             }
@@ -109,6 +123,50 @@ class MainActivity : FlutterActivity() {
         }
 
         return uri.toString()
+    }
+
+    private fun getBackCameraZoomRange(result: MethodChannel.Result) {
+        try {
+            val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            for (cameraId in manager.cameraIdList) {
+                val characteristics = manager.getCameraCharacteristics(cameraId)
+                if (
+                    characteristics.get(CameraCharacteristics.LENS_FACING) !=
+                    CameraCharacteristics.LENS_FACING_BACK
+                ) {
+                    continue
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val range = characteristics.get(
+                        CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE
+                    )
+                    if (range != null) {
+                        result.success(
+                            mapOf(
+                                "minZoomRatio" to range.lower.toDouble(),
+                                "maxZoomRatio" to range.upper.toDouble(),
+                            )
+                        )
+                        return
+                    }
+                }
+
+                val maxDigitalZoom = characteristics.get(
+                    CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM
+                ) ?: 1.0f
+                result.success(
+                    mapOf(
+                        "minZoomRatio" to 1.0,
+                        "maxZoomRatio" to maxDigitalZoom.toDouble(),
+                    )
+                )
+                return
+            }
+            result.success(mapOf("minZoomRatio" to 1.0, "maxZoomRatio" to 20.0))
+        } catch (error: Exception) {
+            result.error("camera_capabilities_failed", error.message, null)
+        }
     }
 
     private fun extractPlanPathFromIntent(intent: Intent?): String? {

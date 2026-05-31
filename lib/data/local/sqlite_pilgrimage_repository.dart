@@ -56,7 +56,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       cameraFallbackAspectRatio: _fallbackCameraAspectRatioFromName(
         row.cameraAspectRatio,
       ),
-      cameraMinZoom: row.cameraMinZoom.clamp(0.1, 10.0),
+      cameraMinZoom: row.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
       referenceImageScale: row.referenceImageScale.clamp(0.8, 1.0),
       themePalette: _themePaletteFromName(row.themePalette),
@@ -592,7 +592,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             cameraCaptureAspectRatio: Value(
               settings.cameraCaptureAspectRatio.name,
             ),
-            cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 10.0)),
+            cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 20.0)),
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
             referenceImageScale: Value(
               settings.referenceImageScale.clamp(0.8, 1.0),
