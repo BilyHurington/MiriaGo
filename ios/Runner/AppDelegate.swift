@@ -335,7 +335,7 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
       result(nil)
     case "setFlashMode":
       setFlashMode(call: call, result: result)
-    case "switchCamera":
+    case "switchCamera", "switchLens":
       switchCamera(result: result)
     case "takePicture":
       takePicture(result: result)

@@ -493,6 +493,8 @@ class _NativeCameraController extends ChangeNotifier {
   var _zoomRatio = 1.0;
   var _flashMode = 'auto';
   var _lensFacing = 'back';
+  var _lensMode = 'backAuto';
+  var _supportsTelephoto = false;
   var _captureAspectRatio = 1.0;
   double? _preferredInitialZoomRatio;
   var _initialZoomApplied = false;
@@ -505,6 +507,8 @@ class _NativeCameraController extends ChangeNotifier {
   double get zoomRatio => _zoomRatio;
   String get flashMode => _flashMode;
   String get lensFacing => _lensFacing;
+  String get lensMode => _lensMode;
+  bool get supportsTelephoto => _supportsTelephoto;
 
   Future<void> attach(int viewId) async {
     if (_channel != null && _viewId == viewId) {
@@ -620,17 +624,28 @@ class _NativeCameraController extends ChangeNotifier {
   }
 
   Future<void> switchCamera() async {
+    await switchLens();
+  }
+
+  Future<void> switchLens() async {
     final channel = _channel;
     if (channel == null || !_ready) {
       return;
     }
 
-    final result = await channel.invokeMapMethod<String, Object?>(
-      'switchCamera',
-    );
-    _applyZoomState(result);
-    _initialZoomApplied = false;
-    await _applyPreferredInitialZoomIfNeeded();
+    try {
+      final result = await channel.invokeMapMethod<String, Object?>(
+        'switchLens',
+      );
+      _applyZoomState(result);
+      _initialZoomApplied = false;
+      await _applyPreferredInitialZoomIfNeeded();
+    } on PlatformException {
+      final result = await channel.invokeMapMethod<String, Object?>(
+        'getZoomState',
+      );
+      _applyZoomState(result);
+    }
     notifyListeners();
   }
 
@@ -665,6 +680,9 @@ class _NativeCameraController extends ChangeNotifier {
     _maxZoomRatio = (state['maxZoomRatio'] as num?)?.toDouble() ?? 1;
     _zoomRatio = (state['zoomRatio'] as num?)?.toDouble() ?? 1;
     _lensFacing = state['lensFacing'] as String? ?? _lensFacing;
+    _lensMode = state['lensMode'] as String? ?? _lensMode;
+    _supportsTelephoto =
+        (state['supportsTelephoto'] as bool?) ?? _supportsTelephoto;
   }
 
   Future<void> _applyPreferredInitialZoomIfNeeded() async {
@@ -1190,9 +1208,10 @@ class _NativeCameraBottomPanel extends StatelessWidget {
               _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
               const Spacer(),
               _CameraActionButton(
-                tooltip: '切换摄像头',
-                icon: Icons.cameraswitch_outlined,
-                onPressed: controller.switchCamera,
+                tooltip: '切换镜头',
+                icon: _nativeLensIcon(controller),
+                text: _nativeLensText(controller),
+                onPressed: controller.switchLens,
               ),
             ],
           ),
@@ -1458,9 +1477,10 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                 _CameraCircleButton(
                   size: layout.controlButtonSize,
                   iconSize: layout.controlIconSize,
-                  tooltip: '切换摄像头',
-                  icon: Icons.cameraswitch_outlined,
-                  onPressed: controller.switchCamera,
+                  tooltip: '切换镜头',
+                  icon: _nativeLensIcon(controller),
+                  text: _nativeLensText(controller),
+                  onPressed: controller.switchLens,
                 ),
                 _CameraCircleButton(
                   size: layout.controlButtonSize,
@@ -1658,6 +1678,18 @@ class _NativeFlashButton extends StatelessWidget {
       onPressed: controller.cycleFlashMode,
     );
   }
+}
+
+IconData _nativeLensIcon(_NativeCameraController controller) {
+  return switch (controller.lensMode) {
+    'backTelephoto' => Icons.center_focus_strong_outlined,
+    'front' => Icons.flip_camera_android_outlined,
+    _ => Icons.cameraswitch_outlined,
+  };
+}
+
+String? _nativeLensText(_NativeCameraController controller) {
+  return controller.lensMode == 'backTelephoto' ? 'T' : null;
 }
 
 class _NativeZoomAndOpacityControls extends StatelessWidget {
@@ -2301,6 +2333,7 @@ class _CameraCircleButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.text,
     this.size = 44,
     this.iconSize = 21,
   });
@@ -2308,6 +2341,7 @@ class _CameraCircleButton extends StatelessWidget {
   final String? tooltip;
   final IconData icon;
   final VoidCallback onPressed;
+  final String? text;
   final double size;
   final double iconSize;
 
@@ -2326,7 +2360,7 @@ class _CameraCircleButton extends StatelessWidget {
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: Icon(icon, size: iconSize),
+      icon: _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text),
     );
     return SizedBox.square(dimension: size, child: button);
   }
@@ -3087,6 +3121,7 @@ class _CameraActionButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.text,
     this.size = 50,
     this.iconSize = 24,
   });
@@ -3094,6 +3129,7 @@ class _CameraActionButton extends StatelessWidget {
   final String? tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
+  final String? text;
   final double size;
   final double iconSize;
 
@@ -3113,9 +3149,46 @@ class _CameraActionButton extends StatelessWidget {
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: Icon(icon, size: iconSize),
+      icon: _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text),
     );
     return SizedBox.square(dimension: size, child: button);
+  }
+}
+
+class _CameraButtonIcon extends StatelessWidget {
+  const _CameraButtonIcon({
+    required this.icon,
+    required this.iconSize,
+    required this.text,
+  });
+
+  final IconData icon;
+  final double iconSize;
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = text;
+    if (label == null) {
+      return Icon(icon, size: iconSize);
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, size: iconSize + 1),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
   }
 }
 

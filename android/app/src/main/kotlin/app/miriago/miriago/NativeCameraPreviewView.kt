@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.view.MotionEvent
 import android.view.View
 import androidx.camera.core.AspectRatio
@@ -15,6 +17,7 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -34,6 +37,12 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
+private enum class NativeLensMode(val value: String) {
+    BackAuto("backAuto"),
+    BackTelephoto("backTelephoto"),
+    Front("front"),
+}
+
 class NativeCameraPreviewView(
     private val activity: MainActivity,
     private val context: Context,
@@ -47,7 +56,8 @@ class NativeCameraPreviewView(
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
-    private var lensFacing = CameraSelector.LENS_FACING_BACK
+    private var lensMode = NativeLensMode.BackAuto
+    private val telephotoCameraId: String? by lazy { findTelephotoCameraId() }
     private var flashMode = ImageCapture.FLASH_MODE_AUTO
     private var targetAspectRatio = 1.0
     private var cropCaptureToAspectRatio = true
@@ -81,6 +91,7 @@ class NativeCameraPreviewView(
             "setCropCaptureToAspectRatio" -> setCropCaptureToAspectRatio(call, result)
             "setFlashMode" -> setFlashMode(call, result)
             "switchCamera" -> switchCamera(result)
+            "switchLens" -> switchLens(result)
             "takePicture" -> takePicture(result)
             "dispose" -> {
                 dispose()
@@ -117,9 +128,7 @@ class NativeCameraPreviewView(
 
     private fun bindCamera() {
         val provider = cameraProvider ?: return
-        val selector = CameraSelector.Builder()
-            .requireLensFacing(lensFacing)
-            .build()
+        val selector = cameraSelectorForLensMode(lensMode)
         val preview = Preview.Builder()
             .setTargetAspectRatio(cameraTargetAspectRatio())
             .build()
@@ -194,18 +203,22 @@ class NativeCameraPreviewView(
     }
 
     private fun switchCamera(result: MethodChannel.Result) {
-        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
-            CameraSelector.LENS_FACING_FRONT
-        } else {
-            CameraSelector.LENS_FACING_BACK
-        }
+        switchLens(result)
+    }
 
+    private fun switchLens(result: MethodChannel.Result) {
+        val previousMode = lensMode
+        lensMode = nextLensMode()
         try {
             bindCamera()
             result.success(zoomStateMap())
         } catch (error: Exception) {
-            lensFacing = CameraSelector.LENS_FACING_BACK
-            bindCamera()
+            lensMode = NativeLensMode.BackAuto
+            try {
+                bindCamera()
+            } catch (_: Exception) {
+                lensMode = previousMode
+            }
             result.error("camera_switch_failed", error.message, null)
         }
     }
@@ -267,6 +280,82 @@ class NativeCameraPreviewView(
             AspectRatio.RATIO_16_9
         } else {
             AspectRatio.RATIO_4_3
+        }
+    }
+
+    private fun cameraSelectorForLensMode(mode: NativeLensMode): CameraSelector {
+        val builder = CameraSelector.Builder()
+        when (mode) {
+            NativeLensMode.BackTelephoto -> {
+                val cameraId = telephotoCameraId
+                if (cameraId != null) {
+                    builder.addCameraFilter { cameraInfos ->
+                        cameraInfos.filter { Camera2CameraInfo.from(it).cameraId == cameraId }
+                    }
+                    return builder.build()
+                }
+                lensMode = NativeLensMode.BackAuto
+                builder.requireLensFacing(CameraSelector.LENS_FACING_BACK)
+            }
+            NativeLensMode.Front -> builder.requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+            NativeLensMode.BackAuto -> builder.requireLensFacing(CameraSelector.LENS_FACING_BACK)
+        }
+        return builder.build()
+    }
+
+    private fun nextLensMode(): NativeLensMode {
+        return when (lensMode) {
+            NativeLensMode.BackAuto -> {
+                if (telephotoCameraId != null) NativeLensMode.BackTelephoto else NativeLensMode.Front
+            }
+            NativeLensMode.BackTelephoto -> NativeLensMode.Front
+            NativeLensMode.Front -> NativeLensMode.BackAuto
+        }
+    }
+
+    private fun findTelephotoCameraId(): String? {
+        return try {
+            val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val backCameras = manager.cameraIdList.mapNotNull { cameraId ->
+                val characteristics = manager.getCameraCharacteristics(cameraId)
+                if (
+                    characteristics.get(CameraCharacteristics.LENS_FACING) !=
+                    CameraCharacteristics.LENS_FACING_BACK
+                ) {
+                    return@mapNotNull null
+                }
+
+                val focalLength = characteristics
+                    .get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                    ?.maxOrNull() ?: return@mapNotNull null
+                val physicalIds = physicalCameraIds(characteristics)
+                CameraInfo(cameraId, focalLength, physicalIds)
+            }
+            val logicalCameraIds = backCameras
+                .filter { it.physicalIds.isNotEmpty() }
+                .map { it.cameraId }
+                .toSet()
+            val mainFocalLength = backCameras
+                .filter { it.physicalIds.isNotEmpty() }
+                .maxOfOrNull { it.focalLength }
+                ?: backCameras.maxOfOrNull { it.focalLength }
+                ?: return null
+            backCameras
+                .filter { it.cameraId !in logicalCameraIds }
+                .filter { it.physicalIds.isEmpty() }
+                .filter { it.focalLength > mainFocalLength * 1.25f }
+                .maxByOrNull { it.focalLength }
+                ?.cameraId
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun physicalCameraIds(characteristics: CameraCharacteristics): Set<String> {
+        return try {
+            characteristics.physicalCameraIds
+        } catch (_: Exception) {
+            emptySet()
         }
     }
 
@@ -347,7 +436,15 @@ class NativeCameraPreviewView(
             "minZoomRatio" to minZoom.toDouble(),
             "maxZoomRatio" to maxZoom.toDouble(),
             "zoomRatio" to zoom.toDouble(),
-            "lensFacing" to if (lensFacing == CameraSelector.LENS_FACING_BACK) "back" else "front",
+            "lensFacing" to if (lensMode == NativeLensMode.Front) "front" else "back",
+            "lensMode" to lensMode.value,
+            "supportsTelephoto" to (telephotoCameraId != null),
         )
     }
+
+    private data class CameraInfo(
+        val cameraId: String,
+        val focalLength: Float,
+        val physicalIds: Set<String>,
+    )
 }
