@@ -22,6 +22,8 @@ class PointDetailSheet extends StatelessWidget {
     required this.onOpenCamera,
     required this.onComplete,
     required this.onReplaceReference,
+    this.groups = const [],
+    this.onMoveToGroup,
     this.records = const [],
     this.navigationLauncher = const MapNavigationLauncher(),
     super.key,
@@ -37,6 +39,9 @@ class PointDetailSheet extends StatelessWidget {
     StoredUserReferenceImage image,
   )
   onReplaceReference;
+  final List<PilgrimagePlanGroup> groups;
+  final Future<void> Function(PilgrimagePoint point, String? groupId)?
+  onMoveToGroup;
   final List<PilgrimageVisitRecord> records;
   final MapNavigationLauncher navigationLauncher;
 
@@ -52,6 +57,8 @@ class PointDetailSheet extends StatelessWidget {
       StoredUserReferenceImage image,
     )
     onReplaceReference,
+    List<PilgrimagePlanGroup> groups = const [],
+    Future<void> Function(PilgrimagePoint point, String? groupId)? onMoveToGroup,
     List<PilgrimageVisitRecord> records = const [],
   }) {
     return showModalBottomSheet<void>(
@@ -67,6 +74,8 @@ class PointDetailSheet extends StatelessWidget {
           onOpenCamera: onOpenCamera,
           onComplete: onComplete,
           onReplaceReference: onReplaceReference,
+          groups: groups,
+          onMoveToGroup: onMoveToGroup,
           records: records,
         );
       },
@@ -111,6 +120,60 @@ class PointDetailSheet extends StatelessWidget {
         const SnackBar(content: Text('无法打开 Google Maps。')),
       );
     }
+  }
+
+  Future<void> _showMoveGroupSheet(BuildContext context) async {
+    final moveToGroup = onMoveToGroup;
+    if (moveToGroup == null) {
+      return;
+    }
+
+    final selectedGroupId = await showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: AppColors.surface,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              const Text(
+                '移动到片区',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _GroupOptionTile(
+                title: '未分入片区',
+                selected: point.groupId == null,
+                onTap: () => Navigator.of(context).pop(''),
+              ),
+              for (final group in groups)
+                _GroupOptionTile(
+                  title: group.name,
+                  selected: point.groupId == group.id,
+                  onTap: () => Navigator.of(context).pop(group.id),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!context.mounted || selectedGroupId == null) {
+      return;
+    }
+
+    final groupId = selectedGroupId.isEmpty ? null : selectedGroupId;
+    await moveToGroup(point, groupId);
+    if (!context.mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   @override
@@ -184,6 +247,12 @@ class PointDetailSheet extends StatelessWidget {
                   label: '坐标',
                   value:
                       '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.grid_view_outlined,
+                  label: '片区',
+                  value: _groupName,
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
@@ -277,6 +346,17 @@ class PointDetailSheet extends StatelessWidget {
                     label: const Text('替换参考图'),
                   ),
                 ),
+                if (onMoveToGroup != null) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showMoveGroupSheet(context),
+                      icon: const Icon(Icons.drive_file_move_outlined, size: 18),
+                      label: const Text('移动片区'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -290,6 +370,52 @@ class PointDetailSheet extends StatelessWidget {
       PointSource.anitabi => 'Anitabi / ${point.referenceLabel}',
       PointSource.manual => '手动录入 / ${point.referenceLabel}',
     };
+  }
+
+  String get _groupName {
+    final groupId = point.groupId;
+    if (groupId == null) {
+      return '未分入片区';
+    }
+    return groups
+        .firstWhere(
+          (group) => group.id == groupId,
+          orElse: () => PilgrimagePlanGroup(
+            id: groupId,
+            name: '未知片区',
+            orderIndex: 0,
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+        )
+        .name;
+  }
+}
+
+class _GroupOptionTile extends StatelessWidget {
+  const _GroupOptionTile({
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: selected ? AppColors.accent : AppColors.textSecondary,
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0),
+      ),
+      onTap: onTap,
+    );
   }
 }
 

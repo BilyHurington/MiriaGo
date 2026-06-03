@@ -16,6 +16,11 @@ Future<void> _pumpAppWithEmptyPlan(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openPlanMenu(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('计划操作').first);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('shows the pilgrimage plan workflow shell', (tester) async {
     await _pumpApp(tester);
@@ -24,7 +29,8 @@ void main() {
     expect(find.text('地图'), findsWidgets);
     expect(find.text('记录'), findsWidgets);
     expect(find.text('示例计划'), findsOneWidget);
-    expect(find.text('当前目标 0/6'), findsOneWidget);
+    expect(find.text('宇治站附近'), findsWidgets);
+    expect(find.text('默认计划'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
     expect(find.textContaining('1 部作品'), findsOneWidget);
   });
@@ -32,7 +38,7 @@ void main() {
   testWidgets('opens camera reference from current target', (tester) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.text('拍摄参考'));
+    await tester.tap(find.byIcon(Icons.photo_camera_outlined).first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -44,7 +50,7 @@ void main() {
   testWidgets('opens shared point detail sheet from plan list', (tester) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.text('点位详情'));
+    await tester.tap(find.text('井用机前步行道').first);
     await tester.pumpAndSettle();
 
     expect(find.text('当前目标'), findsWidgets);
@@ -55,13 +61,13 @@ void main() {
     expect(find.text('标记完成'), findsWidgets);
   });
 
-  testWidgets('shows work filters on the map', (tester) async {
+  testWidgets('shows group filters on the map', (tester) async {
     await _pumpApp(tester);
 
     await tester.tap(find.byIcon(Icons.map_outlined).last);
     await tester.pumpAndSettle();
 
-    expect(find.text('宇治市'), findsOneWidget);
+    expect(find.textContaining('宇治站附近'), findsWidgets);
     expect(find.byTooltip('当前目标'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
   });
@@ -69,7 +75,8 @@ void main() {
   testWidgets('shows work filters in point manager', (tester) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.byTooltip('管理点位'));
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('管理点位'));
     await tester.pumpAndSettle();
 
     expect(find.text('管理点位'), findsOneWidget);
@@ -82,9 +89,9 @@ void main() {
 
     expect(find.textContaining('新巡礼计划 2'), findsWidgets);
     expect(find.text('还没有点位'), findsOneWidget);
-    expect(find.text('添加第一个点位'), findsOneWidget);
+    expect(find.text('添加点位'), findsOneWidget);
 
-    await tester.tap(find.text('添加第一个点位'));
+    await tester.tap(find.text('添加点位'));
     await tester.pumpAndSettle();
 
     expect(find.text('添加内容'), findsOneWidget);
@@ -95,7 +102,8 @@ void main() {
   testWidgets('creates a new plan from the plan manager', (tester) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.byTooltip('切换计划'));
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('切换计划'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '新建计划'));
     await tester.pumpAndSettle();
@@ -107,7 +115,7 @@ void main() {
   testWidgets('adds a manual work to an empty plan', (tester) async {
     await _pumpAppWithEmptyPlan(tester);
 
-    await tester.tap(find.text('添加第一个点位'));
+    await tester.tap(find.text('添加点位'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('作品管理'));
     await tester.pumpAndSettle();
@@ -130,7 +138,7 @@ void main() {
   testWidgets('adds a manual point to an empty plan', (tester) async {
     await _pumpAppWithEmptyPlan(tester);
 
-    await tester.tap(find.text('添加第一个点位'));
+    await tester.tap(find.text('添加点位'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('手动添加点位'));
     await tester.pumpAndSettle();
@@ -160,7 +168,7 @@ void main() {
     await tester.tap(find.text('保存点位'));
     await tester.pumpAndSettle();
 
-    expect(find.text('当前目标 0/1'), findsOneWidget);
+    expect(find.text('未分组'), findsWidgets);
     expect(find.text('鸭川三条'), findsWidgets);
     expect(find.text('轻音少女 / 鸭川沿岸 / 自定义场景 1'), findsWidgets);
   });

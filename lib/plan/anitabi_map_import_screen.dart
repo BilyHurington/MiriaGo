@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -45,6 +47,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   bool _isLoading = false;
   bool _isImporting = false;
   bool _didImportPoints = false;
+  bool _isBoxSelecting = false;
+  Offset? _selectionStart;
+  Offset? _selectionEnd;
 
   List<PilgrimageWork> get _bangumiWorks => widget.plan.works
       .where((work) => work.bangumiId != null)
@@ -121,6 +126,46 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     return null;
   }
 
+  List<AnitabiPoint> get _availablePoints {
+    final work = _selectedWork;
+    if (work == null) {
+      return const [];
+    }
+    return _points
+        .where(
+          (point) => !_importedPointIds.contains(
+            point.toPilgrimagePoint(work).id,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Rect? get _selectionRect {
+    final start = _selectionStart;
+    final end = _selectionEnd;
+    if (start == null || end == null) {
+      return null;
+    }
+    return Rect.fromPoints(start, end);
+  }
+
+  List<AnitabiPoint> _pointsInSelection() {
+    final rect = _selectionRect;
+    final work = _selectedWork;
+    if (rect == null || work == null) {
+      return const [];
+    }
+
+    return _availablePoints
+        .where((point) {
+          final offset = _mapController.camera.latLngToScreenOffset(
+            point.position,
+          );
+          return rect.contains(offset);
+        })
+        .toList(growable: false);
+  }
+
   Future<void> _importSelectedPoint() async {
     final work = _selectedWork;
     final point = _selectedPoint;
@@ -133,19 +178,77 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return;
     }
 
+    await _importPoints(
+      [point],
+      successMessage: '已加入计划，可继续选择点位。',
+      failureMessage: '点位导入失败，请稍后重试。',
+    );
+  }
+
+  Future<void> _importAllAvailablePoints() async {
+    await _importPoints(
+      _availablePoints,
+      successMessage: '已添加所有未加入的点位。',
+      failureMessage: '批量导入失败，请稍后重试。',
+    );
+  }
+
+  Future<void> _importSelectedBoxPoints() async {
+    final points = _pointsInSelection();
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showReplacingSnackBar(const SnackBar(content: Text('框选范围内没有可添加点位')));
+      return;
+    }
+
+    await _importPoints(
+      points,
+      successMessage: '已添加框选点位。',
+      failureMessage: '框选点位导入失败，请稍后重试。',
+    );
+  }
+
+  Future<void> _importPoints(
+    List<AnitabiPoint> points, {
+    required String successMessage,
+    required String failureMessage,
+  }) async {
+    final work = _selectedWork;
+    if (work == null || points.isEmpty || _isImporting) {
+      return;
+    }
+
+    final pilgrimagePoints = points
+        .map((point) => point.toPilgrimagePoint(work))
+        .where((point) => !_importedPointIds.contains(point.id))
+        .toList(growable: false);
+    if (pilgrimagePoints.isEmpty) {
+      return;
+    }
+
     setState(() {
       _isImporting = true;
     });
 
     try {
-      var importedPlan = await widget.repository.addPointToPlan(
-        planId: widget.plan.id,
-        point: pilgrimagePoint,
-      );
-      final thumbnailPath = await reference_image_cache.cacheReferenceThumbnail(
-        pilgrimagePoint,
-      );
-      if (thumbnailPath != null) {
+      var importedPlan = pilgrimagePoints.length == 1
+          ? await widget.repository.addPointToPlan(
+              planId: widget.plan.id,
+              point: pilgrimagePoints.single,
+            )
+          : await widget.repository.addPointsToPlan(
+              planId: widget.plan.id,
+              points: pilgrimagePoints,
+            );
+
+      for (final pilgrimagePoint in pilgrimagePoints) {
+        final thumbnailPath = await reference_image_cache.cacheReferenceThumbnail(
+          pilgrimagePoint,
+        );
+        if (thumbnailPath == null) {
+          continue;
+        }
         importedPlan = await widget.repository.updatePointImageCache(
           planId: widget.plan.id,
           pointId: pilgrimagePoint.id,
@@ -161,12 +264,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
       setState(() {
         _importedPlan = importedPlan;
-        _importedPointIds.add(pilgrimagePoint.id);
+        _importedPointIds.addAll(
+          pilgrimagePoints.map((point) => point.id),
+        );
         _didImportPoints = true;
+        _selectionStart = null;
+        _selectionEnd = null;
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('已加入计划，可继续选择点位。')));
+      ).showReplacingSnackBar(SnackBar(content: Text(successMessage)));
     } catch (_) {
       if (!mounted) {
         return;
@@ -174,7 +281,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('点位导入失败，请稍后重试。')));
+      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
     } finally {
       if (mounted) {
         setState(() {
@@ -182,6 +289,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         });
       }
     }
+  }
+
+  void _toggleBoxSelection() {
+    setState(() {
+      _isBoxSelecting = !_isBoxSelecting;
+      _selectionStart = null;
+      _selectionEnd = null;
+    });
   }
 
   @override
@@ -245,94 +360,130 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               );
             }
 
-            return Stack(
-              children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _lite?.center ?? const LatLng(35.0, 135.0),
-                    initialZoom: _lite?.zoom ?? 12,
-                    minZoom: 4,
-                    maxZoom: 19,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                    ),
-                  ),
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final selectedBoxCount = _pointsInSelection().length;
+
+                return Stack(
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'app.miriago.miriago',
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter:
+                            _lite?.center ?? const LatLng(35.0, 135.0),
+                        initialZoom: _lite?.zoom ?? 12,
+                        minZoom: 4,
+                        maxZoom: 19,
+                        interactionOptions: const InteractionOptions(
+                          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                        ),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'app.miriago.miriago',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            for (final point in _points)
+                              Marker(
+                                point: point.position,
+                                width: 40,
+                                height: 40,
+                                child: _ImportMarker(
+                                  selected: selectedPoint?.id == point.id,
+                                  imported: _importedPointIds.contains(
+                                    point.toPilgrimagePoint(_selectedWork!).id,
+                                  ),
+                                  onTap: () => _selectPoint(point),
+                                ),
+                              ),
+                          ],
+                        ),
+                        RichAttributionWidget(
+                          attributions: [
+                            TextSourceAttribution(
+                              'OpenStreetMap contributors',
+                              onTap: () {
+                                launchUrl(
+                                  Uri.parse(
+                                    'https://www.openstreetmap.org/copyright',
+                                  ),
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    MarkerLayer(
-                      markers: [
-                        for (final point in _points)
-                          Marker(
-                            point: point.position,
-                            width: 40,
-                            height: 40,
-                            child: _ImportMarker(
-                              selected: selectedPoint?.id == point.id,
-                              imported: _importedPointIds.contains(
+                    if (_isBoxSelecting)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: (details) {
+                            setState(() {
+                              _selectionStart = details.localPosition;
+                              _selectionEnd = details.localPosition;
+                            });
+                          },
+                          onPanUpdate: (details) {
+                            setState(() {
+                              _selectionEnd = details.localPosition;
+                            });
+                          },
+                          child: CustomPaint(
+                            painter: _SelectionRectPainter(_selectionRect),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      top: 12,
+                      left: 16,
+                      right: 16,
+                      child: _ImportSummary(
+                        isLoading: _isLoading,
+                        isImporting: _isImporting,
+                        importedCount: _points
+                            .where(
+                              (point) => _importedPointIds.contains(
                                 point.toPilgrimagePoint(_selectedWork!).id,
                               ),
-                              onTap: () => _selectPoint(point),
-                            ),
-                          ),
-                      ],
+                            )
+                            .length,
+                        totalCount: _points.length,
+                        expectedCount: _lite?.pointsLength,
+                        availableCount: _availablePoints.length,
+                        boxSelectionEnabled: _isBoxSelecting,
+                        selectedBoxCount: selectedBoxCount,
+                        onToggleBoxSelection: _toggleBoxSelection,
+                        onImportAll: _importAllAvailablePoints,
+                        onImportSelection: _importSelectedBoxPoints,
+                      ),
                     ),
-                    RichAttributionWidget(
-                      attributions: [
-                        TextSourceAttribution(
-                          'OpenStreetMap contributors',
-                          onTap: () {
-                            launchUrl(
-                              Uri.parse(
-                                'https://www.openstreetmap.org/copyright',
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: selectedPoint == null
+                          ? _NoPointSelectedCard(
+                              hasPoints: _points.isNotEmpty,
+                              expectedCount: _lite?.pointsLength,
+                            )
+                          : _AnitabiPointCard(
+                              point: selectedPoint,
+                              importedPoint: _importedPointFor(selectedPoint),
+                              imported: _importedPointIds.contains(
+                                selectedPoint.toPilgrimagePoint(
+                                  _selectedWork!,
+                                ).id,
                               ),
-                              mode: LaunchMode.externalApplication,
-                            );
-                          },
-                        ),
-                      ],
+                              isImporting: _isImporting,
+                              onImport: _importSelectedPoint,
+                            ),
                     ),
                   ],
-                ),
-                Positioned(
-                  top: 12,
-                  left: 16,
-                  right: 16,
-                  child: _ImportSummary(
-                    isLoading: _isLoading,
-                    importedCount: _points
-                        .where(
-                          (point) => _importedPointIds.contains(
-                            point.toPilgrimagePoint(_selectedWork!).id,
-                          ),
-                        )
-                        .length,
-                    totalCount: _points.length,
-                    expectedCount: _lite?.pointsLength,
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: selectedPoint == null
-                      ? _NoPointSelectedCard(
-                          hasPoints: _points.isNotEmpty,
-                          expectedCount: _lite?.pointsLength,
-                        )
-                      : _AnitabiPointCard(
-                          point: selectedPoint,
-                          importedPoint: _importedPointFor(selectedPoint),
-                          imported: _importedPointIds.contains(
-                            selectedPoint.toPilgrimagePoint(_selectedWork!).id,
-                          ),
-                          isImporting: _isImporting,
-                          onImport: _importSelectedPoint,
-                        ),
-                ),
-              ],
+                );
+              },
             );
           },
         ),
@@ -389,15 +540,29 @@ class _ImportMarker extends StatelessWidget {
 class _ImportSummary extends StatelessWidget {
   const _ImportSummary({
     required this.isLoading,
+    required this.isImporting,
     required this.importedCount,
     required this.totalCount,
     required this.expectedCount,
+    required this.availableCount,
+    required this.boxSelectionEnabled,
+    required this.selectedBoxCount,
+    required this.onToggleBoxSelection,
+    required this.onImportAll,
+    required this.onImportSelection,
   });
 
   final bool isLoading;
+  final bool isImporting;
   final int importedCount;
   final int totalCount;
   final int? expectedCount;
+  final int availableCount;
+  final bool boxSelectionEnabled;
+  final int selectedBoxCount;
+  final VoidCallback onToggleBoxSelection;
+  final VoidCallback onImportAll;
+  final VoidCallback onImportSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -410,33 +575,107 @@ class _ImportSummary extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (isLoading)
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Icon(Icons.map_outlined, color: AppColors.accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              isLoading
-                  ? '正在加载 Anitabi 点位'
-                  : '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
+          Row(
+            children: [
+              if (isLoading || isImporting)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(Icons.map_outlined, color: AppColors.accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isLoading
+                      ? '正在加载 Anitabi 点位'
+                      : '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
+          if (!isLoading) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: isImporting || availableCount == 0
+                        ? null
+                        : onImportAll,
+                    icon: const Icon(Icons.playlist_add_check, size: 18),
+                    label: const Text('添加所有点位'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: boxSelectionEnabled ? '退出框选' : '框选点位',
+                  isSelected: boxSelectionEnabled,
+                  onPressed: isImporting ? null : onToggleBoxSelection,
+                  icon: const Icon(Icons.select_all_outlined),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed:
+                      isImporting || !boxSelectionEnabled || selectedBoxCount == 0
+                      ? null
+                      : onImportSelection,
+                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                  label: Text(
+                    selectedBoxCount == 0 ? '添加框选' : '添加 $selectedBoxCount 个',
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+}
+
+class _SelectionRectPainter extends CustomPainter {
+  const _SelectionRectPainter(this.rect);
+
+  final Rect? rect;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = this.rect;
+    if (rect == null) {
+      return;
+    }
+
+    final normalized = Rect.fromLTRB(
+      math.min(rect.left, rect.right),
+      math.min(rect.top, rect.bottom),
+      math.max(rect.left, rect.right),
+      math.max(rect.top, rect.bottom),
+    );
+    final fillPaint = Paint()
+      ..color = AppColors.accent.withValues(alpha: 0.14)
+      ..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..color = AppColors.accent
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(normalized, fillPaint);
+    canvas.drawRect(normalized, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(_SelectionRectPainter oldDelegate) {
+    return oldDelegate.rect != rect;
   }
 }
 
