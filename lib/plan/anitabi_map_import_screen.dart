@@ -608,31 +608,57 @@ class _ImportSummary extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton.outlined(
+                    tooltip: '添加所有点位',
                     onPressed: isImporting || availableCount == 0
                         ? null
                         : onImportAll,
                     icon: const Icon(Icons.playlist_add_check, size: 18),
-                    label: const Text('添加所有点位'),
+                    style: _summaryIconButtonStyle(false),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: boxSelectionEnabled ? '退出框选' : '框选点位',
-                  isSelected: boxSelectionEnabled,
-                  onPressed: isImporting ? null : onToggleBoxSelection,
-                  icon: const Icon(Icons.select_all_outlined),
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton.outlined(
+                    tooltip: boxSelectionEnabled ? '退出框选' : '框选点位',
+                    isSelected: boxSelectionEnabled,
+                    onPressed: isImporting ? null : onToggleBoxSelection,
+                    icon: const Icon(Icons.select_all_outlined, size: 18),
+                    selectedIcon: const Icon(Icons.select_all, size: 18),
+                    style: _summaryIconButtonStyle(boxSelectionEnabled),
+                  ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed:
-                      isImporting || !boxSelectionEnabled || selectedBoxCount == 0
-                      ? null
-                      : onImportSelection,
-                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-                  label: Text(
-                    selectedBoxCount == 0 ? '添加框选' : '添加 $selectedBoxCount 个',
+                Expanded(
+                  child: SizedBox(
+                    height: 36,
+                    child: FilledButton.icon(
+                      onPressed:
+                          isImporting ||
+                              !boxSelectionEnabled ||
+                              selectedBoxCount == 0
+                          ? null
+                          : onImportSelection,
+                      icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      label: Text(
+                        selectedBoxCount == 0
+                            ? '添加框选'
+                            : '添加 $selectedBoxCount 个',
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -640,6 +666,25 @@ class _ImportSummary extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  ButtonStyle _summaryIconButtonStyle(bool selected) {
+    return IconButton.styleFrom(
+      backgroundColor: selected
+          ? AppColors.accent.withValues(alpha: 0.12)
+          : AppColors.surface,
+      foregroundColor: selected ? AppColors.accentDark : AppColors.textPrimary,
+      disabledBackgroundColor: AppColors.surfaceMuted,
+      disabledForegroundColor: AppColors.textSecondary,
+      fixedSize: const Size.square(36),
+      minimumSize: const Size.square(36),
+      padding: EdgeInsets.zero,
+      side: BorderSide(
+        color: selected ? AppColors.accent : AppColors.border,
+        width: selected ? 2 : 1,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
 }
@@ -701,6 +746,30 @@ class _AnitabiPointCard extends StatelessWidget {
     final fullImageUrl = anitabiFullResolutionImageUrl(point.referenceImageUrl);
     final localThumbnailPath = importedPoint?.referenceThumbnailPath;
     final localFullPath = importedPoint?.referenceFullImagePath;
+    void openFullImage() {
+      if (fullImageUrl == null) {
+        return;
+      }
+      ImageViewerScreen.show(
+        context,
+        filePath: localFullPath,
+        imageUrl: fullImageUrl,
+      );
+    }
+
+    void openDetail() {
+      _AnitabiPointDetailSheet.show(
+        context,
+        point: point,
+        imageUrl: imageUrl,
+        fullImageUrl: fullImageUrl,
+        localThumbnailPath: localThumbnailPath,
+        localFullPath: localFullPath,
+        imported: imported,
+        isImporting: isImporting,
+        onImport: onImport,
+      );
+    }
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
@@ -711,20 +780,14 @@ class _AnitabiPointCard extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Material(
               color: AppColors.surfaceMuted,
               child: InkWell(
-                onTap: fullImageUrl == null
-                    ? null
-                    : () => ImageViewerScreen.show(
-                        context,
-                        filePath: localFullPath,
-                        imageUrl: fullImageUrl,
-                      ),
+                onTap: fullImageUrl == null ? null : openFullImage,
                 child: SizedBox(
                   width: 86,
                   height: 86,
@@ -780,13 +843,39 @@ class _AnitabiPointCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: imported || isImporting ? null : onImport,
-                  icon: Icon(
-                    imported ? Icons.check : Icons.add_location_alt_outlined,
-                    size: 18,
-                  ),
-                  label: Text(imported ? '已加入计划' : '加入计划'),
+                Row(
+                  children: [
+                    SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: openDetail,
+                        icon: const Icon(Icons.image_outlined, size: 17),
+                        label: const Text('详情'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SizedBox(
+                        height: 40,
+                        child: FilledButton.icon(
+                          onPressed: imported || isImporting ? null : onImport,
+                          icon: Icon(
+                            imported
+                                ? Icons.check
+                                : Icons.add_location_alt_outlined,
+                            size: 18,
+                          ),
+                          label: Text(imported ? '已加入' : '加入计划'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -804,6 +893,212 @@ class _AnitabiPointCard extends StatelessWidget {
       point.origin,
       '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
     ].where((value) => value.trim().isNotEmpty).join('\n');
+  }
+}
+
+class _AnitabiPointDetailSheet extends StatelessWidget {
+  const _AnitabiPointDetailSheet({
+    required this.point,
+    required this.imageUrl,
+    required this.fullImageUrl,
+    required this.localThumbnailPath,
+    required this.localFullPath,
+    required this.imported,
+    required this.isImporting,
+    required this.onImport,
+  });
+
+  final AnitabiPoint point;
+  final String? imageUrl;
+  final String? fullImageUrl;
+  final String? localThumbnailPath;
+  final String? localFullPath;
+  final bool imported;
+  final bool isImporting;
+  final VoidCallback onImport;
+
+  static Future<void> show(
+    BuildContext context, {
+    required AnitabiPoint point,
+    required String? imageUrl,
+    required String? fullImageUrl,
+    required String? localThumbnailPath,
+    required String? localFullPath,
+    required bool imported,
+    required bool isImporting,
+    required VoidCallback onImport,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      builder: (context) => _AnitabiPointDetailSheet(
+        point: point,
+        imageUrl: imageUrl,
+        fullImageUrl: fullImageUrl,
+        localThumbnailPath: localThumbnailPath,
+        localFullPath: localFullPath,
+        imported: imported,
+        isImporting: isImporting,
+        onImport: onImport,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.78;
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Material(
+                      color: AppColors.surfaceMuted,
+                      child: InkWell(
+                        onTap: fullImageUrl == null
+                            ? null
+                            : () => ImageViewerScreen.show(
+                                context,
+                                filePath: localFullPath,
+                                imageUrl: fullImageUrl,
+                              ),
+                        child: SizedBox(
+                          width: 112,
+                          height: 112,
+                          child: ReferenceThumbnail(
+                            localPath: localThumbnailPath,
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: const Icon(Icons.image_outlined),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CopyableText(
+                          text: point.name,
+                          copyLabel: '点位名称',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _AnitabiDetailInfoLine(
+                          icon: Icons.local_movies_outlined,
+                          label: '场景',
+                          value: '${point.subtitle} / ${point.episodeLabel}',
+                        ),
+                        const SizedBox(height: 6),
+                        _AnitabiDetailInfoLine(
+                          icon: Icons.source_outlined,
+                          label: '来源',
+                          value: point.origin,
+                        ),
+                        const SizedBox(height: 6),
+                        _AnitabiDetailInfoLine(
+                          icon: Icons.location_on_outlined,
+                          label: '坐标',
+                          value:
+                              '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: FilledButton.icon(
+                  onPressed: imported || isImporting
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          onImport();
+                        },
+                  icon: Icon(
+                    imported ? Icons.check : Icons.add_location_alt_outlined,
+                    size: 18,
+                  ),
+                  label: Text(imported ? '已加入计划' : '加入计划'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnitabiDetailInfoLine extends StatelessWidget {
+  const _AnitabiDetailInfoLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.textSecondary, size: 18),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 38,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: CopyableText(
+            text: value,
+            copyLabel: label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

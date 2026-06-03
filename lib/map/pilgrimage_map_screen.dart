@@ -196,13 +196,15 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
     }
     final selectedGroup = groups.isEmpty ? null : groups[_selectedGroupIndex];
-    final visiblePoints = selectedGroup?.points ?? _controller.points;
     final selectedPoint =
-        visiblePoints.any((point) => point.id == _controller.selectedPoint?.id)
+        _controller.points.any(
+          (point) => point.id == _controller.selectedPoint?.id,
+        )
         ? _controller.selectedPoint
         : null;
-    final initialCenter =
-        selectedGroup == null ? _fallbackCenter : groupMapCenter(selectedGroup);
+    final initialCenter = selectedGroup == null
+        ? _fallbackCenter
+        : groupMapCenter(selectedGroup);
     final selectedGroupId = selectedGroup?.id ?? '';
 
     return Scaffold(
@@ -233,7 +235,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  for (final point in visiblePoints)
+                  for (final point in _controller.points)
                     Marker(
                       point: point.position,
                       width: 44,
@@ -372,7 +374,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                 ),
                 title: Text(group.name),
                 subtitle: Text(group.anchorLabel),
-                trailing: Text('${group.completedCount} / ${group.points.length}'),
+                trailing: Text(
+                  '${group.completedCount} / ${group.points.length}',
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   _selectGroup(index, groups);
@@ -447,11 +451,7 @@ class _MapFloatingIconButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Center(child: child),
-          ),
+          child: SizedBox(width: 38, height: 38, child: Center(child: child)),
         ),
       ),
     );
