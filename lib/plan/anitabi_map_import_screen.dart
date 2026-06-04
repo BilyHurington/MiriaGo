@@ -14,10 +14,13 @@ import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
 import '../widgets/copyable_text.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
+import 'plan_group_manager_screen.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
   AnitabiMapImportScreen({
@@ -133,9 +136,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     }
     return _points
         .where(
-          (point) => !_importedPointIds.contains(
-            point.toPilgrimagePoint(work).id,
-          ),
+          (point) =>
+              !_importedPointIds.contains(point.toPilgrimagePoint(work).id),
         )
         .toList(growable: false);
   }
@@ -186,8 +188,18 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   Future<void> _importAllAvailablePoints() async {
+    final points = _availablePoints;
+    final confirmed = await _confirmBulkImport(
+      title: '添加所有点位',
+      message: '将把当前作品中 ${points.length} 个还不在计划里的点位加入计划，并暂时放在未分组。',
+      confirmLabel: '添加全部',
+    );
+    if (!confirmed) {
+      return;
+    }
+
     await _importPoints(
-      _availablePoints,
+      points,
       successMessage: '已添加所有未加入的点位。',
       failureMessage: '批量导入失败，请稍后重试。',
     );
@@ -199,6 +211,15 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       ScaffoldMessenger.of(
         context,
       ).showReplacingSnackBar(const SnackBar(content: Text('框选范围内没有可添加点位')));
+      return;
+    }
+
+    final confirmed = await _confirmBulkImport(
+      title: '添加框选点位',
+      message: '将把框选范围内 ${points.length} 个还不在计划里的点位加入计划，并暂时放在未分组。',
+      confirmLabel: '添加框选',
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -243,9 +264,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
             );
 
       for (final pilgrimagePoint in pilgrimagePoints) {
-        final thumbnailPath = await reference_image_cache.cacheReferenceThumbnail(
-          pilgrimagePoint,
-        );
+        final thumbnailPath = await reference_image_cache
+            .cacheReferenceThumbnail(pilgrimagePoint);
         if (thumbnailPath == null) {
           continue;
         }
@@ -264,9 +284,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
       setState(() {
         _importedPlan = importedPlan;
-        _importedPointIds.addAll(
-          pilgrimagePoints.map((point) => point.id),
-        );
+        _importedPointIds.addAll(pilgrimagePoints.map((point) => point.id));
         _didImportPoints = true;
         _selectionStart = null;
         _selectionEnd = null;
@@ -274,6 +292,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       ScaffoldMessenger.of(
         context,
       ).showReplacingSnackBar(SnackBar(content: Text(successMessage)));
+      if (pilgrimagePoints.length > 1) {
+        await _showOrganizeImportedPointsGuide(pilgrimagePoints.length);
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -289,6 +310,114 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         });
       }
     }
+  }
+
+  Future<bool> _confirmBulkImport({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    return showConfirmActionDialog(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      icon: Icons.playlist_add_check_outlined,
+    );
+  }
+
+  Future<void> _showOrganizeImportedPointsGuide(int importedCount) async {
+    final action = await showDialog<_ImportOrganizeAction>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('整理刚导入的点位'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('已导入 $importedCount 个点位，并暂时放在未分组。可以先创建片区和关键点，再按最近关键点快速分配。'),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(_ImportOrganizeAction.nearestAssign),
+              child: const Text('最近分配'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(_ImportOrganizeAction.groupManager),
+              child: const Text('片区管理'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(_ImportOrganizeAction.later),
+              child: const Text('稍后'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null || action == _ImportOrganizeAction.later) {
+      return;
+    }
+
+    switch (action) {
+      case _ImportOrganizeAction.groupManager:
+        await _openGroupManager();
+      case _ImportOrganizeAction.nearestAssign:
+        await _openNearestAssign();
+      case _ImportOrganizeAction.later:
+        break;
+    }
+  }
+
+  Future<void> _openGroupManager() async {
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PlanGroupManagerScreen(
+          plan: _importedPlan,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (didUpdate == true) {
+      await _reloadImportedPlan();
+    }
+  }
+
+  Future<void> _openNearestAssign() async {
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => NearestGroupAssignScreen(
+          plan: _importedPlan,
+          settings: settings,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (didUpdate == true) {
+      await _reloadImportedPlan();
+    }
+  }
+
+  Future<void> _reloadImportedPlan() async {
+    final plan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _importedPlan = plan;
+      _importedPointIds
+        ..clear()
+        ..addAll(plan.points.map((point) => point.id));
+      _didImportPoints = true;
+    });
   }
 
   void _toggleBoxSelection() {
@@ -473,9 +602,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                               point: selectedPoint,
                               importedPoint: _importedPointFor(selectedPoint),
                               imported: _importedPointIds.contains(
-                                selectedPoint.toPilgrimagePoint(
-                                  _selectedWork!,
-                                ).id,
+                                selectedPoint
+                                    .toPilgrimagePoint(_selectedWork!)
+                                    .id,
                               ),
                               isImporting: _isImporting,
                               onImport: _importSelectedPoint,
@@ -507,6 +636,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     return '请检查网络后重试，或稍后再重新加载。';
   }
 }
+
+enum _ImportOrganizeAction { later, groupManager, nearestAssign }
 
 class _ImportMarker extends StatelessWidget {
   const _ImportMarker({
@@ -644,7 +775,10 @@ class _ImportSummary extends StatelessWidget {
                               selectedBoxCount == 0
                           ? null
                           : onImportSelection,
-                      icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+                      icon: const Icon(
+                        Icons.add_location_alt_outlined,
+                        size: 16,
+                      ),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         textStyle: const TextStyle(

@@ -10,6 +10,7 @@ import '../data/pilgrimage_repository.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_utils.dart';
@@ -281,26 +282,15 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       ).showReplacingSnackBar(const SnackBar(content: Text('当前距离内没有可分配点位')));
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认最近分配'),
-        content: Text(
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '确认最近分配',
+      message:
           '将把 $count 个未分组点位分配到最近的片区关键点，最大距离为 ${_formatDistance(_distanceMeters)}。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('开始分配'),
-          ),
-        ],
-      ),
+      confirmLabel: '开始分配',
+      icon: Icons.near_me_outlined,
     );
-    if (confirmed != true || !mounted) {
+    if (!confirmed || !mounted) {
       return;
     }
 
@@ -357,6 +347,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       },
       onComplete: () {},
       onReplaceReference: _replaceReferenceImage,
+      actionScope: PointDetailActionScope.assign,
       groups: _plan.groups,
       onMoveToGroup: _movePointToGroup,
     );
@@ -676,24 +667,14 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       ).showReplacingSnackBar(const SnackBar(content: Text('框选范围内没有未分组点位')));
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认框选分配'),
-        content: Text('将把 ${points.length} 个未分组点位移动到「${targetGroup.name}」。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('分配'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '确认框选分配',
+      message: '将把 ${points.length} 个未分组点位移动到「${targetGroup.name}」。',
+      confirmLabel: '分配',
+      icon: Icons.select_all_outlined,
     );
-    if (confirmed != true || !mounted) {
+    if (!confirmed || !mounted) {
       return;
     }
 
@@ -746,6 +727,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       },
       onComplete: () {},
       onReplaceReference: _replaceReferenceImage,
+      actionScope: PointDetailActionScope.assign,
       groups: _plan.groups,
       onMoveToGroup: _movePointToGroup,
     );

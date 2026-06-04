@@ -14,14 +14,17 @@ import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
+enum PointDetailActionScope { visit, manage, assign }
+
 class PointDetailSheet extends StatelessWidget {
   const PointDetailSheet({
     required this.point,
     required this.status,
-    required this.onSetCurrent,
-    required this.onOpenCamera,
-    required this.onComplete,
     required this.onReplaceReference,
+    this.onSetCurrent,
+    this.onOpenCamera,
+    this.onComplete,
+    this.actionScope = PointDetailActionScope.visit,
     this.groups = const [],
     this.onMoveToGroup,
     this.records = const [],
@@ -31,14 +34,15 @@ class PointDetailSheet extends StatelessWidget {
 
   final PilgrimagePoint point;
   final VisitStatus status;
-  final VoidCallback onSetCurrent;
-  final VoidCallback onOpenCamera;
-  final VoidCallback onComplete;
+  final VoidCallback? onSetCurrent;
+  final VoidCallback? onOpenCamera;
+  final VoidCallback? onComplete;
   final Future<void> Function(
     PilgrimagePoint point,
     StoredUserReferenceImage image,
   )
   onReplaceReference;
+  final PointDetailActionScope actionScope;
   final List<PilgrimagePlanGroup> groups;
   final Future<void> Function(PilgrimagePoint point, String? groupId)?
   onMoveToGroup;
@@ -49,16 +53,18 @@ class PointDetailSheet extends StatelessWidget {
     BuildContext context, {
     required PilgrimagePoint point,
     required VisitStatus status,
-    required VoidCallback onSetCurrent,
-    required VoidCallback onOpenCamera,
-    required VoidCallback onComplete,
     required Future<void> Function(
       PilgrimagePoint point,
       StoredUserReferenceImage image,
     )
     onReplaceReference,
+    VoidCallback? onSetCurrent,
+    VoidCallback? onOpenCamera,
+    VoidCallback? onComplete,
+    PointDetailActionScope actionScope = PointDetailActionScope.visit,
     List<PilgrimagePlanGroup> groups = const [],
-    Future<void> Function(PilgrimagePoint point, String? groupId)? onMoveToGroup,
+    Future<void> Function(PilgrimagePoint point, String? groupId)?
+    onMoveToGroup,
     List<PilgrimageVisitRecord> records = const [],
   }) {
     return showModalBottomSheet<void>(
@@ -74,6 +80,7 @@ class PointDetailSheet extends StatelessWidget {
           onOpenCamera: onOpenCamera,
           onComplete: onComplete,
           onReplaceReference: onReplaceReference,
+          actionScope: actionScope,
           groups: groups,
           onMoveToGroup: onMoveToGroup,
           records: records,
@@ -193,8 +200,13 @@ class PointDetailSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ReferencePreview(point: point, status: status),
+                    _ReferenceColumn(
+                      point: point,
+                      status: status,
+                      onReplace: () => _replaceReferenceImage(context),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -249,10 +261,12 @@ class PointDetailSheet extends StatelessWidget {
                       '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
                 ),
                 const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.grid_view_outlined,
-                  label: '片区',
-                  value: _groupName,
+                _GroupInfoRow(
+                  groupName: _groupName,
+                  anchorLabel: _groupAnchorLabel,
+                  onMove: onMoveToGroup == null
+                      ? null
+                      : () => _showMoveGroupSheet(context),
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
@@ -287,76 +301,24 @@ class PointDetailSheet extends StatelessWidget {
                   _PointRecordsPreview(records: records),
                 ],
                 const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => _openNavigation(context),
-                        icon: const Icon(Icons.near_me_outlined, size: 18),
-                        label: const Text('导航'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
+                _PointDetailActions(
+                  scope: actionScope,
+                  status: status,
+                  onOpenNavigation: () => _openNavigation(context),
+                  onOpenCamera: onOpenCamera == null
+                      ? null
+                      : () {
                           Navigator.of(context).pop();
-                          onOpenCamera();
+                          onOpenCamera!();
                         },
-                        icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                        label: const Text('拍摄参考'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: status == VisitStatus.current
-                            ? null
-                            : () {
-                                Navigator.of(context).pop();
-                                onSetCurrent();
-                              },
-                        icon: const Icon(Icons.flag_outlined, size: 18),
-                        label: const Text('设为当前'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
+                  onSetCurrent: onSetCurrent == null
+                      ? null
+                      : () {
                           Navigator.of(context).pop();
-                          onComplete();
+                          onSetCurrent!();
                         },
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text('标记完成'),
-                      ),
-                    ),
-                  ],
+                  statusAction: onComplete == null ? null : _statusAction,
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _replaceReferenceImage(context),
-                    icon: const Icon(Icons.image_search_outlined, size: 18),
-                    label: const Text('替换参考图'),
-                  ),
-                ),
-                if (onMoveToGroup != null) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showMoveGroupSheet(context),
-                      icon: const Icon(Icons.drive_file_move_outlined, size: 18),
-                      label: const Text('移动片区'),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -369,6 +331,26 @@ class PointDetailSheet extends StatelessWidget {
     return switch (point.source) {
       PointSource.anitabi => 'Anitabi / ${point.referenceLabel}',
       PointSource.manual => '手动录入 / ${point.referenceLabel}',
+    };
+  }
+
+  _PointStatusAction get _statusAction {
+    return switch (status) {
+      VisitStatus.completed => _PointStatusAction(
+        label: '重新打开',
+        icon: Icons.replay_outlined,
+        onTap: onComplete!,
+      ),
+      VisitStatus.current => _PointStatusAction(
+        label: '标记完成',
+        icon: Icons.check_circle_outline,
+        onTap: onComplete!,
+      ),
+      VisitStatus.pending => _PointStatusAction(
+        label: '标记完成',
+        icon: Icons.check_circle_outline,
+        onTap: onComplete!,
+      ),
     };
   }
 
@@ -389,6 +371,106 @@ class PointDetailSheet extends StatelessWidget {
         )
         .name;
   }
+
+  String get _groupAnchorLabel {
+    final groupId = point.groupId;
+    if (groupId == null) {
+      return '未设置关键点';
+    }
+    final group = groups.where((group) => group.id == groupId).firstOrNull;
+    final anchorName = group?.anchorName;
+    if (anchorName == null || anchorName.trim().isEmpty) {
+      return '未设置关键点';
+    }
+    return anchorName;
+  }
+}
+
+class _PointDetailActions extends StatelessWidget {
+  const _PointDetailActions({
+    required this.scope,
+    required this.status,
+    required this.onOpenNavigation,
+    required this.onOpenCamera,
+    required this.onSetCurrent,
+    required this.statusAction,
+  });
+
+  final PointDetailActionScope scope;
+  final VisitStatus status;
+  final VoidCallback onOpenNavigation;
+  final VoidCallback? onOpenCamera;
+  final VoidCallback? onSetCurrent;
+  final _PointStatusAction? statusAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryActions = <Widget>[
+      Expanded(
+        child: FilledButton.icon(
+          onPressed: onOpenNavigation,
+          icon: const Icon(Icons.near_me_outlined, size: 18),
+          label: const Text('导航'),
+        ),
+      ),
+      if (scope == PointDetailActionScope.visit && onOpenCamera != null) ...[
+        const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onOpenCamera,
+            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+            label: const Text('拍摄参考'),
+          ),
+        ),
+      ],
+    ];
+
+    final managementActions = <Widget>[
+      if (scope != PointDetailActionScope.assign && onSetCurrent != null)
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: status == VisitStatus.current ? null : onSetCurrent,
+            icon: const Icon(Icons.flag_outlined, size: 18),
+            label: const Text('设为当前'),
+          ),
+        ),
+      if (scope != PointDetailActionScope.assign && statusAction != null) ...[
+        if (onSetCurrent != null) const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              statusAction!.onTap();
+            },
+            icon: Icon(statusAction!.icon, size: 18),
+            label: Text(statusAction!.label),
+          ),
+        ),
+      ],
+    ];
+
+    return Column(
+      children: [
+        Row(children: primaryActions),
+        if (managementActions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(children: managementActions),
+        ],
+      ],
+    );
+  }
+}
+
+class _PointStatusAction {
+  const _PointStatusAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
 }
 
 class _GroupOptionTile extends StatelessWidget {
@@ -419,11 +501,16 @@ class _GroupOptionTile extends StatelessWidget {
   }
 }
 
-class _ReferencePreview extends StatelessWidget {
-  const _ReferencePreview({required this.point, required this.status});
+class _ReferenceColumn extends StatelessWidget {
+  const _ReferenceColumn({
+    required this.point,
+    required this.status,
+    required this.onReplace,
+  });
 
   final PilgrimagePoint point;
   final VisitStatus status;
+  final VoidCallback onReplace;
 
   @override
   Widget build(BuildContext context) {
@@ -433,29 +520,141 @@ class _ReferencePreview extends StatelessWidget {
       VisitStatus.pending => AppColors.accentDark,
     };
 
-    return GestureDetector(
-      onTap: () => ImageViewerScreen.show(
-        context,
-        filePath: point.referenceFullImagePath,
-        imageUrl: point.referenceImageUrl,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 76,
-          height: 76,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceMuted,
-            border: Border.all(color: AppColors.border),
+    return SizedBox(
+      width: 76,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: () => ImageViewerScreen.show(
+              context,
+              filePath: point.referenceFullImagePath,
+              imageUrl: point.referenceImageUrl,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: ReferenceThumbnail(
+                  localPath: point.referenceThumbnailPath,
+                  imageUrl: point.referenceImageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: Icon(
+                    Icons.image_outlined,
+                    color: color,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
           ),
-          child: ReferenceThumbnail(
-            localPath: point.referenceThumbnailPath,
-            imageUrl: point.referenceImageUrl,
-            fit: BoxFit.cover,
-            placeholder: Icon(Icons.image_outlined, color: color, size: 28),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 30,
+            child: OutlinedButton(
+              onPressed: onReplace,
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              child: const Text('替换'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupInfoRow extends StatelessWidget {
+  const _GroupInfoRow({
+    required this.groupName,
+    required this.anchorLabel,
+    required this.onMove,
+  });
+
+  final String groupName;
+  final String anchorLabel;
+  final VoidCallback? onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.grid_view_outlined,
+          color: AppColors.textSecondary,
+          size: 19,
+        ),
+        const SizedBox(width: 8),
+        const SizedBox(
+          width: 42,
+          child: Text(
+            '片区',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
           ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CopyableText(
+                text: groupName,
+                copyLabel: '片区',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 2),
+              CopyableText(
+                text: anchorLabel,
+                copyLabel: '片区关键点',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (onMove != null) ...[
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 32,
+            child: OutlinedButton(
+              onPressed: onMove,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              child: const Text('更改'),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -13,6 +13,7 @@ import '../data/reference_image_cache_stub.dart'
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
@@ -177,101 +178,101 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         group.group?.orderMode == PlanGroupOrderMode.manual &&
         !_selectionMode;
 
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: _PlanManagerHeader(
+        plan: _plan,
+        group: group,
+        groupIndex: _selectedGroupIndex,
+        groupNumber: _actualGroupNumber(group),
+        groupCount: _actualGroupCount,
+        selectionMode: _selectionMode,
+        onPreviousGroup: _previousGroup,
+        onNextGroup: _nextGroup,
+        onGroupTap: () => _showGroupSheet(_groups),
+        onAnchorTap: () => _showAnchorSheet(group),
+        onOrderTap: () => _showOrderModeSheet(group),
+        onNearestAssign: _openNearestAssign,
+        onBoxAssign: _openBoxAssign,
+      ),
+    );
+
     if (canManualReorder) {
-      return ReorderableListView.builder(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
-        header: _PlanManagerHeader(
-          plan: _plan,
-          group: group,
-          groupIndex: _selectedGroupIndex,
-          groupNumber: _actualGroupNumber(group),
-          groupCount: _actualGroupCount,
-          selectionMode: _selectionMode,
-          onPreviousGroup: _previousGroup,
-          onNextGroup: _nextGroup,
-          onGroupTap: () => _showGroupSheet(_groups),
-          onAnchorTap: () => _showAnchorSheet(group),
-          onOrderTap: () => _showOrderModeSheet(group),
-          onNearestAssign: _openNearestAssign,
-          onBoxAssign: _openBoxAssign,
-        ),
-        itemCount: group.points.length,
-        buildDefaultDragHandles: false,
-        proxyDecorator: cleanReorderProxy,
-        onReorderItem: _handleGroupReorder,
-        itemBuilder: (context, index) {
-          final point = group.points[index];
-          return Padding(
-            key: ValueKey(point.id),
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _PointManagerTile(
-              index: index,
-              point: point,
-              groupName: group.name,
-              status: _statusFor(point),
-              isBusy: _isSaving,
-              selectionMode: false,
-              selected: false,
-              canDrag: true,
-              onOpenDetail: () => _showPointDetail(point),
-              onToggleSelected: () => _togglePointSelection(point),
-              onLongPress: () => _startSelection(point),
-              onMove: () => _moveSinglePointToGroup(point),
-              onSetCurrent: () => _setCurrent(point),
-              onComplete: () => _complete(point),
-              onReopen: () => _reopen(point),
-              onDelete: () => _confirmDelete(point),
+      return Column(
+        children: [
+          header,
+          Expanded(
+            child: ReorderableListView.builder(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
+              itemCount: group.points.length,
+              buildDefaultDragHandles: false,
+              proxyDecorator: cleanReorderProxy,
+              onReorderItem: _handleGroupReorder,
+              itemBuilder: (context, index) {
+                final point = group.points[index];
+                return Padding(
+                  key: ValueKey(point.id),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _PointManagerTile(
+                    index: index,
+                    point: point,
+                    groupName: group.name,
+                    status: _statusFor(point),
+                    isBusy: _isSaving,
+                    selectionMode: false,
+                    selected: false,
+                    canDrag: true,
+                    onOpenDetail: () => _showPointDetail(point),
+                    onToggleSelected: () => _togglePointSelection(point),
+                    onLongPress: () => _startSelection(point),
+                    onMove: () => _moveSinglePointToGroup(point),
+                    onSetCurrent: () => _setCurrent(point),
+                    onComplete: () => _complete(point),
+                    onReopen: () => _reopen(point),
+                    onDelete: () => _confirmDelete(point),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
-      itemCount: group.points.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _PlanManagerHeader(
-            plan: _plan,
-            group: group,
-            groupIndex: _selectedGroupIndex,
-            groupNumber: _actualGroupNumber(group),
-            groupCount: _actualGroupCount,
-            selectionMode: _selectionMode,
-            onPreviousGroup: _previousGroup,
-            onNextGroup: _nextGroup,
-            onGroupTap: () => _showGroupSheet(_groups),
-            onAnchorTap: () => _showAnchorSheet(group),
-            onOrderTap: () => _showOrderModeSheet(group),
-            onNearestAssign: _openNearestAssign,
-            onBoxAssign: _openBoxAssign,
-          );
-        }
-
-        final point = group.points[index - 1];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _PointManagerTile(
-            index: index - 1,
-            point: point,
-            groupName: group.name,
-            status: _statusFor(point),
-            isBusy: _isSaving,
-            selectionMode: _selectionMode,
-            selected: _selectedPointIds.contains(point.id),
-            canDrag: false,
-            onOpenDetail: () => _showPointDetail(point),
-            onToggleSelected: () => _togglePointSelection(point),
-            onLongPress: () => _startSelection(point),
-            onMove: () => _moveSinglePointToGroup(point),
-            onSetCurrent: () => _setCurrent(point),
-            onComplete: () => _complete(point),
-            onReopen: () => _reopen(point),
-            onDelete: () => _confirmDelete(point),
+    return Column(
+      children: [
+        header,
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
+            itemCount: group.points.length,
+            itemBuilder: (context, index) {
+              final point = group.points[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _PointManagerTile(
+                  index: index,
+                  point: point,
+                  groupName: group.name,
+                  status: _statusFor(point),
+                  isBusy: _isSaving,
+                  selectionMode: _selectionMode,
+                  selected: _selectedPointIds.contains(point.id),
+                  canDrag: false,
+                  onOpenDetail: () => _showPointDetail(point),
+                  onToggleSelected: () => _togglePointSelection(point),
+                  onLongPress: () => _startSelection(point),
+                  onMove: () => _moveSinglePointToGroup(point),
+                  onSetCurrent: () => _setCurrent(point),
+                  onComplete: () => _complete(point),
+                  onReopen: () => _reopen(point),
+                  onDelete: () => _confirmDelete(point),
+                ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -618,6 +619,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
           ? _reopen(currentPoint)
           : _complete(currentPoint),
       onReplaceReference: _replaceReferenceImage,
+      actionScope: PointDetailActionScope.manage,
       groups: _plan.groups,
       onMoveToGroup: _movePointToGroup,
     );
@@ -759,25 +761,15 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Future<void> _confirmDelete(PilgrimagePoint point) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除点位'),
-        content: Text('确定从计划中删除「${point.name}」吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '删除点位',
+      message: '确定从计划中删除「${point.name}」吗？',
+      confirmLabel: '删除',
+      icon: Icons.delete_outline,
+      destructive: true,
     );
-    if (confirmed != true || !mounted) {
+    if (!confirmed || !mounted) {
       return;
     }
     await _savePlanChange(
@@ -793,25 +785,15 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (_selectedPointIds.isEmpty) {
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('批量删除点位'),
-        content: Text('确定从计划中删除 ${_selectedPointIds.length} 个点位吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '批量删除点位',
+      message: '确定从计划中删除 ${_selectedPointIds.length} 个点位吗？',
+      confirmLabel: '删除',
+      icon: Icons.delete_outline,
+      destructive: true,
     );
-    if (confirmed != true || !mounted) {
+    if (!confirmed || !mounted) {
       return;
     }
     final pointIds = {..._selectedPointIds};

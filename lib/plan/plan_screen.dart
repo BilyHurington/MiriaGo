@@ -260,7 +260,9 @@ class _PlanScreenState extends State<PlanScreen> {
       status: controller.statusFor(point),
       onSetCurrent: () => controller.setCurrentPoint(point),
       onOpenCamera: () => _openCamera(context, point),
-      onComplete: () => controller.completePoint(point),
+      onComplete: () => controller.statusFor(point) == VisitStatus.completed
+          ? controller.reopenPoint(point)
+          : controller.completePoint(point),
       onReplaceReference: (point, image) => controller.updatePointImageCache(
         point,
         referenceThumbnailPath: image.thumbnailPath,
