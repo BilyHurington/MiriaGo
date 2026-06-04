@@ -84,6 +84,7 @@ class AppSettings {
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
     this.referenceImageScale = 1,
+    this.nearestAssignDistanceMeters = 350,
     this.themePalette = AppThemePalette.classicGreen,
   });
 
@@ -93,6 +94,7 @@ class AppSettings {
   final double cameraMinZoom;
   final double cameraMaxZoom;
   final double referenceImageScale;
+  final double nearestAssignDistanceMeters;
   final AppThemePalette themePalette;
 
   AppSettings copyWith({
@@ -102,6 +104,7 @@ class AppSettings {
     double? cameraMinZoom,
     double? cameraMaxZoom,
     double? referenceImageScale,
+    double? nearestAssignDistanceMeters,
     AppThemePalette? themePalette,
   }) {
     return AppSettings(
@@ -113,6 +116,8 @@ class AppSettings {
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
       referenceImageScale: referenceImageScale ?? this.referenceImageScale,
+      nearestAssignDistanceMeters:
+          nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
     );
   }

@@ -102,6 +102,8 @@ class AppSettingsEntries extends Table {
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
   RealColumn get referenceImageScale =>
       real().withDefault(const Constant(1.0))();
+  RealColumn get nearestAssignDistanceMeters =>
+      real().withDefault(const Constant(350.0))();
   TextColumn get themePalette =>
       text().withDefault(const Constant('classicGreen'))();
 
@@ -116,7 +118,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -182,6 +184,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(planGroups);
         await migrator.addColumn(points, points.groupId);
         await migrator.addColumn(points, points.groupOrderIndex);
+      }
+      if (from < 12) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.nearestAssignDistanceMeters,
+        );
       }
     },
   );

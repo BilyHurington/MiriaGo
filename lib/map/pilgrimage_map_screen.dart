@@ -598,24 +598,24 @@ class _PointCard extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
+                    if (point.referenceImageUrl != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        point.displayEpisodeLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-          if (point.referenceImageUrl != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              point.displayEpisodeLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
           if (recordCount > 0) ...[
             const SizedBox(height: 8),
             _MapRecordBadge(count: recordCount),

@@ -59,6 +59,11 @@ abstract interface class PilgrimageRepository {
     required String name,
   });
 
+  Future<PilgrimagePlan> updatePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  });
+
   Future<PilgrimagePlan> deletePlanGroup({
     required String planId,
     required String groupId,

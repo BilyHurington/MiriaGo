@@ -59,6 +59,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       cameraMinZoom: row.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
       referenceImageScale: row.referenceImageScale.clamp(0.8, 1.0),
+      nearestAssignDistanceMeters: row.nearestAssignDistanceMeters.clamp(
+        50.0,
+        5000.0,
+      ),
       themePalette: _themePaletteFromName(row.themePalette),
     );
   }
@@ -285,6 +289,30 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           (table) => table.planId.equals(planId) & table.id.equals(groupId),
         ))
         .write(PlanGroupsCompanion(name: Value(name)));
+    await _touchPlan(planId);
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    await (_database.update(_database.planGroups)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(group.id),
+        ))
+        .write(
+          PlanGroupsCompanion(
+            name: Value(group.name),
+            orderIndex: Value(group.orderIndex),
+            orderMode: Value(group.orderMode.name),
+            anchorName: Value(group.anchorName),
+            anchorLatitude: Value(group.anchorLatitude),
+            anchorLongitude: Value(group.anchorLongitude),
+            anchorPointId: Value(group.anchorPointId),
+            note: Value(group.note),
+          ),
+        );
     await _touchPlan(planId);
     return _planFromRow(await _planRowById(planId));
   }
@@ -688,6 +716,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
             referenceImageScale: Value(
               settings.referenceImageScale.clamp(0.8, 1.0),
+            ),
+            nearestAssignDistanceMeters: Value(
+              settings.nearestAssignDistanceMeters.clamp(50.0, 5000.0),
             ),
             themePalette: Value(settings.themePalette.name),
           ),

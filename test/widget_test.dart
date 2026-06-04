@@ -28,7 +28,7 @@ void main() {
     expect(find.text('计划'), findsWidgets);
     expect(find.text('地图'), findsWidgets);
     expect(find.text('记录'), findsWidgets);
-    expect(find.text('示例计划'), findsOneWidget);
+    expect(find.text('示例计划'), findsWidgets);
     expect(find.text('宇治站附近'), findsWidgets);
     expect(find.text('默认计划'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
@@ -72,15 +72,16 @@ void main() {
     expect(find.text('井用机前步行道'), findsWidgets);
   });
 
-  testWidgets('shows work filters in point manager', (tester) async {
+  testWidgets('shows plan manager', (tester) async {
     await _pumpApp(tester);
 
     await _openPlanMenu(tester);
-    await tester.tap(find.text('管理点位'));
+    await tester.tap(find.text('管理计划'));
     await tester.pumpAndSettle();
 
-    expect(find.text('管理点位'), findsOneWidget);
-    expect(find.text('缓存完整参考图'), findsOneWidget);
+    expect(find.text('管理计划'), findsOneWidget);
+    expect(find.textContaining('关键点'), findsWidgets);
+    expect(find.text('无序'), findsWidgets);
     expect(find.text('井用机前步行道'), findsOneWidget);
   });
 

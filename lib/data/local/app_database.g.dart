@@ -3726,6 +3726,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant(1.0),
       );
+  static const VerificationMeta _nearestAssignDistanceMetersMeta =
+      const VerificationMeta('nearestAssignDistanceMeters');
+  @override
+  late final GeneratedColumn<double> nearestAssignDistanceMeters =
+      GeneratedColumn<double>(
+        'nearest_assign_distance_meters',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(350.0),
+      );
   static const VerificationMeta _themePaletteMeta = const VerificationMeta(
     'themePalette',
   );
@@ -3747,6 +3759,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     cameraMinZoom,
     cameraMaxZoom,
     referenceImageScale,
+    nearestAssignDistanceMeters,
     themePalette,
   ];
   @override
@@ -3817,6 +3830,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('nearest_assign_distance_meters')) {
+      context.handle(
+        _nearestAssignDistanceMetersMeta,
+        nearestAssignDistanceMeters.isAcceptableOrUnknown(
+          data['nearest_assign_distance_meters']!,
+          _nearestAssignDistanceMetersMeta,
+        ),
+      );
+    }
     if (data.containsKey('theme_palette')) {
       context.handle(
         _themePaletteMeta,
@@ -3863,6 +3885,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.double,
         data['${effectivePrefix}reference_image_scale'],
       )!,
+      nearestAssignDistanceMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}nearest_assign_distance_meters'],
+      )!,
       themePalette: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}theme_palette'],
@@ -3885,6 +3911,7 @@ class AppSettingsEntry extends DataClass
   final double cameraMinZoom;
   final double cameraMaxZoom;
   final double referenceImageScale;
+  final double nearestAssignDistanceMeters;
   final String themePalette;
   const AppSettingsEntry({
     required this.id,
@@ -3894,6 +3921,7 @@ class AppSettingsEntry extends DataClass
     required this.cameraMinZoom,
     required this.cameraMaxZoom,
     required this.referenceImageScale,
+    required this.nearestAssignDistanceMeters,
     required this.themePalette,
   });
   @override
@@ -3908,6 +3936,9 @@ class AppSettingsEntry extends DataClass
     map['camera_min_zoom'] = Variable<double>(cameraMinZoom);
     map['camera_max_zoom'] = Variable<double>(cameraMaxZoom);
     map['reference_image_scale'] = Variable<double>(referenceImageScale);
+    map['nearest_assign_distance_meters'] = Variable<double>(
+      nearestAssignDistanceMeters,
+    );
     map['theme_palette'] = Variable<String>(themePalette);
     return map;
   }
@@ -3921,6 +3952,7 @@ class AppSettingsEntry extends DataClass
       cameraMinZoom: Value(cameraMinZoom),
       cameraMaxZoom: Value(cameraMaxZoom),
       referenceImageScale: Value(referenceImageScale),
+      nearestAssignDistanceMeters: Value(nearestAssignDistanceMeters),
       themePalette: Value(themePalette),
     );
   }
@@ -3942,6 +3974,9 @@ class AppSettingsEntry extends DataClass
       referenceImageScale: serializer.fromJson<double>(
         json['referenceImageScale'],
       ),
+      nearestAssignDistanceMeters: serializer.fromJson<double>(
+        json['nearestAssignDistanceMeters'],
+      ),
       themePalette: serializer.fromJson<String>(json['themePalette']),
     );
   }
@@ -3958,6 +3993,9 @@ class AppSettingsEntry extends DataClass
       'cameraMinZoom': serializer.toJson<double>(cameraMinZoom),
       'cameraMaxZoom': serializer.toJson<double>(cameraMaxZoom),
       'referenceImageScale': serializer.toJson<double>(referenceImageScale),
+      'nearestAssignDistanceMeters': serializer.toJson<double>(
+        nearestAssignDistanceMeters,
+      ),
       'themePalette': serializer.toJson<String>(themePalette),
     };
   }
@@ -3970,6 +4008,7 @@ class AppSettingsEntry extends DataClass
     double? cameraMinZoom,
     double? cameraMaxZoom,
     double? referenceImageScale,
+    double? nearestAssignDistanceMeters,
     String? themePalette,
   }) => AppSettingsEntry(
     id: id ?? this.id,
@@ -3980,6 +4019,8 @@ class AppSettingsEntry extends DataClass
     cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
     cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
     referenceImageScale: referenceImageScale ?? this.referenceImageScale,
+    nearestAssignDistanceMeters:
+        nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
     themePalette: themePalette ?? this.themePalette,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
@@ -4001,6 +4042,9 @@ class AppSettingsEntry extends DataClass
       referenceImageScale: data.referenceImageScale.present
           ? data.referenceImageScale.value
           : this.referenceImageScale,
+      nearestAssignDistanceMeters: data.nearestAssignDistanceMeters.present
+          ? data.nearestAssignDistanceMeters.value
+          : this.nearestAssignDistanceMeters,
       themePalette: data.themePalette.present
           ? data.themePalette.value
           : this.themePalette,
@@ -4017,6 +4061,7 @@ class AppSettingsEntry extends DataClass
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
           ..write('referenceImageScale: $referenceImageScale, ')
+          ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette')
           ..write(')'))
         .toString();
@@ -4031,6 +4076,7 @@ class AppSettingsEntry extends DataClass
     cameraMinZoom,
     cameraMaxZoom,
     referenceImageScale,
+    nearestAssignDistanceMeters,
     themePalette,
   );
   @override
@@ -4044,6 +4090,8 @@ class AppSettingsEntry extends DataClass
           other.cameraMinZoom == this.cameraMinZoom &&
           other.cameraMaxZoom == this.cameraMaxZoom &&
           other.referenceImageScale == this.referenceImageScale &&
+          other.nearestAssignDistanceMeters ==
+              this.nearestAssignDistanceMeters &&
           other.themePalette == this.themePalette);
 }
 
@@ -4055,6 +4103,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<double> cameraMinZoom;
   final Value<double> cameraMaxZoom;
   final Value<double> referenceImageScale;
+  final Value<double> nearestAssignDistanceMeters;
   final Value<String> themePalette;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
@@ -4065,6 +4114,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
     this.referenceImageScale = const Value.absent(),
+    this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -4076,6 +4126,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
     this.referenceImageScale = const Value.absent(),
+    this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
@@ -4087,6 +4138,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<double>? cameraMinZoom,
     Expression<double>? cameraMaxZoom,
     Expression<double>? referenceImageScale,
+    Expression<double>? nearestAssignDistanceMeters,
     Expression<String>? themePalette,
     Expression<int>? rowid,
   }) {
@@ -4100,6 +4152,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (cameraMaxZoom != null) 'camera_max_zoom': cameraMaxZoom,
       if (referenceImageScale != null)
         'reference_image_scale': referenceImageScale,
+      if (nearestAssignDistanceMeters != null)
+        'nearest_assign_distance_meters': nearestAssignDistanceMeters,
       if (themePalette != null) 'theme_palette': themePalette,
       if (rowid != null) 'rowid': rowid,
     });
@@ -4113,6 +4167,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<double>? cameraMinZoom,
     Value<double>? cameraMaxZoom,
     Value<double>? referenceImageScale,
+    Value<double>? nearestAssignDistanceMeters,
     Value<String>? themePalette,
     Value<int>? rowid,
   }) {
@@ -4125,6 +4180,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
       referenceImageScale: referenceImageScale ?? this.referenceImageScale,
+      nearestAssignDistanceMeters:
+          nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
       rowid: rowid ?? this.rowid,
     );
@@ -4158,6 +4215,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         referenceImageScale.value,
       );
     }
+    if (nearestAssignDistanceMeters.present) {
+      map['nearest_assign_distance_meters'] = Variable<double>(
+        nearestAssignDistanceMeters.value,
+      );
+    }
     if (themePalette.present) {
       map['theme_palette'] = Variable<String>(themePalette.value);
     }
@@ -4177,6 +4239,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
           ..write('referenceImageScale: $referenceImageScale, ')
+          ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6871,6 +6934,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
       Value<double> referenceImageScale,
+      Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
       Value<int> rowid,
     });
@@ -6883,6 +6947,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
       Value<double> referenceImageScale,
+      Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
       Value<int> rowid,
     });
@@ -6928,6 +6993,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<double> get referenceImageScale => $composableBuilder(
     column: $table.referenceImageScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get nearestAssignDistanceMeters => $composableBuilder(
+    column: $table.nearestAssignDistanceMeters,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6981,6 +7051,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get nearestAssignDistanceMeters => $composableBuilder(
+    column: $table.nearestAssignDistanceMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get themePalette => $composableBuilder(
     column: $table.themePalette,
     builder: (column) => ColumnOrderings(column),
@@ -7024,6 +7099,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get referenceImageScale => $composableBuilder(
     column: $table.referenceImageScale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get nearestAssignDistanceMeters => $composableBuilder(
+    column: $table.nearestAssignDistanceMeters,
     builder: (column) => column,
   );
 
@@ -7080,6 +7160,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
                 Value<double> referenceImageScale = const Value.absent(),
+                Value<double> nearestAssignDistanceMeters =
+                    const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
@@ -7090,6 +7172,7 @@ class $$AppSettingsEntriesTableTableManager
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
                 referenceImageScale: referenceImageScale,
+                nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
                 rowid: rowid,
               ),
@@ -7102,6 +7185,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
                 Value<double> referenceImageScale = const Value.absent(),
+                Value<double> nearestAssignDistanceMeters =
+                    const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
@@ -7112,6 +7197,7 @@ class $$AppSettingsEntriesTableTableManager
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
                 referenceImageScale: referenceImageScale,
+                nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
                 rowid: rowid,
               ),

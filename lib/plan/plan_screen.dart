@@ -98,9 +98,7 @@ class _PlanScreenState extends State<PlanScreen> {
     if (_selectedGroupIndex >= groups.length) {
       _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
     }
-    final selectedGroup = groups.isEmpty
-        ? null
-        : groups[_selectedGroupIndex];
+    final selectedGroup = groups.isEmpty ? null : groups[_selectedGroupIndex];
     final displayPoints = selectedGroup == null
         ? const <PilgrimagePoint>[]
         : displayPointsForGroup(
@@ -111,7 +109,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('计划'),
+        title: Text(plan.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           PopupMenuButton<_PlanMenuAction>(
             tooltip: '计划操作',
@@ -147,7 +145,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 value: _PlanMenuAction.managePoints,
                 child: ListTile(
                   leading: Icon(Icons.tune_outlined),
-                  title: Text('管理点位'),
+                  title: Text('管理计划'),
                 ),
               ),
               PopupMenuItem(
@@ -175,7 +173,7 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
             )
           else ...[
-            _WorkHeader(plan: plan, compact: _showMap),
+            if (!_showMap) _WorkHeader(plan: plan),
             _GroupSwitcher(
               groups: groups,
               selectedIndex: _selectedGroupIndex,
@@ -400,7 +398,9 @@ class _GroupSwitcher extends StatelessWidget {
                 ),
                 title: Text(group.name),
                 subtitle: Text(group.anchorLabel),
-                trailing: Text('${group.completedCount} / ${group.points.length}'),
+                trailing: Text(
+                  '${group.completedCount} / ${group.points.length}',
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   onSelectGroup(index);
@@ -478,10 +478,7 @@ class _PlanGroupControls extends StatelessWidget {
                   minimumSize: const Size(74, 40),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
-                icon: Icon(
-                  showMap ? Icons.map : Icons.map_outlined,
-                  size: 18,
-                ),
+                icon: Icon(showMap ? Icons.map : Icons.map_outlined, size: 18),
                 label: Text(showMap ? '收起地图' : '地图'),
               ),
             ],
@@ -1029,16 +1026,15 @@ class _EmptyPlanCard extends StatelessWidget {
 }
 
 class _WorkHeader extends StatelessWidget {
-  const _WorkHeader({required this.plan, this.compact = false});
+  const _WorkHeader({required this.plan});
 
   final PilgrimagePlan plan;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(16, compact ? 8 : 8, 16, 12),
-      padding: EdgeInsets.all(compact ? 12 : 16),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border),
@@ -1048,10 +1044,8 @@ class _WorkHeader extends StatelessWidget {
         children: [
           Container(
             width: 52,
-            height: compact ? 44 : 52,
-            constraints: BoxConstraints(
-              minWidth: compact ? 44 : 52,
-            ),
+            height: 52,
+            constraints: const BoxConstraints(minWidth: 52),
             decoration: BoxDecoration(
               color: AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(8),

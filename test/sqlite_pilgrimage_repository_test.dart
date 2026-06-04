@@ -59,9 +59,7 @@ void main() {
       plan.points[2].id,
       plan.points[0].id,
       plan.points[1].id,
-      plan.points[3].id,
-      plan.points[4].id,
-      plan.points[5].id,
+      for (final point in plan.points.skip(3)) point.id,
     ];
 
     await repository.reorderPoints(planId: plan.id, pointIds: reorderedIds);

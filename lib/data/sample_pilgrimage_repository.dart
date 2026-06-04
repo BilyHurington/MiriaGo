@@ -259,6 +259,24 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: [
+        for (final candidate in plan.groups)
+          candidate.id == group.id ? group : candidate,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<PilgrimagePlan> deletePlanGroup({
     required String planId,
     required String groupId,
@@ -595,6 +613,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
       referenceImageScale: settings.referenceImageScale.clamp(0.8, 1.0),
+      nearestAssignDistanceMeters: settings.nearestAssignDistanceMeters.clamp(
+        50.0,
+        5000.0,
+      ),
       cameraFallbackAspectRatio:
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
           ? CameraPhotoAspectRatio.native
@@ -787,6 +809,126 @@ final samplePilgrimagePlan = PilgrimagePlan(
           'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.888488%2C135.80587&z=17',
       groupId: 'sample-group-uji-station',
       groupOrderIndex: 3,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-01',
+      work: _hibikeWork,
+      name: '宇治文化中心 停车场',
+      subtitle: '宇治文化中心 停车场',
+      position: LatLng(34.8951, 135.8019),
+      episodeLabel: 'EP 11 / 12:49',
+      referenceLabel: 'Anitabi@卜卜口',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-01',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 4,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-02',
+      work: _hibikeWork,
+      name: '宇治川河畔',
+      subtitle: '宇治川沿い',
+      position: LatLng(34.8916, 135.8076),
+      episodeLabel: 'EP 3 / 8:21',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-02',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 5,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-03',
+      work: _hibikeWork,
+      name: '京阪宇治站前',
+      subtitle: '京阪宇治駅前',
+      position: LatLng(34.8942, 135.8069),
+      episodeLabel: 'EP 5 / 4:36',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-03',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/3plnxvy-1755088794974.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 6,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-04',
+      work: _hibikeWork,
+      name: '朝雾桥',
+      subtitle: '朝霧橋',
+      position: LatLng(34.8902, 135.8106),
+      episodeLabel: 'EP 7 / 6:12',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-04',
+      referenceImageUrl:
+          'https://image.anitabi.cn/points/115908/75cc58c61b40fdd8a8e64bd8b9bacd0c.png',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 7,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-daikichi-01',
+      work: _hibikeWork,
+      name: '大吉山步道',
+      subtitle: '大吉山登山道',
+      position: LatLng(34.8936, 135.8114),
+      episodeLabel: 'EP 8 / 16:08',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-daikichi-01',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/qys7ia-1697123425329.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 2,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-daikichi-02',
+      work: _hibikeWork,
+      name: '大吉山休息处',
+      subtitle: '大吉山休憩所',
+      position: LatLng(34.8931, 135.8127),
+      episodeLabel: 'EP 8 / 18:42',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-daikichi-02',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/7mt52rr-1763627079224.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 3,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-unassigned-01',
+      work: _hibikeWork,
+      name: '平等院表参道',
+      subtitle: '平等院表参道',
+      position: LatLng(34.8892, 135.8074),
+      episodeLabel: 'EP 4 / 10:16',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-unassigned-01',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-unassigned-02',
+      work: _hibikeWork,
+      name: '宇治上神社参道',
+      subtitle: '宇治上神社参道',
+      position: LatLng(34.8918, 135.8112),
+      episodeLabel: 'EP 9 / 7:55',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-unassigned-02',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
+      sourceUrl: 'https://anitabi.cn/',
     ),
   ],
 );

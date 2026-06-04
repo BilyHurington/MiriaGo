@@ -1,14 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
-import '../widgets/snackbar_helper.dart';
+import '../data/pilgrimage_repository.dart';
 import '../data/reference_cache_file_stub.dart'
     if (dart.library.io) '../data/reference_cache_file_io.dart';
 import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
-import '../data/pilgrimage_repository.dart';
+import '../data/user_reference_image_stub.dart'
+    if (dart.library.io) '../data/user_reference_image_io.dart';
+import '../point_detail/point_detail_sheet.dart';
+import '../widgets/snackbar_helper.dart';
+import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
+import 'plan_group_manager_screen.dart';
+import 'plan_group_utils.dart';
+
+const Object _unsetGroupField = Object();
+
+Widget cleanReorderProxy(Widget child, int index, Animation<double> animation) {
+  return AnimatedBuilder(
+    animation: animation,
+    builder: (context, child) {
+      final elevation = Curves.easeOut.transform(animation.value) * 10;
+      return Material(
+        color: Colors.transparent,
+        shadowColor: Colors.black.withValues(alpha: 0.18),
+        elevation: elevation,
+        borderRadius: BorderRadius.circular(8),
+        child: child,
+      );
+    },
+    child: child,
+  );
+}
 
 class PointManagerScreen extends StatefulWidget {
   const PointManagerScreen({
@@ -27,31 +55,49 @@ class PointManagerScreen extends StatefulWidget {
 class _PointManagerScreenState extends State<PointManagerScreen> {
   late PilgrimagePlan _plan = widget.plan;
   final Set<String> _selectedPointIds = {};
-  String? _selectedWorkId;
+  var _selectedGroupIndex = 0;
   var _didUpdate = false;
   var _isSaving = false;
   var _selectionMode = false;
 
-  List<PilgrimagePoint> get _visiblePoints {
-    final selectedWorkId = _selectedWorkId;
-    if (selectedWorkId == null) {
-      return _plan.points;
-    }
+  List<PlanGroupBucket> get _groups =>
+      planGroupBuckets(_plan, _plan.completedPointIds);
 
-    return _plan.points
-        .where((point) => point.work.id == selectedWorkId)
-        .toList(growable: false);
+  int get _actualGroupCount =>
+      _groups.where((group) => !group.isUngrouped).length;
+
+  int _actualGroupNumber(PlanGroupBucket group) {
+    if (group.isUngrouped) {
+      return 0;
+    }
+    final groups = _groups.where((group) => !group.isUngrouped).toList();
+    return groups.indexWhere((candidate) => candidate.id == group.id) + 1;
   }
+
+  PlanGroupBucket? get _selectedGroup {
+    final groups = _groups;
+    if (groups.isEmpty) {
+      return null;
+    }
+    if (_selectedGroupIndex >= groups.length) {
+      _selectedGroupIndex = groups.length - 1;
+    }
+    return groups[_selectedGroupIndex];
+  }
+
+  List<PilgrimagePoint> get _visiblePoints =>
+      _selectedGroup?.points ?? const [];
 
   @override
   Widget build(BuildContext context) {
+    final selectedGroup = _selectedGroup;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
         }
-
         Navigator.of(context).pop(_didUpdate);
       },
       child: Scaffold(
@@ -62,7 +108,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             icon: const Icon(Icons.arrow_back),
           ),
           title: Text(
-            _selectionMode ? '已选 ${_selectedPointIds.length}' : '管理点位',
+            _selectionMode ? '已选 ${_selectedPointIds.length}' : '管理计划',
           ),
           actions: [
             if (_isSaving)
@@ -73,6 +119,18 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
+              )
+            else if (_plan.points.isNotEmpty)
+              IconButton(
+                tooltip: '片区管理',
+                onPressed: _openGroupManager,
+                icon: const Icon(Icons.account_tree_outlined),
+              ),
+            if (!_isSaving && _plan.points.isNotEmpty)
+              IconButton(
+                tooltip: '缓存完整参考图',
+                onPressed: _selectionMode ? null : _cacheFullReferenceImages,
+                icon: const Icon(Icons.download_for_offline_outlined),
               ),
             if (!_isSaving && _plan.points.isNotEmpty)
               IconButton(
@@ -84,11 +142,11 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               ),
           ],
         ),
-        body: _plan.points.isEmpty
-            ? const _EmptyPointManager()
+        body: _plan.points.isEmpty || selectedGroup == null
+            ? const _EmptyPlanManager()
             : Stack(
                 children: [
-                  _selectionMode ? _buildSelectionList() : _buildReorderList(),
+                  _buildGroupPage(selectedGroup),
                   if (_selectionMode)
                     Align(
                       alignment: Alignment.bottomCenter,
@@ -100,6 +158,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                         isBusy: _isSaving,
                         onSelectAll: _selectAll,
                         onClear: _clearSelection,
+                        onMove: _moveSelectedToGroup,
                         onComplete: _completeSelected,
                         onReopen: _reopenSelected,
                         onDelete: _confirmDeleteSelected,
@@ -111,36 +170,53 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     );
   }
 
-  Widget _buildReorderList() {
-    final visiblePoints = _visiblePoints;
-    final canReorder = _selectedWorkId == null;
+  Widget _buildGroupPage(PlanGroupBucket group) {
+    final bottomPadding = _selectionMode ? 104.0 : 24.0;
+    final canManualReorder =
+        !group.isUngrouped &&
+        group.group?.orderMode == PlanGroupOrderMode.manual &&
+        !_selectionMode;
 
-    if (!canReorder) {
-      return ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: visiblePoints.length + 1,
+    if (canManualReorder) {
+      return ReorderableListView.builder(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+        header: _PlanManagerHeader(
+          plan: _plan,
+          group: group,
+          groupIndex: _selectedGroupIndex,
+          groupNumber: _actualGroupNumber(group),
+          groupCount: _actualGroupCount,
+          selectionMode: _selectionMode,
+          onPreviousGroup: _previousGroup,
+          onNextGroup: _nextGroup,
+          onGroupTap: () => _showGroupSheet(_groups),
+          onAnchorTap: () => _showAnchorSheet(group),
+          onOrderTap: () => _showOrderModeSheet(group),
+          onNearestAssign: _openNearestAssign,
+          onBoxAssign: _openBoxAssign,
+        ),
+        itemCount: group.points.length,
+        buildDefaultDragHandles: false,
+        proxyDecorator: cleanReorderProxy,
+        onReorderItem: _handleGroupReorder,
         itemBuilder: (context, index) {
-          if (index == 0) {
-            return _PointManagerHeader(
-              plan: _plan,
-              selectedWorkId: _selectedWorkId,
-              onWorkSelected: _selectWorkFilter,
-              onCacheFullReferences: _cacheFullReferenceImages,
-            );
-          }
-
-          final point = visiblePoints[index - 1];
+          final point = group.points[index];
           return Padding(
+            key: ValueKey(point.id),
             padding: const EdgeInsets.only(bottom: 8),
             child: _PointManagerTile(
-              index: index - 1,
+              index: index,
               point: point,
+              groupName: group.name,
               status: _statusFor(point),
               isBusy: _isSaving,
               selectionMode: false,
               selected: false,
-              canDrag: false,
+              canDrag: true,
+              onOpenDetail: () => _showPointDetail(point),
               onToggleSelected: () => _togglePointSelection(point),
+              onLongPress: () => _startSelection(point),
+              onMove: () => _moveSinglePointToGroup(point),
               onSetCurrent: () => _setCurrent(point),
               onComplete: () => _complete(point),
               onReopen: () => _reopen(point),
@@ -151,69 +227,44 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       );
     }
 
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      header: _PointManagerHeader(
-        plan: _plan,
-        selectedWorkId: _selectedWorkId,
-        onWorkSelected: _selectWorkFilter,
-        onCacheFullReferences: _cacheFullReferenceImages,
-      ),
-      itemCount: visiblePoints.length,
-      buildDefaultDragHandles: false,
-      onReorderItem: _handleReorder,
-      itemBuilder: (context, index) {
-        final point = visiblePoints[index];
-        return Padding(
-          key: ValueKey(point.id),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _PointManagerTile(
-            index: index,
-            point: point,
-            status: _statusFor(point),
-            isBusy: _isSaving,
-            selectionMode: false,
-            selected: false,
-            canDrag: true,
-            onToggleSelected: () => _togglePointSelection(point),
-            onSetCurrent: () => _setCurrent(point),
-            onComplete: () => _complete(point),
-            onReopen: () => _reopen(point),
-            onDelete: () => _confirmDelete(point),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSelectionList() {
-    final visiblePoints = _visiblePoints;
-
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 92),
-      itemCount: visiblePoints.length + 1,
+      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+      itemCount: group.points.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _PointManagerHeader(
+          return _PlanManagerHeader(
             plan: _plan,
-            selectedWorkId: _selectedWorkId,
-            onWorkSelected: _selectWorkFilter,
-            onCacheFullReferences: _cacheFullReferenceImages,
+            group: group,
+            groupIndex: _selectedGroupIndex,
+            groupNumber: _actualGroupNumber(group),
+            groupCount: _actualGroupCount,
+            selectionMode: _selectionMode,
+            onPreviousGroup: _previousGroup,
+            onNextGroup: _nextGroup,
+            onGroupTap: () => _showGroupSheet(_groups),
+            onAnchorTap: () => _showAnchorSheet(group),
+            onOrderTap: () => _showOrderModeSheet(group),
+            onNearestAssign: _openNearestAssign,
+            onBoxAssign: _openBoxAssign,
           );
         }
 
-        final point = visiblePoints[index - 1];
+        final point = group.points[index - 1];
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: _PointManagerTile(
             index: index - 1,
             point: point,
+            groupName: group.name,
             status: _statusFor(point),
             isBusy: _isSaving,
-            selectionMode: true,
+            selectionMode: _selectionMode,
             selected: _selectedPointIds.contains(point.id),
             canDrag: false,
+            onOpenDetail: () => _showPointDetail(point),
             onToggleSelected: () => _togglePointSelection(point),
+            onLongPress: () => _startSelection(point),
+            onMove: () => _moveSinglePointToGroup(point),
             onSetCurrent: () => _setCurrent(point),
             onComplete: () => _complete(point),
             onReopen: () => _reopen(point),
@@ -228,20 +279,46 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (_plan.completedPointIds.contains(point.id)) {
       return VisitStatus.completed;
     }
-
     if (_plan.currentPointId == point.id) {
       return VisitStatus.current;
     }
-
     return VisitStatus.pending;
   }
 
-  void _selectWorkFilter(String? workId) {
+  void _previousGroup() {
+    final groups = _groups;
+    if (groups.isEmpty) {
+      return;
+    }
     setState(() {
-      _selectedWorkId = workId;
-      _selectedPointIds.removeWhere(
-        (pointId) => !_visiblePoints.any((point) => point.id == pointId),
-      );
+      _selectedGroupIndex =
+          (_selectedGroupIndex - 1 + groups.length) % groups.length;
+      _selectedPointIds.clear();
+      _selectionMode = false;
+    });
+  }
+
+  void _nextGroup() {
+    final groups = _groups;
+    if (groups.isEmpty) {
+      return;
+    }
+    setState(() {
+      _selectedGroupIndex = (_selectedGroupIndex + 1) % groups.length;
+      _selectedPointIds.clear();
+      _selectionMode = false;
+    });
+  }
+
+  void _selectGroup(int index) {
+    final groups = _groups;
+    if (groups.isEmpty) {
+      return;
+    }
+    setState(() {
+      _selectedGroupIndex = index.clamp(0, groups.length - 1);
+      _selectedPointIds.clear();
+      _selectionMode = false;
     });
   }
 
@@ -249,6 +326,42 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     setState(() {
       _selectionMode = !_selectionMode;
       _selectedPointIds.clear();
+    });
+  }
+
+  Future<void> _openGroupManager() async {
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            PlanGroupManagerScreen(plan: _plan, repository: widget.repository),
+      ),
+    );
+    if (didUpdate != true || !mounted) {
+      return;
+    }
+    final updatedPlan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      final groups = _groups;
+      if (_selectedGroupIndex >= groups.length) {
+        _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
+      }
+      _didUpdate = true;
+      _selectedPointIds.clear();
+      _selectionMode = false;
+    });
+  }
+
+  void _startSelection(PilgrimagePoint point) {
+    if (_isSaving) {
+      return;
+    }
+    setState(() {
+      _selectionMode = true;
+      _selectedPointIds.add(point.id);
     });
   }
 
@@ -274,48 +387,375 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     setState(_selectedPointIds.clear);
   }
 
-  Future<void> _handleReorder(int oldIndex, int newIndex) async {
-    if (_isSaving) {
+  Future<void> _showGroupSheet(List<PlanGroupBucket> groups) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: groups.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 6),
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  group.isUngrouped
+                      ? Icons.inbox_outlined
+                      : Icons.folder_outlined,
+                  color: index == _selectedGroupIndex
+                      ? AppColors.accent
+                      : AppColors.textSecondary,
+                ),
+                title: Text(group.name),
+                subtitle: Text(
+                  '${group.completedCount} / ${group.points.length}',
+                ),
+                trailing: index == _selectedGroupIndex
+                    ? Icon(Icons.check, color: AppColors.accent)
+                    : null,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _selectGroup(index);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showAnchorSheet(PlanGroupBucket group) async {
+    if (group.isUngrouped) {
+      return _showInfo('未分配点位没有关键点。');
+    }
+    final sourceGroup = group.group;
+    if (sourceGroup == null) {
+      return _showInfo('片区不存在。');
+    }
+    final selection = await Navigator.of(context).push<_GroupAnchorSelection>(
+      MaterialPageRoute(
+        builder: (_) => _GroupAnchorMapPickerScreen(
+          group: sourceGroup,
+          points: _plan.points,
+          groupNameForPoint: _groupNameForPoint,
+        ),
+      ),
+    );
+    if (selection == null || !mounted) {
       return;
     }
+    await _updateGroup(
+      _copyGroup(
+        sourceGroup,
+        anchorName: selection.name,
+        anchorLatitude: selection.position?.latitude,
+        anchorLongitude: selection.position?.longitude,
+        anchorPointId: selection.pointId,
+      ),
+      failureMessage: '关键点保存失败',
+    );
+  }
 
-    final points = [..._plan.points];
-    final oldPointIndex = oldIndex;
-    final point = points.removeAt(oldPointIndex);
-    points.insert(newIndex, point);
-
-    setState(() {
-      _plan = _plan.copyWith(points: points);
-      _isSaving = true;
-    });
-
-    try {
-      final updatedPlan = await widget.repository.reorderPoints(
-        planId: _plan.id,
-        pointIds: points.map((point) => point.id).toList(growable: false),
-      );
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _plan = updatedPlan;
-        _didUpdate = true;
-        _isSaving = false;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _plan = widget.plan;
-        _isSaving = false;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('点位顺序保存失败')));
+  Future<void> _showOrderModeSheet(PlanGroupBucket group) {
+    if (group.isUngrouped) {
+      return _showInfo('未分配点位不需要排序方式。');
     }
+    if (group.group == null) {
+      return _showInfo('片区不存在。');
+    }
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final mode = group.group?.orderMode ?? PlanGroupOrderMode.unordered;
+        return SafeArea(
+          top: false,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              const _SheetTitle(title: '片区内顺序'),
+              _OrderModeTile(
+                title: '无序',
+                selected: mode == PlanGroupOrderMode.unordered,
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await _updateGroup(
+                    _copyGroup(
+                      group.group!,
+                      orderMode: PlanGroupOrderMode.unordered,
+                    ),
+                    failureMessage: '排序方式保存失败',
+                  );
+                },
+              ),
+              _OrderModeTile(
+                title: '手动排序',
+                selected: mode == PlanGroupOrderMode.manual,
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await _updateGroup(
+                    _copyGroup(
+                      group.group!,
+                      orderMode: PlanGroupOrderMode.manual,
+                    ),
+                    failureMessage: '排序方式保存失败',
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateGroup(
+    PilgrimagePlanGroup group, {
+    required String failureMessage,
+  }) {
+    return _savePlanChange(
+      action: () =>
+          widget.repository.updatePlanGroup(planId: _plan.id, group: group),
+      failureMessage: failureMessage,
+    );
+  }
+
+  PilgrimagePlanGroup _copyGroup(
+    PilgrimagePlanGroup group, {
+    String? name,
+    int? orderIndex,
+    PlanGroupOrderMode? orderMode,
+    Object? anchorName = _unsetGroupField,
+    Object? anchorLatitude = _unsetGroupField,
+    Object? anchorLongitude = _unsetGroupField,
+    Object? anchorPointId = _unsetGroupField,
+  }) {
+    return PilgrimagePlanGroup(
+      id: group.id,
+      name: name ?? group.name,
+      orderIndex: orderIndex ?? group.orderIndex,
+      orderMode: orderMode ?? group.orderMode,
+      anchorName: anchorName == _unsetGroupField
+          ? group.anchorName
+          : anchorName as String?,
+      anchorLatitude: anchorLatitude == _unsetGroupField
+          ? group.anchorLatitude
+          : anchorLatitude as double?,
+      anchorLongitude: anchorLongitude == _unsetGroupField
+          ? group.anchorLongitude
+          : anchorLongitude as double?,
+      anchorPointId: anchorPointId == _unsetGroupField
+          ? group.anchorPointId
+          : anchorPointId as String?,
+      note: group.note,
+      createdAt: group.createdAt,
+    );
+  }
+
+  Future<void> _moveSelectedToGroup() async {
+    final pointIds = {..._selectedPointIds};
+    if (pointIds.isEmpty) {
+      return;
+    }
+    final groupId = await _pickTargetGroup();
+    if (!mounted || groupId == _cancelGroupMove) {
+      return;
+    }
+    await _savePlanChange(
+      action: () => widget.repository.movePointsToGroup(
+        planId: _plan.id,
+        pointIds: pointIds,
+        groupId: groupId,
+      ),
+      failureMessage: '移动片区失败',
+    );
+  }
+
+  Future<void> _moveSinglePointToGroup(PilgrimagePoint point) async {
+    final groupId = await _pickTargetGroup(currentGroupId: point.groupId);
+    if (!mounted || groupId == _cancelGroupMove || groupId == point.groupId) {
+      return;
+    }
+    await _savePlanChange(
+      action: () => widget.repository.movePointsToGroup(
+        planId: _plan.id,
+        pointIds: {point.id},
+        groupId: groupId,
+      ),
+      failureMessage: '移动片区失败',
+    );
+  }
+
+  Future<void> _movePointToGroup(PilgrimagePoint point, String? groupId) {
+    return _savePlanChange(
+      action: () => widget.repository.movePointsToGroup(
+        planId: _plan.id,
+        pointIds: {point.id},
+        groupId: groupId,
+      ),
+      failureMessage: '移动片区失败',
+    );
+  }
+
+  void _showPointDetail(PilgrimagePoint point) {
+    final currentPoint = _plan.points.firstWhere(
+      (candidate) => candidate.id == point.id,
+    );
+    PointDetailSheet.show(
+      context,
+      point: currentPoint,
+      status: _statusFor(currentPoint),
+      onSetCurrent: () => _setCurrent(currentPoint),
+      onOpenCamera: () => _showInfo('请从计划页或地图页打开拍摄。'),
+      onComplete: () => _statusFor(currentPoint) == VisitStatus.completed
+          ? _reopen(currentPoint)
+          : _complete(currentPoint),
+      onReplaceReference: _replaceReferenceImage,
+      groups: _plan.groups,
+      onMoveToGroup: _movePointToGroup,
+    );
+  }
+
+  Future<void> _replaceReferenceImage(
+    PilgrimagePoint point,
+    StoredUserReferenceImage image,
+  ) {
+    return _savePlanChange(
+      action: () => widget.repository.updatePointImageCache(
+        planId: _plan.id,
+        pointId: point.id,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
+      failureMessage: '参考图保存失败',
+    );
+  }
+
+  String _groupNameForPoint(PilgrimagePoint point) {
+    final groupId = point.groupId;
+    if (groupId == null) {
+      return '未分配点位';
+    }
+    return _plan.groups
+        .firstWhere(
+          (group) => group.id == groupId,
+          orElse: () => PilgrimagePlanGroup(
+            id: groupId,
+            name: '未知片区',
+            orderIndex: 0,
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+        )
+        .name;
+  }
+
+  static const String _cancelGroupMove = '__cancel__';
+
+  Future<String?> _pickTargetGroup({String? currentGroupId}) async {
+    final groups = _plan.groups.toList(growable: false)
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    return showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              const _SheetTitle(title: '移动到片区'),
+              _MoveTargetTile(
+                title: '未分配点位',
+                selected: currentGroupId == null,
+                onTap: () => Navigator.of(context).pop(null),
+              ),
+              for (final group in groups)
+                _MoveTargetTile(
+                  title: group.name,
+                  selected: currentGroupId == group.id,
+                  onTap: () => Navigator.of(context).pop(group.id),
+                ),
+            ],
+          ),
+        );
+      },
+    ).then((value) => value ?? _cancelGroupMove);
+  }
+
+  Future<void> _openNearestAssign() async {
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => NearestGroupAssignScreen(
+          plan: _plan,
+          settings: settings,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (didUpdate != true || !mounted) {
+      return;
+    }
+    final updatedPlan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _openBoxAssign() async {
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            BoxGroupAssignScreen(plan: _plan, repository: widget.repository),
+      ),
+    );
+    if (didUpdate != true || !mounted) {
+      return;
+    }
+    final updatedPlan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _handleGroupReorder(int oldIndex, int newIndex) async {
+    final group = _selectedGroup;
+    if (_isSaving || group == null) {
+      return;
+    }
+    final points = [...group.points];
+    final point = points.removeAt(oldIndex);
+    points.insert(newIndex, point);
+    await _savePlanChange(
+      action: () => widget.repository.reorderPoints(
+        planId: _plan.id,
+        pointIds: [
+          for (final candidate in _plan.points)
+            if (candidate.groupId != group.id) candidate.id,
+          for (final candidate in points) candidate.id,
+        ],
+      ),
+      failureMessage: '点位顺序保存失败',
+    );
   }
 
   Future<void> _confirmDelete(PilgrimagePoint point) async {
@@ -337,48 +777,22 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         ],
       ),
     );
-
     if (confirmed != true || !mounted) {
       return;
     }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      final updatedPlan = await widget.repository.deletePointFromPlan(
+    await _savePlanChange(
+      action: () => widget.repository.deletePointFromPlan(
         planId: _plan.id,
         pointId: point.id,
-      );
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _plan = updatedPlan;
-        _didUpdate = true;
-        _isSaving = false;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isSaving = false;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('点位删除失败')));
-    }
+      ),
+      failureMessage: '点位删除失败',
+    );
   }
 
   Future<void> _confirmDeleteSelected() async {
     if (_selectedPointIds.isEmpty) {
       return;
     }
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -397,11 +811,9 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         ],
       ),
     );
-
     if (confirmed != true || !mounted) {
       return;
     }
-
     final pointIds = {..._selectedPointIds};
     await _savePlanChange(
       action: () => widget.repository.deletePointsFromPlan(
@@ -430,7 +842,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               .firstOrNull
               ?.id
         : _plan.currentPointId;
-
     await _saveStatusChange(
       action: () => widget.repository.completePoint(
         planId: _plan.id,
@@ -454,7 +865,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (pointIds.isEmpty) {
       return;
     }
-
     await _saveStatusChange(
       action: () => widget.repository.completePoints(
         planId: _plan.id,
@@ -469,7 +879,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (pointIds.isEmpty) {
       return;
     }
-
     await _saveStatusChange(
       action: () =>
           widget.repository.reopenPoints(planId: _plan.id, pointIds: pointIds),
@@ -484,17 +893,14 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (_isSaving) {
       return;
     }
-
     setState(() {
       _isSaving = true;
     });
-
     try {
       final updatedPlan = await action();
       if (!mounted) {
         return;
       }
-
       setState(() {
         _plan = updatedPlan;
         _selectedPointIds.removeWhere(
@@ -503,6 +909,10 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         if (_selectedPointIds.isEmpty) {
           _selectionMode = false;
         }
+        final groups = _groups;
+        if (_selectedGroupIndex >= groups.length) {
+          _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
+        }
         _didUpdate = true;
         _isSaving = false;
       });
@@ -510,7 +920,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       if (!mounted) {
         return;
       }
-
       setState(() {
         _isSaving = false;
       });
@@ -527,18 +936,15 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (_isSaving) {
       return;
     }
-
     setState(() {
       _isSaving = true;
     });
-
     try {
       await action();
       final updatedPlan = await widget.repository.loadActivePlan();
       if (!mounted) {
         return;
       }
-
       setState(() {
         _plan = updatedPlan;
         _selectedPointIds.clear();
@@ -550,7 +956,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       if (!mounted) {
         return;
       }
-
       setState(() {
         _isSaving = false;
       });
@@ -572,17 +977,12 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         )
         .toList(growable: false);
     if (fullPoints.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('当前计划没有需要缓存的参考图')));
-      return;
+      return _showInfo('当前计划没有需要缓存的参考图');
     }
-
     final messenger = ScaffoldMessenger.of(context);
     messenger.showReplacingSnackBar(
       const SnackBar(content: Text('正在缓存完整参考图...')),
     );
-
     var cached = 0;
     for (final point in fullPoints) {
       final path = await reference_image_cache.cacheReferenceFullImage(point);
@@ -607,160 +1007,202 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         SnackBar(content: Text('正在缓存完整参考图 $cached/${fullPoints.length}')),
       );
     }
-
     if (!mounted) {
       return;
     }
-
     messenger.showReplacingSnackBar(
       SnackBar(content: Text('已缓存 $cached/${fullPoints.length} 张完整参考图')),
     );
   }
+
+  Future<void> _showInfo(String message) async {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
-class _PointManagerHeader extends StatelessWidget {
-  const _PointManagerHeader({
+class _PlanManagerHeader extends StatelessWidget {
+  const _PlanManagerHeader({
     required this.plan,
-    required this.selectedWorkId,
-    required this.onWorkSelected,
-    required this.onCacheFullReferences,
+    required this.group,
+    required this.groupIndex,
+    required this.groupNumber,
+    required this.groupCount,
+    required this.selectionMode,
+    required this.onPreviousGroup,
+    required this.onNextGroup,
+    required this.onGroupTap,
+    required this.onAnchorTap,
+    required this.onOrderTap,
+    required this.onNearestAssign,
+    required this.onBoxAssign,
   });
 
   final PilgrimagePlan plan;
-  final String? selectedWorkId;
-  final ValueChanged<String?> onWorkSelected;
-  final Future<void> Function() onCacheFullReferences;
+  final PlanGroupBucket group;
+  final int groupIndex;
+  final int groupNumber;
+  final int groupCount;
+  final bool selectionMode;
+  final VoidCallback onPreviousGroup;
+  final VoidCallback onNextGroup;
+  final VoidCallback onGroupTap;
+  final VoidCallback onAnchorTap;
+  final VoidCallback onOrderTap;
+  final Future<void> Function() onNearestAssign;
+  final Future<void> Function() onBoxAssign;
 
   @override
   Widget build(BuildContext context) {
-    final completedCount = plan.completedPointIds.length;
-    final works = _worksForPlan(plan);
+    final orderLabel = group.group?.orderMode == PlanGroupOrderMode.manual
+        ? '手动排序'
+        : '无序';
+    final anchorLabel = group.group?.anchorName ?? '未设置';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Icon(Icons.route_outlined, color: AppColors.accentDark),
-                const SizedBox(width: 12),
+                IconButton(
+                  tooltip: '上一个片区',
+                  onPressed: selectionMode ? null : onPreviousGroup,
+                  icon: const Icon(Icons.chevron_left),
+                ),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        plan.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${plan.points.length} 个点位 / 已完成 $completedCount',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
+                  child: FilledButton.tonalIcon(
+                    onPressed: selectionMode ? null : onGroupTap,
+                    icon: Icon(
+                      group.isUngrouped
+                          ? Icons.inbox_outlined
+                          : Icons.folder_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      group.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                ),
+                IconButton(
+                  tooltip: '下一个片区',
+                  onPressed: selectionMode ? null : onNextGroup,
+                  icon: const Icon(Icons.chevron_right),
                 ),
               ],
             ),
-            if (works.length > 1) ...[
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _WorkFilterChip(
-                      label: '全部作品',
-                      selected: selectedWorkId == null,
-                      onSelected: () => onWorkSelected(null),
-                    ),
-                    for (final work in works) ...[
-                      const SizedBox(width: 8),
-                      _WorkFilterChip(
-                        label: work.title,
-                        selected: selectedWorkId == work.id,
-                        onSelected: () => onWorkSelected(work.id),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => onCacheFullReferences(),
-                icon: const Icon(Icons.download_for_offline_outlined, size: 18),
-                label: const Text('缓存完整参考图'),
+            const SizedBox(height: 8),
+            Text(
+              group.isUngrouped
+                  ? '${group.points.length} 个点位等待整理'
+                  : '${group.points.length} 个点位 · 已完成 ${group.completedCount} · $groupNumber/$groupCount',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
               ),
             ),
+            const SizedBox(height: 12),
+            if (group.isUngrouped)
+              _UngroupedActionRow(
+                onNearestAssign: onNearestAssign,
+                onBoxAssign: onBoxAssign,
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: _HeaderPillButton(
+                      icon: Icons.flag_outlined,
+                      label: '关键点：$anchorLabel',
+                      onTap: selectionMode ? null : onAnchorTap,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _HeaderPillButton(
+                    icon: Icons.sort_outlined,
+                    label: orderLabel,
+                    onTap: selectionMode ? null : onOrderTap,
+                  ),
+                ],
+              ),
           ],
         ),
       ),
     );
   }
-
-  List<PilgrimageWork> _worksForPlan(PilgrimagePlan plan) {
-    final worksById = <String, PilgrimageWork>{};
-    for (final work in plan.works) {
-      worksById[work.id] = work;
-    }
-    for (final point in plan.points) {
-      worksById[point.work.id] = point.work;
-    }
-
-    return worksById.values.toList(growable: false);
-  }
 }
 
-class _WorkFilterChip extends StatelessWidget {
-  const _WorkFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
+class _UngroupedActionRow extends StatelessWidget {
+  const _UngroupedActionRow({
+    required this.onNearestAssign,
+    required this.onBoxAssign,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
+  final Future<void> Function() onNearestAssign;
+  final Future<void> Function() onBoxAssign;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(
-        label,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: selected ? Colors.white : AppColors.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+    return Row(
+      children: [
+        Expanded(
+          child: _HeaderPillButton(
+            icon: Icons.auto_fix_high_outlined,
+            label: '最近分配',
+            onTap: () => onNearestAssign(),
+          ),
         ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _HeaderPillButton(
+            icon: Icons.select_all_outlined,
+            label: '框选分配',
+            onTap: () => onBoxAssign(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderPillButton extends StatelessWidget {
+  const _HeaderPillButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 17),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        minimumSize: const Size(0, 38),
       ),
-      selected: selected,
-      selectedColor: AppColors.accent,
-      backgroundColor: AppColors.surfaceMuted,
-      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      onSelected: (_) => onSelected(),
     );
   }
 }
@@ -769,12 +1211,16 @@ class _PointManagerTile extends StatelessWidget {
   const _PointManagerTile({
     required this.index,
     required this.point,
+    required this.groupName,
     required this.status,
     required this.isBusy,
     required this.selectionMode,
     required this.selected,
     required this.canDrag,
+    required this.onOpenDetail,
     required this.onToggleSelected,
+    required this.onLongPress,
+    required this.onMove,
     required this.onSetCurrent,
     required this.onComplete,
     required this.onReopen,
@@ -783,12 +1229,16 @@ class _PointManagerTile extends StatelessWidget {
 
   final int index;
   final PilgrimagePoint point;
+  final String groupName;
   final VisitStatus status;
   final bool isBusy;
   final bool selectionMode;
   final bool selected;
   final bool canDrag;
+  final VoidCallback onOpenDetail;
   final VoidCallback onToggleSelected;
+  final VoidCallback onLongPress;
+  final VoidCallback onMove;
   final VoidCallback onSetCurrent;
   final VoidCallback onComplete;
   final VoidCallback onReopen;
@@ -802,7 +1252,7 @@ class _PointManagerTile extends StatelessWidget {
       VisitStatus.pending => AppColors.accentDark,
     };
     final statusText = switch (status) {
-      VisitStatus.current => '当前目标',
+      VisitStatus.current => '当前',
       VisitStatus.completed => '已完成',
       VisitStatus.pending => '待访问',
     };
@@ -812,7 +1262,12 @@ class _PointManagerTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: selectionMode && !isBusy ? onToggleSelected : null,
+        onTap: isBusy
+            ? null
+            : selectionMode
+            ? onToggleSelected
+            : onOpenDetail,
+        onLongPress: selectionMode || isBusy ? null : onLongPress,
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
           decoration: BoxDecoration(
@@ -821,102 +1276,107 @@ class _PointManagerTile extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _PointLeadingControl(
-                  index: index,
-                  isBusy: isBusy,
-                  selectionMode: selectionMode,
-                  selected: selected,
-                  canDrag: canDrag,
-                  onToggleSelected: onToggleSelected,
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        point.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
-                        ),
+          child: Row(
+            children: [
+              _PointLeadingControl(
+                index: index,
+                isBusy: isBusy,
+                selectionMode: selectionMode,
+                selected: selected,
+                canDrag: canDrag,
+                onToggleSelected: onToggleSelected,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      point.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          letterSpacing: 0,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${point.work.title} / ${point.subtitle}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        letterSpacing: 0,
                       ),
-                      const SizedBox(height: 5),
-                      SizedBox(
-                        height: 32,
-                        child: Row(
-                          children: [
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0,
-                              ),
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            groupName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              letterSpacing: 0,
                             ),
-                            const SizedBox(width: 8),
-                            _CacheStatusPill(point: point),
-                            const Spacer(),
-                            if (!selectionMode) ...[
-                              _CompactTileButton(
-                                tooltip: status == VisitStatus.completed
-                                    ? '重置'
-                                    : '标记完成',
-                                onPressed: isBusy
-                                    ? null
-                                    : status == VisitStatus.completed
-                                    ? onReopen
-                                    : onComplete,
-                                icon: Icon(
-                                  status == VisitStatus.completed
-                                      ? Icons.restart_alt
-                                      : Icons.check_outlined,
-                                  size: 22,
-                                ),
-                              ),
-                              _CompactTileButton(
-                                tooltip: '设为当前',
-                                onPressed:
-                                    isBusy || status == VisitStatus.current
-                                    ? null
-                                    : onSetCurrent,
-                                icon: const Icon(Icons.flag_outlined, size: 22),
-                              ),
-                              _CompactTileButton(
-                                tooltip: '删除点位',
-                                onPressed: isBusy ? null : onDelete,
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 22,
-                                ),
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        _CacheStatusPill(point: point),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              if (!selectionMode)
+                PopupMenuButton<String>(
+                  tooltip: '点位操作',
+                  enabled: !isBusy,
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'move':
+                        onMove();
+                      case 'current':
+                        onSetCurrent();
+                      case 'complete':
+                        status == VisitStatus.completed
+                            ? onReopen()
+                            : onComplete();
+                      case 'delete':
+                        onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'move', child: Text('移动到片区')),
+                    if (status != VisitStatus.current)
+                      const PopupMenuItem(
+                        value: 'current',
+                        child: Text('设为当前'),
+                      ),
+                    PopupMenuItem(
+                      value: 'complete',
+                      child: Text(
+                        status == VisitStatus.completed ? '取消完成' : '标记完成',
+                      ),
+                    ),
+                    const PopupMenuItem(value: 'delete', child: Text('删除点位')),
+                  ],
+                ),
+            ],
           ),
         ),
       ),
@@ -957,30 +1417,6 @@ class _CacheStatusPill extends StatelessWidget {
   }
 }
 
-class _CompactTileButton extends StatelessWidget {
-  const _CompactTileButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final Widget icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints.tightFor(width: 36, height: 32),
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      icon: icon,
-    );
-  }
-}
-
 class _PointLeadingControl extends StatelessWidget {
   const _PointLeadingControl({
     required this.index,
@@ -1002,7 +1438,7 @@ class _PointLeadingControl extends StatelessWidget {
   Widget build(BuildContext context) {
     if (selectionMode) {
       return SizedBox(
-        width: 54,
+        width: 46,
         child: Center(
           child: Checkbox(
             value: selected,
@@ -1013,14 +1449,14 @@ class _PointLeadingControl extends StatelessWidget {
     }
 
     if (!canDrag) {
-      return const SizedBox(width: 54);
+      return const SizedBox(width: 10);
     }
 
     return ReorderableDragStartListener(
       index: index,
       enabled: !isBusy,
       child: const SizedBox(
-        width: 54,
+        width: 42,
         child: Center(
           child: Icon(Icons.drag_indicator, color: AppColors.textSecondary),
         ),
@@ -1036,6 +1472,7 @@ class _BatchActionBar extends StatelessWidget {
     required this.isBusy,
     required this.onSelectAll,
     required this.onClear,
+    required this.onMove,
     required this.onComplete,
     required this.onReopen,
     required this.onDelete,
@@ -1046,6 +1483,7 @@ class _BatchActionBar extends StatelessWidget {
   final bool isBusy;
   final VoidCallback onSelectAll;
   final VoidCallback onClear;
+  final VoidCallback onMove;
   final VoidCallback onComplete;
   final VoidCallback onReopen;
   final VoidCallback onDelete;
@@ -1053,7 +1491,6 @@ class _BatchActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasSelection = selectedCount > 0;
-
     return SafeArea(
       top: false,
       child: Container(
@@ -1084,12 +1521,16 @@ class _BatchActionBar extends StatelessWidget {
                 allSelected ? Icons.check_box : Icons.check_box_outline_blank,
               ),
             ),
-            IconButton(
-              tooltip: '清空',
-              onPressed: isBusy || !hasSelection ? null : onClear,
-              icon: const Icon(Icons.clear_all),
+            Text(
+              '$selectedCount',
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             const Spacer(),
+            IconButton(
+              tooltip: '移动片区',
+              onPressed: isBusy || !hasSelection ? null : onMove,
+              icon: const Icon(Icons.drive_file_move_outlined),
+            ),
             IconButton(
               tooltip: '标记完成',
               onPressed: isBusy || !hasSelection ? null : onComplete,
@@ -1112,8 +1553,533 @@ class _BatchActionBar extends StatelessWidget {
   }
 }
 
-class _EmptyPointManager extends StatelessWidget {
-  const _EmptyPointManager();
+class _SheetTitle extends StatelessWidget {
+  const _SheetTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderModeTile extends StatelessWidget {
+  const _OrderModeTile({
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: selected ? AppColors.accent : AppColors.textSecondary,
+      ),
+      title: Text(title),
+      onTap: onTap,
+    );
+  }
+}
+
+class _MoveTargetTile extends StatelessWidget {
+  const _MoveTargetTile({
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: selected ? AppColors.accent : AppColors.textSecondary,
+      ),
+      title: Text(title),
+      onTap: onTap,
+    );
+  }
+}
+
+class _GroupAnchorSelection {
+  const _GroupAnchorSelection({
+    required this.name,
+    required this.position,
+    required this.pointId,
+  });
+
+  const _GroupAnchorSelection.clear()
+    : name = null,
+      position = null,
+      pointId = null;
+
+  final String? name;
+  final LatLng? position;
+  final String? pointId;
+}
+
+class _GroupAnchorMapPickerScreen extends StatefulWidget {
+  const _GroupAnchorMapPickerScreen({
+    required this.group,
+    required this.points,
+    required this.groupNameForPoint,
+  });
+
+  final PilgrimagePlanGroup group;
+  final List<PilgrimagePoint> points;
+  final String Function(PilgrimagePoint point) groupNameForPoint;
+
+  @override
+  State<_GroupAnchorMapPickerScreen> createState() =>
+      _GroupAnchorMapPickerScreenState();
+}
+
+class _GroupAnchorMapPickerScreenState
+    extends State<_GroupAnchorMapPickerScreen> {
+  final MapController _mapController = MapController();
+  PilgrimagePoint? _selectedPoint;
+  LatLng? _manualPosition;
+  var _manualPickMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final anchorPointId = widget.group.anchorPointId;
+    if (anchorPointId != null) {
+      _selectedPoint = widget.points
+          .where((point) => point.id == anchorPointId)
+          .firstOrNull;
+    }
+    if (_selectedPoint == null &&
+        widget.group.anchorLatitude != null &&
+        widget.group.anchorLongitude != null) {
+      _manualPosition = LatLng(
+        widget.group.anchorLatitude!,
+        widget.group.anchorLongitude!,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedPosition = _selectedPoint?.position ?? _manualPosition;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('选择关键点'),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(const _GroupAnchorSelection.clear()),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: selectedPosition ?? _pointsCenter,
+              initialZoom: 15,
+              minZoom: 4,
+              maxZoom: 19,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
+              onTap: (_, latLng) {
+                if (!_manualPickMode) {
+                  return;
+                }
+                setState(() {
+                  _selectedPoint = null;
+                  _manualPosition = latLng;
+                });
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'app.miriago.miriago',
+              ),
+              MarkerLayer(
+                markers: [
+                  for (final point in widget.points)
+                    Marker(
+                      point: point.position,
+                      width: 42,
+                      height: 42,
+                      child: _AnchorPointMarker(
+                        selected: _selectedPoint?.id == point.id,
+                        onTap: () => _selectPoint(point),
+                      ),
+                    ),
+                  if (_manualPosition != null)
+                    Marker(
+                      point: _manualPosition!,
+                      width: 46,
+                      height: 46,
+                      child: const _ManualAnchorMarker(),
+                    ),
+                ],
+              ),
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                    onTap: () {
+                      launchUrl(
+                        Uri.parse('https://www.openstreetmap.org/copyright'),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            right: 12,
+            top: 12,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  _MapToolButton(
+                    tooltip: _manualPickMode ? '关闭地图点选' : '在地图上选点',
+                    selected: _manualPickMode,
+                    onTap: () {
+                      setState(() {
+                        _manualPickMode = !_manualPickMode;
+                      });
+                    },
+                    icon: Icons.ads_click_outlined,
+                  ),
+                  const SizedBox(height: 8),
+                  _MapToolButton(
+                    tooltip: '输入经纬度',
+                    selected: false,
+                    onTap: _showCoordinateInput,
+                    icon: Icons.edit_location_alt_outlined,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _AnchorSelectionCard(
+              selectedPoint: _selectedPoint,
+              manualPosition: _manualPosition,
+              groupNameForPoint: widget.groupNameForPoint,
+              manualPickMode: _manualPickMode,
+              onSave: selectedPosition == null ? null : _saveSelection,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  LatLng get _pointsCenter {
+    if (widget.points.isEmpty) {
+      return const LatLng(35, 135);
+    }
+    final latitude =
+        widget.points
+            .map((point) => point.position.latitude)
+            .reduce((a, b) => a + b) /
+        widget.points.length;
+    final longitude =
+        widget.points
+            .map((point) => point.position.longitude)
+            .reduce((a, b) => a + b) /
+        widget.points.length;
+    return LatLng(latitude, longitude);
+  }
+
+  void _selectPoint(PilgrimagePoint point) {
+    setState(() {
+      _selectedPoint = point;
+      _manualPosition = null;
+      _manualPickMode = false;
+    });
+    _mapController.move(point.position, 16);
+  }
+
+  Future<void> _showCoordinateInput() async {
+    final current =
+        _manualPosition ?? _selectedPoint?.position ?? _pointsCenter;
+    final latitudeController = TextEditingController(
+      text: current.latitude.toStringAsFixed(6),
+    );
+    final longitudeController = TextEditingController(
+      text: current.longitude.toStringAsFixed(6),
+    );
+    final result = await showDialog<LatLng>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('输入经纬度'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: latitudeController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: true,
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(labelText: '纬度'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: longitudeController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: true,
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(labelText: '经度'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final latitude = double.tryParse(
+                  latitudeController.text.trim(),
+                );
+                final longitude = double.tryParse(
+                  longitudeController.text.trim(),
+                );
+                if (latitude == null ||
+                    longitude == null ||
+                    latitude < -90 ||
+                    latitude > 90 ||
+                    longitude < -180 ||
+                    longitude > 180) {
+                  return;
+                }
+                Navigator.of(context).pop(LatLng(latitude, longitude));
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+    latitudeController.dispose();
+    longitudeController.dispose();
+    if (result == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _selectedPoint = null;
+      _manualPosition = result;
+      _manualPickMode = false;
+    });
+    _mapController.move(result, 16);
+  }
+
+  void _saveSelection() {
+    final selectedPoint = _selectedPoint;
+    if (selectedPoint != null) {
+      Navigator.of(context).pop(
+        _GroupAnchorSelection(
+          name: selectedPoint.name,
+          position: selectedPoint.position,
+          pointId: selectedPoint.id,
+        ),
+      );
+      return;
+    }
+    final manualPosition = _manualPosition;
+    if (manualPosition == null) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _GroupAnchorSelection(
+        name: '手动关键点',
+        position: manualPosition,
+        pointId: null,
+      ),
+    );
+  }
+}
+
+class _AnchorPointMarker extends StatelessWidget {
+  const _AnchorPointMarker({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: '选择点位',
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: selected ? AppColors.accent : AppColors.surface,
+        foregroundColor: selected ? Colors.white : AppColors.accent,
+        side: BorderSide(
+          color: selected ? AppColors.warning : AppColors.border,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      icon: const Icon(Icons.place, size: 21),
+    );
+  }
+}
+
+class _ManualAnchorMarker extends StatelessWidget {
+  const _ManualAnchorMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.warning,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white, width: 3),
+      ),
+      child: const Icon(Icons.add_location_alt, color: Colors.white),
+    );
+  }
+}
+
+class _MapToolButton extends StatelessWidget {
+  const _MapToolButton({
+    required this.tooltip,
+    required this.selected,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.accent : AppColors.surface,
+      borderRadius: BorderRadius.circular(8),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onTap,
+        icon: Icon(icon),
+        color: selected ? Colors.white : AppColors.textPrimary,
+      ),
+    );
+  }
+}
+
+class _AnchorSelectionCard extends StatelessWidget {
+  const _AnchorSelectionCard({
+    required this.selectedPoint,
+    required this.manualPosition,
+    required this.groupNameForPoint,
+    required this.manualPickMode,
+    required this.onSave,
+  });
+
+  final PilgrimagePoint? selectedPoint;
+  final LatLng? manualPosition;
+  final String Function(PilgrimagePoint point) groupNameForPoint;
+  final bool manualPickMode;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final point = selectedPoint;
+    final position = point?.position ?? manualPosition;
+    final title = point?.name ?? (position == null ? '尚未选择关键点' : '手动关键点');
+    final subtitle = point == null
+        ? (manualPickMode ? '点击地图任意位置设置关键点' : '可点选点位、地图或输入经纬度')
+        : '${groupNameForPoint(point)} / ${point.subtitle}';
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flag_outlined, color: AppColors.accent, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  position == null
+                      ? subtitle
+                      : '$subtitle\n${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(onPressed: onSave, child: const Text('保存')),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPlanManager extends StatelessWidget {
+  const _EmptyPlanManager();
 
   @override
   Widget build(BuildContext context) {
