@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
@@ -10,6 +14,8 @@ import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
 import '../point_detail/point_detail_sheet.dart';
+import '../records/point_visit_records_screen.dart';
+import '../records/visit_record_detail_screen.dart';
 import 'plan_group_utils.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
@@ -23,6 +29,7 @@ class PlanScreen extends StatefulWidget {
     required this.onOpenPlanManager,
     required this.onOpenAddPoints,
     required this.onOpenPointManager,
+    required this.onOpenImportExport,
     super.key,
   });
 
@@ -33,6 +40,7 @@ class PlanScreen extends StatefulWidget {
   final VoidCallback onOpenPlanManager;
   final VoidCallback onOpenAddPoints;
   final VoidCallback onOpenPointManager;
+  final VoidCallback onOpenImportExport;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
@@ -44,7 +52,9 @@ class _PlanScreenState extends State<PlanScreen> {
   bool _sortDescending = false;
   bool _showMap = false;
   bool _showVirtualLocation = false;
+  bool _isLocating = false;
   double _mapHeightRatio = 0.42;
+  LatLng? _currentLocation;
   final _pointListController = ScrollController();
 
   PilgrimagePlanController get controller => widget.controller;
@@ -91,6 +101,63 @@ class _PlanScreenState extends State<PlanScreen> {
     });
   }
 
+  Future<void> _toggleCurrentLocation() async {
+    if (_showVirtualLocation && _currentLocation != null) {
+      setState(() {
+        _showVirtualLocation = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLocating = true;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showSnackBar('定位服务未开启。');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showSnackBar('需要定位权限来显示当前位置。');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentLocation = LatLng(position.latitude, position.longitude);
+        _showVirtualLocation = true;
+      });
+    } on TimeoutException {
+      _showSnackBar('定位超时，请稍后重试。');
+    } catch (_) {
+      _showSnackBar('定位失败，请检查权限和定位服务。');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLocating = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final plan = controller.plan;
@@ -105,6 +172,7 @@ class _PlanScreenState extends State<PlanScreen> {
             selectedGroup,
             sortMode: _sortMode,
             descending: _sortDescending,
+            currentLocation: _currentLocation,
           );
 
     return Scaffold(
@@ -122,6 +190,8 @@ class _PlanScreenState extends State<PlanScreen> {
                   widget.onOpenAddPoints();
                 case _PlanMenuAction.managePoints:
                   widget.onOpenPointManager();
+                case _PlanMenuAction.importExport:
+                  widget.onOpenImportExport();
                 case _PlanMenuAction.cacheReference:
                   _cacheFullReferenceImages(context);
               }
@@ -146,6 +216,13 @@ class _PlanScreenState extends State<PlanScreen> {
                 child: ListTile(
                   leading: Icon(Icons.tune_outlined),
                   title: Text('管理计划'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _PlanMenuAction.importExport,
+                child: ListTile(
+                  leading: Icon(Icons.import_export_outlined),
+                  title: Text('导入导出'),
                 ),
               ),
               PopupMenuItem(
@@ -187,6 +264,8 @@ class _PlanScreenState extends State<PlanScreen> {
               sortDescending: _sortDescending,
               mapHeightRatio: _mapHeightRatio,
               showVirtualLocation: _showVirtualLocation,
+              isLocating: _isLocating,
+              currentLocation: _currentLocation,
               selectedPointId: controller.selectedPoint?.id,
               onSetSortMode: (mode) {
                 setState(() {
@@ -204,11 +283,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 });
               },
               onResizeMap: _resizeMap,
-              onToggleVirtualLocation: () {
-                setState(() {
-                  _showVirtualLocation = !_showVirtualLocation;
-                });
-              },
+              onToggleVirtualLocation: _toggleCurrentLocation,
               onSelectPoint: (point) => _selectPoint(point, groups),
               completedPointIds: controller.completedPointIds,
             ),
@@ -271,6 +346,30 @@ class _PlanScreenState extends State<PlanScreen> {
       groups: controller.plan.groups,
       onMoveToGroup: controller.movePointToGroup,
       records: controller.recordsForPoint(point.id),
+      onOpenRecords: () => _openPointRecords(context, point),
+      onOpenRecord: (record) => _openRecordDetail(context, record),
+    );
+  }
+
+  void _openPointRecords(BuildContext context, PilgrimagePoint point) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PointVisitRecordsScreen(point: point, controller: controller),
+      ),
+    );
+  }
+
+  void _openRecordDetail(BuildContext context, PilgrimageVisitRecord record) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitRecordDetailScreen(
+          record: record,
+          point: controller.pointById(record.pointId),
+          controller: controller,
+          onDelete: () => controller.deleteVisitRecord(record),
+        ),
+      ),
     );
   }
 
@@ -317,9 +416,25 @@ class _PlanScreenState extends State<PlanScreen> {
       SnackBar(content: Text('已缓存 $cached/${points.length} 张完整参考图')),
     );
   }
+
+  void _showSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
-enum _PlanMenuAction { switchPlan, addPoints, managePoints, cacheReference }
+enum _PlanMenuAction {
+  switchPlan,
+  addPoints,
+  managePoints,
+  importExport,
+  cacheReference,
+}
 
 class _GroupSwitcher extends StatelessWidget {
   const _GroupSwitcher({
@@ -402,6 +517,11 @@ class _GroupSwitcher extends StatelessWidget {
                 subtitle: Text(group.anchorLabel),
                 trailing: Text(
                   '${group.completedCount} / ${group.points.length}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
                 ),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -425,6 +545,8 @@ class _PlanGroupControls extends StatelessWidget {
     required this.sortDescending,
     required this.mapHeightRatio,
     required this.showVirtualLocation,
+    required this.isLocating,
+    required this.currentLocation,
     required this.selectedPointId,
     required this.completedPointIds,
     required this.onSetSortMode,
@@ -442,6 +564,8 @@ class _PlanGroupControls extends StatelessWidget {
   final bool sortDescending;
   final double mapHeightRatio;
   final bool showVirtualLocation;
+  final bool isLocating;
+  final LatLng? currentLocation;
   final String? selectedPointId;
   final Set<String> completedPointIds;
   final ValueChanged<PointSortMode> onSetSortMode;
@@ -454,7 +578,19 @@ class _PlanGroupControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewportHeight = MediaQuery.sizeOf(context).height;
-    final mapHeight = (viewportHeight * mapHeightRatio).clamp(160.0, 490.0);
+    final safePadding = MediaQuery.paddingOf(context);
+    final maxMapHeight =
+        (viewportHeight -
+                safePadding.top -
+                safePadding.bottom -
+                kToolbarHeight -
+                kBottomNavigationBarHeight -
+                210)
+            .clamp(150.0, 490.0);
+    final mapHeight = (viewportHeight * mapHeightRatio).clamp(
+      150.0,
+      maxMapHeight,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
       child: Column(
@@ -492,6 +628,8 @@ class _PlanGroupControls extends StatelessWidget {
               completedPointIds: completedPointIds,
               selectedPointId: selectedPointId,
               showVirtualLocation: showVirtualLocation,
+              isLocating: isLocating,
+              currentLocation: currentLocation,
               height: mapHeight,
               onSelectPoint: onSelectPoint,
               onToggleVirtualLocation: onToggleVirtualLocation,
@@ -715,12 +853,14 @@ String _sortDirectionTooltip(PointSortMode mode, bool descending) {
   };
 }
 
-class _PlanInlineMap extends StatelessWidget {
+class _PlanInlineMap extends StatefulWidget {
   const _PlanInlineMap({
     required this.group,
     required this.completedPointIds,
     required this.selectedPointId,
     required this.showVirtualLocation,
+    required this.isLocating,
+    required this.currentLocation,
     required this.height,
     required this.onSelectPoint,
     required this.onToggleVirtualLocation,
@@ -730,14 +870,71 @@ class _PlanInlineMap extends StatelessWidget {
   final Set<String> completedPointIds;
   final String? selectedPointId;
   final bool showVirtualLocation;
+  final bool isLocating;
+  final LatLng? currentLocation;
   final double height;
   final ValueChanged<PilgrimagePoint> onSelectPoint;
   final VoidCallback onToggleVirtualLocation;
 
   @override
+  State<_PlanInlineMap> createState() => _PlanInlineMapState();
+}
+
+class _PlanInlineMapState extends State<_PlanInlineMap> {
+  final MapController _mapController = MapController();
+
+  @override
+  void didUpdateWidget(covariant _PlanInlineMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentLocation = widget.currentLocation;
+    if (widget.showVirtualLocation &&
+        currentLocation != null &&
+        currentLocation != oldWidget.currentLocation) {
+      _mapController.move(currentLocation, 16);
+      return;
+    }
+
+    if (widget.selectedPointId != oldWidget.selectedPointId) {
+      final point = _selectedPoint;
+      if (point != null) {
+        _mapController.move(point.position, 16);
+        return;
+      }
+    }
+
+    if (widget.group.id != oldWidget.group.id) {
+      _mapController.move(_initialCenter, 15.2);
+    }
+  }
+
+  PilgrimagePoint? get _selectedPoint {
+    final selectedPointId = widget.selectedPointId;
+    if (selectedPointId == null) {
+      return null;
+    }
+    for (final point in widget.group.points) {
+      if (point.id == selectedPointId) {
+        return point;
+      }
+    }
+    return null;
+  }
+
+  LatLng get _initialCenter {
+    final selectedPoint = _selectedPoint;
+    if (selectedPoint != null) {
+      return selectedPoint.position;
+    }
+    if (widget.showVirtualLocation && widget.currentLocation != null) {
+      return widget.currentLocation!;
+    }
+    return groupMapCenter(widget.group);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: height,
+      height: widget.height,
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -750,8 +947,9 @@ class _PlanInlineMap extends StatelessWidget {
           child: Stack(
             children: [
               FlutterMap(
+                mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: groupMapCenter(group),
+                  initialCenter: _initialCenter,
                   initialZoom: 15.2,
                   minZoom: 4,
                   maxZoom: 19,
@@ -767,25 +965,28 @@ class _PlanInlineMap extends StatelessWidget {
                   ),
                   MarkerLayer(
                     markers: [
-                      for (final point in group.points)
+                      for (final point in widget.group.points)
                         Marker(
                           point: point.position,
-                          width: point.id == selectedPointId ? 34 : 28,
-                          height: point.id == selectedPointId ? 34 : 28,
+                          width: point.id == widget.selectedPointId ? 34 : 28,
+                          height: point.id == widget.selectedPointId ? 34 : 28,
                           child: GestureDetector(
-                            onTap: () => onSelectPoint(point),
+                            onTap: () => widget.onSelectPoint(point),
                             child: _MapPointMarker(
-                              selected: point.id == selectedPointId,
-                              completed: completedPointIds.contains(point.id),
+                              selected: point.id == widget.selectedPointId,
+                              completed: widget.completedPointIds.contains(
+                                point.id,
+                              ),
                             ),
                           ),
                         ),
-                      if (showVirtualLocation)
-                        const Marker(
-                          point: previewCurrentLocation,
+                      if (widget.showVirtualLocation &&
+                          widget.currentLocation != null)
+                        Marker(
+                          point: widget.currentLocation!,
                           width: 36,
                           height: 36,
-                          child: _CurrentLocationDot(),
+                          child: const _CurrentLocationDot(),
                         ),
                     ],
                   ),
@@ -800,17 +1001,21 @@ class _PlanInlineMap extends StatelessWidget {
                 left: 10,
                 top: 10,
                 right: 56,
-                child: _MapCompactSummary(group: group),
+                child: _MapCompactSummary(group: widget.group),
               ),
               Positioned(
                 right: 10,
                 top: 10,
                 child: _MapFloatingIconButton(
-                  tooltip: showVirtualLocation ? '隐藏当前位置' : '显示当前位置',
-                  icon: showVirtualLocation
+                  tooltip: widget.showVirtualLocation ? '隐藏当前位置' : '显示当前位置',
+                  icon: widget.isLocating
+                      ? null
+                      : widget.showVirtualLocation
                       ? Icons.my_location
                       : Icons.my_location_outlined,
-                  onTap: onToggleVirtualLocation,
+                  onTap: widget.isLocating
+                      ? null
+                      : widget.onToggleVirtualLocation,
                 ),
               ),
             ],
@@ -863,13 +1068,13 @@ class _MapResizeHandle extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onVerticalDragUpdate: (details) => onDrag(details.delta.dy),
       child: SizedBox(
-        height: 10,
+        height: 30,
         width: double.infinity,
         child: Align(
           alignment: Alignment.center,
           child: SizedBox(
-            width: 48,
-            height: 4,
+            width: 56,
+            height: 5,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: AppColors.border,
@@ -950,8 +1155,8 @@ class _MapFloatingIconButton extends StatelessWidget {
   });
 
   final String tooltip;
-  final IconData icon;
-  final VoidCallback onTap;
+  final IconData? icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -966,7 +1171,15 @@ class _MapFloatingIconButton extends StatelessWidget {
           child: SizedBox(
             width: 38,
             height: 38,
-            child: Icon(icon, size: 20, color: AppColors.textPrimary),
+            child: icon == null
+                ? const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : Icon(icon, size: 20, color: AppColors.textPrimary),
           ),
         ),
       ),

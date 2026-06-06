@@ -10,9 +10,11 @@ import 'plan/pilgrimage_models.dart';
 import 'plan/pilgrimage_plan_controller.dart';
 import 'plan/plan_screen.dart';
 import 'plan/point_manager_screen.dart';
+import 'plan_transfer/import_export_screen.dart';
 import 'plan_transfer/incoming_plan_file.dart';
-import 'plan_transfer/plan_package_file_stub.dart'
-    if (dart.library.io) 'plan_transfer/plan_package_file_io.dart';
+import 'plan_transfer/plan_import_file_stub.dart'
+    if (dart.library.io) 'plan_transfer/plan_import_file_io.dart';
+import 'plan_transfer/plan_import_preview_screen.dart';
 import 'records/records_screen.dart';
 import 'settings/settings_screen.dart';
 
@@ -128,6 +130,27 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  Future<void> _openImportExport() async {
+    final plan = _planController?.plan;
+    if (plan == null) {
+      return;
+    }
+    final imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            ImportExportScreen(plan: plan, repository: widget.repository),
+      ),
+    );
+    if (imported == true) {
+      await _loadActivePlan();
+      if (mounted) {
+        setState(() {
+          _selectedIndex = 0;
+        });
+      }
+    }
+  }
+
   Future<void> _saveSettings(AppSettings settings) async {
     setState(() {
       _settings = settings;
@@ -145,11 +168,21 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _importPlanFromPath(String path) async {
     try {
-      final package = await readPlanPackageFromPath(path);
-      final importedPlan = await widget.repository.importPlanPackage(
-        plan: package.plan,
-        visitRecords: package.visitRecords,
+      final importPackage = await readPlanImportPackageFromPath(path);
+      if (!mounted) {
+        return;
+      }
+      final imported = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => PlanImportPreviewScreen(
+            importPackage: importPackage,
+            repository: widget.repository,
+          ),
+        ),
       );
+      if (imported != true) {
+        return;
+      }
       await _loadActivePlan();
       if (!mounted) {
         return;
@@ -157,9 +190,6 @@ class _AppShellState extends State<AppShell> {
       setState(() {
         _selectedIndex = 0;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已导入计划「${importedPlan.name}」')));
     } catch (_) {
       if (!mounted) {
         return;
@@ -200,6 +230,7 @@ class _AppShellState extends State<AppShell> {
                     onOpenPlanManager: _openPlanManager,
                     onOpenAddPoints: _openAddPoints,
                     onOpenPointManager: _openPointManager,
+                    onOpenImportExport: _openImportExport,
                   ),
                   PilgrimageMapScreen(
                     controller: controller,

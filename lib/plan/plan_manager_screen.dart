@@ -1,11 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../plan_transfer/plan_export_delivery.dart';
+import '../plan_transfer/plan_export_delivery_result.dart';
 import '../plan_transfer/plan_package.dart';
-import '../plan_transfer/plan_package_file_stub.dart'
-    if (dart.library.io) '../plan_transfer/plan_package_file_io.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/snackbar_helper.dart';
 import 'pilgrimage_models.dart';
@@ -121,28 +122,36 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     );
 
     try {
-      final records = await widget.repository.loadVisitRecords(plan.id);
-      final path = await exportPlanPackageToFile(
-        PlanPackage(plan: plan, visitRecords: records),
+      final fileName = '${_safeExportName(plan.name)}.$seichiPlanFileExtension';
+      final destination = await preparePlanExportDestination(
+        fileName: fileName,
+        mimeType: seichiPlanMimeType,
+        extension: seichiPlanFileExtension,
       );
-      if (path == null) {
-        messenger.showReplacingSnackBar(
-          const SnackBar(content: Text('当前平台暂不支持导出计划文件')),
-        );
+      final records = await widget.repository.loadVisitRecords(plan.id);
+      final package = PlanPackage(plan: plan, visitRecords: records);
+      final result = await deliverPlanExport(
+        bytes: utf8.encode(package.toJsonString()),
+        fileName: fileName,
+        mimeType: seichiPlanMimeType,
+        shareSubject: plan.name,
+        shareText: 'MiriaGo计划：${plan.name}',
+        extension: seichiPlanFileExtension,
+        destination: destination,
+      );
+      if (!mounted) {
         return;
       }
-
-      await Share.shareXFiles(
-        [
-          XFile(
-            path,
-            mimeType: seichiPlanMimeType,
-            name: '${plan.name}.$seichiPlanFileExtension',
-          ),
-        ],
-        subject: plan.name,
-        text: 'MiriaGo计划：${plan.name}',
-      );
+      if (result.action == PlanExportDeliveryAction.canceled) {
+        messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+        return;
+      }
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('计划已导出')));
+    } on PlanExportCanceledException {
+      if (!mounted) {
+        return;
+      }
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
     } catch (_) {
       messenger.showReplacingSnackBar(const SnackBar(content: Text('计划导出失败')));
     }
@@ -189,6 +198,14 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       ),
     );
   }
+}
+
+String _safeExportName(String source) {
+  final safeName = source
+      .replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
+  return safeName.isEmpty ? 'miriago_plan' : safeName;
 }
 
 class _CreatePlanButton extends StatelessWidget {

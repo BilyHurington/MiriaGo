@@ -39,6 +39,7 @@
                 <data android:scheme="content"/>
                 <data android:scheme="file"/>
                 <data android:mimeType="application/vnd.miriago.plan+json"/>
+                <data android:mimeType="application/vnd.miriago.plan+zip"/>
                 <data android:mimeType="application/vnd.seichi-junrei.plan+json"/>
                 <data android:mimeType="application/octet-stream"/>
                 <data android:mimeType="application/json"/>

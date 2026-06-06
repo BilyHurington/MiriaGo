@@ -26,6 +26,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  archive: ^4.0.9
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.2
   permission_handler: ^12.0.1
@@ -41,6 +42,8 @@ dependencies:
   camerawesome: ^2.5.0
   share_plus: ^10.1.4
   image: ^4.8.0
+  file_selector: ^1.1.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

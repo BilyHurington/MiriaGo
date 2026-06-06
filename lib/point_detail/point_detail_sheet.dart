@@ -28,6 +28,8 @@ class PointDetailSheet extends StatelessWidget {
     this.groups = const [],
     this.onMoveToGroup,
     this.records = const [],
+    this.onOpenRecords,
+    this.onOpenRecord,
     this.navigationLauncher = const MapNavigationLauncher(),
     super.key,
   });
@@ -47,6 +49,8 @@ class PointDetailSheet extends StatelessWidget {
   final Future<void> Function(PilgrimagePoint point, String? groupId)?
   onMoveToGroup;
   final List<PilgrimageVisitRecord> records;
+  final VoidCallback? onOpenRecords;
+  final ValueChanged<PilgrimageVisitRecord>? onOpenRecord;
   final MapNavigationLauncher navigationLauncher;
 
   static Future<void> show(
@@ -66,6 +70,8 @@ class PointDetailSheet extends StatelessWidget {
     Future<void> Function(PilgrimagePoint point, String? groupId)?
     onMoveToGroup,
     List<PilgrimageVisitRecord> records = const [],
+    VoidCallback? onOpenRecords,
+    ValueChanged<PilgrimageVisitRecord>? onOpenRecord,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -84,6 +90,8 @@ class PointDetailSheet extends StatelessWidget {
           groups: groups,
           onMoveToGroup: onMoveToGroup,
           records: records,
+          onOpenRecords: onOpenRecords,
+          onOpenRecord: onOpenRecord,
         );
       },
     );
@@ -298,7 +306,21 @@ class PointDetailSheet extends StatelessWidget {
                 ],
                 if (records.isNotEmpty) ...[
                   const SizedBox(height: 18),
-                  _PointRecordsPreview(records: records),
+                  _PointRecordsPreview(
+                    records: records,
+                    onOpenRecords: onOpenRecords == null
+                        ? null
+                        : () {
+                            Navigator.of(context).pop();
+                            onOpenRecords!();
+                          },
+                    onOpenRecord: onOpenRecord == null
+                        ? null
+                        : (record) {
+                            Navigator.of(context).pop();
+                            onOpenRecord!(record);
+                          },
+                  ),
                 ],
                 const SizedBox(height: 18),
                 _PointDetailActions(
@@ -745,9 +767,15 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _PointRecordsPreview extends StatelessWidget {
-  const _PointRecordsPreview({required this.records});
+  const _PointRecordsPreview({
+    required this.records,
+    required this.onOpenRecords,
+    required this.onOpenRecord,
+  });
 
   final List<PilgrimageVisitRecord> records;
+  final VoidCallback? onOpenRecords;
+  final ValueChanged<PilgrimageVisitRecord>? onOpenRecord;
 
   @override
   Widget build(BuildContext context) {
@@ -772,6 +800,13 @@ class _PointRecordsPreview extends StatelessWidget {
                 letterSpacing: 0,
               ),
             ),
+            const Spacer(),
+            if (onOpenRecords != null)
+              TextButton.icon(
+                onPressed: onOpenRecords,
+                icon: const Icon(Icons.chevron_right, size: 18),
+                label: const Text('全部'),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -783,29 +818,38 @@ class _PointRecordsPreview extends StatelessWidget {
               final record = recentRecords[index];
               return SizedBox(
                 width: 92,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: VisitRecordPhoto(path: record.displayPhotoPath),
-                      ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onOpenRecord == null
+                        ? null
+                        : () => onOpenRecord!(record),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: VisitRecordPhoto(
+                            path: record.displayPhotoPath,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          record.referenceMode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      record.referenceMode,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               );
             },

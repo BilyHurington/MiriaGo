@@ -13,6 +13,8 @@ import '../point_detail/point_detail_sheet.dart';
 import '../plan/plan_group_utils.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../records/point_visit_records_screen.dart';
+import '../records/visit_record_detail_screen.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'map_navigation_launcher.dart';
@@ -124,6 +126,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     _mapController.move(point.position, 16);
   }
 
+  void _setCurrentPoint(PilgrimagePoint point) {
+    _controller.setCurrentPoint(point);
+    _selectPoint(point);
+  }
+
   void _selectGroup(int index, List<PlanGroupBucket> groups) {
     final nextIndex = index.clamp(0, groups.length - 1);
     final group = groups[nextIndex];
@@ -162,7 +169,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       context,
       point: point,
       status: _controller.statusFor(point),
-      onSetCurrent: () => _controller.setCurrentPoint(point),
+      onSetCurrent: () => _setCurrentPoint(point),
       onOpenCamera: () => _openCamera(point),
       onComplete: () => _controller.statusFor(point) == VisitStatus.completed
           ? _controller.reopenPoint(point)
@@ -175,6 +182,30 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       groups: _controller.plan.groups,
       onMoveToGroup: _controller.movePointToGroup,
       records: _controller.recordsForPoint(point.id),
+      onOpenRecords: () => _openPointRecords(point),
+      onOpenRecord: _openRecordDetail,
+    );
+  }
+
+  void _openPointRecords(PilgrimagePoint point) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PointVisitRecordsScreen(point: point, controller: _controller),
+      ),
+    );
+  }
+
+  void _openRecordDetail(PilgrimageVisitRecord record) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitRecordDetailScreen(
+          record: record,
+          point: _controller.pointById(record.pointId),
+          controller: _controller,
+          onDelete: () => _controller.deleteVisitRecord(record),
+        ),
+      ),
     );
   }
 
@@ -324,8 +355,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                         .recordsForPoint(selectedPoint.id)
                         .length,
                     distanceMeters: _distanceToSelectedPoint(selectedPoint),
-                    onSetCurrent: () =>
-                        _controller.setCurrentPoint(selectedPoint),
+                    onSetCurrent: () => _setCurrentPoint(selectedPoint),
                     onOpenDetail: () => _showPointDetail(selectedPoint),
                     onOpenNavigation: () => _openNavigation(selectedPoint),
                     onOpenCamera: () => _openCamera(selectedPoint),
@@ -378,6 +408,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                 subtitle: Text(group.anchorLabel),
                 trailing: Text(
                   '${group.completedCount} / ${group.points.length}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
                 ),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -585,6 +620,10 @@ class _PointCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (recordCount > 0) ...[
+                          const SizedBox(width: 8),
+                          _MapRecordBadge(count: recordCount),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -618,10 +657,6 @@ class _PointCard extends StatelessWidget {
               ),
             ],
           ),
-          if (recordCount > 0) ...[
-            const SizedBox(height: 8),
-            _MapRecordBadge(count: recordCount),
-          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -633,6 +668,12 @@ class _PointCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: '点位详情',
+                onPressed: onOpenDetail,
+                icon: const Icon(Icons.info_outline),
+              ),
+              const SizedBox(width: 4),
               IconButton.outlined(
                 tooltip: '拍摄参考',
                 onPressed: onOpenCamera,
