@@ -836,7 +836,7 @@ class _PointRecordsPreview extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          record.referenceMode,
+                          _formatRecordTime(record.capturedAt),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -859,5 +859,13 @@ class _PointRecordsPreview extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _formatRecordTime(DateTime capturedAt) {
+    final month = capturedAt.month.toString().padLeft(2, '0');
+    final day = capturedAt.day.toString().padLeft(2, '0');
+    final hour = capturedAt.hour.toString().padLeft(2, '0');
+    final minute = capturedAt.minute.toString().padLeft(2, '0');
+    return '$month/$day $hour:$minute';
   }
 }

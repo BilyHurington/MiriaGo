@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
 
 class VisitRecordPhoto extends StatelessWidget {
-  const VisitRecordPhoto({required this.path, this.fit = BoxFit.cover, super.key});
+  const VisitRecordPhoto({
+    required this.path,
+    this.fit = BoxFit.cover,
+    super.key,
+  });
 
   final String path;
   final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.startsWith('docs/sample_images/')) {
+      return Image.asset(
+        path,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => const _PhotoPlaceholder(),
+      );
+    }
+
+    return const _PhotoPlaceholder();
+  }
+}
+
+class _PhotoPlaceholder extends StatelessWidget {
+  const _PhotoPlaceholder();
 
   @override
   Widget build(BuildContext context) {

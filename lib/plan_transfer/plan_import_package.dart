@@ -16,6 +16,9 @@ class PlanImportPackage {
     required this.sourceName,
     required this.manifest,
     required this.assetCounts,
+    required this.assetEntries,
+    required this.pointAssetRefsById,
+    required this.recordAssetRefsById,
     required this.warnings,
     required this.exportedAt,
     required this.appVersion,
@@ -28,6 +31,9 @@ class PlanImportPackage {
   final String sourceName;
   final Map<String, Object?> manifest;
   final Map<String, int> assetCounts;
+  final Map<String, List<int>> assetEntries;
+  final Map<String, PlanImportPointAssetRefs> pointAssetRefsById;
+  final Map<String, PlanImportRecordAssetRefs> recordAssetRefsById;
   final List<String> warnings;
   final DateTime? exportedAt;
   final String? appVersion;
@@ -39,6 +45,8 @@ class PlanImportPackage {
   bool get hasVisitRecords => package.visitRecords.isNotEmpty;
 
   bool get hasAssets => assetCounts.values.any((count) => count > 0);
+
+  bool get hasRestorableAssets => assetEntries.isNotEmpty;
 
   int get totalAssetCount =>
       assetCounts.values.fold(0, (total, count) => total + count);
@@ -57,6 +65,47 @@ class PlanImportPackage {
   };
 }
 
+class PlanImportPointAssetRefs {
+  const PlanImportPointAssetRefs({
+    this.referenceThumbnailAsset,
+    this.referenceFullReferenceAsset,
+    this.userReferenceAsset,
+  });
+
+  final String? referenceThumbnailAsset;
+  final String? referenceFullReferenceAsset;
+  final String? userReferenceAsset;
+
+  bool get hasAny =>
+      referenceThumbnailAsset != null ||
+      referenceFullReferenceAsset != null ||
+      userReferenceAsset != null;
+}
+
+class PlanImportRecordAssetRefs {
+  const PlanImportRecordAssetRefs({
+    this.visitPhotoAsset,
+    this.gradedPhotoAsset,
+  });
+
+  final String? visitPhotoAsset;
+  final String? gradedPhotoAsset;
+
+  bool get hasAny => visitPhotoAsset != null || gradedPhotoAsset != null;
+}
+
+class RestoredPlanImportData {
+  const RestoredPlanImportData({
+    required this.plan,
+    required this.visitRecords,
+    required this.warnings,
+  });
+
+  final PilgrimagePlan plan;
+  final List<PilgrimageVisitRecord> visitRecords;
+  final List<String> warnings;
+}
+
 PlanImportPackage readPlanImportPackageFromBytes(
   List<int> bytes, {
   required String sourceName,
@@ -71,6 +120,9 @@ PlanImportPackage readPlanImportPackageFromBytes(
     sourceName: sourceName,
     manifest: const {},
     assetCounts: const {},
+    assetEntries: const {},
+    pointAssetRefsById: const {},
+    recordAssetRefsById: const {},
     warnings: const [],
     exportedAt: null,
     appVersion: null,
@@ -97,8 +149,10 @@ PlanImportPackage _readV2ZipPackage(
     throw const FormatException('Unsupported MiriaGo package format.');
   }
   final planRoot = _readArchiveJson(archive, 'plan.json');
-  final plan = _planFromV2Json(_mapValue(planRoot['plan']));
-  final records = _readList(planRoot['visitRecords'], _visitRecordFromV2Json);
+  final planJson = _mapValue(planRoot['plan']);
+  final visitRecordJsons = _listMaps(planRoot['visitRecords']);
+  final plan = _planFromV2Json(planJson);
+  final records = visitRecordJsons.map(_visitRecordFromV2Json).toList();
 
   return PlanImportPackage(
     kind: PlanImportPackageKind.miriagoZip,
@@ -106,6 +160,9 @@ PlanImportPackage _readV2ZipPackage(
     sourceName: sourceName,
     manifest: manifest,
     assetCounts: _intMap(manifest['assetCounts']),
+    assetEntries: _archiveAssetEntries(archive),
+    pointAssetRefsById: _pointAssetRefsById(planJson['points']),
+    recordAssetRefsById: _recordAssetRefsById(visitRecordJsons),
     warnings:
         (manifest['warnings'] as List?)?.whereType<String>().toList() ??
         const [],
@@ -113,6 +170,41 @@ PlanImportPackage _readV2ZipPackage(
     appVersion: manifest['appVersion'] as String?,
     schemaVersion: (manifest['schemaVersion'] as num?)?.toInt(),
     exportMode: manifest['exportMode'] as String?,
+  );
+}
+
+RestoredPlanImportData applyRestoredAssetPaths({
+  required PlanImportPackage importPackage,
+  required Map<String, String> restoredPaths,
+  required bool includeRecords,
+}) {
+  final warnings = <String>[];
+  final restoredPlan = importPackage.package.plan.copyWith(
+    points: [
+      for (final point in importPackage.package.plan.points)
+        _pointWithRestoredAssets(
+          point,
+          importPackage.pointAssetRefsById[point.id],
+          restoredPaths,
+          warnings,
+        ),
+    ],
+  );
+  final records = includeRecords
+      ? [
+          for (final record in importPackage.package.visitRecords)
+            _recordWithRestoredAssets(
+              record,
+              importPackage.recordAssetRefsById[record.id],
+              restoredPaths,
+              warnings,
+            ),
+        ]
+      : const <PilgrimageVisitRecord>[];
+  return RestoredPlanImportData(
+    plan: restoredPlan,
+    visitRecords: records,
+    warnings: warnings,
   );
 }
 
@@ -125,6 +217,148 @@ Map<String, Object?> _readArchiveJson(Archive archive, String name) {
   final source = utf8.decode(content);
   final decoded = jsonDecode(source);
   return _mapValue(decoded);
+}
+
+Map<String, List<int>> _archiveAssetEntries(Archive archive) {
+  final entries = <String, List<int>>{};
+  for (final file in archive.files) {
+    final name = file.name;
+    if (!_isSafeAssetPath(name)) {
+      continue;
+    }
+    final bytes = file.readBytes();
+    if (bytes == null || bytes.isEmpty) {
+      continue;
+    }
+    entries[name] = List<int>.from(bytes);
+  }
+  return entries;
+}
+
+bool _isSafeAssetPath(String path) {
+  if (!path.startsWith('assets/') || path.endsWith('/')) {
+    return false;
+  }
+  if (path.startsWith('/') || path.contains(r'\')) {
+    return false;
+  }
+  final segments = path.split('/');
+  return segments.every((segment) => segment.isNotEmpty && segment != '..');
+}
+
+Map<String, PlanImportPointAssetRefs> _pointAssetRefsById(Object? source) {
+  final refs = <String, PlanImportPointAssetRefs>{};
+  for (final pointJson in _listMaps(source)) {
+    final id = pointJson['id'];
+    if (id is! String || id.isEmpty) {
+      continue;
+    }
+    final assetRefs = PlanImportPointAssetRefs(
+      referenceThumbnailAsset: _safeAssetValue(
+        pointJson['referenceThumbnailAsset'],
+      ),
+      referenceFullReferenceAsset: _safeAssetValue(
+        pointJson['referenceFullReferenceAsset'],
+      ),
+      userReferenceAsset: _safeAssetValue(pointJson['userReferenceAsset']),
+    );
+    if (assetRefs.hasAny) {
+      refs[id] = assetRefs;
+    }
+  }
+  return refs;
+}
+
+Map<String, PlanImportRecordAssetRefs> _recordAssetRefsById(
+  List<Map<String, Object?>> recordJsons,
+) {
+  final refs = <String, PlanImportRecordAssetRefs>{};
+  for (final recordJson in recordJsons) {
+    final id = recordJson['id'];
+    if (id is! String || id.isEmpty) {
+      continue;
+    }
+    final assetRefs = PlanImportRecordAssetRefs(
+      visitPhotoAsset: _safeAssetValue(recordJson['visitPhotoAsset']),
+      gradedPhotoAsset: _safeAssetValue(recordJson['gradedPhotoAsset']),
+    );
+    if (assetRefs.hasAny) {
+      refs[id] = assetRefs;
+    }
+  }
+  return refs;
+}
+
+String? _safeAssetValue(Object? value) {
+  if (value is! String || value.isEmpty) {
+    return null;
+  }
+  return _isSafeAssetPath(value) ? value : null;
+}
+
+PilgrimagePoint _pointWithRestoredAssets(
+  PilgrimagePoint point,
+  PlanImportPointAssetRefs? assetRefs,
+  Map<String, String> restoredPaths,
+  List<String> warnings,
+) {
+  if (assetRefs == null) {
+    return point;
+  }
+  final thumbnailPath = _restoredPath(
+    assetRefs.referenceThumbnailAsset,
+    restoredPaths,
+    warnings,
+  );
+  final fullReferencePath = _restoredPath(
+    assetRefs.userReferenceAsset ?? assetRefs.referenceFullReferenceAsset,
+    restoredPaths,
+    warnings,
+  );
+  return point.copyWith(
+    referenceThumbnailPath: thumbnailPath ?? point.referenceThumbnailPath,
+    referenceFullImagePath: fullReferencePath ?? point.referenceFullImagePath,
+  );
+}
+
+PilgrimageVisitRecord _recordWithRestoredAssets(
+  PilgrimageVisitRecord record,
+  PlanImportRecordAssetRefs? assetRefs,
+  Map<String, String> restoredPaths,
+  List<String> warnings,
+) {
+  if (assetRefs == null) {
+    return record;
+  }
+  final photoPath = _restoredPath(
+    assetRefs.visitPhotoAsset,
+    restoredPaths,
+    warnings,
+  );
+  final gradedPhotoPath = _restoredPath(
+    assetRefs.gradedPhotoAsset,
+    restoredPaths,
+    warnings,
+  );
+  return record.copyWith(
+    photoPath: photoPath ?? record.photoPath,
+    gradedPhotoPath: gradedPhotoPath ?? record.gradedPhotoPath,
+  );
+}
+
+String? _restoredPath(
+  String? assetPath,
+  Map<String, String> restoredPaths,
+  List<String> warnings,
+) {
+  if (assetPath == null) {
+    return null;
+  }
+  final restoredPath = restoredPaths[assetPath];
+  if (restoredPath == null) {
+    warnings.add('asset not restored: $assetPath');
+  }
+  return restoredPath;
 }
 
 PilgrimagePlan _planFromV2Json(Map<String, Object?> json) {
@@ -267,10 +501,14 @@ List<T> _readList<T>(
   Object? source,
   T Function(Map<String, Object?> json) decode,
 ) {
+  return _listMaps(source).map(decode).toList();
+}
+
+List<Map<String, Object?>> _listMaps(Object? source) {
   if (source is! List) {
     return const [];
   }
-  return source.map(_mapValue).map(decode).toList();
+  return source.map(_mapValue).toList();
 }
 
 T? _enumValue<T extends Enum>(List<T> values, Object? source) {

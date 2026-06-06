@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 
+import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 import 'plan_export_asset_stub.dart'
     if (dart.library.io) 'plan_export_asset_io.dart';
@@ -33,6 +34,8 @@ class PlanExportV2Result {
   final String fileName;
 }
 
+typedef ExportNetworkBytesReader = Future<List<int>?> Function(String url);
+
 const miriagoExportPackageFormat = 'miriago_export_package';
 const miriagoExportPackageMimeType = 'application/vnd.miriago.plan+zip';
 const miriagoExportSchemaVersion = 2;
@@ -43,9 +46,11 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   required List<PilgrimageVisitRecord> visitRecords,
   required PlanExportV2Options options,
   DateTime? exportedAt,
+  ExportNetworkBytesReader? networkBytesReader,
 }) async {
   final exportTime = exportedAt ?? DateTime.now();
   final archive = Archive();
+  final readNetworkBytes = networkBytesReader ?? readExportNetworkBytes;
   final records = options.includeRecords
       ? visitRecords
       : const <PilgrimageVisitRecord>[];
@@ -57,38 +62,90 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     'visitPhotos': 0,
     'gradedPhotos': 0,
   };
+  final pointAssetRefsById = <String, _PointAssetRefs>{};
+  final recordAssetRefsById = <String, _RecordAssetRefs>{};
 
   void addString(String name, String content) {
     archive.addFile(ArchiveFile.string(name, content));
   }
 
-  Future<void> addFileAsset({
+  Future<String?> addFileAsset({
     required String? sourcePath,
     required String targetPath,
     required String warningLabel,
     required String countKey,
   }) async {
     if (sourcePath == null || sourcePath.trim().isEmpty) {
-      return;
+      return null;
     }
     final bytes = await readExportAssetBytes(sourcePath);
     if (bytes == null) {
       warnings.add('$warningLabel missing: $sourcePath');
-      return;
+      return null;
     }
     archive.addFile(ArchiveFile.bytes(targetPath, bytes));
     assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
+    return targetPath;
+  }
+
+  Future<String?> addPreferredAsset({
+    required List<String?> sourcePaths,
+    required List<String?> sourceUrls,
+    required String targetPath,
+    required String warningLabel,
+    required String countKey,
+  }) async {
+    final triedPaths = <String>[];
+    final triedUrls = <String>[];
+    for (final sourcePath in sourcePaths) {
+      final normalizedPath = sourcePath?.trim();
+      if (normalizedPath == null || normalizedPath.isEmpty) {
+        continue;
+      }
+      triedPaths.add(normalizedPath);
+      final bytes = await readExportAssetBytes(normalizedPath);
+      if (bytes == null) {
+        continue;
+      }
+      archive.addFile(ArchiveFile.bytes(targetPath, bytes));
+      assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
+      return targetPath;
+    }
+    for (final sourceUrl in sourceUrls) {
+      final normalizedUrl = sourceUrl?.trim();
+      if (normalizedUrl == null || normalizedUrl.isEmpty) {
+        continue;
+      }
+      triedUrls.add(normalizedUrl);
+      final bytes = await readNetworkBytes(normalizedUrl);
+      if (bytes == null) {
+        continue;
+      }
+      archive.addFile(ArchiveFile.bytes(targetPath, bytes));
+      assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
+      return targetPath;
+    }
+    if (triedPaths.isNotEmpty || triedUrls.isNotEmpty) {
+      final sources = [
+        for (final path in triedPaths) 'path=$path',
+        for (final url in triedUrls) 'url=$url',
+      ].join(', ');
+      warnings.add('$warningLabel unavailable: $sources');
+    }
+    return null;
   }
 
   for (final point in plan.points) {
-    await addFileAsset(
-      sourcePath: point.referenceThumbnailPath,
+    final pointAssetRefs = _PointAssetRefs();
+    pointAssetRefs.referenceThumbnailAsset = await addPreferredAsset(
+      sourcePaths: [point.referenceThumbnailPath],
+      sourceUrls: [anitabiThumbnailImageUrl(point.referenceImageUrl)],
       targetPath: 'assets/thumbnails/${_assetName(point.id, 'thumbnail.jpg')}',
       warningLabel: 'thumbnail',
       countKey: 'thumbnails',
     );
     if (_isUserReference(point)) {
-      await addFileAsset(
+      pointAssetRefs.userReferenceAsset = await addFileAsset(
         sourcePath: point.referenceFullImagePath,
         targetPath:
             'assets/user_references/${_assetName(point.id, 'reference.jpg')}',
@@ -96,31 +153,39 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
         countKey: 'userReferenceImages',
       );
     } else if (options.includeFullReferenceCache) {
-      await addFileAsset(
-        sourcePath: point.referenceFullImagePath,
+      pointAssetRefs.referenceFullReferenceAsset = await addPreferredAsset(
+        sourcePaths: [point.referenceFullImagePath],
+        sourceUrls: [anitabiFullResolutionImageUrl(point.referenceImageUrl)],
         targetPath:
             'assets/full_references/${_assetName(point.id, 'reference.jpg')}',
         warningLabel: 'full reference',
         countKey: 'fullReferences',
       );
     }
+    if (pointAssetRefs.hasAny) {
+      pointAssetRefsById[point.id] = pointAssetRefs;
+    }
   }
 
   if (options.includeRecords) {
     for (final record in records) {
-      await addFileAsset(
+      final recordAssetRefs = _RecordAssetRefs();
+      recordAssetRefs.visitPhotoAsset = await addFileAsset(
         sourcePath: record.photoPath,
         targetPath: 'assets/visit_photos/${_assetName(record.id, 'photo.jpg')}',
         warningLabel: 'visit photo',
         countKey: 'visitPhotos',
       );
-      await addFileAsset(
+      recordAssetRefs.gradedPhotoAsset = await addFileAsset(
         sourcePath: record.gradedPhotoPath,
         targetPath:
             'assets/graded_photos/${_assetName(record.id, 'graded.jpg')}',
         warningLabel: 'graded photo',
         countKey: 'gradedPhotos',
       );
+      if (recordAssetRefs.hasAny) {
+        recordAssetRefsById[record.id] = recordAssetRefs;
+      }
     }
   }
 
@@ -139,7 +204,15 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   );
   addString(
     'plan.json',
-    _prettyJson(_planJson(plan: plan, records: records, options: options)),
+    _prettyJson(
+      _planJson(
+        plan: plan,
+        records: records,
+        options: options,
+        pointAssetRefsById: pointAssetRefsById,
+        recordAssetRefsById: recordAssetRefsById,
+      ),
+    ),
   );
   addString('points.csv', _pointsCsv(plan, visitRecords));
   if (options.includeRecords) {
@@ -209,6 +282,8 @@ Map<String, Object?> _planJson({
   required PilgrimagePlan plan,
   required List<PilgrimageVisitRecord> records,
   required PlanExportV2Options options,
+  required Map<String, _PointAssetRefs> pointAssetRefsById,
+  required Map<String, _RecordAssetRefs> recordAssetRefsById,
 }) {
   return {
     'schemaVersion': miriagoExportSchemaVersion,
@@ -224,10 +299,17 @@ Map<String, Object?> _planJson({
       'completedPointIds': plan.completedPointIds.toList()..sort(),
       'works': plan.works.map(_workJson).toList(),
       'groups': plan.groups.map(_groupJson).toList(),
-      'points': plan.points.map(_pointJson).toList(),
+      'points': plan.points
+          .map((point) => _pointJson(point, pointAssetRefsById[point.id]))
+          .toList(),
     },
     if (options.includeRecords)
-      'visitRecords': records.map(_visitRecordJson).toList(),
+      'visitRecords': records
+          .map(
+            (record) =>
+                _visitRecordJson(record, recordAssetRefsById[record.id]),
+          )
+          .toList(),
   };
 }
 
@@ -258,7 +340,10 @@ Map<String, Object?> _groupJson(PilgrimagePlanGroup group) {
   };
 }
 
-Map<String, Object?> _pointJson(PilgrimagePoint point) {
+Map<String, Object?> _pointJson(
+  PilgrimagePoint point,
+  _PointAssetRefs? assetRefs,
+) {
   return {
     'id': point.id,
     'workId': point.work.id,
@@ -273,13 +358,19 @@ Map<String, Object?> _pointJson(PilgrimagePoint point) {
     'referenceImageUrl': point.referenceImageUrl,
     'referenceThumbnailPath': point.referenceThumbnailPath,
     'referenceFullImagePath': point.referenceFullImagePath,
+    'referenceThumbnailAsset': assetRefs?.referenceThumbnailAsset,
+    'referenceFullReferenceAsset': assetRefs?.referenceFullReferenceAsset,
+    'userReferenceAsset': assetRefs?.userReferenceAsset,
     'sourceUrl': point.sourceUrl,
     'groupId': point.groupId,
     'groupOrderIndex': point.groupOrderIndex,
   };
 }
 
-Map<String, Object?> _visitRecordJson(PilgrimageVisitRecord record) {
+Map<String, Object?> _visitRecordJson(
+  PilgrimageVisitRecord record,
+  _RecordAssetRefs? assetRefs,
+) {
   return {
     'id': record.id,
     'planId': record.planId,
@@ -293,9 +384,29 @@ Map<String, Object?> _visitRecordJson(PilgrimageVisitRecord record) {
     'colorGradingIntensity': record.colorGradingIntensity,
     'referenceImagePath': record.referenceImagePath,
     'referenceImageUrl': record.referenceImageUrl,
+    'visitPhotoAsset': assetRefs?.visitPhotoAsset,
+    'gradedPhotoAsset': assetRefs?.gradedPhotoAsset,
     'referenceMode': record.referenceMode,
     'capturedAt': record.capturedAt.toIso8601String(),
   };
+}
+
+class _PointAssetRefs {
+  String? referenceThumbnailAsset;
+  String? referenceFullReferenceAsset;
+  String? userReferenceAsset;
+
+  bool get hasAny =>
+      referenceThumbnailAsset != null ||
+      referenceFullReferenceAsset != null ||
+      userReferenceAsset != null;
+}
+
+class _RecordAssetRefs {
+  String? visitPhotoAsset;
+  String? gradedPhotoAsset;
+
+  bool get hasAny => visitPhotoAsset != null || gradedPhotoAsset != null;
 }
 
 String _pointsCsv(

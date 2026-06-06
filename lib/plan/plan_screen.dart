@@ -250,7 +250,7 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
             )
           else ...[
-            if (!_showMap) _WorkHeader(plan: plan),
+            if (!_showMap) _PlanMetaStrip(plan: plan),
             _GroupSwitcher(
               groups: groups,
               selectedIndex: _selectedGroupIndex,
@@ -633,6 +633,7 @@ class _PlanGroupControls extends StatelessWidget {
               height: mapHeight,
               onSelectPoint: onSelectPoint,
               onToggleVirtualLocation: onToggleVirtualLocation,
+              onDrag: (deltaY) => onResizeMap(deltaY, viewportHeight),
             ),
             _MapResizeHandle(
               onDrag: (deltaY) => onResizeMap(deltaY, viewportHeight),
@@ -658,7 +659,7 @@ class _GroupSummary extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -669,6 +670,7 @@ class _GroupSummary extends StatelessWidget {
                       ? Icons.inventory_2_outlined
                       : Icons.flag_outlined,
                   color: AppColors.accentDark,
+                  size: 20,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -678,14 +680,17 @@ class _GroupSummary extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.textSecondary,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Row(
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
               children: [
                 _GroupMetric(label: '点位', value: '${group.points.length}'),
                 _GroupMetric(label: '完成', value: '${group.completedCount}'),
@@ -707,28 +712,36 @@ class _GroupMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-              letterSpacing: 0,
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -864,6 +877,7 @@ class _PlanInlineMap extends StatefulWidget {
     required this.height,
     required this.onSelectPoint,
     required this.onToggleVirtualLocation,
+    required this.onDrag,
   });
 
   final PlanGroupBucket group;
@@ -875,6 +889,7 @@ class _PlanInlineMap extends StatefulWidget {
   final double height;
   final ValueChanged<PilgrimagePoint> onSelectPoint;
   final VoidCallback onToggleVirtualLocation;
+  final ValueChanged<double> onDrag;
 
   @override
   State<_PlanInlineMap> createState() => _PlanInlineMapState();
@@ -1018,6 +1033,12 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                       : widget.onToggleVirtualLocation,
                 ),
               ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _MapResizeHotZone(onDrag: widget.onDrag),
+              ),
             ],
           ),
         ),
@@ -1068,13 +1089,13 @@ class _MapResizeHandle extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onVerticalDragUpdate: (details) => onDrag(details.delta.dy),
       child: SizedBox(
-        height: 30,
+        height: 10,
         width: double.infinity,
         child: Align(
           alignment: Alignment.center,
           child: SizedBox(
-            width: 56,
-            height: 5,
+            width: 48,
+            height: 4,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: AppColors.border,
@@ -1084,6 +1105,21 @@ class _MapResizeHandle extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MapResizeHotZone extends StatelessWidget {
+  const _MapResizeHotZone({required this.onDrag});
+
+  final ValueChanged<double> onDrag;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragUpdate: (details) => onDrag(details.delta.dy),
+      child: const SizedBox(height: 24, width: double.infinity),
     );
   }
 }
@@ -1312,6 +1348,45 @@ class _WorkHeader extends StatelessWidget {
   }
 }
 
+class _PlanMetaStrip extends StatelessWidget {
+  const _PlanMetaStrip({required this.plan});
+
+  final PilgrimagePlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Row(
+        children: [
+          Icon(Icons.movie_filter_outlined, color: AppColors.accentDark),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _workCountText(PilgrimagePlan plan) {
+    final count = plan.works.isNotEmpty
+        ? plan.works.length
+        : plan.points.map((point) => point.work.id).toSet().length;
+    return '$count 部作品';
+  }
+}
+
 class _PlanPointTile extends StatelessWidget {
   const _PlanPointTile({
     required this.point,
@@ -1363,15 +1438,25 @@ class _PlanPointTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      point.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            point.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                        if (recordCount > 0) ...[
+                          const SizedBox(width: 8),
+                          _PointRecordBadge(count: recordCount),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -1384,10 +1469,6 @@ class _PlanPointTile extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    if (recordCount > 0) ...[
-                      const SizedBox(height: 6),
-                      _PointRecordBadge(count: recordCount),
-                    ],
                   ],
                 ),
               ),

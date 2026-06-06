@@ -164,18 +164,20 @@ class PilgrimageVisitRecord {
       gradedPhotoPath != null && colorGradingParamsJson != null;
 
   PilgrimageVisitRecord copyWith({
+    String? photoPath,
     Object? originalPhotoPath = _unset,
     Object? gradedPhotoPath = _unset,
     Object? colorGradingMode = _unset,
     Object? colorGradingParamsJson = _unset,
     Object? colorGradingIntensity = _unset,
+    Object? referenceImagePath = _unset,
   }) {
     return PilgrimageVisitRecord(
       id: id,
       planId: planId,
       pointId: pointId,
       workId: workId,
-      photoPath: photoPath,
+      photoPath: photoPath ?? this.photoPath,
       originalPhotoPath: originalPhotoPath == _unset
           ? this.originalPhotoPath
           : originalPhotoPath as String?,
@@ -191,7 +193,9 @@ class PilgrimageVisitRecord {
       colorGradingIntensity: colorGradingIntensity == _unset
           ? this.colorGradingIntensity
           : colorGradingIntensity as double?,
-      referenceImagePath: referenceImagePath,
+      referenceImagePath: referenceImagePath == _unset
+          ? this.referenceImagePath
+          : referenceImagePath as String?,
       referenceImageUrl: referenceImageUrl,
       referenceMode: referenceMode,
       capturedAt: capturedAt,
@@ -271,8 +275,8 @@ class PilgrimagePoint {
   String get displayEpisodeLabel => formatEpisodeLabelForDisplay(episodeLabel);
 
   PilgrimagePoint copyWith({
-    String? referenceThumbnailPath,
-    String? referenceFullImagePath,
+    Object? referenceThumbnailPath = _unset,
+    Object? referenceFullImagePath = _unset,
     Object? groupId = _unset,
     Object? groupOrderIndex = _unset,
   }) {
@@ -287,10 +291,12 @@ class PilgrimagePoint {
       source: source,
       sourceId: sourceId,
       referenceImageUrl: referenceImageUrl,
-      referenceThumbnailPath:
-          referenceThumbnailPath ?? this.referenceThumbnailPath,
-      referenceFullImagePath:
-          referenceFullImagePath ?? this.referenceFullImagePath,
+      referenceThumbnailPath: referenceThumbnailPath == _unset
+          ? this.referenceThumbnailPath
+          : referenceThumbnailPath as String?,
+      referenceFullImagePath: referenceFullImagePath == _unset
+          ? this.referenceFullImagePath
+          : referenceFullImagePath as String?,
       sourceUrl: sourceUrl,
       groupId: groupId == _unset ? this.groupId : groupId as String?,
       groupOrderIndex: groupOrderIndex == _unset

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import 'plan_import_asset_restore.dart';
 import 'plan_import_package.dart';
 
 class PlanImportPreviewScreen extends StatefulWidget {
@@ -21,6 +22,9 @@ class PlanImportPreviewScreen extends StatefulWidget {
 
 class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
   late var _includeRecords = widget.importPackage.hasVisitRecords;
+  late var _includeAssets =
+      widget.importPackage.hasRestorableAssets &&
+      supportsPlanImportAssetRestore;
   var _importing = false;
 
   PlanImportPackage get _package => widget.importPackage;
@@ -65,12 +69,13 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           _ImportOptionTile(
             icon: Icons.photo_library_outlined,
             title: '图片和资源文件',
-            subtitle: _package.hasAssets
-                ? '包内有 ${_package.totalAssetCount} 个资源文件；当前版本先导入结构数据，资源恢复下一步接入。'
-                : '这个包里没有可恢复的资源文件。',
-            value: false,
-            enabled: false,
-            onChanged: null,
+            subtitle: _assetImportSubtitle,
+            value: _includeAssets,
+            enabled:
+                !_importing &&
+                _package.hasRestorableAssets &&
+                supportsPlanImportAssetRestore,
+            onChanged: (value) => setState(() => _includeAssets = value),
           ),
           if (_package.warnings.isNotEmpty) ...[
             const SizedBox(height: 18),
@@ -117,18 +122,30 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
   Future<void> _importSelected() async {
     setState(() => _importing = true);
     try {
+      final restoredPaths = _includeAssets
+          ? await restorePlanImportAssets(_package)
+          : const <String, String>{};
+      final restored = applyRestoredAssetPaths(
+        importPackage: _package,
+        restoredPaths: restoredPaths,
+        includeRecords: _includeRecords,
+      );
       final importedPlan = await widget.repository.importPlanPackage(
-        plan: _package.package.plan,
-        visitRecords: _includeRecords
-            ? _package.package.visitRecords
-            : const [],
+        plan: restored.plan,
+        visitRecords: restored.visitRecords,
       );
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已导入计划「${importedPlan.name}」')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            restored.warnings.isEmpty
+                ? '已导入计划「${importedPlan.name}」'
+                : '已导入计划「${importedPlan.name}」，部分资源未恢复',
+          ),
+        ),
+      );
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) {
@@ -142,6 +159,19 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
         setState(() => _importing = false);
       }
     }
+  }
+
+  String get _assetImportSubtitle {
+    if (!_package.hasAssets) {
+      return '这个包里没有可恢复的资源文件。';
+    }
+    if (!_package.hasRestorableAssets) {
+      return '包内记录了资源，但没有可恢复的资源文件。';
+    }
+    if (!supportsPlanImportAssetRestore) {
+      return '包内有 ${_package.totalAssetCount} 个资源文件；当前平台暂不支持恢复包内资源。';
+    }
+    return '包内有 ${_package.totalAssetCount} 个资源文件，将恢复到本机存储。';
   }
 }
 

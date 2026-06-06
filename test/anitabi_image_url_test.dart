@@ -17,4 +17,30 @@ void main() {
 
     expect(anitabiFullResolutionImageUrl(imageUrl), imageUrl);
   });
+
+  test('builds Anitabi thumbnail URL from full image URL', () {
+    const imageUrl =
+        'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg';
+
+    expect(
+      anitabiThumbnailImageUrl(imageUrl),
+      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=h160',
+    );
+  });
+
+  test('normalizes existing Anitabi thumbnail URL before rebuilding thumbnail', () {
+    const thumbnailUrl =
+        'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=w300';
+
+    expect(
+      anitabiThumbnailImageUrl(thumbnailUrl),
+      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=h160',
+    );
+  });
+
+  test('keeps non-Anitabi thumbnail URL untouched', () {
+    const imageUrl = 'https://example.com/reference.jpg?plan=h160';
+
+    expect(anitabiThumbnailImageUrl(imageUrl), imageUrl);
+  });
 }

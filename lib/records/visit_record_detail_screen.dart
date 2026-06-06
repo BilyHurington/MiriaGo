@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -14,6 +13,8 @@ import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
 import 'point_visit_records_screen.dart';
+import 'visit_record_file_ops_stub.dart'
+    if (dart.library.io) 'visit_record_file_ops_io.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
 
@@ -307,15 +308,11 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         _record.originalPhotoPath,
         _record.gradedPhotoPath,
       }.whereType<String>()) {
-        try {
-          File(path).deleteSync();
-        } catch (_) {}
+        deleteVisitRecordLocalFile(path);
       }
       final refPath = _record.referenceImagePath;
       if (refPath != null) {
-        try {
-          File(refPath).deleteSync();
-        } catch (_) {}
+        deleteVisitRecordLocalFile(refPath);
       }
     }
 
@@ -359,7 +356,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       _record.referenceImagePath,
       resolvedPoint?.referenceFullImagePath,
     ].whereType<String>()) {
-      if (File(path).existsSync()) {
+      if (visitRecordLocalFileExists(path)) {
         return path;
       }
     }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 
@@ -7,12 +5,13 @@ import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/snackbar_helper.dart';
+import 'my_maps_csv_export.dart';
 import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
 import 'plan_export_v2.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
-import 'plan_package.dart';
+import 'plan_package.dart' show seichiPlanFileExtension, seichiPlanMimeType;
 
 class ImportExportScreen extends StatefulWidget {
   const ImportExportScreen({
@@ -76,31 +75,19 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
           ),
           const SizedBox(height: 20),
           _SectionTitle(
-            icon: Icons.history_outlined,
-            title: '兼容旧版',
-            subtitle: '导出 v1.0 纯 JSON 计划包，不包含图片文件。',
+            icon: Icons.map_outlined,
+            title: 'Google My Maps',
+            subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
           ),
           const SizedBox(height: 10),
           _ActionTile(
-            icon: Icons.description_outlined,
-            title: '导出旧版 JSON 计划包',
-            subtitle: '用于兼容旧版本 MiriaGo / Seichi Junrei Helper。',
-            enabled: !_exporting && !_importing,
-            onTap: _exportLegacy,
-          ),
-          const SizedBox(height: 20),
-          _SectionTitle(
-            icon: Icons.map_outlined,
-            title: 'Google My Maps',
-            subtitle: '后续导出同一图层、按片区稳定颜色区分的地图文件。',
-          ),
-          const SizedBox(height: 10),
-          const _ActionTile(
-            icon: Icons.table_chart_outlined,
+            icon: _exporting
+                ? Icons.hourglass_empty_outlined
+                : Icons.table_chart_outlined,
             title: '导出 My Maps CSV',
-            subtitle: '下一步实现。',
-            enabled: false,
-            onTap: null,
+            subtitle: '前 6 列贴近示例格式，作品、集数、来源等拆成独立列。',
+            enabled: !_exporting && !_importing,
+            onTap: _exportMyMapsCsv,
           ),
         ],
       ),
@@ -195,27 +182,24 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     }, successMessage: '数据包已导出');
   }
 
-  Future<void> _exportLegacy() async {
+  Future<void> _exportMyMapsCsv() async {
     await _runExport(() async {
-      final fileName =
-          '${_safeExportName(widget.plan.name)}.$seichiPlanFileExtension';
+      final export = buildMyMapsCsvExport(plan: widget.plan);
       final destination = await preparePlanExportDestination(
-        fileName: fileName,
-        mimeType: seichiPlanMimeType,
-        extension: seichiPlanFileExtension,
+        fileName: export.fileName,
+        mimeType: export.mimeType,
+        extension: myMapsCsvExtension,
       );
-      final records = await widget.repository.loadVisitRecords(widget.plan.id);
-      final package = PlanPackage(plan: widget.plan, visitRecords: records);
       return deliverPlanExport(
-        bytes: utf8.encode(package.toJsonString()),
-        fileName: fileName,
-        mimeType: seichiPlanMimeType,
+        bytes: export.bytes,
+        fileName: export.fileName,
+        mimeType: export.mimeType,
         shareSubject: widget.plan.name,
-        shareText: 'MiriaGo旧版计划包：${widget.plan.name}',
-        extension: seichiPlanFileExtension,
+        shareText: 'MiriaGo My Maps CSV：${widget.plan.name}',
+        extension: myMapsCsvExtension,
         destination: destination,
       );
-    }, successMessage: '旧版计划包已生成');
+    }, successMessage: 'My Maps CSV 已导出');
   }
 
   Future<void> _runExport(
@@ -251,14 +235,6 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       }
     }
   }
-}
-
-String _safeExportName(String source) {
-  final safeName = source
-      .replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
-      .replaceAll(RegExp(r'^_|_$'), '');
-  return safeName.isEmpty ? 'miriago_plan' : safeName;
 }
 
 class _PlanExportSummary extends StatelessWidget {

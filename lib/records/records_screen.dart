@@ -27,6 +27,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   String _searchQuery = '';
   _RecordStatusFilter _statusFilter = _RecordStatusFilter.all;
   var _filtersExpanded = false;
+  final Set<String> _expandedSectionIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -54,16 +55,28 @@ class _RecordsScreenState extends State<RecordsScreen> {
               setState(() => _filtersExpanded = !_filtersExpanded);
             },
             onSearchChanged: (query) {
-              setState(() => _searchQuery = query);
+              setState(() {
+                _searchQuery = query;
+                _resetExpandedSections();
+              });
             },
             onWorkSelected: (workId) {
-              setState(() => _selectedWorkId = workId);
+              setState(() {
+                _selectedWorkId = workId;
+                _resetExpandedSections();
+              });
             },
             onGroupSelected: (groupId) {
-              setState(() => _selectedGroupFilterId = groupId);
+              setState(() {
+                _selectedGroupFilterId = groupId;
+                _resetExpandedSections();
+              });
             },
             onStatusSelected: (filter) {
-              setState(() => _statusFilter = filter);
+              setState(() {
+                _statusFilter = filter;
+                _resetExpandedSections();
+              });
             },
           ),
           const SizedBox(height: 16),
@@ -78,6 +91,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
             for (final section in sections)
               _RecordGroupSection(
                 section: section,
+                expanded: _expandedSectionIds.contains(section.id),
+                onToggleExpanded: () {
+                  setState(() {
+                    if (!_expandedSectionIds.add(section.id)) {
+                      _expandedSectionIds.remove(section.id);
+                    }
+                  });
+                },
                 onOpenRecord: (record) => _openRecordDetail(context, record),
               ),
         ],
@@ -97,6 +118,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
         ),
       ),
     );
+  }
+
+  void _resetExpandedSections() {
+    _expandedSectionIds.clear();
   }
 
   List<PilgrimageVisitRecord> _filteredRecords(
@@ -157,6 +182,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
       }
       groups.add(
         _RecordGroup(
+          id: group.id,
           title: group.name,
           subtitle: _groupAnchorLabel(group),
           icon: Icons.folder_outlined,
@@ -169,6 +195,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (ungroupedEntries != null && ungroupedEntries.isNotEmpty) {
       groups.add(
         _RecordGroup(
+          id: _ungroupedRecordFilterId,
           title: '未分组',
           subtitle: '还没有放入片区的记录',
           icon: Icons.inventory_2_outlined,
@@ -180,6 +207,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (orphanRecords.isNotEmpty) {
       groups.add(
         _RecordGroup(
+          id: _orphanRecordFilterId,
           title: '孤立记录',
           subtitle: '对应点位已不在当前计划中',
           icon: Icons.link_off_outlined,
@@ -628,12 +656,14 @@ class _RecordEntry {
 
 class _RecordGroup {
   const _RecordGroup({
+    required this.id,
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.entries,
   });
 
+  final String id;
   final String title;
   final String subtitle;
   final IconData icon;
@@ -683,73 +713,115 @@ class _RecordsSectionHeader extends StatelessWidget {
 class _RecordGroupSection extends StatelessWidget {
   const _RecordGroupSection({
     required this.section,
+    required this.expanded,
+    required this.onToggleExpanded,
     required this.onOpenRecord,
   });
 
   final _RecordGroup section;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
   final ValueChanged<PilgrimageVisitRecord> onOpenRecord;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
-            child: Row(
-              children: [
-                Icon(section.icon, color: AppColors.accentDark, size: 18),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        section.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
+          Material(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: AppColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onToggleExpanded,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      expanded ? Icons.folder_open_outlined : section.icon,
+                      color: AppColors.accentDark,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            section.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            section.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          '${section.entries.length} 条',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        section.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      expanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
                 ),
-                Text(
-                  '${section.entries.length}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          for (final entry in section.entries) ...[
-            _VisitRecordCard(
-              record: entry.record,
-              point: entry.point,
-              groupName: section.title,
-              onTap: () => onOpenRecord(entry.record),
-            ),
-            const SizedBox(height: 10),
+          if (expanded) ...[
+            const SizedBox(height: 8),
+            for (final entry in section.entries) ...[
+              _VisitRecordCard(
+                record: entry.record,
+                point: entry.point,
+                groupName: section.title,
+                onTap: () => onOpenRecord(entry.record),
+              ),
+              const SizedBox(height: 10),
+            ],
           ],
         ],
       ),
@@ -878,10 +950,6 @@ class _VisitRecordCard extends StatelessWidget {
                         _RecordChip(
                           icon: Icons.grid_view_outlined,
                           label: groupName,
-                        ),
-                        _RecordChip(
-                          icon: Icons.layers_outlined,
-                          label: record.referenceMode,
                         ),
                         _RecordChip(
                           icon: Icons.schedule,
