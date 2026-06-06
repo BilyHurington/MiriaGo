@@ -8,6 +8,7 @@
 .DS_Store
 DESIGN_RULES.md
 PROJECT_MEMORY.md
+CHANGELOG.md
 docs/memory/
 .atom/
 .build/
