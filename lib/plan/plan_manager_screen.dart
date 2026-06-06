@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
-import '../plan_transfer/plan_package.dart';
-import '../plan_transfer/plan_package_file_stub.dart'
-    if (dart.library.io) '../plan_transfer/plan_package_file_io.dart';
+import '../plan_transfer/import_export_screen.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../widgets/copyable_text.dart';
-import '../widgets/snackbar_helper.dart';
 import 'pilgrimage_models.dart';
 
 class PlanManagerScreen extends StatefulWidget {
@@ -76,6 +73,26 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
   }
 
   Future<void> _deletePlan(PilgrimagePlan plan) async {
+    final plans = _plans;
+    if (plans == null || plans.length <= 1) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('至少需要保留一个计划')));
+      return;
+    }
+
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '删除计划',
+      message: '将删除「${plan.name}」及其中的点位、片区、作品和巡礼记录。此操作无法撤销。',
+      confirmLabel: '删除',
+      icon: Icons.delete_outline,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
     await widget.repository.deletePlan(plan.id);
     await _loadPlans();
   }
@@ -114,37 +131,15 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     await _loadPlans();
   }
 
-  Future<void> _exportPlan(PilgrimagePlan plan) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showReplacingSnackBar(
-      SnackBar(content: Text('正在导出「${plan.name}」...')),
+  Future<void> _openImportExport(PilgrimagePlan plan) async {
+    final imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            ImportExportScreen(plan: plan, repository: widget.repository),
+      ),
     );
-
-    try {
-      final records = await widget.repository.loadVisitRecords(plan.id);
-      final path = await exportPlanPackageToFile(
-        PlanPackage(plan: plan, visitRecords: records),
-      );
-      if (path == null) {
-        messenger.showReplacingSnackBar(
-          const SnackBar(content: Text('当前平台暂不支持导出计划文件')),
-        );
-        return;
-      }
-
-      await Share.shareXFiles(
-        [
-          XFile(
-            path,
-            mimeType: seichiPlanMimeType,
-            name: '${plan.name}.$seichiPlanFileExtension',
-          ),
-        ],
-        subject: plan.name,
-        text: 'MiriaGo计划：${plan.name}',
-      );
-    } catch (_) {
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('计划导出失败')));
+    if (imported == true) {
+      await _loadPlans();
     }
   }
 
@@ -175,10 +170,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
               return _PlanCard(
                 plan: plan,
                 selected: plan.id == _activePlan?.id,
-                canDelete: plans.length > 1 && plan.id != _activePlan?.id,
+                canDelete: plans.length > 1,
                 onSwitch: () => _switchPlan(plan),
                 onRename: () => _renamePlan(plan),
-                onExport: () => _exportPlan(plan),
+                onExport: () => _openImportExport(plan),
                 onDelete: () => _deletePlan(plan),
               );
             },
@@ -266,9 +261,9 @@ class _PlanCard extends StatelessWidget {
                 right: 0,
                 top: -5,
                 child: _CompactPlanButton(
-                  tooltip: '导出计划',
+                  tooltip: '导入导出',
                   onPressed: onExport,
-                  icon: const Icon(Icons.ios_share_outlined, size: 20),
+                  icon: const Icon(Icons.import_export_outlined, size: 20),
                 ),
               ),
             ],

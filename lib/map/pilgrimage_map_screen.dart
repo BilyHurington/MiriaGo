@@ -10,8 +10,11 @@ import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../plan/plan_group_utils.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../records/point_visit_records_screen.dart';
+import '../records/visit_record_detail_screen.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'map_navigation_launcher.dart';
@@ -40,20 +43,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   LatLng? _currentLocation;
   bool _isLocating = false;
-  String? _selectedWorkId;
+  int _selectedGroupIndex = 0;
 
   PilgrimagePlanController get _controller => widget.controller;
-
-  List<PilgrimagePoint> get _visiblePoints {
-    final selectedWorkId = _selectedWorkId;
-    if (selectedWorkId == null) {
-      return _controller.points;
-    }
-
-    return _controller.points
-        .where((point) => point.work.id == selectedWorkId)
-        .toList(growable: false);
-  }
 
   Future<void> _locateUser() async {
     setState(() {
@@ -115,14 +107,39 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   }
 
   void _selectPoint(PilgrimagePoint point) {
+    final groups = planGroupBuckets(
+      _controller.plan,
+      _controller.completedPointIds,
+    );
+    final groupIndex = groups.indexWhere((group) {
+      if (point.groupId == null) {
+        return group.isUngrouped;
+      }
+      return group.id == point.groupId;
+    });
+    if (groupIndex >= 0) {
+      setState(() {
+        _selectedGroupIndex = groupIndex;
+      });
+    }
     _controller.selectPoint(point);
     _mapController.move(point.position, 16);
   }
 
-  void _selectWorkFilter(String? workId) {
+  void _setCurrentPoint(PilgrimagePoint point) {
+    _controller.setCurrentPoint(point);
+    _selectPoint(point);
+  }
+
+  void _selectGroup(int index, List<PlanGroupBucket> groups) {
+    final nextIndex = index.clamp(0, groups.length - 1);
+    final group = groups[nextIndex];
     setState(() {
-      _selectedWorkId = workId;
+      _selectedGroupIndex = nextIndex;
     });
+    if (group.points.isNotEmpty) {
+      _mapController.move(groupMapCenter(group), 15);
+    }
   }
 
   void _moveToCurrentTarget() {
@@ -132,11 +149,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       return;
     }
 
-    setState(() {
-      _selectedWorkId = null;
-    });
-    _controller.selectPoint(currentPoint);
-    _mapController.move(currentPoint.position, 16);
+    _selectPoint(currentPoint);
   }
 
   void _openCamera(PilgrimagePoint point) {
@@ -156,15 +169,43 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       context,
       point: point,
       status: _controller.statusFor(point),
-      onSetCurrent: () => _controller.setCurrentPoint(point),
+      onSetCurrent: () => _setCurrentPoint(point),
       onOpenCamera: () => _openCamera(point),
-      onComplete: () => _controller.completePoint(point),
+      onComplete: () => _controller.statusFor(point) == VisitStatus.completed
+          ? _controller.reopenPoint(point)
+          : _controller.completePoint(point),
       onReplaceReference: (point, image) => _controller.updatePointImageCache(
         point,
         referenceThumbnailPath: image.thumbnailPath,
         referenceFullImagePath: image.fullImagePath,
       ),
+      groups: _controller.plan.groups,
+      onMoveToGroup: _controller.movePointToGroup,
       records: _controller.recordsForPoint(point.id),
+      onOpenRecords: () => _openPointRecords(point),
+      onOpenRecord: _openRecordDetail,
+    );
+  }
+
+  void _openPointRecords(PilgrimagePoint point) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PointVisitRecordsScreen(point: point, controller: _controller),
+      ),
+    );
+  }
+
+  void _openRecordDetail(PilgrimageVisitRecord record) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitRecordDetailScreen(
+          record: record,
+          point: _controller.pointById(record.pointId),
+          controller: _controller,
+          onDelete: () => _controller.deleteVisitRecord(record),
+        ),
+      ),
     );
   }
 
@@ -180,36 +221,27 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visiblePoints = _visiblePoints;
+    final groups = planGroupBuckets(
+      _controller.plan,
+      _controller.completedPointIds,
+    );
+    if (_selectedGroupIndex >= groups.length) {
+      _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
+    }
+    final selectedGroup = groups.isEmpty ? null : groups[_selectedGroupIndex];
     final selectedPoint =
-        visiblePoints.any((point) => point.id == _controller.selectedPoint?.id)
+        _controller.points.any(
+          (point) => point.id == _controller.selectedPoint?.id,
+        )
         ? _controller.selectedPoint
         : null;
-    final initialCenter = _controller.currentPoint?.position ?? _fallbackCenter;
+    final initialCenter = selectedGroup == null
+        ? _fallbackCenter
+        : groupMapCenter(selectedGroup);
+    final selectedGroupId = selectedGroup?.id ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(_controller.plan.area),
-        actions: [
-          IconButton(
-            tooltip: '当前目标',
-            onPressed: _moveToCurrentTarget,
-            icon: const Icon(Icons.flag_outlined),
-          ),
-          IconButton(
-            tooltip: '定位',
-            onPressed: _isLocating ? null : _locateUser,
-            icon: _isLocating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location),
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           FlutterMap(
@@ -228,9 +260,15 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'app.miriago.miriago',
               ),
+              PolygonLayer(
+                polygons: groupAreaPolygons(
+                  groups,
+                  selectedGroupId: selectedGroupId,
+                ),
+              ),
               MarkerLayer(
                 markers: [
-                  for (final point in visiblePoints)
+                  for (final point in _controller.points)
                     Marker(
                       point: point.position,
                       width: 44,
@@ -265,18 +303,47 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
             ],
           ),
-          if (_worksForPlan(_controller.plan).length > 1)
+          if (selectedGroup != null)
             Positioned(
               left: 12,
               right: 12,
               top: 12,
-              child: _MapWorkFilterBar(
-                works: _worksForPlan(_controller.plan),
-                selectedWorkId: _selectedWorkId,
-                visiblePointCount: visiblePoints.length,
-                onWorkSelected: _selectWorkFilter,
+              child: SafeArea(
+                bottom: false,
+                child: _MapGroupFilterBar(
+                  group: selectedGroup,
+                  onTap: () => _showGroupPicker(context, groups),
+                ),
               ),
             ),
+          Positioned(
+            right: 12,
+            top: 92,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  _MapFloatingIconButton(
+                    tooltip: '定位',
+                    onTap: _isLocating ? null : _locateUser,
+                    child: _isLocating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location, size: 20),
+                  ),
+                  const SizedBox(height: 8),
+                  _MapFloatingIconButton(
+                    tooltip: '当前目标',
+                    onTap: _moveToCurrentTarget,
+                    child: const Icon(Icons.flag_outlined, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: selectedPoint == null
@@ -288,8 +355,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                         .recordsForPoint(selectedPoint.id)
                         .length,
                     distanceMeters: _distanceToSelectedPoint(selectedPoint),
-                    onSetCurrent: () =>
-                        _controller.setCurrentPoint(selectedPoint),
+                    onSetCurrent: () => _setCurrentPoint(selectedPoint),
                     onOpenDetail: () => _showPointDetail(selectedPoint),
                     onOpenNavigation: () => _openNavigation(selectedPoint),
                     onOpenCamera: () => _openCamera(selectedPoint),
@@ -305,18 +371,6 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     return const LatLng(34.9671, 135.7727);
   }
 
-  List<PilgrimageWork> _worksForPlan(PilgrimagePlan plan) {
-    final worksById = <String, PilgrimageWork>{};
-    for (final work in plan.works) {
-      worksById[work.id] = work;
-    }
-    for (final point in plan.points) {
-      worksById[point.work.id] = point.work;
-    }
-
-    return worksById.values.toList(growable: false);
-  }
-
   double? _distanceToSelectedPoint(PilgrimagePoint point) {
     final currentLocation = _currentLocation;
     if (currentLocation == null) {
@@ -325,100 +379,118 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
     return _distance(currentLocation, point.position);
   }
+
+  void _showGroupPicker(BuildContext context, List<PlanGroupBucket> groups) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: groups.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 6),
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              return ListTile(
+                selected: index == _selectedGroupIndex,
+                selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                leading: Icon(
+                  group.isUngrouped
+                      ? Icons.inventory_2_outlined
+                      : Icons.folder_outlined,
+                ),
+                title: Text(group.name),
+                subtitle: Text(group.anchorLabel),
+                trailing: Text(
+                  '${group.completedCount} / ${group.points.length}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _selectGroup(index, groups);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _MapWorkFilterBar extends StatelessWidget {
-  const _MapWorkFilterBar({
-    required this.works,
-    required this.selectedWorkId,
-    required this.visiblePointCount,
-    required this.onWorkSelected,
-  });
+class _MapGroupFilterBar extends StatelessWidget {
+  const _MapGroupFilterBar({required this.group, required this.onTap});
 
-  final List<PilgrimageWork> works;
-  final String? selectedWorkId;
-  final int visiblePointCount;
-  final ValueChanged<String?> onWorkSelected;
+  final PlanGroupBucket group;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _MapFilterChip(
-                    label: '全部',
-                    selected: selectedWorkId == null,
-                    onSelected: () => onWorkSelected(null),
+    return Material(
+      color: AppColors.surface.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            children: [
+              const Icon(Icons.folder_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${group.name} · ${group.completedCount}/${group.points.length}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
-                  for (final work in works) ...[
-                    const SizedBox(width: 8),
-                    _MapFilterChip(
-                      label: work.title,
-                      selected: selectedWorkId == work.id,
-                      onSelected: () => onWorkSelected(work.id),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
+              const Icon(Icons.expand_more, size: 18),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            '$visiblePointCount 点',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _MapFilterChip extends StatelessWidget {
-  const _MapFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
+class _MapFloatingIconButton extends StatelessWidget {
+  const _MapFloatingIconButton({
+    required this.tooltip,
+    required this.onTap,
+    required this.child,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(
-        label,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: selected ? Colors.white : AppColors.textPrimary,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0,
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppColors.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: SizedBox(width: 38, height: 38, child: Center(child: child)),
         ),
       ),
-      selected: selected,
-      selectedColor: AppColors.accent,
-      backgroundColor: AppColors.surfaceMuted,
-      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      onSelected: (_) => onSelected(),
     );
   }
 }
@@ -548,6 +620,10 @@ class _PointCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (recordCount > 0) ...[
+                          const SizedBox(width: 8),
+                          _MapRecordBadge(count: recordCount),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -563,28 +639,24 @@ class _PointCard extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
+                    if (point.referenceImageUrl != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        point.displayEpisodeLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-          if (point.referenceImageUrl != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              point.displayEpisodeLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-          if (recordCount > 0) ...[
-            const SizedBox(height: 8),
-            _MapRecordBadge(count: recordCount),
-          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -596,6 +668,12 @@ class _PointCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: '点位详情',
+                onPressed: onOpenDetail,
+                icon: const Icon(Icons.info_outline),
+              ),
+              const SizedBox(width: 4),
               IconButton.outlined(
                 tooltip: '拍摄参考',
                 onPressed: onOpenCamera,

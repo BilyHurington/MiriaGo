@@ -346,7 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               SizedBox(height: 14),
-              _InfoRow(icon: Icons.new_releases_outlined, text: '版本 1.0.0'),
+              _InfoRow(icon: Icons.new_releases_outlined, text: '版本 1.1.0'),
               SizedBox(height: 10),
               _InfoRow(icon: Icons.person_outline, text: 'BilyHurington'),
               SizedBox(height: 10),

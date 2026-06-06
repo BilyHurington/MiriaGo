@@ -13,7 +13,10 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
     return null;
   }
 
-  final thumbnailUrl = _thumbnailUrl(url);
+  final thumbnailUrl = anitabiThumbnailImageUrl(url);
+  if (thumbnailUrl == null || thumbnailUrl.isEmpty) {
+    return null;
+  }
   return _cacheImage(
     url: thumbnailUrl,
     namespace: 'reference_thumbnails',
@@ -60,22 +63,6 @@ Future<String?> _cacheImage({
 
   await file.writeAsBytes(response.bodyBytes, flush: true);
   return path;
-}
-
-String _thumbnailUrl(String url) {
-  final fullUrl = anitabiFullResolutionImageUrl(url);
-  if (fullUrl == null || fullUrl.isEmpty) {
-    return url;
-  }
-
-  final uri = Uri.tryParse(fullUrl);
-  if (uri == null || uri.host != 'image.anitabi.cn') {
-    return fullUrl;
-  }
-
-  return uri
-      .replace(queryParameters: {...uri.queryParameters, 'plan': 'h160'})
-      .toString();
 }
 
 String _safeFileName(String value) {

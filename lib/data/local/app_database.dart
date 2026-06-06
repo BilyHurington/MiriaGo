@@ -6,9 +6,27 @@ class Plans extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get area => text()();
+  TextColumn get currentGroupId => text().nullable()();
   BoolColumn get active => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class PlanGroups extends Table {
+  TextColumn get id => text()();
+  TextColumn get planId => text().references(Plans, #id)();
+  TextColumn get name => text()();
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+  TextColumn get orderMode => text().withDefault(const Constant('unordered'))();
+  TextColumn get anchorName => text().nullable()();
+  RealColumn get anchorLatitude => real().nullable()();
+  RealColumn get anchorLongitude => real().nullable()();
+  TextColumn get anchorPointId => text().nullable()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -43,6 +61,8 @@ class Points extends Table {
   TextColumn get referenceThumbnailPath => text().nullable()();
   TextColumn get referenceFullImagePath => text().nullable()();
   TextColumn get sourceUrl => text().nullable()();
+  TextColumn get groupId => text().nullable().references(PlanGroups, #id)();
+  IntColumn get groupOrderIndex => integer().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   BoolColumn get isCurrent => boolean().withDefault(const Constant(false))();
   DateTimeColumn get completedAt => dateTime().nullable()();
@@ -82,6 +102,8 @@ class AppSettingsEntries extends Table {
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
   RealColumn get referenceImageScale =>
       real().withDefault(const Constant(1.0))();
+  RealColumn get nearestAssignDistanceMeters =>
+      real().withDefault(const Constant(350.0))();
   TextColumn get themePalette =>
       text().withDefault(const Constant('classicGreen'))();
 
@@ -89,12 +111,14 @@ class AppSettingsEntries extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Plans, Works, Points, VisitRecords, AppSettingsEntries])
+@DriftDatabase(
+  tables: [Plans, PlanGroups, Works, Points, VisitRecords, AppSettingsEntries],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -153,6 +177,18 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           appSettingsEntries,
           appSettingsEntries.referenceImageScale,
+        );
+      }
+      if (from < 11) {
+        await migrator.addColumn(plans, plans.currentGroupId);
+        await migrator.createTable(planGroups);
+        await migrator.addColumn(points, points.groupId);
+        await migrator.addColumn(points, points.groupOrderIndex);
+      }
+      if (from < 12) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.nearestAssignDistanceMeters,
         );
       }
     },

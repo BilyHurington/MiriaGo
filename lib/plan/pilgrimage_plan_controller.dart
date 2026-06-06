@@ -41,6 +41,8 @@ class PilgrimagePlanController extends ChangeNotifier {
 
   List<PilgrimageVisitRecord> get visitRecords => _visitRecords;
 
+  Set<String> get completedPointIds => Set.unmodifiable(_completedPointIds);
+
   List<PilgrimageVisitRecord> recordsForPoint(String pointId) => _visitRecords
       .where((record) => record.pointId == pointId)
       .toList(growable: false);
@@ -157,6 +159,20 @@ class PilgrimagePlanController extends ChangeNotifier {
       pointId: point.id,
       referenceThumbnailPath: referenceThumbnailPath,
       referenceFullImagePath: referenceFullImagePath,
+    );
+    _replacePlanState(updatedPlan);
+  }
+
+  Future<void> movePointToGroup(PilgrimagePoint point, String? groupId) async {
+    final repository = _repository;
+    if (repository == null || point.groupId == groupId) {
+      return;
+    }
+
+    final updatedPlan = await repository.movePointsToGroup(
+      planId: _plan.id,
+      pointIds: {point.id},
+      groupId: groupId,
     );
     _replacePlanState(updatedPlan);
   }

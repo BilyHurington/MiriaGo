@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -8,10 +7,14 @@ import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
+import 'point_visit_records_screen.dart';
+import 'visit_record_file_ops_stub.dart'
+    if (dart.library.io) 'visit_record_file_ops_io.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
 
@@ -42,6 +45,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
     final resolvedPoint = widget.point;
     final referenceImagePath = _resolvedReferenceImagePath(resolvedPoint);
     final referenceImageUrl = _resolvedReferenceImageUrl(resolvedPoint);
+    final group = _groupFor(resolvedPoint);
 
     return Scaffold(
       appBar: AppBar(
@@ -93,6 +97,20 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (resolvedPoint == null) ...[
+            const _OrphanRecordNotice(),
+            const SizedBox(height: 12),
+          ] else ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showPointDetail(resolvedPoint),
+                icon: const Icon(Icons.place_outlined, size: 18),
+                label: const Text('查看点位详情'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _DetailSection(
             children: [
               _DetailRow(
@@ -124,6 +142,23 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
                 ),
               if (resolvedPoint != null) ...[
                 _DetailRow(
+                  icon: Icons.flag_outlined,
+                  label: '状态',
+                  value: _statusLabel(
+                    widget.controller.statusFor(resolvedPoint),
+                  ),
+                ),
+                _DetailRow(
+                  icon: Icons.grid_view_outlined,
+                  label: '片区',
+                  value: _groupName(resolvedPoint, group),
+                ),
+                _DetailRow(
+                  icon: Icons.adjust_outlined,
+                  label: '关键点',
+                  value: _groupAnchorLabel(group),
+                ),
+                _DetailRow(
                   icon: Icons.movie_filter_outlined,
                   label: '作品',
                   value:
@@ -144,6 +179,56 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _showPointDetail(PilgrimagePoint point) {
+    PointDetailSheet.show(
+      context,
+      point: point,
+      status: widget.controller.statusFor(point),
+      onSetCurrent: () => widget.controller.setCurrentPoint(point),
+      onOpenCamera: null,
+      onComplete: () =>
+          widget.controller.statusFor(point) == VisitStatus.completed
+          ? widget.controller.reopenPoint(point)
+          : widget.controller.completePoint(point),
+      onReplaceReference: (point, image) =>
+          widget.controller.updatePointImageCache(
+            point,
+            referenceThumbnailPath: image.thumbnailPath,
+            referenceFullImagePath: image.fullImagePath,
+          ),
+      actionScope: PointDetailActionScope.manage,
+      groups: widget.controller.plan.groups,
+      onMoveToGroup: widget.controller.movePointToGroup,
+      records: widget.controller.recordsForPoint(point.id),
+      onOpenRecords: () => _openPointRecords(point),
+      onOpenRecord: _openRelatedRecord,
+    );
+  }
+
+  void _openPointRecords(PilgrimagePoint point) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PointVisitRecordsScreen(
+          point: point,
+          controller: widget.controller,
+        ),
+      ),
+    );
+  }
+
+  void _openRelatedRecord(PilgrimageVisitRecord record) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitRecordDetailScreen(
+          record: record,
+          point: widget.controller.pointById(record.pointId),
+          controller: widget.controller,
+          onDelete: () => widget.controller.deleteVisitRecord(record),
+        ),
       ),
     );
   }
@@ -223,15 +308,11 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         _record.originalPhotoPath,
         _record.gradedPhotoPath,
       }.whereType<String>()) {
-        try {
-          File(path).deleteSync();
-        } catch (_) {}
+        deleteVisitRecordLocalFile(path);
       }
       final refPath = _record.referenceImagePath;
       if (refPath != null) {
-        try {
-          File(refPath).deleteSync();
-        } catch (_) {}
+        deleteVisitRecordLocalFile(refPath);
       }
     }
 
@@ -275,7 +356,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       _record.referenceImagePath,
       resolvedPoint?.referenceFullImagePath,
     ].whereType<String>()) {
-      if (File(path).existsSync()) {
+      if (visitRecordLocalFileExists(path)) {
         return path;
       }
     }
@@ -284,6 +365,39 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 
   String? _resolvedReferenceImageUrl(PilgrimagePoint? resolvedPoint) {
     return _record.referenceImageUrl ?? resolvedPoint?.referenceImageUrl;
+  }
+
+  PilgrimagePlanGroup? _groupFor(PilgrimagePoint? point) {
+    final groupId = point?.groupId;
+    if (groupId == null) {
+      return null;
+    }
+    return widget.controller.plan.groups
+        .where((group) => group.id == groupId)
+        .firstOrNull;
+  }
+
+  String _groupName(PilgrimagePoint point, PilgrimagePlanGroup? group) {
+    if (point.groupId == null) {
+      return '未分组';
+    }
+    return group?.name ?? '未知片区';
+  }
+
+  String _groupAnchorLabel(PilgrimagePlanGroup? group) {
+    final anchorName = group?.anchorName;
+    if (anchorName == null || anchorName.trim().isEmpty) {
+      return '未设置关键点';
+    }
+    return anchorName;
+  }
+
+  String _statusLabel(VisitStatus status) {
+    return switch (status) {
+      VisitStatus.current => '当前目标',
+      VisitStatus.completed => '已完成',
+      VisitStatus.pending => '待访问',
+    };
   }
 
   String? _colorGradingSummary() {
@@ -479,6 +593,38 @@ class _RecordReferencePlaceholder extends StatelessWidget {
       color: AppColors.surfaceMuted,
       child: Center(
         child: Icon(Icons.image_outlined, color: AppColors.accentDark),
+      ),
+    );
+  }
+}
+
+class _OrphanRecordNotice extends StatelessWidget {
+  const _OrphanRecordNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.link_off_outlined, color: AppColors.warning, size: 19),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '这条记录对应的点位已不在当前计划中，照片和导出功能仍然可以使用。',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

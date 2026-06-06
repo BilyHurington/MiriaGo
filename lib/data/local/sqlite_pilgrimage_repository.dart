@@ -59,6 +59,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       cameraMinZoom: row.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
       referenceImageScale: row.referenceImageScale.clamp(0.8, 1.0),
+      nearestAssignDistanceMeters: row.nearestAssignDistanceMeters.clamp(
+        50.0,
+        5000.0,
+      ),
       themePalette: _themePaletteFromName(row.themePalette),
     );
   }
@@ -124,6 +128,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     final pointIdMap = {
       for (final point in plan.points) point.id: '$idPrefix${point.id}',
     };
+    final groupIdMap = {
+      for (final group in plan.groups) group.id: '$idPrefix${group.id}',
+    };
     final existingNames = (await _database.select(_database.plans).get())
         .map((plan) => plan.name)
         .toSet();
@@ -131,12 +138,16 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       id: importedId,
       name: _uniquePlanName(plan.name, existingNames),
       works: _remapWorks(plan.works, workIdMap),
-      points: _remapPoints(plan.points, workIdMap, pointIdMap),
+      groups: _remapGroups(plan.groups, groupIdMap, pointIdMap),
+      points: _remapPoints(plan.points, workIdMap, pointIdMap, groupIdMap),
       createdAt: now,
       updatedAt: now,
       currentPointId: plan.currentPointId == null
           ? null
           : pointIdMap[plan.currentPointId],
+      currentGroupId: plan.currentGroupId == null
+          ? null
+          : groupIdMap[plan.currentGroupId],
       completedPointIds: {
         for (final pointId in plan.completedPointIds)
           if (pointIdMap[pointId] != null) pointIdMap[pointId]!,
@@ -253,6 +264,112 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     await _database.transaction(() async {
       await _upsertWork(planId: planId, work: work);
+      await _touchPlan(planId);
+    });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> createPlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    await _insertPilgrimagePlanGroup(planId: planId, group: group);
+    await _touchPlan(planId);
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> renamePlanGroup({
+    required String planId,
+    required String groupId,
+    required String name,
+  }) async {
+    await (_database.update(_database.planGroups)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(groupId),
+        ))
+        .write(PlanGroupsCompanion(name: Value(name)));
+    await _touchPlan(planId);
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    await (_database.update(_database.planGroups)..where(
+          (table) => table.planId.equals(planId) & table.id.equals(group.id),
+        ))
+        .write(
+          PlanGroupsCompanion(
+            name: Value(group.name),
+            orderIndex: Value(group.orderIndex),
+            orderMode: Value(group.orderMode.name),
+            anchorName: Value(group.anchorName),
+            anchorLatitude: Value(group.anchorLatitude),
+            anchorLongitude: Value(group.anchorLongitude),
+            anchorPointId: Value(group.anchorPointId),
+            note: Value(group.note),
+          ),
+        );
+    await _touchPlan(planId);
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> deletePlanGroup({
+    required String planId,
+    required String groupId,
+  }) async {
+    await _database.transaction(() async {
+      await (_database.update(_database.points)..where(
+            (table) =>
+                table.planId.equals(planId) & table.groupId.equals(groupId),
+          ))
+          .write(
+            const PointsCompanion(
+              groupId: Value(null),
+              groupOrderIndex: Value(null),
+            ),
+          );
+      await (_database.update(_database.plans)..where(
+            (table) =>
+                table.id.equals(planId) & table.currentGroupId.equals(groupId),
+          ))
+          .write(const PlansCompanion(currentGroupId: Value(null)));
+      await (_database.delete(_database.planGroups)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(groupId),
+          ))
+          .go();
+      await _touchPlan(planId);
+    });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> movePointsToGroup({
+    required String planId,
+    required Set<String> pointIds,
+    required String? groupId,
+  }) async {
+    if (pointIds.isEmpty) {
+      return _planFromRow(await _planRowById(planId));
+    }
+
+    await _database.transaction(() async {
+      for (var index = 0; index < pointIds.length; index += 1) {
+        final pointId = pointIds.elementAt(index);
+        await (_database.update(_database.points)..where(
+              (table) => table.planId.equals(planId) & table.id.equals(pointId),
+            ))
+            .write(
+              PointsCompanion(
+                groupId: Value(groupId),
+                groupOrderIndex: Value(groupId == null ? null : index),
+              ),
+            );
+      }
       await _touchPlan(planId);
     });
     return _planFromRow(await _planRowById(planId));
@@ -558,6 +675,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         _database.points,
       )..where((table) => table.planId.equals(id))).go();
       await (_database.delete(
+        _database.planGroups,
+      )..where((table) => table.planId.equals(id))).go();
+      await (_database.delete(
         _database.works,
       )..where((table) => table.planId.equals(id))).go();
       await (_database.delete(
@@ -596,6 +716,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
             referenceImageScale: Value(
               settings.referenceImageScale.clamp(0.8, 1.0),
+            ),
+            nearestAssignDistanceMeters: Value(
+              settings.nearestAssignDistanceMeters.clamp(50.0, 5000.0),
             ),
             themePalette: Value(settings.themePalette.name),
           ),
@@ -711,11 +834,16 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             id: plan.id,
             name: plan.name,
             area: plan.area,
+            currentGroupId: Value(plan.currentGroupId),
             active: Value(active),
             createdAt: plan.createdAt,
             updatedAt: plan.updatedAt,
           ),
         );
+
+    for (final group in plan.groups) {
+      await _insertPilgrimagePlanGroup(planId: plan.id, group: group);
+    }
 
     for (final work in plan.works) {
       await _upsertWork(planId: plan.id, work: work);
@@ -763,6 +891,29 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         );
   }
 
+  Future<void> _insertPilgrimagePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    await _database
+        .into(_database.planGroups)
+        .insert(
+          PlanGroupsCompanion.insert(
+            id: group.id,
+            planId: planId,
+            name: group.name,
+            orderIndex: Value(group.orderIndex),
+            orderMode: Value(group.orderMode.name),
+            anchorName: Value(group.anchorName),
+            anchorLatitude: Value(group.anchorLatitude),
+            anchorLongitude: Value(group.anchorLongitude),
+            anchorPointId: Value(group.anchorPointId),
+            note: Value(group.note),
+            createdAt: group.createdAt,
+          ),
+        );
+  }
+
   PointsCompanion _pointCompanion({
     required String planId,
     required PilgrimagePoint point,
@@ -786,6 +937,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceThumbnailPath: Value(point.referenceThumbnailPath),
       referenceFullImagePath: Value(point.referenceFullImagePath),
       sourceUrl: Value(point.sourceUrl),
+      groupId: Value(point.groupId),
+      groupOrderIndex: Value(point.groupOrderIndex),
       sortOrder: Value(sortOrder),
       isCurrent: Value(isCurrent),
       completedAt: Value(completedAt),
@@ -826,10 +979,35 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     ];
   }
 
+  List<PilgrimagePlanGroup> _remapGroups(
+    List<PilgrimagePlanGroup> groups,
+    Map<String, String> groupIdMap,
+    Map<String, String> pointIdMap,
+  ) {
+    return [
+      for (final group in groups)
+        PilgrimagePlanGroup(
+          id: groupIdMap[group.id] ?? group.id,
+          name: group.name,
+          orderIndex: group.orderIndex,
+          orderMode: group.orderMode,
+          anchorName: group.anchorName,
+          anchorLatitude: group.anchorLatitude,
+          anchorLongitude: group.anchorLongitude,
+          anchorPointId: group.anchorPointId == null
+              ? null
+              : pointIdMap[group.anchorPointId] ?? group.anchorPointId,
+          note: group.note,
+          createdAt: group.createdAt,
+        ),
+    ];
+  }
+
   List<PilgrimagePoint> _remapPoints(
     List<PilgrimagePoint> points,
     Map<String, String> workIdMap,
     Map<String, String> pointIdMap,
+    Map<String, String> groupIdMap,
   ) {
     return [
       for (final point in points)
@@ -854,6 +1032,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           referenceThumbnailPath: point.referenceThumbnailPath,
           referenceFullImagePath: point.referenceFullImagePath,
           sourceUrl: point.sourceUrl,
+          groupId: point.groupId == null
+              ? null
+              : groupIdMap[point.groupId] ?? point.groupId,
+          groupOrderIndex: point.groupOrderIndex,
         ),
     ];
   }
@@ -863,6 +1045,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       _database.works,
     )..where((table) => table.planId.equals(row.id))).get();
     final workById = {for (final work in works) work.id: _workFromRow(work)};
+    final groups =
+        await (_database.select(_database.planGroups)
+              ..where((table) => table.planId.equals(row.id))
+              ..orderBy([(table) => OrderingTerm.asc(table.orderIndex)]))
+            .get();
     final points =
         await (_database.select(_database.points)
               ..where((table) => table.planId.equals(row.id))
@@ -883,12 +1070,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       name: row.name,
       area: row.area,
       works: workById.values.toList(growable: false),
+      groups: groups.map(_groupFromRow).toList(growable: false),
       points: points
           .map((point) => _pointFromRow(point, workById[point.workId]))
           .toList(growable: false),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       currentPointId: currentPointId,
+      currentGroupId: row.currentGroupId,
       completedPointIds: completedPointIds,
     );
   }
@@ -922,6 +1111,21 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
+  PilgrimagePlanGroup _groupFromRow(PlanGroup row) {
+    return PilgrimagePlanGroup(
+      id: row.id,
+      name: row.name,
+      orderIndex: row.orderIndex,
+      orderMode: _groupOrderModeFromName(row.orderMode),
+      anchorName: row.anchorName,
+      anchorLatitude: row.anchorLatitude,
+      anchorLongitude: row.anchorLongitude,
+      anchorPointId: row.anchorPointId,
+      note: row.note,
+      createdAt: row.createdAt,
+    );
+  }
+
   PilgrimagePoint _pointFromRow(Point row, PilgrimageWork? work) {
     final resolvedWork =
         work ??
@@ -947,6 +1151,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceThumbnailPath: row.referenceThumbnailPath,
       referenceFullImagePath: row.referenceFullImagePath,
       sourceUrl: row.sourceUrl,
+      groupId: row.groupId,
+      groupOrderIndex: row.groupOrderIndex,
     );
   }
 
@@ -961,6 +1167,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return PointSource.values.firstWhere(
       (source) => source.name == name,
       orElse: () => PointSource.manual,
+    );
+  }
+
+  PlanGroupOrderMode _groupOrderModeFromName(String name) {
+    return PlanGroupOrderMode.values.firstWhere(
+      (mode) => mode.name == name,
+      orElse: () => PlanGroupOrderMode.unordered,
     );
   }
 

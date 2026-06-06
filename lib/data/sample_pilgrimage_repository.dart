@@ -6,7 +6,7 @@ import 'pilgrimage_repository.dart';
 class SamplePilgrimageRepository implements PilgrimageRepository {
   SamplePilgrimageRepository()
     : _plans = [samplePilgrimagePlan],
-      _visitRecords = [],
+      _visitRecords = List.of(_sampleVisitRecords),
       _settings = const AppSettings(),
       _activePlanId = samplePilgrimagePlan.id;
 
@@ -205,6 +205,122 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     final plan = _plans[index];
     final updatedPlan = plan.copyWith(
       works: _appendWorkIfMissing(plan.works, work),
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> createPlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: [...plan.groups, group],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> renamePlanGroup({
+    required String planId,
+    required String groupId,
+    required String name,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: [
+        for (final group in plan.groups)
+          group.id == groupId
+              ? PilgrimagePlanGroup(
+                  id: group.id,
+                  name: name,
+                  orderIndex: group.orderIndex,
+                  orderMode: group.orderMode,
+                  anchorName: group.anchorName,
+                  anchorLatitude: group.anchorLatitude,
+                  anchorLongitude: group.anchorLongitude,
+                  anchorPointId: group.anchorPointId,
+                  note: group.note,
+                  createdAt: group.createdAt,
+                )
+              : group,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: [
+        for (final candidate in plan.groups)
+          candidate.id == group.id ? group : candidate,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> deletePlanGroup({
+    required String planId,
+    required String groupId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final updatedPlan = plan.copyWith(
+      groups: plan.groups
+          .where((group) => group.id != groupId)
+          .toList(growable: false),
+      points: [
+        for (final point in plan.points)
+          point.groupId == groupId
+              ? point.copyWith(groupId: null, groupOrderIndex: null)
+              : point,
+      ],
+      currentGroupId: plan.currentGroupId == groupId
+          ? null
+          : plan.currentGroupId,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> movePointsToGroup({
+    required String planId,
+    required Set<String> pointIds,
+    required String? groupId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    var orderIndex = 0;
+    final updatedPlan = plan.copyWith(
+      points: [
+        for (final point in plan.points)
+          pointIds.contains(point.id)
+              ? point.copyWith(
+                  groupId: groupId,
+                  groupOrderIndex: groupId == null ? null : orderIndex++,
+                )
+              : point,
+      ],
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -497,6 +613,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
       referenceImageScale: settings.referenceImageScale.clamp(0.8, 1.0),
+      nearestAssignDistanceMeters: settings.nearestAssignDistanceMeters.clamp(
+        50.0,
+        5000.0,
+      ),
       cameraFallbackAspectRatio:
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
           ? CameraPhotoAspectRatio.native
@@ -565,8 +685,88 @@ final samplePilgrimagePlan = PilgrimagePlan(
   name: '示例计划',
   area: '宇治市',
   works: const [_hibikeWork],
+  groups: [
+    PilgrimagePlanGroup(
+      id: 'sample-group-uji-station',
+      name: '宇治站附近',
+      orderIndex: 0,
+      orderMode: PlanGroupOrderMode.unordered,
+      anchorName: 'JR 宇治站',
+      anchorLatitude: 34.8903,
+      anchorLongitude: 135.8009,
+      anchorPointId: 'anitabi-115908-3plnxvy',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-daikichiyama',
+      name: '大吉山',
+      orderIndex: 1,
+      orderMode: PlanGroupOrderMode.manual,
+      anchorName: '大吉山展望台',
+      anchorLatitude: 34.8927,
+      anchorLongitude: 135.812,
+      anchorPointId: 'anitabi-115908-7mt52rr',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-byodoin',
+      name: '平等院表参道',
+      orderIndex: 2,
+      orderMode: PlanGroupOrderMode.unordered,
+      anchorName: '平等院表门',
+      anchorLatitude: 34.8892,
+      anchorLongitude: 135.8074,
+      anchorPointId: 'anitabi-115908-sample-byodoin-01',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-agata',
+      name: '县神社周边',
+      orderIndex: 3,
+      orderMode: PlanGroupOrderMode.manual,
+      anchorName: '縣神社',
+      anchorLatitude: 34.8884,
+      anchorLongitude: 135.8058,
+      anchorPointId: 'anitabi-115908-qys7ix',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-rokuchizo',
+      name: '六地藏方向',
+      orderIndex: 4,
+      orderMode: PlanGroupOrderMode.unordered,
+      anchorName: '六地藏站',
+      anchorLatitude: 34.9326,
+      anchorLongitude: 135.7933,
+      anchorPointId: 'anitabi-115908-sample-rokuchizo-01',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-obaku',
+      name: '黄檗方向',
+      orderIndex: 5,
+      orderMode: PlanGroupOrderMode.unordered,
+      anchorName: '黄檗站',
+      anchorLatitude: 34.9134,
+      anchorLongitude: 135.8026,
+      anchorPointId: 'anitabi-115908-sample-obaku-01',
+      createdAt: _sampleCreatedAt,
+    ),
+    PilgrimagePlanGroup(
+      id: 'sample-group-kohata',
+      name: '木幡方向',
+      orderIndex: 6,
+      orderMode: PlanGroupOrderMode.manual,
+      anchorName: '木幡站',
+      anchorLatitude: 34.925,
+      anchorLongitude: 135.7962,
+      anchorPointId: 'anitabi-115908-sample-kohata-01',
+      createdAt: _sampleCreatedAt,
+    ),
+  ],
   createdAt: _sampleCreatedAt,
   updatedAt: _sampleCreatedAt,
+  currentGroupId: 'sample-group-uji-station',
   currentPointId: 'anitabi-115908-7evkbmy2',
   points: const [
     PilgrimagePoint(
@@ -581,6 +781,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       sourceId: '7evkbmy2',
       referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 0,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-7gs3o1mm',
@@ -594,6 +796,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       sourceId: '7gs3o1mm',
       referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 1,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-3plnxvy',
@@ -608,6 +812,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       referenceImageUrl:
           'https://image.anitabi.cn/user/0/bangumi/115908/points/3plnxvy-1755088794974.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 2,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-qys7ia',
@@ -623,6 +829,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
           'https://image.anitabi.cn/user/0/bangumi/115908/points/qys7ia-1697123425329.jpg',
       sourceUrl:
           'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.892848%2C135.810794&z=17',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 0,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-7mt52rr',
@@ -637,6 +845,8 @@ final samplePilgrimagePlan = PilgrimagePlan(
       referenceImageUrl:
           'https://image.anitabi.cn/user/0/bangumi/115908/points/7mt52rr-1763627079224.jpg',
       sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 1,
     ),
     PilgrimagePoint(
       id: 'anitabi-115908-qys7ix',
@@ -652,6 +862,433 @@ final samplePilgrimagePlan = PilgrimagePlan(
           'https://image.anitabi.cn/points/115908/75cc58c61b40fdd8a8e64bd8b9bacd0c.png',
       sourceUrl:
           'https://www.google.com/maps/d/viewer?mid=13mgdlajJV0HxpqKf6ri2NnEHFBc&ll=34.888488%2C135.80587&z=17',
+      groupId: 'sample-group-agata',
+      groupOrderIndex: 0,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-01',
+      work: _hibikeWork,
+      name: '宇治文化中心 停车场',
+      subtitle: '宇治文化中心 停车场',
+      position: LatLng(34.8951, 135.8019),
+      episodeLabel: 'EP 11 / 12:49',
+      referenceLabel: 'Anitabi@卜卜口',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-01',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 4,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-02',
+      work: _hibikeWork,
+      name: '宇治川河畔',
+      subtitle: '宇治川沿い',
+      position: LatLng(34.8916, 135.8076),
+      episodeLabel: 'EP 3 / 8:21',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-02',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 5,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-03',
+      work: _hibikeWork,
+      name: '京阪宇治站前',
+      subtitle: '京阪宇治駅前',
+      position: LatLng(34.8942, 135.8069),
+      episodeLabel: 'EP 5 / 4:36',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-03',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/3plnxvy-1755088794974.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-uji-station',
+      groupOrderIndex: 6,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-uji-04',
+      work: _hibikeWork,
+      name: '朝雾桥',
+      subtitle: '朝霧橋',
+      position: LatLng(34.8902, 135.8106),
+      episodeLabel: 'EP 7 / 6:12',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-uji-04',
+      referenceImageUrl:
+          'https://image.anitabi.cn/points/115908/75cc58c61b40fdd8a8e64bd8b9bacd0c.png',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-byodoin',
+      groupOrderIndex: 0,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-daikichi-01',
+      work: _hibikeWork,
+      name: '大吉山步道',
+      subtitle: '大吉山登山道',
+      position: LatLng(34.8936, 135.8114),
+      episodeLabel: 'EP 8 / 16:08',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-daikichi-01',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/qys7ia-1697123425329.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 2,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-daikichi-02',
+      work: _hibikeWork,
+      name: '大吉山休息处',
+      subtitle: '大吉山休憩所',
+      position: LatLng(34.8931, 135.8127),
+      episodeLabel: 'EP 8 / 18:42',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-daikichi-02',
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/0/bangumi/115908/points/7mt52rr-1763627079224.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-daikichiyama',
+      groupOrderIndex: 3,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-unassigned-01',
+      work: _hibikeWork,
+      name: '平等院表参道',
+      subtitle: '平等院表参道',
+      position: LatLng(34.8892, 135.8074),
+      episodeLabel: 'EP 4 / 10:16',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-unassigned-01',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-byodoin',
+      groupOrderIndex: 1,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-unassigned-02',
+      work: _hibikeWork,
+      name: '宇治上神社参道',
+      subtitle: '宇治上神社参道',
+      position: LatLng(34.8918, 135.8112),
+      episodeLabel: 'EP 9 / 7:55',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-unassigned-02',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-byodoin-01',
+      work: _hibikeWork,
+      name: '平等院表门',
+      subtitle: '平等院表門',
+      position: LatLng(34.8897, 135.8072),
+      episodeLabel: 'EP 4 / 11:02',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-byodoin-01',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-byodoin',
+      groupOrderIndex: 2,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-byodoin-02',
+      work: _hibikeWork,
+      name: '橘桥西侧',
+      subtitle: '橘橋西詰',
+      position: LatLng(34.8899, 135.8088),
+      episodeLabel: 'EP 4 / 12:35',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-byodoin-02',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7gs3o1mm.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-byodoin',
+      groupOrderIndex: 3,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-agata-01',
+      work: _hibikeWork,
+      name: '县通商店街',
+      subtitle: '県通商店街',
+      position: LatLng(34.8887, 135.8051),
+      episodeLabel: 'EP 8 / 15:58',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-agata-01',
+      referenceImageUrl:
+          'https://image.anitabi.cn/points/115908/75cc58c61b40fdd8a8e64bd8b9bacd0c.png',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-agata',
+      groupOrderIndex: 1,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-agata-02',
+      work: _hibikeWork,
+      name: '县神社参道口',
+      subtitle: '縣神社参道口',
+      position: LatLng(34.8881, 135.8056),
+      episodeLabel: 'EP 8 / 16:31',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'sample-agata-02',
+      referenceImageUrl: 'https://image.anitabi.cn/points/115908/7evkbmy2.jpg',
+      sourceUrl: 'https://anitabi.cn/',
+      groupId: 'sample-group-agata',
+      groupOrderIndex: 2,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-rokuchizo-01',
+      work: _hibikeWork,
+      name: '六地藏站前',
+      subtitle: '六地蔵駅前',
+      position: LatLng(34.9326, 135.7933),
+      episodeLabel: 'EP 12 / 5:04',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-rokuchizo',
+      groupOrderIndex: 0,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-rokuchizo-02',
+      work: _hibikeWork,
+      name: '六地藏住宅街',
+      subtitle: '六地蔵住宅街',
+      position: LatLng(34.9318, 135.7947),
+      episodeLabel: 'EP 12 / 6:22',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-rokuchizo',
+      groupOrderIndex: 1,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-rokuchizo-03',
+      work: _hibikeWork,
+      name: '六地藏河岸',
+      subtitle: '六地蔵川沿い',
+      position: LatLng(34.9309, 135.7956),
+      episodeLabel: 'EP 12 / 7:40',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-rokuchizo',
+      groupOrderIndex: 2,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-obaku-01',
+      work: _hibikeWork,
+      name: '黄檗站前',
+      subtitle: '黄檗駅前',
+      position: LatLng(34.9134, 135.8026),
+      episodeLabel: 'EP 10 / 9:11',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-obaku',
+      groupOrderIndex: 0,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-obaku-02',
+      work: _hibikeWork,
+      name: '黄檗公园入口',
+      subtitle: '黄檗公園入口',
+      position: LatLng(34.9124, 135.8041),
+      episodeLabel: 'EP 10 / 10:03',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-obaku',
+      groupOrderIndex: 1,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-obaku-03',
+      work: _hibikeWork,
+      name: '黄檗街角',
+      subtitle: '黄檗の街角',
+      position: LatLng(34.9141, 135.8017),
+      episodeLabel: 'EP 10 / 12:28',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-obaku',
+      groupOrderIndex: 2,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-kohata-01',
+      work: _hibikeWork,
+      name: '木幡站前',
+      subtitle: '木幡駅前',
+      position: LatLng(34.925, 135.7962),
+      episodeLabel: 'EP 6 / 6:51',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-kohata',
+      groupOrderIndex: 0,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-kohata-02',
+      work: _hibikeWork,
+      name: '木幡商店前',
+      subtitle: '木幡商店前',
+      position: LatLng(34.9242, 135.7971),
+      episodeLabel: 'EP 6 / 7:36',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-kohata',
+      groupOrderIndex: 1,
+    ),
+    PilgrimagePoint(
+      id: 'anitabi-115908-sample-kohata-03',
+      work: _hibikeWork,
+      name: '木幡住宅街',
+      subtitle: '木幡住宅街',
+      position: LatLng(34.9236, 135.7955),
+      episodeLabel: 'EP 6 / 8:08',
+      referenceLabel: '测试点位',
+      source: PointSource.manual,
+      groupId: 'sample-group-kohata',
+      groupOrderIndex: 2,
     ),
   ],
 );
+
+final _sampleVisitRecords = <PilgrimageVisitRecord>[
+  _sampleVisitRecord(
+    id: 'sample-record-uji-walk-01',
+    pointId: 'anitabi-115908-7evkbmy2',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 1, 9, 18),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-uji-walk-02',
+    pointId: 'anitabi-115908-7evkbmy2',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 1, 9, 26),
+    graded: true,
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-uji-bridge-01',
+    pointId: 'anitabi-115908-7gs3o1mm',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 1, 10, 8),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-jr-uji-01',
+    pointId: 'anitabi-115908-3plnxvy',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 1, 10, 42),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-daikichi-gate-01',
+    pointId: 'anitabi-115908-qys7ia',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 1, 13, 14),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-daikichi-view-01',
+    pointId: 'anitabi-115908-7mt52rr',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 1, 14, 2),
+    graded: true,
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-daikichi-view-02',
+    pointId: 'anitabi-115908-7mt52rr',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 1, 14, 18),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-byodoin-01',
+    pointId: 'anitabi-115908-sample-byodoin-01',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 2, 9, 40),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-byodoin-02',
+    pointId: 'anitabi-115908-sample-byodoin-02',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 2, 9, 58),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-agata-01',
+    pointId: 'anitabi-115908-qys7ix',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 2, 11, 15),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-agata-02',
+    pointId: 'anitabi-115908-sample-agata-01',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 2, 11, 42),
+    graded: true,
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-rokuchizo-01',
+    pointId: 'anitabi-115908-sample-rokuchizo-01',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 3, 8, 30),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-obaku-01',
+    pointId: 'anitabi-115908-sample-obaku-01',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 3, 10, 4),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-kohata-01',
+    pointId: 'anitabi-115908-sample-kohata-01',
+    referenceMode: '叠影',
+    capturedAt: DateTime(2026, 6, 3, 12, 25),
+  ),
+  _sampleVisitRecord(
+    id: 'sample-record-ungrouped-01',
+    pointId: 'anitabi-115908-sample-unassigned-02',
+    referenceMode: '上下',
+    capturedAt: DateTime(2026, 6, 3, 15, 6),
+  ),
+];
+
+PilgrimageVisitRecord _sampleVisitRecord({
+  required String id,
+  required String pointId,
+  required String referenceMode,
+  required DateTime capturedAt,
+  bool graded = false,
+}) {
+  final point = samplePilgrimagePlan.points.firstWhere(
+    (candidate) => candidate.id == pointId,
+  );
+  final photoPath = _sampleVisitPhotoPath();
+  return PilgrimageVisitRecord(
+    id: id,
+    planId: samplePilgrimagePlan.id,
+    pointId: pointId,
+    workId: point.work.id,
+    photoPath: photoPath,
+    originalPhotoPath: graded ? photoPath : null,
+    gradedPhotoPath: graded ? _sampleGradedVisitPhotoPath() : null,
+    colorGradingMode: graded ? '自动调色' : null,
+    colorGradingParamsJson: graded
+        ? '{"exposure":0.04,"contrast":0.08,"saturation":0.12}'
+        : null,
+    colorGradingIntensity: graded ? 0.72 : null,
+    referenceImageUrl: point.referenceImageUrl,
+    referenceMode: referenceMode,
+    capturedAt: capturedAt,
+  );
+}
+
+String _sampleVisitPhotoPath() {
+  return 'docs/sample_images/铃音-记录详情页面-调色前.jpg';
+}
+
+String _sampleGradedVisitPhotoPath() {
+  return 'docs/sample_images/铃音-记录详情页面-调色后.jpg';
+}

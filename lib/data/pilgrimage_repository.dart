@@ -48,6 +48,33 @@ abstract interface class PilgrimageRepository {
     required PilgrimageWork work,
   });
 
+  Future<PilgrimagePlan> createPlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  });
+
+  Future<PilgrimagePlan> renamePlanGroup({
+    required String planId,
+    required String groupId,
+    required String name,
+  });
+
+  Future<PilgrimagePlan> updatePlanGroup({
+    required String planId,
+    required PilgrimagePlanGroup group,
+  });
+
+  Future<PilgrimagePlan> deletePlanGroup({
+    required String planId,
+    required String groupId,
+  });
+
+  Future<PilgrimagePlan> movePointsToGroup({
+    required String planId,
+    required Set<String> pointIds,
+    required String? groupId,
+  });
+
   Future<PilgrimagePlan> deleteWorkFromPlan({
     required String planId,
     required String workId,

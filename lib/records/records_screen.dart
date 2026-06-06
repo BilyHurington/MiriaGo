@@ -9,6 +9,9 @@ import 'visit_record_photo_stub.dart'
 
 enum _RecordStatusFilter { all, completed, pending }
 
+const String _ungroupedRecordFilterId = '__ungrouped__';
+const String _orphanRecordFilterId = '__orphan__';
+
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({required this.controller, super.key});
 
@@ -20,14 +23,17 @@ class RecordsScreen extends StatefulWidget {
 
 class _RecordsScreenState extends State<RecordsScreen> {
   String? _selectedWorkId;
+  String? _selectedGroupFilterId;
   String _searchQuery = '';
   _RecordStatusFilter _statusFilter = _RecordStatusFilter.all;
   var _filtersExpanded = false;
+  final Set<String> _expandedSectionIds = {};
 
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final records = _filteredRecords(controller);
+    final sections = _groupedRecords(controller, records);
 
     return Scaffold(
       appBar: AppBar(title: const Text('记录')),
@@ -38,7 +44,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
           const SizedBox(height: 16),
           _RecordFilters(
             works: controller.plan.works,
+            groups: controller.plan.groups,
             selectedWorkId: _selectedWorkId,
+            selectedGroupFilterId: _selectedGroupFilterId,
             statusFilter: _statusFilter,
             searchQuery: _searchQuery,
             expanded: _filtersExpanded,
@@ -47,13 +55,28 @@ class _RecordsScreenState extends State<RecordsScreen> {
               setState(() => _filtersExpanded = !_filtersExpanded);
             },
             onSearchChanged: (query) {
-              setState(() => _searchQuery = query);
+              setState(() {
+                _searchQuery = query;
+                _resetExpandedSections();
+              });
             },
             onWorkSelected: (workId) {
-              setState(() => _selectedWorkId = workId);
+              setState(() {
+                _selectedWorkId = workId;
+                _resetExpandedSections();
+              });
+            },
+            onGroupSelected: (groupId) {
+              setState(() {
+                _selectedGroupFilterId = groupId;
+                _resetExpandedSections();
+              });
             },
             onStatusSelected: (filter) {
-              setState(() => _statusFilter = filter);
+              setState(() {
+                _statusFilter = filter;
+                _resetExpandedSections();
+              });
             },
           ),
           const SizedBox(height: 16),
@@ -65,14 +88,19 @@ class _RecordsScreenState extends State<RecordsScreen> {
           if (records.isEmpty)
             const _EmptyRecords()
           else
-            for (final record in records) ...[
-              _VisitRecordCard(
-                record: record,
-                point: controller.pointById(record.pointId),
-                onTap: () => _openRecordDetail(context, record),
+            for (final section in sections)
+              _RecordGroupSection(
+                section: section,
+                expanded: _expandedSectionIds.contains(section.id),
+                onToggleExpanded: () {
+                  setState(() {
+                    if (!_expandedSectionIds.add(section.id)) {
+                      _expandedSectionIds.remove(section.id);
+                    }
+                  });
+                },
+                onOpenRecord: (record) => _openRecordDetail(context, record),
               ),
-              const SizedBox(height: 10),
-            ],
         ],
       ),
     );
@@ -92,6 +120,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
     );
   }
 
+  void _resetExpandedSections() {
+    _expandedSectionIds.clear();
+  }
+
   List<PilgrimageVisitRecord> _filteredRecords(
     PilgrimagePlanController controller,
   ) {
@@ -99,6 +131,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
         .where((record) {
           final point = controller.pointById(record.pointId);
           if (_selectedWorkId != null && record.workId != _selectedWorkId) {
+            return false;
+          }
+
+          if (!_matchesGroupFilter(point)) {
             return false;
           }
 
@@ -119,9 +155,95 @@ class _RecordsScreenState extends State<RecordsScreen> {
         .toList(growable: false);
   }
 
+  List<_RecordGroup> _groupedRecords(
+    PilgrimagePlanController controller,
+    List<PilgrimageVisitRecord> records,
+  ) {
+    final recordsByGroupId = <String?, List<_RecordEntry>>{};
+    final orphanRecords = <_RecordEntry>[];
+
+    for (final record in records) {
+      final point = controller.pointById(record.pointId);
+      final entry = _RecordEntry(record: record, point: point);
+      if (point == null) {
+        orphanRecords.add(entry);
+        continue;
+      }
+      recordsByGroupId.putIfAbsent(point.groupId, () => []).add(entry);
+    }
+
+    final groups = <_RecordGroup>[];
+    final orderedGroups = [...controller.plan.groups]
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    for (final group in orderedGroups) {
+      final entries = recordsByGroupId[group.id];
+      if (entries == null || entries.isEmpty) {
+        continue;
+      }
+      groups.add(
+        _RecordGroup(
+          id: group.id,
+          title: group.name,
+          subtitle: _groupAnchorLabel(group),
+          icon: Icons.folder_outlined,
+          entries: _sortEntries(entries),
+        ),
+      );
+    }
+
+    final ungroupedEntries = recordsByGroupId[null];
+    if (ungroupedEntries != null && ungroupedEntries.isNotEmpty) {
+      groups.add(
+        _RecordGroup(
+          id: _ungroupedRecordFilterId,
+          title: '未分组',
+          subtitle: '还没有放入片区的记录',
+          icon: Icons.inventory_2_outlined,
+          entries: _sortEntries(ungroupedEntries),
+        ),
+      );
+    }
+
+    if (orphanRecords.isNotEmpty) {
+      groups.add(
+        _RecordGroup(
+          id: _orphanRecordFilterId,
+          title: '孤立记录',
+          subtitle: '对应点位已不在当前计划中',
+          icon: Icons.link_off_outlined,
+          entries: _sortEntries(orphanRecords),
+        ),
+      );
+    }
+
+    return groups;
+  }
+
+  List<_RecordEntry> _sortEntries(List<_RecordEntry> entries) {
+    return [...entries]
+      ..sort((a, b) => b.record.capturedAt.compareTo(a.record.capturedAt));
+  }
+
+  bool _matchesGroupFilter(PilgrimagePoint? point) {
+    final filterId = _selectedGroupFilterId;
+    if (filterId == null) {
+      return true;
+    }
+    if (filterId == _orphanRecordFilterId) {
+      return point == null;
+    }
+    if (filterId == _ungroupedRecordFilterId) {
+      return point != null && point.groupId == null;
+    }
+    return point != null && point.groupId == filterId;
+  }
+
   int get _activeFilterCount {
     var count = 0;
     if (_selectedWorkId != null) {
+      count += 1;
+    }
+    if (_selectedGroupFilterId != null) {
       count += 1;
     }
     if (_statusFilter != _RecordStatusFilter.all) {
@@ -155,6 +277,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         point.sourceId ?? '',
         point.sourceUrl ?? '',
         point.referenceImageUrl ?? '',
+        _groupNameFor(point),
         point.position.latitude.toStringAsFixed(6),
         point.position.longitude.toStringAsFixed(6),
         point.work.id,
@@ -167,12 +290,34 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
     return values.any((value) => value.toLowerCase().contains(query));
   }
+
+  String _groupNameFor(PilgrimagePoint point) {
+    final groupId = point.groupId;
+    if (groupId == null) {
+      return '未分组';
+    }
+    return widget.controller.plan.groups
+            .where((group) => group.id == groupId)
+            .firstOrNull
+            ?.name ??
+        '未知片区';
+  }
+
+  String _groupAnchorLabel(PilgrimagePlanGroup group) {
+    final anchorName = group.anchorName;
+    if (anchorName == null || anchorName.trim().isEmpty) {
+      return '未设置关键点';
+    }
+    return anchorName;
+  }
 }
 
 class _RecordFilters extends StatelessWidget {
   const _RecordFilters({
     required this.works,
+    required this.groups,
     required this.selectedWorkId,
+    required this.selectedGroupFilterId,
     required this.statusFilter,
     required this.searchQuery,
     required this.expanded,
@@ -180,11 +325,14 @@ class _RecordFilters extends StatelessWidget {
     required this.onToggleExpanded,
     required this.onSearchChanged,
     required this.onWorkSelected,
+    required this.onGroupSelected,
     required this.onStatusSelected,
   });
 
   final List<PilgrimageWork> works;
+  final List<PilgrimagePlanGroup> groups;
   final String? selectedWorkId;
+  final String? selectedGroupFilterId;
   final _RecordStatusFilter statusFilter;
   final String searchQuery;
   final bool expanded;
@@ -192,6 +340,7 @@ class _RecordFilters extends StatelessWidget {
   final VoidCallback onToggleExpanded;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?> onWorkSelected;
+  final ValueChanged<String?> onGroupSelected;
   final ValueChanged<_RecordStatusFilter> onStatusSelected;
 
   @override
@@ -252,11 +401,14 @@ class _RecordFilters extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               child: _ExpandedRecordFilters(
                 works: works,
+                groups: groups,
                 selectedWorkId: selectedWorkId,
+                selectedGroupFilterId: selectedGroupFilterId,
                 statusFilter: statusFilter,
                 searchQuery: searchQuery,
                 onSearchChanged: onSearchChanged,
                 onWorkSelected: onWorkSelected,
+                onGroupSelected: onGroupSelected,
                 onStatusSelected: onStatusSelected,
               ),
             ),
@@ -270,20 +422,26 @@ class _RecordFilters extends StatelessWidget {
 class _ExpandedRecordFilters extends StatefulWidget {
   const _ExpandedRecordFilters({
     required this.works,
+    required this.groups,
     required this.selectedWorkId,
+    required this.selectedGroupFilterId,
     required this.statusFilter,
     required this.searchQuery,
     required this.onSearchChanged,
     required this.onWorkSelected,
+    required this.onGroupSelected,
     required this.onStatusSelected,
   });
 
   final List<PilgrimageWork> works;
+  final List<PilgrimagePlanGroup> groups;
   final String? selectedWorkId;
+  final String? selectedGroupFilterId;
   final _RecordStatusFilter statusFilter;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?> onWorkSelected;
+  final ValueChanged<String?> onGroupSelected;
   final ValueChanged<_RecordStatusFilter> onStatusSelected;
 
   @override
@@ -376,6 +534,50 @@ class _ExpandedRecordFiltersState extends State<_ExpandedRecordFilters> {
         ),
         const SizedBox(height: 12),
         const Text(
+          '片区',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _FilterChipButton(
+                label: '全部',
+                selected: widget.selectedGroupFilterId == null,
+                onSelected: () => widget.onGroupSelected(null),
+              ),
+              for (final group in widget.groups) ...[
+                const SizedBox(width: 8),
+                _FilterChipButton(
+                  label: group.name,
+                  selected: widget.selectedGroupFilterId == group.id,
+                  onSelected: () => widget.onGroupSelected(group.id),
+                ),
+              ],
+              const SizedBox(width: 8),
+              _FilterChipButton(
+                label: '未分组',
+                selected:
+                    widget.selectedGroupFilterId == _ungroupedRecordFilterId,
+                onSelected: () =>
+                    widget.onGroupSelected(_ungroupedRecordFilterId),
+              ),
+              const SizedBox(width: 8),
+              _FilterChipButton(
+                label: '孤立记录',
+                selected: widget.selectedGroupFilterId == _orphanRecordFilterId,
+                onSelected: () => widget.onGroupSelected(_orphanRecordFilterId),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
           '状态',
           style: TextStyle(
             fontSize: 15,
@@ -445,6 +647,29 @@ class _FilterChipButton extends StatelessWidget {
   }
 }
 
+class _RecordEntry {
+  const _RecordEntry({required this.record, required this.point});
+
+  final PilgrimageVisitRecord record;
+  final PilgrimagePoint? point;
+}
+
+class _RecordGroup {
+  const _RecordGroup({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.entries,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<_RecordEntry> entries;
+}
+
 class _RecordsSectionHeader extends StatelessWidget {
   const _RecordsSectionHeader({
     required this.visibleCount,
@@ -481,6 +706,125 @@ class _RecordsSectionHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RecordGroupSection extends StatelessWidget {
+  const _RecordGroupSection({
+    required this.section,
+    required this.expanded,
+    required this.onToggleExpanded,
+    required this.onOpenRecord,
+  });
+
+  final _RecordGroup section;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
+  final ValueChanged<PilgrimageVisitRecord> onOpenRecord;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: AppColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onToggleExpanded,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      expanded ? Icons.folder_open_outlined : section.icon,
+                      color: AppColors.accentDark,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            section.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            section.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          '${section.entries.length} 条',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      expanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            const SizedBox(height: 8),
+            for (final entry in section.entries) ...[
+              _VisitRecordCard(
+                record: entry.record,
+                point: entry.point,
+                groupName: section.title,
+                onTap: () => onOpenRecord(entry.record),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -541,11 +885,13 @@ class _VisitRecordCard extends StatelessWidget {
   const _VisitRecordCard({
     required this.record,
     required this.point,
+    required this.groupName,
     required this.onTap,
   });
 
   final PilgrimageVisitRecord record;
   final PilgrimagePoint? point;
+  final String groupName;
   final VoidCallback onTap;
 
   @override
@@ -602,8 +948,8 @@ class _VisitRecordCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         _RecordChip(
-                          icon: Icons.layers_outlined,
-                          label: record.referenceMode,
+                          icon: Icons.grid_view_outlined,
+                          label: groupName,
                         ),
                         _RecordChip(
                           icon: Icons.schedule,

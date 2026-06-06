@@ -59,9 +59,7 @@ void main() {
       plan.points[2].id,
       plan.points[0].id,
       plan.points[1].id,
-      plan.points[3].id,
-      plan.points[4].id,
-      plan.points[5].id,
+      for (final point in plan.points.skip(3)) point.id,
     ];
 
     await repository.reorderPoints(planId: plan.id, pointIds: reorderedIds);
@@ -481,5 +479,79 @@ void main() {
     expect(records, hasLength(1));
     expect(records.single.planId, imported.id);
     expect(records.single.pointId, active.points.first.id);
+  });
+
+  test('persists plan groups and point group assignment', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final group = PilgrimagePlanGroup(
+      id: 'group-uji',
+      name: '宇治站附近',
+      orderIndex: 0,
+      orderMode: PlanGroupOrderMode.manual,
+      anchorName: 'JR 宇治站',
+      anchorLatitude: 34.8903,
+      anchorLongitude: 135.8009,
+      anchorPointId: plan.points.first.id,
+      note: '上午扫点',
+      createdAt: DateTime(2026, 6),
+    );
+
+    await repository.createPlanGroup(planId: plan.id, group: group);
+    await repository.movePointsToGroup(
+      planId: plan.id,
+      pointIds: {plan.points.first.id, plan.points[1].id},
+      groupId: group.id,
+    );
+
+    final reloadedPlan = await repository.loadActivePlan();
+
+    expect(reloadedPlan.groups, hasLength(plan.groups.length + 1));
+    final reloadedGroup = reloadedPlan.groups.firstWhere(
+      (candidate) => candidate.id == group.id,
+    );
+    expect(reloadedGroup.name, group.name);
+    expect(reloadedGroup.orderMode, PlanGroupOrderMode.manual);
+    expect(reloadedGroup.anchorPointId, plan.points.first.id);
+    expect(reloadedGroup.note, '上午扫点');
+    expect(reloadedPlan.points.first.groupId, group.id);
+    expect(reloadedPlan.points.first.groupOrderIndex, 0);
+    expect(reloadedPlan.points[1].groupId, group.id);
+    expect(reloadedPlan.points[1].groupOrderIndex, 1);
+  });
+
+  test('deleting plan group moves points back to ungrouped', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final group = PilgrimagePlanGroup(
+      id: 'group-daikichiyama',
+      name: '大吉山',
+      orderIndex: 1,
+      createdAt: DateTime(2026, 6),
+    );
+
+    await repository.createPlanGroup(planId: plan.id, group: group);
+    await repository.movePointsToGroup(
+      planId: plan.id,
+      pointIds: {plan.points.first.id},
+      groupId: group.id,
+    );
+    final updatedPlan = await repository.deletePlanGroup(
+      planId: plan.id,
+      groupId: group.id,
+    );
+
+    expect(
+      updatedPlan.groups.map((group) => group.id),
+      isNot(contains(group.id)),
+    );
+    expect(updatedPlan.points.first.groupId, isNull);
+    expect(updatedPlan.points.first.groupOrderIndex, isNull);
   });
 }
