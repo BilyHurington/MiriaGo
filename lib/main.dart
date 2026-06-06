@@ -7,6 +7,7 @@ import 'app_theme.dart';
 import 'data/local/sqlite_pilgrimage_repository.dart';
 import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
+import 'dev/plan_preview_screen.dart';
 import 'widgets/copyable_text.dart';
 
 Future<void> main() async {
@@ -22,18 +23,23 @@ class MiriaGoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPlanPreview = kIsWeb &&
+        Uri.base.queryParameters['preview'] == PlanPreviewScreen.previewKey;
+
     return MaterialApp(
       title: 'MiriaGo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       navigatorObservers: [copyOverlayNavigatorObserver],
-      home: AppShell(
-        repository:
-            repository ??
-            (kIsWeb
-                ? SamplePilgrimageRepository()
-                : SqlitePilgrimageRepository()),
-      ),
+      home: isPlanPreview
+          ? const PlanPreviewScreen()
+          : AppShell(
+              repository:
+                  repository ??
+                  (kIsWeb
+                      ? SamplePilgrimageRepository()
+                      : SqlitePilgrimageRepository()),
+            ),
     );
   }
 }
