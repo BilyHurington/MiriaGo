@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../app_theme.dart';
 import '../camera_reference/camera_zoom_capabilities.dart';
+import '../desktop/tauri_bridge.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/copyable_text.dart';
 
@@ -21,11 +23,16 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   CameraZoomCapabilities _zoomCapabilities = CameraZoomCapabilities.fallback;
+  DesktopLauncherInfo? _desktopLauncherInfo;
+  var _desktopLauncherLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _loadZoomCapabilities();
+    if (_shouldShowDesktopSection) {
+      _loadDesktopLauncherInfo();
+    }
   }
 
   Future<void> _loadZoomCapabilities() async {
@@ -36,6 +43,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() {
       _zoomCapabilities = capabilities;
+    });
+  }
+
+  Future<void> _loadDesktopLauncherInfo() async {
+    final info = await loadDesktopLauncherInfo();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _desktopLauncherInfo = info;
+      _desktopLauncherLoaded = true;
     });
   }
 
@@ -311,6 +330,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          if (_shouldShowDesktopSection) ...[
+            _SettingsSection(
+              title: '桌面端',
+              children: [
+                _InfoRow(
+                  icon: Icons.desktop_windows_outlined,
+                  text: _desktopLauncherStatusText,
+                ),
+                if (_desktopLauncherInfo != null) ...[
+                  const SizedBox(height: 10),
+                  _InfoRow(
+                    icon: Icons.folder_outlined,
+                    text: _desktopLauncherInfo!.dataDir,
+                  ),
+                  const SizedBox(height: 10),
+                  _InfoRow(
+                    icon: Icons.inventory_2_outlined,
+                    text: _desktopLauncherInfo!.assetsDir,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           const _SettingsSection(
             title: '关于',
             children: [
@@ -377,6 +420,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  String get _desktopLauncherStatusText {
+    if (!_desktopLauncherLoaded) {
+      return '桌面启动器 检查中';
+    }
+    final info = _desktopLauncherInfo;
+    if (info == null || !isTauriLauncherAvailable) {
+      return '桌面启动器 不可用';
+    }
+    final mode = info.fallbackUsed
+        ? '系统数据目录'
+        : info.portable
+        ? '便携目录'
+        : '应用数据目录';
+    return '桌面启动器 可用 / ${info.platform} / $mode';
+  }
+
+  bool get _shouldShowDesktopSection => kIsWeb;
 }
 
 List<CameraPhotoAspectRatio> _cameraAspectRatioGroup({

@@ -1,0 +1,102 @@
+name: Desktop Launcher
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact-name: miriago-desktop-windows
+            zip-name: MiriaGo-windows-x64.zip
+          - os: macos-latest
+            artifact-name: miriago-desktop-macos
+            zip-name: MiriaGo-macos.zip
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          npm install
+
+      - name: Analyze Flutter
+        run: flutter analyze --no-pub
+
+      - name: Build Flutter Web
+        run: flutter build web --release --no-pub
+
+      - name: Build Tauri desktop app
+        run: npm run desktop:build
+
+      - name: Package macOS zip
+        if: runner.os == 'macOS'
+        run: |
+          app_path="src-tauri/target/release/bundle/macos/MiriaGo.app"
+          package_dir="dist/desktop/MiriaGo-macos"
+          if [ ! -d "$app_path" ]; then
+            echo "Missing macOS app bundle: $app_path" >&2
+            exit 1
+          fi
+
+          rm -rf dist/desktop
+          mkdir -p "$package_dir/MiriaGoData"
+          cp -R "$app_path" "$package_dir/"
+          ditto -c -k --sequesterRsrc --keepParent "$package_dir" "dist/desktop/${{ matrix.zip-name }}"
+
+      - name: Package Windows zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exePath = "src-tauri\target\release\miriago-desktop.exe"
+          $packageDir = "dist\desktop\MiriaGo-windows"
+          if (!(Test-Path $exePath)) {
+            throw "Missing Windows executable: $exePath"
+          }
+
+          if (Test-Path "dist\desktop") {
+            Remove-Item "dist\desktop" -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path "$packageDir\MiriaGoData" -Force | Out-Null
+          Copy-Item $exePath "$packageDir\MiriaGo.exe"
+          Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\${{ matrix.zip-name }}" -Force
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: dist/desktop/${{ matrix.zip-name }}
+
+      - name: Attach zip to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/desktop/${{ matrix.zip-name }}

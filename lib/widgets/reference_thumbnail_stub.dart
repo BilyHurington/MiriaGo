@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../desktop/desktop_asset_image.dart';
+
 class ReferenceThumbnail extends StatelessWidget {
   const ReferenceThumbnail({
     required this.localPath,
@@ -20,6 +22,17 @@ class ReferenceThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final path = localPath;
+    if (isDesktopAssetPath(path)) {
+      return DesktopAssetImage(
+        path: path!,
+        width: width,
+        height: height,
+        fit: fit,
+        placeholder: placeholder,
+      );
+    }
+
     final url = imageUrl;
     if (url != null) {
       return Image.network(url, width: width, height: height, fit: fit);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../desktop/desktop_asset_image.dart';
+
 class VisitRecordPhoto extends StatelessWidget {
   const VisitRecordPhoto({
     required this.path,
@@ -12,6 +14,14 @@ class VisitRecordPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktopAssetPath(path)) {
+      return DesktopAssetImage(
+        path: path,
+        fit: fit,
+        placeholder: const _PhotoPlaceholder(),
+      );
+    }
+
     if (path.startsWith('docs/sample_images/')) {
       return Image.asset(
         path,

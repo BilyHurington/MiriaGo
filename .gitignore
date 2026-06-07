@@ -37,6 +37,11 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/src-tauri/target/
 
 # Symbolication related
 app.*.symbols
