@@ -135,3 +135,10 @@ Future<DesktopRestoreImportAssetsResult> restoreDesktopImportAssets({
 Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
+
+Future<DesktopAssetResult> writeDesktopAsset({
+  required String path,
+  required String dataBase64,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}

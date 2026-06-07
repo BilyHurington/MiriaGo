@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod commands;
 mod desktop_db;
 mod storage;
@@ -18,6 +20,7 @@ fn main() {
             commands::save_desktop_visit_record,
             commands::delete_desktop_visit_record,
             commands::restore_import_assets,
+            commands::write_asset,
             commands::read_asset
         ])
         .run(tauri::generate_context!())

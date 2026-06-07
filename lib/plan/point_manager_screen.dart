@@ -966,34 +966,53 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       const SnackBar(content: Text('正在缓存完整参考图...')),
     );
     var cached = 0;
+    var failed = 0;
+    var processed = 0;
     for (final point in fullPoints) {
-      final path = await reference_image_cache.cacheReferenceFullImage(point);
-      if (path == null) {
-        continue;
+      PilgrimagePlan? updatedPlan;
+      try {
+        final path = await reference_image_cache.cacheReferenceFullImage(point);
+        if (path == null) {
+          failed += 1;
+        } else {
+          updatedPlan = await widget.repository.updatePointImageCache(
+            planId: _plan.id,
+            pointId: point.id,
+            referenceThumbnailPath: point.referenceThumbnailPath,
+            referenceFullImagePath: path,
+          );
+          cached += 1;
+        }
+      } catch (_) {
+        failed += 1;
       }
-      final updatedPlan = await widget.repository.updatePointImageCache(
-        planId: _plan.id,
-        pointId: point.id,
-        referenceThumbnailPath: point.referenceThumbnailPath,
-        referenceFullImagePath: path,
-      );
-      cached += 1;
+      processed += 1;
       if (!mounted) {
         return;
       }
-      setState(() {
-        _plan = updatedPlan;
-        _didUpdate = true;
-      });
+      if (updatedPlan != null) {
+        setState(() {
+          _plan = updatedPlan!;
+          _didUpdate = true;
+        });
+      }
       messenger.showReplacingSnackBar(
-        SnackBar(content: Text('正在缓存完整参考图 $cached/${fullPoints.length}')),
+        SnackBar(
+          content: Text('正在缓存完整参考图 $processed/${fullPoints.length}，成功 $cached'),
+        ),
       );
     }
     if (!mounted) {
       return;
     }
     messenger.showReplacingSnackBar(
-      SnackBar(content: Text('已缓存 $cached/${fullPoints.length} 张完整参考图')),
+      SnackBar(
+        content: Text(
+          failed == 0
+              ? '已缓存 $cached/${fullPoints.length} 张完整参考图'
+              : '已缓存 $cached/${fullPoints.length} 张完整参考图，失败 $failed 张',
+        ),
+      ),
     );
   }
 

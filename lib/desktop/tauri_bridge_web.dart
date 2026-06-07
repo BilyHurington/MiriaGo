@@ -218,6 +218,22 @@ Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
   );
 }
 
+Future<DesktopAssetResult> writeDesktopAsset({
+  required String path,
+  required String dataBase64,
+}) async {
+  final result = await _invokeObject('write_asset', {
+    'request': {'path': path, 'dataBase64': dataBase64},
+  });
+  if (result == null) {
+    throw StateError('Tauri write_asset returned no result.');
+  }
+  return DesktopAssetResult(
+    dataBase64: _stringProperty(result, 'dataBase64') ?? '',
+    mimeType: _stringProperty(result, 'mimeType') ?? 'application/octet-stream',
+  );
+}
+
 Future<DesktopStateResult> _invokeDesktopState(
   String command,
   Map<String, Object?> arguments,

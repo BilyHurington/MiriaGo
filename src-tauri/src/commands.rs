@@ -94,6 +94,13 @@ pub struct ReadAssetRequest {
     pub path: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteAssetRequest {
+    pub path: String,
+    pub data_base64: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadAssetResult {
@@ -334,6 +341,29 @@ pub fn restore_import_assets(
 }
 
 #[tauri::command]
+pub fn write_asset(request: WriteAssetRequest) -> Result<ReadAssetResult, String> {
+    let dirs = storage::ensure_data_dirs()?;
+    let relative_path = safe_local_asset_path(&request.path)?;
+    let bytes = general_purpose::STANDARD
+        .decode(request.data_base64)
+        .map_err(|error| error.to_string())?;
+    if bytes.is_empty() {
+        return Err("asset data is empty".to_string());
+    }
+
+    let full_path = dirs.data_dir.join(&relative_path);
+    if let Some(parent) = full_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(&full_path, &bytes).map_err(|error| error.to_string())?;
+
+    Ok(ReadAssetResult {
+        data_base64: general_purpose::STANDARD.encode(bytes),
+        mime_type: mime_type_for_path(&relative_path),
+    })
+}
+
+#[tauri::command]
 pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_local_asset_path(&request.path)?;
@@ -433,5 +463,30 @@ fn safe_directory_name(value: &str) -> String {
         "imported_package".to_string()
     } else {
         trimmed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{safe_asset_path, safe_local_asset_path};
+
+    #[test]
+    fn asset_paths_allow_safe_relative_assets() {
+        assert!(safe_asset_path("assets/full_references/point.jpg").is_ok());
+        assert!(safe_local_asset_path("assets/reference_full/point.webp").is_ok());
+    }
+
+    #[test]
+    fn asset_paths_reject_traversal_and_absolute_paths() {
+        for path in [
+            "/assets/reference_full/point.jpg",
+            "assets/../point.jpg",
+            "assets//point.jpg",
+            r"assets\point.jpg",
+            "tmp/point.jpg",
+        ] {
+            assert!(safe_asset_path(path).is_err(), "{path}");
+            assert!(safe_local_asset_path(path).is_err(), "{path}");
+        }
     }
 }
