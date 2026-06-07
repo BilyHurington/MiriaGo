@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('sample plan behaves like a complete pilgrimage plan', () async {
     final repository = SamplePilgrimageRepository();
     final plan = await repository.loadActivePlan();
@@ -69,7 +72,13 @@ void main() {
       expect(record.pointId, isIn(pointIds));
       expect(record.workId, isIn(workIds));
       expect(record.photoPath, isNotEmpty);
+      expect(record.photoPath, startsWith('docs/sample_images/'));
       expect(record.referenceMode, isNotEmpty);
+      await rootBundle.load(record.photoPath);
+      if (record.gradedPhotoPath != null) {
+        expect(record.gradedPhotoPath, startsWith('docs/sample_images/'));
+        await rootBundle.load(record.gradedPhotoPath!);
+      }
     }
   });
 }

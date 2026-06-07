@@ -1293,7 +1293,7 @@ PilgrimageVisitRecord _sampleVisitRecord({
   final point = samplePilgrimagePlan.points.firstWhere(
     (candidate) => candidate.id == pointId,
   );
-  final photoPath = _sampleVisitPhotoPath();
+  final photoPath = _sampleVisitPhotoPath(id);
   return PilgrimageVisitRecord(
     id: id,
     planId: samplePilgrimagePlan.id,
@@ -1301,7 +1301,7 @@ PilgrimageVisitRecord _sampleVisitRecord({
     workId: point.work.id,
     photoPath: photoPath,
     originalPhotoPath: graded ? photoPath : null,
-    gradedPhotoPath: graded ? _sampleGradedVisitPhotoPath() : null,
+    gradedPhotoPath: graded ? photoPath : null,
     colorGradingMode: graded ? '自动调色' : null,
     colorGradingParamsJson: graded
         ? '{"exposure":0.04,"contrast":0.08,"saturation":0.12}'
@@ -1313,10 +1313,6 @@ PilgrimageVisitRecord _sampleVisitRecord({
   );
 }
 
-String _sampleVisitPhotoPath() {
-  return 'docs/sample_images/铃音-记录详情页面-调色前.jpg';
-}
-
-String _sampleGradedVisitPhotoPath() {
-  return 'docs/sample_images/铃音-记录详情页面-调色后.jpg';
+String _sampleVisitPhotoPath(String recordId) {
+  return 'docs/sample_images/sample_visit_records/$recordId.jpg';
 }

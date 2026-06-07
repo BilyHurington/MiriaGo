@@ -538,7 +538,11 @@ class _RecordImageTile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: InkWell(onTap: onTap, child: child),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: child,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
