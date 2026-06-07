@@ -119,6 +119,61 @@ Future<DesktopStateResult> saveDesktopState({required String stateJson}) async {
   );
 }
 
+Future<DesktopStateResult> saveDesktopPlanBundle({
+  required String planJson,
+  required String visitRecordsJson,
+  required String? activePlanId,
+}) async {
+  return _invokeDesktopState('save_desktop_plan_bundle', {
+    'request': {
+      'planJson': planJson,
+      'visitRecordsJson': visitRecordsJson,
+      'activePlanId': activePlanId,
+    },
+  });
+}
+
+Future<DesktopStateResult> deleteDesktopPlan({
+  required String planId,
+  required String? activePlanId,
+}) async {
+  return _invokeDesktopState('delete_desktop_plan', {
+    'request': {'planId': planId, 'activePlanId': activePlanId},
+  });
+}
+
+Future<DesktopStateResult> setDesktopActivePlan({
+  required String planId,
+}) async {
+  return _invokeDesktopState('set_desktop_active_plan', {
+    'request': {'planId': planId},
+  });
+}
+
+Future<DesktopStateResult> saveDesktopSettings({
+  required String settingsJson,
+}) async {
+  return _invokeDesktopState('save_desktop_settings', {
+    'request': {'settingsJson': settingsJson},
+  });
+}
+
+Future<DesktopStateResult> saveDesktopVisitRecord({
+  required String recordJson,
+}) async {
+  return _invokeDesktopState('save_desktop_visit_record', {
+    'request': {'recordJson': recordJson},
+  });
+}
+
+Future<DesktopStateResult> deleteDesktopVisitRecord({
+  required String recordId,
+}) async {
+  return _invokeDesktopState('delete_desktop_visit_record', {
+    'request': {'recordId': recordId},
+  });
+}
+
 Future<DesktopRestoreImportAssetsResult> restoreDesktopImportAssets({
   required String? packageId,
   required String? sourceName,
@@ -160,6 +215,20 @@ Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
   return DesktopAssetResult(
     dataBase64: _stringProperty(result, 'dataBase64') ?? '',
     mimeType: _stringProperty(result, 'mimeType') ?? 'application/octet-stream',
+  );
+}
+
+Future<DesktopStateResult> _invokeDesktopState(
+  String command,
+  Map<String, Object?> arguments,
+) async {
+  final result = await _invokeObject(command, arguments);
+  if (result == null) {
+    throw StateError('Tauri $command returned no result.');
+  }
+  return DesktopStateResult(
+    stateJson: _stringProperty(result, 'stateJson'),
+    databasePath: _stringProperty(result, 'databasePath') ?? '',
   );
 }
 

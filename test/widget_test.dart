@@ -85,6 +85,19 @@ void main() {
     expect(find.text('井用机前步行道'), findsOneWidget);
   });
 
+  testWidgets('hides desktop launcher status outside web builds', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置'), findsWidgets);
+    expect(find.text('桌面端'), findsNothing);
+    expect(find.textContaining('桌面启动器'), findsNothing);
+  });
+
   testWidgets('creates empty plan and shows add-points shell', (tester) async {
     await _pumpAppWithEmptyPlan(tester);
 

@@ -19,6 +19,22 @@ String encodeDesktopRepositoryState(
   });
 }
 
+String encodeDesktopPlan(PilgrimagePlan plan) {
+  return jsonEncode(_planJson(plan));
+}
+
+String encodeDesktopVisitRecord(PilgrimageVisitRecord record) {
+  return jsonEncode(_visitRecordJson(record));
+}
+
+String encodeDesktopVisitRecords(List<PilgrimageVisitRecord> records) {
+  return jsonEncode(records.map(_visitRecordJson).toList());
+}
+
+String encodeDesktopAppSettings(AppSettings settings) {
+  return jsonEncode(_settingsJson(settings));
+}
+
 SamplePilgrimageRepositorySnapshot? decodeDesktopRepositoryState(
   String? source,
 ) {

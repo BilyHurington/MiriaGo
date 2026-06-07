@@ -50,6 +50,67 @@ impl DesktopDatabase {
         tx.commit().map_err(|error| error.to_string())
     }
 
+    pub fn set_active_plan(&mut self, plan_id: &str) -> Result<(), String> {
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        set_active_plan_in_tx(&tx, Some(plan_id))?;
+        tx.commit().map_err(|error| error.to_string())?;
+        self.refresh_backup_state()
+    }
+
+    pub fn save_settings_json(&mut self, settings_json: &str) -> Result<(), String> {
+        let settings: Value =
+            serde_json::from_str(settings_json).map_err(|error| error.to_string())?;
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        tx.execute("DELETE FROM app_settings WHERE id = 'default'", [])
+            .map_err(|error| error.to_string())?;
+        insert_settings(&tx, Some(&settings))?;
+        tx.commit().map_err(|error| error.to_string())?;
+        self.refresh_backup_state()
+    }
+
+    pub fn save_plan_bundle_json(
+        &mut self,
+        plan_json: &str,
+        visit_records_json: &str,
+        active_plan_id: Option<&str>,
+    ) -> Result<(), String> {
+        let plan: Value = serde_json::from_str(plan_json).map_err(|error| error.to_string())?;
+        let visit_records: Value =
+            serde_json::from_str(visit_records_json).map_err(|error| error.to_string())?;
+        let plan_id = required_string(&plan, "id")?.to_string();
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        replace_plan_bundle(&tx, &plan_id, &plan, &visit_records, active_plan_id)?;
+        tx.commit().map_err(|error| error.to_string())?;
+        self.refresh_backup_state()
+    }
+
+    pub fn delete_plan(&mut self, plan_id: &str, active_plan_id: Option<&str>) -> Result<(), String> {
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        delete_plan_rows(&tx, plan_id)?;
+        set_active_plan_in_tx(&tx, active_plan_id)?;
+        tx.commit().map_err(|error| error.to_string())?;
+        self.refresh_backup_state()
+    }
+
+    pub fn save_visit_record_json(&mut self, record_json: &str) -> Result<(), String> {
+        let record: Value = serde_json::from_str(record_json).map_err(|error| error.to_string())?;
+        let record_id = required_string(&record, "id")?.to_string();
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        tx.execute("DELETE FROM visit_records WHERE id = ?1", params![record_id])
+            .map_err(|error| error.to_string())?;
+        insert_visit_record(&tx, &record)?;
+        tx.commit().map_err(|error| error.to_string())?;
+        self.refresh_backup_state()
+    }
+
+    pub fn delete_visit_record(&mut self, record_id: &str) -> Result<(), String> {
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        tx.execute("DELETE FROM visit_records WHERE id = ?1", params![record_id])
+            .map_err(|error| error.to_string())?;
+        tx.commit().map_err(|error| error.to_string())?;
+        self.refresh_backup_state()
+    }
+
     fn migrate(&mut self) -> Result<(), String> {
         self.connection
             .execute_batch(
@@ -186,6 +247,15 @@ impl DesktopDatabase {
             )
             .optional()
             .map_err(|error| error.to_string())
+    }
+
+    fn refresh_backup_state(&mut self) -> Result<(), String> {
+        let Some(state_json) = self.load_state_json()? else {
+            return Ok(());
+        };
+        let tx = self.connection.transaction().map_err(|error| error.to_string())?;
+        save_backup_state(&tx, &state_json)?;
+        tx.commit().map_err(|error| error.to_string())
     }
 
     fn plan_count(&self) -> Result<i64, String> {
@@ -463,6 +533,62 @@ fn replace_relational_state(tx: &Transaction<'_>, state: &Value) -> Result<(), S
     }
     for record in array_value(state.get("visitRecords")) {
         insert_visit_record(tx, record)?;
+    }
+    Ok(())
+}
+
+fn replace_plan_bundle(
+    tx: &Transaction<'_>,
+    plan_id: &str,
+    plan: &Value,
+    visit_records: &Value,
+    active_plan_id: Option<&str>,
+) -> Result<(), String> {
+    delete_plan_graph_rows(tx, plan_id)?;
+    tx.execute(
+        "DELETE FROM visit_records WHERE plan_id = ?1",
+        params![plan_id],
+    )
+    .map_err(|error| error.to_string())?;
+    if active_plan_id.is_some() {
+        set_active_plan_in_tx(tx, active_plan_id)?;
+    }
+    insert_plan(tx, plan, active_plan_id)?;
+    for record in array_value(Some(visit_records)) {
+        insert_visit_record(tx, record)?;
+    }
+    Ok(())
+}
+
+fn delete_plan_rows(tx: &Transaction<'_>, plan_id: &str) -> Result<(), String> {
+    delete_plan_graph_rows(tx, plan_id)?;
+    tx.execute(
+        "DELETE FROM visit_records WHERE plan_id = ?1",
+        params![plan_id],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn delete_plan_graph_rows(tx: &Transaction<'_>, plan_id: &str) -> Result<(), String> {
+    for statement in [
+        "DELETE FROM points WHERE plan_id = ?1",
+        "DELETE FROM plan_groups WHERE plan_id = ?1",
+        "DELETE FROM works WHERE plan_id = ?1",
+        "DELETE FROM plans WHERE id = ?1",
+    ] {
+        tx.execute(statement, params![plan_id])
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn set_active_plan_in_tx(tx: &Transaction<'_>, active_plan_id: Option<&str>) -> Result<(), String> {
+    tx.execute("UPDATE plans SET active = 0", [])
+        .map_err(|error| error.to_string())?;
+    if let Some(plan_id) = active_plan_id {
+        tx.execute("UPDATE plans SET active = 1 WHERE id = ?1", params![plan_id])
+            .map_err(|error| error.to_string())?;
     }
     Ok(())
 }

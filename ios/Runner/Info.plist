@@ -47,6 +47,10 @@
 	<string>MiriaGo 需要使用相机来拍摄巡礼照片。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MiriaGo 需要定位来在地图上显示当前位置。</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>MiriaGo 可能需要定位权限来在巡礼地图中显示当前位置和辅助记录巡礼地点。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MiriaGo 可能需要使用麦克风来支持拍摄相关功能中的声音采集。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MiriaGo 需要保存巡礼对比图到相册。</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -85,6 +85,45 @@ Future<DesktopStateResult> saveDesktopState({required String stateJson}) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
 
+Future<DesktopStateResult> saveDesktopPlanBundle({
+  required String planJson,
+  required String visitRecordsJson,
+  required String? activePlanId,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopStateResult> deleteDesktopPlan({
+  required String planId,
+  required String? activePlanId,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopStateResult> setDesktopActivePlan({
+  required String planId,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopStateResult> saveDesktopSettings({
+  required String settingsJson,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopStateResult> saveDesktopVisitRecord({
+  required String recordJson,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopStateResult> deleteDesktopVisitRecord({
+  required String recordId,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
 Future<DesktopRestoreImportAssetsResult> restoreDesktopImportAssets({
   required String? packageId,
   required String? sourceName,

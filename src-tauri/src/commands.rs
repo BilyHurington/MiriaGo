@@ -43,6 +43,45 @@ pub struct SaveDesktopStateRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SaveDesktopPlanBundleRequest {
+    pub plan_json: String,
+    pub visit_records_json: String,
+    pub active_plan_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteDesktopPlanRequest {
+    pub plan_id: String,
+    pub active_plan_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetDesktopActivePlanRequest {
+    pub plan_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveDesktopSettingsRequest {
+    pub settings_json: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveDesktopVisitRecordRequest {
+    pub record_json: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteDesktopVisitRecordRequest {
+    pub record_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestoreImportAssetsRequest {
     pub package_id: Option<String>,
     pub source_name: Option<String>,
@@ -173,6 +212,80 @@ pub fn save_desktop_state(request: SaveDesktopStateRequest) -> Result<DesktopSta
     database.save_state_json(&request.state_json)?;
     Ok(DesktopStateResult {
         state_json: Some(request.state_json),
+        database_path: database.path().display().to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn save_desktop_plan_bundle(
+    request: SaveDesktopPlanBundleRequest,
+) -> Result<DesktopStateResult, String> {
+    let mut database = crate::desktop_db::DesktopDatabase::open()?;
+    database.save_plan_bundle_json(
+        &request.plan_json,
+        &request.visit_records_json,
+        request.active_plan_id.as_deref(),
+    )?;
+    Ok(DesktopStateResult {
+        state_json: None,
+        database_path: database.path().display().to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn delete_desktop_plan(request: DeleteDesktopPlanRequest) -> Result<DesktopStateResult, String> {
+    let mut database = crate::desktop_db::DesktopDatabase::open()?;
+    database.delete_plan(&request.plan_id, request.active_plan_id.as_deref())?;
+    Ok(DesktopStateResult {
+        state_json: None,
+        database_path: database.path().display().to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn set_desktop_active_plan(
+    request: SetDesktopActivePlanRequest,
+) -> Result<DesktopStateResult, String> {
+    let mut database = crate::desktop_db::DesktopDatabase::open()?;
+    database.set_active_plan(&request.plan_id)?;
+    Ok(DesktopStateResult {
+        state_json: None,
+        database_path: database.path().display().to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn save_desktop_settings(
+    request: SaveDesktopSettingsRequest,
+) -> Result<DesktopStateResult, String> {
+    let mut database = crate::desktop_db::DesktopDatabase::open()?;
+    database.save_settings_json(&request.settings_json)?;
+    Ok(DesktopStateResult {
+        state_json: None,
+        database_path: database.path().display().to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn save_desktop_visit_record(
+    request: SaveDesktopVisitRecordRequest,
+) -> Result<DesktopStateResult, String> {
+    let mut database = crate::desktop_db::DesktopDatabase::open()?;
+    database.save_visit_record_json(&request.record_json)?;
+    Ok(DesktopStateResult {
+        state_json: None,
+        database_path: database.path().display().to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn delete_desktop_visit_record(
+    request: DeleteDesktopVisitRecordRequest,
+) -> Result<DesktopStateResult, String> {
+    let mut database = crate::desktop_db::DesktopDatabase::open()?;
+    database.delete_visit_record(&request.record_id)?;
+    Ok(DesktopStateResult {
+        state_json: None,
         database_path: database.path().display().to_string(),
     })
 }

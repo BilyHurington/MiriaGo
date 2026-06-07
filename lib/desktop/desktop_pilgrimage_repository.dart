@@ -18,24 +18,53 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     final snapshot = decodeDesktopRepositoryState(stored?.stateJson);
     final repository = DesktopPilgrimageRepository._(snapshot: snapshot);
     if (snapshot == null) {
-      await repository._persist();
+      await repository._persistInitialState();
     }
     return repository;
   }
 
-  Future<T> _withPersist<T>(Future<T> Function() action) async {
-    final result = await action();
-    await _persist();
-    return result;
+  Future<void> _persistInitialState() async {
+    final current = snapshot();
+    await saveDesktopSettings(
+      settingsJson: encodeDesktopAppSettings(current.settings),
+    );
+    for (final plan in current.plans) {
+      await _savePlanBundle(plan);
+    }
+    await setDesktopActivePlan(planId: current.activePlanId);
   }
 
-  Future<void> _persist() async {
-    await saveDesktopState(stateJson: encodeDesktopRepositoryState(snapshot()));
+  Future<void> _savePlanBundle(PilgrimagePlan plan) async {
+    final records = await super.loadVisitRecords(plan.id);
+    await saveDesktopPlanBundle(
+      planJson: encodeDesktopPlan(plan),
+      visitRecordsJson: encodeDesktopVisitRecords(records),
+      activePlanId: snapshot().activePlanId,
+    );
+  }
+
+  Future<PilgrimagePlan> _withPlanSave(
+    Future<PilgrimagePlan> Function() action,
+  ) async {
+    final plan = await action();
+    await _savePlanBundle(plan);
+    return plan;
+  }
+
+  Future<void> _savePlanById(String planId) async {
+    final plan = snapshot().plans.firstWhere((plan) => plan.id == planId);
+    await _savePlanBundle(plan);
+  }
+
+  Future<void> _saveRecord(PilgrimageVisitRecord record) async {
+    await saveDesktopVisitRecord(recordJson: encodeDesktopVisitRecord(record));
   }
 
   @override
   Future<void> setActivePlan(String id) {
-    return _withPersist(() => super.setActivePlan(id));
+    return super
+        .setActivePlan(id)
+        .then((_) => setDesktopActivePlan(planId: id));
   }
 
   @override
@@ -43,7 +72,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String name,
     required String area,
   }) {
-    return _withPersist(() => super.createPlan(name: name, area: area));
+    return _withPlanSave(() => super.createPlan(name: name, area: area));
   }
 
   @override
@@ -51,7 +80,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required PilgrimagePlan plan,
     required List<PilgrimageVisitRecord> visitRecords,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.importPlanPackage(plan: plan, visitRecords: visitRecords),
     );
   }
@@ -61,7 +90,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required String name,
   }) {
-    return _withPersist(() => super.renamePlan(planId: planId, name: name));
+    return _withPlanSave(() => super.renamePlan(planId: planId, name: name));
   }
 
   @override
@@ -69,7 +98,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required PilgrimagePoint point,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.addPointToPlan(planId: planId, point: point),
     );
   }
@@ -79,7 +108,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required List<PilgrimagePoint> points,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.addPointsToPlan(planId: planId, points: points),
     );
   }
@@ -91,7 +120,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     String? referenceThumbnailPath,
     String? referenceFullImagePath,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.updatePointImageCache(
         planId: planId,
         pointId: pointId,
@@ -106,7 +135,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required PilgrimageWork work,
   }) {
-    return _withPersist(() => super.addWorkToPlan(planId: planId, work: work));
+    return _withPlanSave(() => super.addWorkToPlan(planId: planId, work: work));
   }
 
   @override
@@ -114,7 +143,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required PilgrimagePlanGroup group,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.createPlanGroup(planId: planId, group: group),
     );
   }
@@ -125,7 +154,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String groupId,
     required String name,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.renamePlanGroup(planId: planId, groupId: groupId, name: name),
     );
   }
@@ -135,7 +164,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required PilgrimagePlanGroup group,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.updatePlanGroup(planId: planId, group: group),
     );
   }
@@ -145,7 +174,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required String groupId,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.deletePlanGroup(planId: planId, groupId: groupId),
     );
   }
@@ -156,7 +185,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required Set<String> pointIds,
     required String? groupId,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.movePointsToGroup(
         planId: planId,
         pointIds: pointIds,
@@ -170,7 +199,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required String workId,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.deleteWorkFromPlan(planId: planId, workId: workId),
     );
   }
@@ -180,7 +209,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required String pointId,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.deletePointFromPlan(planId: planId, pointId: pointId),
     );
   }
@@ -190,7 +219,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required Set<String> pointIds,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.deletePointsFromPlan(planId: planId, pointIds: pointIds),
     );
   }
@@ -200,7 +229,7 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required List<String> pointIds,
   }) {
-    return _withPersist(
+    return _withPlanSave(
       () => super.reorderPoints(planId: planId, pointIds: pointIds),
     );
   }
@@ -209,10 +238,9 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
   Future<void> setCurrentPoint({
     required String planId,
     required String pointId,
-  }) {
-    return _withPersist(
-      () => super.setCurrentPoint(planId: planId, pointId: pointId),
-    );
+  }) async {
+    await super.setCurrentPoint(planId: planId, pointId: pointId);
+    await _savePlanById(planId);
   }
 
   @override
@@ -220,41 +248,40 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String planId,
     required String pointId,
     required String? nextCurrentPointId,
-  }) {
-    return _withPersist(
-      () => super.completePoint(
-        planId: planId,
-        pointId: pointId,
-        nextCurrentPointId: nextCurrentPointId,
-      ),
+  }) async {
+    await super.completePoint(
+      planId: planId,
+      pointId: pointId,
+      nextCurrentPointId: nextCurrentPointId,
     );
+    await _savePlanById(planId);
   }
 
   @override
   Future<void> completePoints({
     required String planId,
     required Set<String> pointIds,
-  }) {
-    return _withPersist(
-      () => super.completePoints(planId: planId, pointIds: pointIds),
-    );
+  }) async {
+    await super.completePoints(planId: planId, pointIds: pointIds);
+    await _savePlanById(planId);
   }
 
   @override
-  Future<void> reopenPoint({required String planId, required String pointId}) {
-    return _withPersist(
-      () => super.reopenPoint(planId: planId, pointId: pointId),
-    );
+  Future<void> reopenPoint({
+    required String planId,
+    required String pointId,
+  }) async {
+    await super.reopenPoint(planId: planId, pointId: pointId);
+    await _savePlanById(planId);
   }
 
   @override
   Future<void> reopenPoints({
     required String planId,
     required Set<String> pointIds,
-  }) {
-    return _withPersist(
-      () => super.reopenPoints(planId: planId, pointIds: pointIds),
-    );
+  }) async {
+    await super.reopenPoints(planId: planId, pointIds: pointIds);
+    await _savePlanById(planId);
   }
 
   @override
@@ -267,19 +294,19 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     String? referenceImageUrl,
     required String referenceMode,
     DateTime? capturedAt,
-  }) {
-    return _withPersist(
-      () => super.createVisitRecord(
-        planId: planId,
-        pointId: pointId,
-        workId: workId,
-        photoPath: photoPath,
-        referenceImagePath: referenceImagePath,
-        referenceImageUrl: referenceImageUrl,
-        referenceMode: referenceMode,
-        capturedAt: capturedAt,
-      ),
+  }) async {
+    final record = await super.createVisitRecord(
+      planId: planId,
+      pointId: pointId,
+      workId: workId,
+      photoPath: photoPath,
+      referenceImagePath: referenceImagePath,
+      referenceImageUrl: referenceImageUrl,
+      referenceMode: referenceMode,
+      capturedAt: capturedAt,
     );
+    await _saveRecord(record);
+    return record;
   }
 
   @override
@@ -291,50 +318,53 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
     required String colorGradingMode,
     required String colorGradingParamsJson,
     required double colorGradingIntensity,
-  }) {
-    return _withPersist(
-      () => super.updateVisitRecordColorGrading(
-        planId: planId,
-        recordId: recordId,
-        originalPhotoPath: originalPhotoPath,
-        gradedPhotoPath: gradedPhotoPath,
-        colorGradingMode: colorGradingMode,
-        colorGradingParamsJson: colorGradingParamsJson,
-        colorGradingIntensity: colorGradingIntensity,
-      ),
+  }) async {
+    final record = await super.updateVisitRecordColorGrading(
+      planId: planId,
+      recordId: recordId,
+      originalPhotoPath: originalPhotoPath,
+      gradedPhotoPath: gradedPhotoPath,
+      colorGradingMode: colorGradingMode,
+      colorGradingParamsJson: colorGradingParamsJson,
+      colorGradingIntensity: colorGradingIntensity,
     );
+    await _saveRecord(record);
+    return record;
   }
 
   @override
   Future<PilgrimageVisitRecord> clearVisitRecordColorGrading({
     required String planId,
     required String recordId,
-  }) {
-    return _withPersist(
-      () => super.clearVisitRecordColorGrading(
-        planId: planId,
-        recordId: recordId,
-      ),
+  }) async {
+    final record = await super.clearVisitRecordColorGrading(
+      planId: planId,
+      recordId: recordId,
     );
+    await _saveRecord(record);
+    return record;
   }
 
   @override
   Future<void> deleteVisitRecord({
     required String planId,
     required String recordId,
-  }) {
-    return _withPersist(
-      () => super.deleteVisitRecord(planId: planId, recordId: recordId),
+  }) async {
+    await super.deleteVisitRecord(planId: planId, recordId: recordId);
+    await deleteDesktopVisitRecord(recordId: recordId);
+  }
+
+  @override
+  Future<void> deletePlan(String id) async {
+    await super.deletePlan(id);
+    await deleteDesktopPlan(planId: id, activePlanId: snapshot().activePlanId);
+  }
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    await super.saveAppSettings(settings);
+    await saveDesktopSettings(
+      settingsJson: encodeDesktopAppSettings(snapshot().settings),
     );
-  }
-
-  @override
-  Future<void> deletePlan(String id) {
-    return _withPersist(() => super.deletePlan(id));
-  }
-
-  @override
-  Future<void> saveAppSettings(AppSettings settings) {
-    return _withPersist(() => super.saveAppSettings(settings));
   }
 }

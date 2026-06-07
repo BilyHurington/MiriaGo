@@ -11,6 +11,12 @@ fn main() {
             commands::write_export_file,
             commands::load_desktop_state,
             commands::save_desktop_state,
+            commands::save_desktop_plan_bundle,
+            commands::delete_desktop_plan,
+            commands::set_desktop_active_plan,
+            commands::save_desktop_settings,
+            commands::save_desktop_visit_record,
+            commands::delete_desktop_visit_record,
             commands::restore_import_assets,
             commands::read_asset
         ])

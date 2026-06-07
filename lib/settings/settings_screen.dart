@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../app_theme.dart';
 import '../camera_reference/camera_zoom_capabilities.dart';
@@ -29,7 +30,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadZoomCapabilities();
-    _loadDesktopLauncherInfo();
+    if (_shouldShowDesktopSection) {
+      _loadDesktopLauncherInfo();
+    }
   }
 
   Future<void> _loadZoomCapabilities() async {
@@ -327,28 +330,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _SettingsSection(
-            title: '桌面端',
-            children: [
-              _InfoRow(
-                icon: Icons.desktop_windows_outlined,
-                text: _desktopLauncherStatusText,
-              ),
-              if (_desktopLauncherInfo != null) ...[
-                const SizedBox(height: 10),
+          if (_shouldShowDesktopSection) ...[
+            _SettingsSection(
+              title: '桌面端',
+              children: [
                 _InfoRow(
-                  icon: Icons.folder_outlined,
-                  text: _desktopLauncherInfo!.dataDir,
+                  icon: Icons.desktop_windows_outlined,
+                  text: _desktopLauncherStatusText,
                 ),
-                const SizedBox(height: 10),
-                _InfoRow(
-                  icon: Icons.inventory_2_outlined,
-                  text: _desktopLauncherInfo!.assetsDir,
-                ),
+                if (_desktopLauncherInfo != null) ...[
+                  const SizedBox(height: 10),
+                  _InfoRow(
+                    icon: Icons.folder_outlined,
+                    text: _desktopLauncherInfo!.dataDir,
+                  ),
+                  const SizedBox(height: 10),
+                  _InfoRow(
+                    icon: Icons.inventory_2_outlined,
+                    text: _desktopLauncherInfo!.assetsDir,
+                  ),
+                ],
               ],
-            ],
-          ),
-          const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
+          ],
           const _SettingsSection(
             title: '关于',
             children: [
@@ -431,6 +436,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : '应用数据目录';
     return '桌面启动器 可用 / ${info.platform} / $mode';
   }
+
+  bool get _shouldShowDesktopSection => kIsWeb;
 }
 
 List<CameraPhotoAspectRatio> _cameraAspectRatioGroup({
