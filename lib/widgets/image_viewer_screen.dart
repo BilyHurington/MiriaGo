@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../desktop/desktop_asset_image.dart';
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
 
@@ -190,6 +191,33 @@ class ImageViewerScreen extends StatelessWidget {
 
     final path = filePath;
     if (path != null) {
+      if (isDesktopAssetPath(path)) {
+        return FutureBuilder<String?>(
+          future: loadDesktopAssetDataUrl(path),
+          builder: (context, snapshot) {
+            final dataUrl = snapshot.data;
+            if (dataUrl == null || dataUrl.isEmpty) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              );
+            }
+            return Image.network(
+              dataUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                );
+              },
+            );
+          },
+        );
+      }
+
       final file = File(path);
       if (file.existsSync()) {
         return Image.file(file, fit: BoxFit.contain);
