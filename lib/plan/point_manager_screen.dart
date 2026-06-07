@@ -748,13 +748,10 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     final point = points.removeAt(oldIndex);
     points.insert(newIndex, point);
     await _savePlanChange(
-      action: () => widget.repository.reorderPoints(
+      action: () => widget.repository.reorderGroupPoints(
         planId: _plan.id,
-        pointIds: [
-          for (final candidate in _plan.points)
-            if (candidate.groupId != group.id) candidate.id,
-          for (final candidate in points) candidate.id,
-        ],
+        groupId: group.id,
+        pointIds: [for (final candidate in points) candidate.id],
       ),
       failureMessage: '点位顺序保存失败',
     );

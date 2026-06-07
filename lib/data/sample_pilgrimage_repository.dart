@@ -452,6 +452,31 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> reorderGroupPoints({
+    required String planId,
+    required String groupId,
+    required List<String> pointIds,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final orderById = {
+      for (var index = 0; index < pointIds.length; index += 1)
+        pointIds[index]: index,
+    };
+    final updatedPlan = plan.copyWith(
+      points: [
+        for (final point in plan.points)
+          point.groupId == groupId && orderById.containsKey(point.id)
+              ? point.copyWith(groupOrderIndex: orderById[point.id])
+              : point,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<void> setCurrentPoint({
     required String planId,
     required String pointId,

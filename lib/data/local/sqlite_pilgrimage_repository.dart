@@ -815,6 +815,29 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return _planFromRow(await _planRowById(planId));
   }
 
+  @override
+  Future<PilgrimagePlan> reorderGroupPoints({
+    required String planId,
+    required String groupId,
+    required List<String> pointIds,
+  }) async {
+    await _database.transaction(() async {
+      for (var index = 0; index < pointIds.length; index += 1) {
+        await (_database.update(_database.points)..where(
+              (table) =>
+                  table.planId.equals(planId) &
+                  table.groupId.equals(groupId) &
+                  table.id.equals(pointIds[index]),
+            ))
+            .write(PointsCompanion(groupOrderIndex: Value(index)));
+      }
+
+      await _touchPlan(planId);
+    });
+
+    return _planFromRow(await _planRowById(planId));
+  }
+
   Future<void> _seedIfNeeded() async {
     final count = await _database.plans.count().getSingle();
     if (count > 0) {

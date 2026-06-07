@@ -189,6 +189,13 @@ class ImageViewerScreen extends StatelessWidget {
       if (file.existsSync()) {
         return path;
       }
+      if (_isBundledSampleAssetPath(path)) {
+        final data = await rootBundle.load(path);
+        return _writeTemporaryImage(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          extension: _extensionFromUrl(path),
+        );
+      }
     }
 
     final imageBytes = bytes;

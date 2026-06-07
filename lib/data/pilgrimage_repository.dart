@@ -95,6 +95,12 @@ abstract interface class PilgrimageRepository {
     required List<String> pointIds,
   });
 
+  Future<PilgrimagePlan> reorderGroupPoints({
+    required String planId,
+    required String groupId,
+    required List<String> pointIds,
+  });
+
   Future<void> setCurrentPoint({
     required String planId,
     required String pointId,

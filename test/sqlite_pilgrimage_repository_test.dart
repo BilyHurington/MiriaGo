@@ -523,6 +523,48 @@ void main() {
     expect(reloadedPlan.points[1].groupOrderIndex, 1);
   });
 
+  test('persists manual order inside a plan group', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final group = PilgrimagePlanGroup(
+      id: 'group-manual-order',
+      name: '手动排序片区',
+      orderIndex: 0,
+      orderMode: PlanGroupOrderMode.manual,
+      createdAt: DateTime(2026, 6),
+    );
+    final pointIds = [
+      plan.points.first.id,
+      plan.points[1].id,
+      plan.points[2].id,
+    ];
+
+    await repository.createPlanGroup(planId: plan.id, group: group);
+    await repository.movePointsToGroup(
+      planId: plan.id,
+      pointIds: pointIds.toSet(),
+      groupId: group.id,
+    );
+    await repository.reorderGroupPoints(
+      planId: plan.id,
+      groupId: group.id,
+      pointIds: pointIds.reversed.toList(growable: false),
+    );
+
+    final reloadedPlan = await repository.loadActivePlan();
+    final orderedIds =
+        reloadedPlan.points.where((point) => point.groupId == group.id).toList()
+          ..sort(
+            (a, b) =>
+                (a.groupOrderIndex ?? 999).compareTo(b.groupOrderIndex ?? 999),
+          );
+
+    expect(orderedIds.map((point) => point.id), pointIds.reversed);
+  });
+
   test('deleting plan group moves points back to ungrouped', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);

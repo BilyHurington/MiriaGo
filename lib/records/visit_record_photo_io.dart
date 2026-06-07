@@ -16,6 +16,22 @@ class VisitRecordPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (path.startsWith('docs/sample_images/')) {
+      return Image.asset(
+        path,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => ColoredBox(
+          color: AppColors.surfaceMuted,
+          child: Center(
+            child: Icon(
+              Icons.broken_image_outlined,
+              color: AppColors.accentDark,
+            ),
+          ),
+        ),
+      );
+    }
+
     final file = File(path);
     if (!file.existsSync()) {
       return ColoredBox(

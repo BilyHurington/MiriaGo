@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
+import 'package:miriago/records/visit_record_photo_io.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,5 +82,63 @@ void main() {
         await rootBundle.load(record.gradedPhotoPath!);
       }
     }
+  });
+
+  test('sample repository preserves manual order inside a group', () async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    final group = plan.groups.firstWhere(
+      (group) =>
+          group.orderMode == PlanGroupOrderMode.manual &&
+          plan.points.where((point) => point.groupId == group.id).length >= 2,
+    );
+    final originalIds =
+        plan.points
+            .where((point) => point.groupId == group.id)
+            .toList(growable: false)
+          ..sort(
+            (a, b) =>
+                (a.groupOrderIndex ?? 999).compareTo(b.groupOrderIndex ?? 999),
+          );
+    final reorderedIds = originalIds
+        .map((point) => point.id)
+        .toList()
+        .reversed
+        .toList(growable: false);
+
+    await repository.reorderGroupPoints(
+      planId: plan.id,
+      groupId: group.id,
+      pointIds: reorderedIds,
+    );
+
+    final updatedPlan = await repository.loadActivePlan();
+    final updatedIds =
+        updatedPlan.points
+            .where((point) => point.groupId == group.id)
+            .toList(growable: false)
+          ..sort(
+            (a, b) =>
+                (a.groupOrderIndex ?? 999).compareTo(b.groupOrderIndex ?? 999),
+          );
+
+    expect(updatedIds.map((point) => point.id), reorderedIds);
+  });
+
+  testWidgets('sample record photos render bundled assets on IO platforms', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    final records = await repository.loadVisitRecords(plan.id);
+    final record = records.first;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: VisitRecordPhoto(path: record.photoPath)),
+      ),
+    );
+
+    expect(find.byType(Image), findsOneWidget);
   });
 }

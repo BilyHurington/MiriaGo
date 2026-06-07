@@ -235,6 +235,21 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> reorderGroupPoints({
+    required String planId,
+    required String groupId,
+    required List<String> pointIds,
+  }) {
+    return _withPlanSave(
+      () => super.reorderGroupPoints(
+        planId: planId,
+        groupId: groupId,
+        pointIds: pointIds,
+      ),
+    );
+  }
+
+  @override
   Future<void> setCurrentPoint({
     required String planId,
     required String pointId,
