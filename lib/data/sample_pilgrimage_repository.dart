@@ -4,11 +4,16 @@ import '../plan/pilgrimage_models.dart';
 import 'pilgrimage_repository.dart';
 
 class SamplePilgrimageRepository implements PilgrimageRepository {
-  SamplePilgrimageRepository()
-    : _plans = [samplePilgrimagePlan],
-      _visitRecords = List.of(_sampleVisitRecords),
-      _settings = const AppSettings(),
-      _activePlanId = samplePilgrimagePlan.id;
+  SamplePilgrimageRepository({
+    List<PilgrimagePlan>? plans,
+    List<PilgrimageVisitRecord>? visitRecords,
+    AppSettings? settings,
+    String? activePlanId,
+  }) : _plans = List.of(plans ?? [samplePilgrimagePlan]),
+       _visitRecords = List.of(visitRecords ?? _sampleVisitRecords),
+       _settings = settings ?? const AppSettings(),
+       _activePlanId =
+           activePlanId ?? (plans?.firstOrNull?.id ?? samplePilgrimagePlan.id);
 
   final List<PilgrimagePlan> _plans;
   final List<PilgrimageVisitRecord> _visitRecords;
@@ -40,6 +45,15 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
         .toList(growable: false)
         .reversed
         .toList(growable: false);
+  }
+
+  SamplePilgrimageRepositorySnapshot snapshot() {
+    return SamplePilgrimageRepositorySnapshot(
+      plans: List.unmodifiable(_plans),
+      visitRecords: List.unmodifiable(_visitRecords),
+      settings: _settings,
+      activePlanId: _activePlanId,
+    );
   }
 
   @override
@@ -667,6 +681,20 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
     return '$trimmed ($index)';
   }
+}
+
+class SamplePilgrimageRepositorySnapshot {
+  const SamplePilgrimageRepositorySnapshot({
+    required this.plans,
+    required this.visitRecords,
+    required this.settings,
+    required this.activePlanId,
+  });
+
+  final List<PilgrimagePlan> plans;
+  final List<PilgrimageVisitRecord> visitRecords;
+  final AppSettings settings;
+  final String activePlanId;
 }
 
 final _sampleCreatedAt = DateTime(2026, 5, 23, 9);
