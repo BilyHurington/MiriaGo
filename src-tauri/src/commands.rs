@@ -180,7 +180,9 @@ pub fn prepare_export_destination(
 }
 
 #[tauri::command]
-pub fn write_export_file(request: WriteExportFileRequest) -> Result<ExportDestinationResult, String> {
+pub fn write_export_file(
+    request: WriteExportFileRequest,
+) -> Result<ExportDestinationResult, String> {
     let extension = normalize_extension(&request.extension);
     let path = ensure_extension(PathBuf::from(&request.path), &extension);
     if let Some(parent) = path.parent() {
@@ -233,7 +235,9 @@ pub fn save_desktop_plan_bundle(
 }
 
 #[tauri::command]
-pub fn delete_desktop_plan(request: DeleteDesktopPlanRequest) -> Result<DesktopStateResult, String> {
+pub fn delete_desktop_plan(
+    request: DeleteDesktopPlanRequest,
+) -> Result<DesktopStateResult, String> {
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.delete_plan(&request.plan_id, request.active_plan_id.as_deref())?;
     Ok(DesktopStateResult {
@@ -344,7 +348,10 @@ pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> 
 }
 
 fn normalize_extension(extension: &str) -> String {
-    extension.trim().trim_start_matches('.').to_ascii_lowercase()
+    extension
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
 }
 
 fn ensure_extension(path: PathBuf, extension: &str) -> PathBuf {

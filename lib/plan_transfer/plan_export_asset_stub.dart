@@ -1,11 +1,24 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+
+import '../desktop/desktop_asset_image.dart';
+import '../desktop/tauri_bridge.dart' as tauri;
 
 Future<List<int>?> readExportAssetBytes(String path) async {
   final normalizedPath = path.trim();
   if (normalizedPath.isEmpty || _isNetworkUrl(normalizedPath)) {
     return null;
+  }
+  if (tauri.isTauriLauncherAvailable && isDesktopAssetPath(normalizedPath)) {
+    try {
+      final asset = await tauri.readDesktopAsset(path: normalizedPath);
+      return base64Decode(asset.dataBase64);
+    } on Object {
+      return null;
+    }
   }
   try {
     final data = await rootBundle.load(normalizedPath);
