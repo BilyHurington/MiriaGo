@@ -86,10 +86,6 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
       <img src="docs/sample_images/铃音-自动调色页面.jpg" alt="自动调色" width="240"><br>
       <sub>自动调色</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="docs/sample_images/v1.1-计划导入导出.png" alt="计划导入导出" width="240"><br>
-      <sub>v2 数据包导入导出</sub>
-    </td>
   </tr>
 </table>
 
