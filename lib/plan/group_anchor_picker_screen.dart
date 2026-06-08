@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../map/map_tile_config.dart';
 import 'pilgrimage_models.dart';
 
 class GroupAnchorSelection {
@@ -28,12 +28,14 @@ class GroupAnchorPickerScreen extends StatefulWidget {
     required this.group,
     required this.points,
     required this.groupNameForPoint,
+    required this.settings,
     super.key,
   });
 
   final PilgrimagePlanGroup group;
   final List<PilgrimagePoint> points;
   final String Function(PilgrimagePoint point) groupNameForPoint;
+  final AppSettings settings;
 
   @override
   State<GroupAnchorPickerScreen> createState() =>
@@ -103,10 +105,7 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
               },
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'app.miriago.miriago',
-              ),
+              configuredMapTileLayer(widget.settings),
               MarkerLayer(
                 markers: [
                   for (final point in widget.points)
@@ -128,19 +127,7 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
                     ),
                 ],
               ),
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                    onTap: () {
-                      launchUrl(
-                        Uri.parse('https://www.openstreetmap.org/copyright'),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    },
-                  ),
-                ],
-              ),
+              configuredMapAttribution(widget.settings),
             ],
           ),
           Positioned(

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../map/map_tile_config.dart';
 import '../data/reference_cache_file_stub.dart'
     if (dart.library.io) '../data/reference_cache_file_io.dart';
 import '../data/reference_image_cache_stub.dart'
@@ -439,12 +439,17 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (sourceGroup == null) {
       return _showInfo('片区不存在。');
     }
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
     final selection = await Navigator.of(context).push<_GroupAnchorSelection>(
       MaterialPageRoute(
         builder: (_) => _GroupAnchorMapPickerScreen(
           group: sourceGroup,
           points: _plan.points,
           groupNameForPoint: _groupNameForPoint,
+          settings: settings,
         ),
       ),
     );
@@ -720,10 +725,17 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Future<void> _openBoxAssign() async {
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
     final didUpdate = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            BoxGroupAssignScreen(plan: _plan, repository: widget.repository),
+        builder: (_) => BoxGroupAssignScreen(
+          plan: _plan,
+          repository: widget.repository,
+          settings: settings,
+        ),
       ),
     );
     if (didUpdate != true || !mounted) {
@@ -1644,11 +1656,13 @@ class _GroupAnchorMapPickerScreen extends StatefulWidget {
     required this.group,
     required this.points,
     required this.groupNameForPoint,
+    required this.settings,
   });
 
   final PilgrimagePlanGroup group;
   final List<PilgrimagePoint> points;
   final String Function(PilgrimagePoint point) groupNameForPoint;
+  final AppSettings settings;
 
   @override
   State<_GroupAnchorMapPickerScreen> createState() =>
@@ -1719,10 +1733,7 @@ class _GroupAnchorMapPickerScreenState
               },
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'app.miriago.miriago',
-              ),
+              configuredMapTileLayer(widget.settings),
               MarkerLayer(
                 markers: [
                   for (final point in widget.points)
@@ -1744,19 +1755,7 @@ class _GroupAnchorMapPickerScreenState
                     ),
                 ],
               ),
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                    onTap: () {
-                      launchUrl(
-                        Uri.parse('https://www.openstreetmap.org/copyright'),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    },
-                  ),
-                ],
-              ),
+              configuredMapAttribution(widget.settings),
             ],
           ),
           Positioned(

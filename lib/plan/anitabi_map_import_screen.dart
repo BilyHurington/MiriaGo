@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../map/map_tile_config.dart';
 import '../widgets/snackbar_helper.dart';
 import '../data/anitabi_client.dart';
 import '../data/anitabi_image_url.dart';
@@ -43,6 +43,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   late final Set<String> _importedPointIds;
   late PilgrimagePlan _importedPlan = widget.plan;
   PilgrimageWork? _selectedWork;
+  AppSettings _settings = const AppSettings();
   AnitabiBangumiLite? _lite;
   List<AnitabiPoint> _points = const [];
   AnitabiPoint? _selectedPoint;
@@ -62,11 +63,22 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   void initState() {
     super.initState();
     _importedPointIds = widget.plan.points.map((point) => point.id).toSet();
+    _loadSettings();
     final works = _bangumiWorks;
     if (works.isNotEmpty) {
       _selectedWork = works.first;
       _loadPoints(works.first);
     }
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _settings = settings;
+    });
   }
 
   Future<void> _loadPoints(PilgrimageWork work) async {
@@ -508,11 +520,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         ),
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'app.miriago.miriago',
-                        ),
+                        configuredMapTileLayer(_settings),
                         MarkerLayer(
                           markers: [
                             for (final point in _points)
@@ -530,21 +538,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                               ),
                           ],
                         ),
-                        RichAttributionWidget(
-                          attributions: [
-                            TextSourceAttribution(
-                              'OpenStreetMap contributors',
-                              onTap: () {
-                                launchUrl(
-                                  Uri.parse(
-                                    'https://www.openstreetmap.org/copyright',
-                                  ),
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                        configuredMapAttribution(_settings),
                       ],
                     ),
                     if (_isBoxSelecting)

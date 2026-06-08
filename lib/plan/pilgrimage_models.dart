@@ -76,6 +76,13 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   }
 }
 
+enum MapTileProvider {
+  openFreeMap,
+  openStreetMap,
+  customXyz,
+  customMapLibreStyle,
+}
+
 class AppSettings {
   const AppSettings({
     this.uiScale = 1,
@@ -86,6 +93,9 @@ class AppSettings {
     this.referenceImageScale = 1,
     this.nearestAssignDistanceMeters = 350,
     this.themePalette = AppThemePalette.classicGreen,
+    this.mapTileProvider = MapTileProvider.openFreeMap,
+    this.customXyzTileUrl = '',
+    this.customMapLibreStyleUrl = '',
   });
 
   final double uiScale;
@@ -96,6 +106,9 @@ class AppSettings {
   final double referenceImageScale;
   final double nearestAssignDistanceMeters;
   final AppThemePalette themePalette;
+  final MapTileProvider mapTileProvider;
+  final String customXyzTileUrl;
+  final String customMapLibreStyleUrl;
 
   AppSettings copyWith({
     double? uiScale,
@@ -106,6 +119,9 @@ class AppSettings {
     double? referenceImageScale,
     double? nearestAssignDistanceMeters,
     AppThemePalette? themePalette,
+    MapTileProvider? mapTileProvider,
+    String? customXyzTileUrl,
+    String? customMapLibreStyleUrl,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -119,6 +135,10 @@ class AppSettings {
       nearestAssignDistanceMeters:
           nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
+      mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+      customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
+      customMapLibreStyleUrl:
+          customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
     );
   }
 }

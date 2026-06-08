@@ -146,6 +146,9 @@ void main() {
         uiScale: 1.5,
         cameraCaptureAspectRatio: CameraPhotoAspectRatio.photo3x2,
         cameraFallbackAspectRatio: CameraPhotoAspectRatio.standard4x3,
+        mapTileProvider: MapTileProvider.customXyz,
+        customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
+        customMapLibreStyleUrl: 'https://example.com/style.json',
       ),
     );
 
@@ -159,6 +162,9 @@ void main() {
       settings.cameraFallbackAspectRatio,
       CameraPhotoAspectRatio.standard4x3,
     );
+    expect(settings.mapTileProvider, MapTileProvider.customXyz);
+    expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
+    expect(settings.customMapLibreStyleUrl, 'https://example.com/style.json');
   });
 
   test('deletes work with related points and visit records', () async {

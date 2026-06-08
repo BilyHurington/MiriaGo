@@ -5,8 +5,12 @@ class IncomingPlanFileChannel {
 
   static const MethodChannel _channel = MethodChannel('seichi/plan_file');
 
-  Future<String?> getInitialPath() {
-    return _channel.invokeMethod<String>('getInitialPath');
+  Future<String?> getInitialPath() async {
+    try {
+      return await _channel.invokeMethod<String>('getInitialPath');
+    } on MissingPluginException {
+      return null;
+    }
   }
 
   void listen(void Function(String path) onPath) {

@@ -106,6 +106,11 @@ class AppSettingsEntries extends Table {
       real().withDefault(const Constant(350.0))();
   TextColumn get themePalette =>
       text().withDefault(const Constant('classicGreen'))();
+  TextColumn get mapTileProvider =>
+      text().withDefault(const Constant('openFreeMap'))();
+  TextColumn get customXyzTileUrl => text().withDefault(const Constant(''))();
+  TextColumn get customMapLibreStyleUrl =>
+      text().withDefault(const Constant(''))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -118,7 +123,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -189,6 +194,20 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(
           appSettingsEntries,
           appSettingsEntries.nearestAssignDistanceMeters,
+        );
+      }
+      if (from < 13) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.mapTileProvider,
+        );
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.customXyzTileUrl,
+        );
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.customMapLibreStyleUrl,
         );
       }
     },

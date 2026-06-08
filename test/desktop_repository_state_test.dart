@@ -11,6 +11,9 @@ void main() {
         uiScale: 1.25,
         cameraCaptureAspectRatio: CameraPhotoAspectRatio.landscape16x9,
         themePalette: AppThemePalette.miriaYellow,
+        mapTileProvider: MapTileProvider.customMapLibreStyle,
+        customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
+        customMapLibreStyleUrl: 'https://example.com/style.json',
       ),
     );
     final source = repository.snapshot();
@@ -26,6 +29,18 @@ void main() {
       CameraPhotoAspectRatio.landscape16x9,
     );
     expect(decoded.settings.themePalette, AppThemePalette.miriaYellow);
+    expect(
+      decoded.settings.mapTileProvider,
+      MapTileProvider.customMapLibreStyle,
+    );
+    expect(
+      decoded.settings.customXyzTileUrl,
+      'https://example.com/{z}/{x}/{y}.png',
+    );
+    expect(
+      decoded.settings.customMapLibreStyleUrl,
+      'https://example.com/style.json',
+    );
     expect(decoded.plans.single.id, source.plans.single.id);
     expect(
       decoded.plans.single.points.length,

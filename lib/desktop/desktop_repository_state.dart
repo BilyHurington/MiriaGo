@@ -72,6 +72,9 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'referenceImageScale': settings.referenceImageScale,
     'nearestAssignDistanceMeters': settings.nearestAssignDistanceMeters,
     'themePalette': settings.themePalette.name,
+    'mapTileProvider': settings.mapTileProvider.name,
+    'customXyzTileUrl': settings.customXyzTileUrl,
+    'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
   };
 }
 
@@ -98,6 +101,14 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     themePalette:
         _enumByName(AppThemePalette.values, json['themePalette']) ??
         AppThemePalette.classicGreen,
+    mapTileProvider:
+        _enumByName(MapTileProvider.values, json['mapTileProvider']) ??
+        MapTileProvider.openFreeMap,
+    customXyzTileUrl: _stringValue(json['customXyzTileUrl'], fallback: ''),
+    customMapLibreStyleUrl: _stringValue(
+      json['customMapLibreStyleUrl'],
+      fallback: '',
+    ),
   );
 }
 

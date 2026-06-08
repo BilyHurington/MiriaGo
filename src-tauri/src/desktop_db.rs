@@ -238,7 +238,10 @@ impl DesktopDatabase {
                   camera_max_zoom REAL NOT NULL DEFAULT 5.0,
                   reference_image_scale REAL NOT NULL DEFAULT 1.0,
                   nearest_assign_distance_meters REAL NOT NULL DEFAULT 350.0,
-                  theme_palette TEXT NOT NULL DEFAULT 'classicGreen'
+                  theme_palette TEXT NOT NULL DEFAULT 'classicGreen',
+                  map_tile_provider TEXT NOT NULL DEFAULT 'openFreeMap',
+                  custom_xyz_tile_url TEXT NOT NULL DEFAULT '',
+                  custom_maplibre_style_url TEXT NOT NULL DEFAULT ''
                 );
                 CREATE TABLE IF NOT EXISTS asset_metadata (
                   path TEXT PRIMARY KEY NOT NULL,
@@ -247,11 +250,12 @@ impl DesktopDatabase {
                   created_at TEXT NOT NULL
                 );
                 INSERT INTO app_meta (key, value)
-                VALUES ('schema_version', '2')
+                VALUES ('schema_version', '3')
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value;
                 ",
             )
             .map_err(|error| error.to_string())?;
+        self.ensure_app_settings_columns()?;
 
         if self.plan_count()? == 0 {
             if let Some(snapshot) = self.load_legacy_state_json()? {
@@ -265,6 +269,37 @@ impl DesktopDatabase {
                     )
                     .map_err(|error| error.to_string())?;
             }
+        }
+        Ok(())
+    }
+
+    fn ensure_app_settings_columns(&self) -> Result<(), String> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA table_info(app_settings)")
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|error| error.to_string())?;
+        let mut columns = Vec::new();
+        for row in rows {
+            columns.push(row.map_err(|error| error.to_string())?);
+        }
+
+        for (name, definition) in [
+            ("map_tile_provider", "TEXT NOT NULL DEFAULT 'openFreeMap'"),
+            ("custom_xyz_tile_url", "TEXT NOT NULL DEFAULT ''"),
+            ("custom_maplibre_style_url", "TEXT NOT NULL DEFAULT ''"),
+        ] {
+            if columns.iter().any(|column| column == name) {
+                continue;
+            }
+            self.connection
+                .execute(
+                    &format!("ALTER TABLE app_settings ADD COLUMN {name} {definition}"),
+                    [],
+                )
+                .map_err(|error| error.to_string())?;
         }
         Ok(())
     }
@@ -314,7 +349,8 @@ impl DesktopDatabase {
             .query_row(
                 "SELECT ui_scale, camera_capture_aspect_ratio, camera_fallback_aspect_ratio,
                         camera_min_zoom, camera_max_zoom, reference_image_scale,
-                        nearest_assign_distance_meters, theme_palette
+                        nearest_assign_distance_meters, theme_palette,
+                        map_tile_provider, custom_xyz_tile_url, custom_maplibre_style_url
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -327,6 +363,9 @@ impl DesktopDatabase {
                         "referenceImageScale": row.get::<_, f64>(5)?,
                         "nearestAssignDistanceMeters": row.get::<_, f64>(6)?,
                         "themePalette": row.get::<_, String>(7)?,
+                        "mapTileProvider": row.get::<_, String>(8)?,
+                        "customXyzTileUrl": row.get::<_, String>(9)?,
+                        "customMapLibreStyleUrl": row.get::<_, String>(10)?,
                     }))
                 },
             )
@@ -645,8 +684,9 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
         "INSERT INTO app_settings (
            id, ui_scale, camera_capture_aspect_ratio, camera_fallback_aspect_ratio,
            camera_min_zoom, camera_max_zoom, reference_image_scale,
-           nearest_assign_distance_meters, theme_palette
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+           nearest_assign_distance_meters, theme_palette, map_tile_provider,
+           custom_xyz_tile_url, custom_maplibre_style_url
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -656,6 +696,9 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             f64_value(settings, "referenceImageScale", 1.0),
             f64_value(settings, "nearestAssignDistanceMeters", 350.0),
             string_value(settings, "themePalette", "classicGreen"),
+            string_value(settings, "mapTileProvider", "openFreeMap"),
+            string_value(settings, "customXyzTileUrl", ""),
+            string_value(settings, "customMapLibreStyleUrl", ""),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -835,6 +878,9 @@ fn default_settings_json() -> Value {
         "referenceImageScale": 1.0,
         "nearestAssignDistanceMeters": 350.0,
         "themePalette": "classicGreen",
+        "mapTileProvider": "openFreeMap",
+        "customXyzTileUrl": "",
+        "customMapLibreStyleUrl": "",
     })
 }
 

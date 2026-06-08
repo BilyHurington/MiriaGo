@@ -39,14 +39,14 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - iOS：当前通过 TestFlight 分发测试版本。
 - macOS / Windows：Release 中提供 zip 包，解压后直接运行，数据保存在随包的 `MiriaGoData` 文件夹中。
 - 使用指南：[docs/USAGE.md](docs/USAGE.md)
-- 由于使用的地图为 OpenStreetMap 与 Google Maps，国内使用时需要科学上网；不过对于各位想要现地巡礼的人来说，应该不是难事吧 hh。
+- 地图源默认使用 OpenFreeMap + MapLibre，也可以在设置中切换为 OpenStreetMap、自定义 XYZ 瓦片 URL 或自定义 MapLibre style URL。导航仍交给外部地图应用，例如 Google Maps 或系统地图。
 
 ## 功能亮点
 
 - 多计划管理：创建、切换、重命名、导入和导出巡礼计划。
 - 作品管理：通过 Bangumi 搜索添加作品，也支持手动添加。
 - Anitabi 点位导入：在作品地图上查看点位、缩略图和详情，并按需加入计划。
-- 地图与导航：使用 OpenStreetMap 显示计划点位，导航交给外部地图应用。
+- 地图与导航：默认使用 OpenFreeMap + MapLibre 显示计划点位，也支持 OpenStreetMap、自定义 XYZ 瓦片和自定义 MapLibre style，导航交给外部地图应用。
 - 拍摄参考：现场拍摄时支持参考图叠影、上下参考和相册导入。
 - 离线准备：导入点位时缓存缩略图，可在出发前批量缓存完整参考图。
 - 巡礼记录：按作品查看记录，支持筛选、搜索、详情查看和删除。
@@ -165,7 +165,7 @@ iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple De
 
 本项目代码使用 MIT License 开源，但应用中显示或访问的第三方数据不属于本项目。
 
-- 地图瓦片和地图数据来自 OpenStreetMap。使用时应保留 `OpenStreetMap contributors` 署名，并遵守 OpenStreetMap 官方瓦片使用政策。
+- 地图底图可来自 OpenFreeMap、OpenStreetMap 或用户配置的自定义地图服务。使用时应保留对应地图服务要求的署名，并遵守对应服务的使用政策；如果使用自定义 XYZ 或 MapLibre style URL，请确认该服务允许客户端应用访问。
 - 作品搜索使用 Bangumi API。非浏览器 API 请求需要设置清晰的 User-Agent。
 - 巡礼点位和参考图来自 Anitabi。点位、截图、图片和相关元数据的版权归原平台、贡献者或权利方所有。本项目只提供客户端访问与用户本地缓存能力，不在仓库中分发这些数据。
 

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../app_theme.dart';
 import '../camera_reference/camera_zoom_capabilities.dart';
 import '../desktop/tauri_bridge.dart';
+import '../map/map_tile_config.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/copyable_text.dart';
 
@@ -330,6 +331,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          _SettingsSection(
+            title: '地图',
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.map_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '地图源 ${mapTileProviderOption(settings.mapTileProvider).label}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: mapTileProviderOptions
+                    .map((option) {
+                      final selected =
+                          settings.mapTileProvider == option.provider;
+                      return ChoiceChip(
+                        label: Text(option.label),
+                        selected: selected,
+                        onSelected: (_) {
+                          onChanged(
+                            settings.copyWith(mapTileProvider: option.provider),
+                          );
+                        },
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                mapTileProviderOption(settings.mapTileProvider).description,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
+              ),
+              if (settings.mapTileProvider == MapTileProvider.customXyz) ...[
+                const SizedBox(height: 12),
+                _MapUrlRow(
+                  icon: Icons.grid_3x3_outlined,
+                  label: settings.customXyzTileUrl.trim().isEmpty
+                      ? '未设置自定义 XYZ URL'
+                      : settings.customXyzTileUrl.trim(),
+                  onTap: () => _showMapUrlDialog(
+                    title: '自定义 XYZ URL',
+                    initialValue: settings.customXyzTileUrl,
+                    helperText: 'URL 需要包含 {z}、{x}、{y}。',
+                    validator: (value) =>
+                        isValidXyzTileUrl(value.trim()) ? null : 'URL 格式无效',
+                    onSaved: (value) {
+                      onChanged(
+                        settings.copyWith(customXyzTileUrl: value.trim()),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (settings.mapTileProvider ==
+                  MapTileProvider.customMapLibreStyle) ...[
+                const SizedBox(height: 12),
+                _MapUrlRow(
+                  icon: Icons.data_object_outlined,
+                  label: settings.customMapLibreStyleUrl.trim().isEmpty
+                      ? '未设置 MapLibre style URL'
+                      : settings.customMapLibreStyleUrl.trim(),
+                  onTap: () => _showMapUrlDialog(
+                    title: 'MapLibre style URL',
+                    initialValue: settings.customMapLibreStyleUrl,
+                    helperText: 'URL 需要指向可公开读取的 style JSON。',
+                    validator: (value) {
+                      final testSettings = settings.copyWith(
+                        customMapLibreStyleUrl: value.trim(),
+                      );
+                      return validateMapTileSettings(testSettings);
+                    },
+                    onSaved: (value) {
+                      onChanged(
+                        settings.copyWith(customMapLibreStyleUrl: value.trim()),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (validateMapTileSettings(settings) != null) ...[
+                const SizedBox(height: 10),
+                _InfoRow(
+                  icon: Icons.error_outline,
+                  text: validateMapTileSettings(settings)!,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
           if (_shouldShowDesktopSection) ...[
             _SettingsSection(
               title: '桌面端',
@@ -389,7 +498,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               SizedBox(height: 14),
-              _InfoRow(icon: Icons.new_releases_outlined, text: '版本 1.1.0'),
+              _InfoRow(icon: Icons.new_releases_outlined, text: '版本 1.1.1'),
               SizedBox(height: 10),
               _InfoRow(icon: Icons.person_outline, text: 'BilyHurington'),
               SizedBox(height: 10),
@@ -406,7 +515,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _InfoRow(icon: Icons.balance_outlined, text: 'MIT License'),
               SizedBox(height: 12),
               Text(
-                '地图来自 OpenStreetMap；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
+                '地图可使用 OpenFreeMap、OpenStreetMap 或自定义服务；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -438,6 +547,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   bool get _shouldShowDesktopSection => kIsWeb;
+
+  Future<void> _showMapUrlDialog({
+    required String title,
+    required String initialValue,
+    required String helperText,
+    required String? Function(String value) validator,
+    required ValueChanged<String> onSaved,
+  }) async {
+    final controller = TextEditingController(text: initialValue);
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                helperText: helperText,
+                border: const OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.url,
+              validator: (value) => validator(value ?? ''),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                Navigator.of(context).pop(controller.text);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (result == null) {
+      return;
+    }
+    onSaved(result);
+  }
 }
 
 List<CameraPhotoAspectRatio> _cameraAspectRatioGroup({
@@ -493,6 +654,53 @@ class _SettingsSection extends StatelessWidget {
           const SizedBox(height: 12),
           ...children,
         ],
+      ),
+    );
+  }
+}
+
+class _MapUrlRow extends StatelessWidget {
+  const _MapUrlRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(
+              Icons.edit_outlined,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }

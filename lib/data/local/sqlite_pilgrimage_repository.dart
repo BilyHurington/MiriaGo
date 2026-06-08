@@ -64,6 +64,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         5000.0,
       ),
       themePalette: _themePaletteFromName(row.themePalette),
+      mapTileProvider: _mapTileProviderFromName(row.mapTileProvider),
+      customXyzTileUrl: row.customXyzTileUrl,
+      customMapLibreStyleUrl: row.customMapLibreStyleUrl,
     );
   }
 
@@ -721,6 +724,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.nearestAssignDistanceMeters.clamp(50.0, 5000.0),
             ),
             themePalette: Value(settings.themePalette.name),
+            mapTileProvider: Value(settings.mapTileProvider.name),
+            customXyzTileUrl: Value(settings.customXyzTileUrl.trim()),
+            customMapLibreStyleUrl: Value(
+              settings.customMapLibreStyleUrl.trim(),
+            ),
           ),
         );
   }
@@ -1219,6 +1227,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return AppThemePalette.values.firstWhere(
       (palette) => palette.name == name,
       orElse: () => AppThemePalette.classicGreen,
+    );
+  }
+
+  MapTileProvider _mapTileProviderFromName(String name) {
+    return MapTileProvider.values.firstWhere(
+      (provider) => provider.name == name,
+      orElse: () => MapTileProvider.openFreeMap,
     );
   }
 

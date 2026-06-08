@@ -1,6 +1,6 @@
 # MiriaGo Privacy Policy
 
-Last updated: June 7, 2026
+Last updated: June 8, 2026
 
 MiriaGo is an app for anime pilgrimage planning, location reference, camera-assisted shooting, visit record management, and local data import/export.
 
@@ -41,12 +41,12 @@ You can manage these permissions in your device settings.
 
 MiriaGo may access third-party services or public data sources when you use related features:
 
-- Map tiles and map attribution may be loaded from OpenStreetMap-related services.
+- Map tiles, map styles, and map attribution may be loaded from OpenFreeMap, OpenStreetMap, or a custom map service URL that you configure.
 - Anime pilgrimage point/reference data may be imported from user-selected or supported sources such as Anitabi.
 - Work metadata may be searched or imported from Bangumi-related APIs when you choose to use those features.
 - External navigation may open Google Maps or another map/navigation app if you choose to start navigation.
 
-When these services are used, your device may connect directly to those third parties. Their own privacy policies and terms apply.
+When these services are used, your device may connect directly to those third parties. Map requests may expose ordinary network information such as your IP address, device network metadata, requested map tiles, or map style URLs to the selected map provider. Their own privacy policies and terms apply.
 
 ## Import, Export, And Sharing
 
@@ -82,7 +82,7 @@ https://github.com/BilyHurington/MiriaGo/issues
 
 # MiriaGo 隐私政策
 
-最后更新：2026 年 6 月 7 日
+最后更新：2026 年 6 月 8 日
 
 MiriaGo 是一款用于动漫圣地巡礼计划、地图点位参考、拍摄辅助、巡礼记录整理以及本地数据导入导出的应用。
 
@@ -123,12 +123,12 @@ MiriaGo 可能请求以下系统权限：
 
 当你使用相关功能时，MiriaGo 可能会访问第三方服务或公共数据来源：
 
-- 地图瓦片和地图署名信息可能来自 OpenStreetMap 相关服务。
+- 地图瓦片、地图样式和地图署名信息可能来自 OpenFreeMap、OpenStreetMap，或你自行配置的自定义地图服务 URL。
 - 动漫巡礼点位和参考图数据可能来自你选择或应用支持的数据源，例如 Anitabi。
 - 作品元数据可能在你使用相关功能时通过 Bangumi 相关 API 搜索或导入。
 - 当你选择开始导航时，应用可能会打开 Google Maps 或其他地图/导航应用。
 
-使用这些服务时，你的设备可能会直接连接到第三方服务。相关服务自身的隐私政策和使用条款适用。
+使用这些服务时，你的设备可能会直接连接到第三方服务。地图请求可能会让所选地图服务获得常规网络信息，例如你的 IP 地址、设备网络信息、请求的地图瓦片或地图样式 URL。相关服务自身的隐私政策和使用条款适用。
 
 ## 导入、导出和分享
 

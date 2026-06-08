@@ -247,12 +247,17 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   }
 
   Future<void> _setGroupAnchor(PilgrimagePlanGroup group) async {
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
     final selection = await Navigator.of(context).push<GroupAnchorSelection>(
       MaterialPageRoute(
         builder: (_) => GroupAnchorPickerScreen(
           group: group,
           points: _plan.points,
           groupNameForPoint: _groupNameForPoint,
+          settings: settings,
         ),
       ),
     );

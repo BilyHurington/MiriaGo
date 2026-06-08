@@ -3750,6 +3750,42 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant('classicGreen'),
   );
+  static const VerificationMeta _mapTileProviderMeta = const VerificationMeta(
+    'mapTileProvider',
+  );
+  @override
+  late final GeneratedColumn<String> mapTileProvider = GeneratedColumn<String>(
+    'map_tile_provider',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('openFreeMap'),
+  );
+  static const VerificationMeta _customXyzTileUrlMeta = const VerificationMeta(
+    'customXyzTileUrl',
+  );
+  @override
+  late final GeneratedColumn<String> customXyzTileUrl = GeneratedColumn<String>(
+    'custom_xyz_tile_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _customMapLibreStyleUrlMeta =
+      const VerificationMeta('customMapLibreStyleUrl');
+  @override
+  late final GeneratedColumn<String> customMapLibreStyleUrl =
+      GeneratedColumn<String>(
+        'custom_map_libre_style_url',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3761,6 +3797,9 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     referenceImageScale,
     nearestAssignDistanceMeters,
     themePalette,
+    mapTileProvider,
+    customXyzTileUrl,
+    customMapLibreStyleUrl,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3848,6 +3887,33 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('map_tile_provider')) {
+      context.handle(
+        _mapTileProviderMeta,
+        mapTileProvider.isAcceptableOrUnknown(
+          data['map_tile_provider']!,
+          _mapTileProviderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_xyz_tile_url')) {
+      context.handle(
+        _customXyzTileUrlMeta,
+        customXyzTileUrl.isAcceptableOrUnknown(
+          data['custom_xyz_tile_url']!,
+          _customXyzTileUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_map_libre_style_url')) {
+      context.handle(
+        _customMapLibreStyleUrlMeta,
+        customMapLibreStyleUrl.isAcceptableOrUnknown(
+          data['custom_map_libre_style_url']!,
+          _customMapLibreStyleUrlMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3893,6 +3959,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}theme_palette'],
       )!,
+      mapTileProvider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}map_tile_provider'],
+      )!,
+      customXyzTileUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_xyz_tile_url'],
+      )!,
+      customMapLibreStyleUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_map_libre_style_url'],
+      )!,
     );
   }
 
@@ -3913,6 +3991,9 @@ class AppSettingsEntry extends DataClass
   final double referenceImageScale;
   final double nearestAssignDistanceMeters;
   final String themePalette;
+  final String mapTileProvider;
+  final String customXyzTileUrl;
+  final String customMapLibreStyleUrl;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -3923,6 +4004,9 @@ class AppSettingsEntry extends DataClass
     required this.referenceImageScale,
     required this.nearestAssignDistanceMeters,
     required this.themePalette,
+    required this.mapTileProvider,
+    required this.customXyzTileUrl,
+    required this.customMapLibreStyleUrl,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3940,6 +4024,11 @@ class AppSettingsEntry extends DataClass
       nearestAssignDistanceMeters,
     );
     map['theme_palette'] = Variable<String>(themePalette);
+    map['map_tile_provider'] = Variable<String>(mapTileProvider);
+    map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl);
+    map['custom_map_libre_style_url'] = Variable<String>(
+      customMapLibreStyleUrl,
+    );
     return map;
   }
 
@@ -3954,6 +4043,9 @@ class AppSettingsEntry extends DataClass
       referenceImageScale: Value(referenceImageScale),
       nearestAssignDistanceMeters: Value(nearestAssignDistanceMeters),
       themePalette: Value(themePalette),
+      mapTileProvider: Value(mapTileProvider),
+      customXyzTileUrl: Value(customXyzTileUrl),
+      customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
     );
   }
 
@@ -3978,6 +4070,11 @@ class AppSettingsEntry extends DataClass
         json['nearestAssignDistanceMeters'],
       ),
       themePalette: serializer.fromJson<String>(json['themePalette']),
+      mapTileProvider: serializer.fromJson<String>(json['mapTileProvider']),
+      customXyzTileUrl: serializer.fromJson<String>(json['customXyzTileUrl']),
+      customMapLibreStyleUrl: serializer.fromJson<String>(
+        json['customMapLibreStyleUrl'],
+      ),
     );
   }
   @override
@@ -3997,6 +4094,11 @@ class AppSettingsEntry extends DataClass
         nearestAssignDistanceMeters,
       ),
       'themePalette': serializer.toJson<String>(themePalette),
+      'mapTileProvider': serializer.toJson<String>(mapTileProvider),
+      'customXyzTileUrl': serializer.toJson<String>(customXyzTileUrl),
+      'customMapLibreStyleUrl': serializer.toJson<String>(
+        customMapLibreStyleUrl,
+      ),
     };
   }
 
@@ -4010,6 +4112,9 @@ class AppSettingsEntry extends DataClass
     double? referenceImageScale,
     double? nearestAssignDistanceMeters,
     String? themePalette,
+    String? mapTileProvider,
+    String? customXyzTileUrl,
+    String? customMapLibreStyleUrl,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -4022,6 +4127,10 @@ class AppSettingsEntry extends DataClass
     nearestAssignDistanceMeters:
         nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
     themePalette: themePalette ?? this.themePalette,
+    mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+    customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
+    customMapLibreStyleUrl:
+        customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -4048,6 +4157,15 @@ class AppSettingsEntry extends DataClass
       themePalette: data.themePalette.present
           ? data.themePalette.value
           : this.themePalette,
+      mapTileProvider: data.mapTileProvider.present
+          ? data.mapTileProvider.value
+          : this.mapTileProvider,
+      customXyzTileUrl: data.customXyzTileUrl.present
+          ? data.customXyzTileUrl.value
+          : this.customXyzTileUrl,
+      customMapLibreStyleUrl: data.customMapLibreStyleUrl.present
+          ? data.customMapLibreStyleUrl.value
+          : this.customMapLibreStyleUrl,
     );
   }
 
@@ -4062,7 +4180,10 @@ class AppSettingsEntry extends DataClass
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
           ..write('referenceImageScale: $referenceImageScale, ')
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
-          ..write('themePalette: $themePalette')
+          ..write('themePalette: $themePalette, ')
+          ..write('mapTileProvider: $mapTileProvider, ')
+          ..write('customXyzTileUrl: $customXyzTileUrl, ')
+          ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl')
           ..write(')'))
         .toString();
   }
@@ -4078,6 +4199,9 @@ class AppSettingsEntry extends DataClass
     referenceImageScale,
     nearestAssignDistanceMeters,
     themePalette,
+    mapTileProvider,
+    customXyzTileUrl,
+    customMapLibreStyleUrl,
   );
   @override
   bool operator ==(Object other) =>
@@ -4092,7 +4216,10 @@ class AppSettingsEntry extends DataClass
           other.referenceImageScale == this.referenceImageScale &&
           other.nearestAssignDistanceMeters ==
               this.nearestAssignDistanceMeters &&
-          other.themePalette == this.themePalette);
+          other.themePalette == this.themePalette &&
+          other.mapTileProvider == this.mapTileProvider &&
+          other.customXyzTileUrl == this.customXyzTileUrl &&
+          other.customMapLibreStyleUrl == this.customMapLibreStyleUrl);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -4105,6 +4232,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<double> referenceImageScale;
   final Value<double> nearestAssignDistanceMeters;
   final Value<String> themePalette;
+  final Value<String> mapTileProvider;
+  final Value<String> customXyzTileUrl;
+  final Value<String> customMapLibreStyleUrl;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -4116,6 +4246,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.referenceImageScale = const Value.absent(),
     this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
+    this.mapTileProvider = const Value.absent(),
+    this.customXyzTileUrl = const Value.absent(),
+    this.customMapLibreStyleUrl = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -4128,6 +4261,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.referenceImageScale = const Value.absent(),
     this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
+    this.mapTileProvider = const Value.absent(),
+    this.customXyzTileUrl = const Value.absent(),
+    this.customMapLibreStyleUrl = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -4140,6 +4276,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<double>? referenceImageScale,
     Expression<double>? nearestAssignDistanceMeters,
     Expression<String>? themePalette,
+    Expression<String>? mapTileProvider,
+    Expression<String>? customXyzTileUrl,
+    Expression<String>? customMapLibreStyleUrl,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4155,6 +4294,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (nearestAssignDistanceMeters != null)
         'nearest_assign_distance_meters': nearestAssignDistanceMeters,
       if (themePalette != null) 'theme_palette': themePalette,
+      if (mapTileProvider != null) 'map_tile_provider': mapTileProvider,
+      if (customXyzTileUrl != null) 'custom_xyz_tile_url': customXyzTileUrl,
+      if (customMapLibreStyleUrl != null)
+        'custom_map_libre_style_url': customMapLibreStyleUrl,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4169,6 +4312,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<double>? referenceImageScale,
     Value<double>? nearestAssignDistanceMeters,
     Value<String>? themePalette,
+    Value<String>? mapTileProvider,
+    Value<String>? customXyzTileUrl,
+    Value<String>? customMapLibreStyleUrl,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -4183,6 +4329,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       nearestAssignDistanceMeters:
           nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
+      mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+      customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
+      customMapLibreStyleUrl:
+          customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4223,6 +4373,17 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     if (themePalette.present) {
       map['theme_palette'] = Variable<String>(themePalette.value);
     }
+    if (mapTileProvider.present) {
+      map['map_tile_provider'] = Variable<String>(mapTileProvider.value);
+    }
+    if (customXyzTileUrl.present) {
+      map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl.value);
+    }
+    if (customMapLibreStyleUrl.present) {
+      map['custom_map_libre_style_url'] = Variable<String>(
+        customMapLibreStyleUrl.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4241,6 +4402,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('referenceImageScale: $referenceImageScale, ')
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette, ')
+          ..write('mapTileProvider: $mapTileProvider, ')
+          ..write('customXyzTileUrl: $customXyzTileUrl, ')
+          ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6936,6 +7100,9 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<double> referenceImageScale,
       Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
+      Value<String> mapTileProvider,
+      Value<String> customXyzTileUrl,
+      Value<String> customMapLibreStyleUrl,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -6949,6 +7116,9 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<double> referenceImageScale,
       Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
+      Value<String> mapTileProvider,
+      Value<String> customXyzTileUrl,
+      Value<String> customMapLibreStyleUrl,
       Value<int> rowid,
     });
 
@@ -7003,6 +7173,21 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<String> get themePalette => $composableBuilder(
     column: $table.themePalette,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mapTileProvider => $composableBuilder(
+    column: $table.mapTileProvider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customXyzTileUrl => $composableBuilder(
+    column: $table.customXyzTileUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customMapLibreStyleUrl => $composableBuilder(
+    column: $table.customMapLibreStyleUrl,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7060,6 +7245,21 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.themePalette,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get mapTileProvider => $composableBuilder(
+    column: $table.mapTileProvider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customXyzTileUrl => $composableBuilder(
+    column: $table.customXyzTileUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customMapLibreStyleUrl => $composableBuilder(
+    column: $table.customMapLibreStyleUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -7109,6 +7309,21 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get themePalette => $composableBuilder(
     column: $table.themePalette,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mapTileProvider => $composableBuilder(
+    column: $table.mapTileProvider,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customXyzTileUrl => $composableBuilder(
+    column: $table.customXyzTileUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customMapLibreStyleUrl => $composableBuilder(
+    column: $table.customMapLibreStyleUrl,
     builder: (column) => column,
   );
 }
@@ -7163,6 +7378,9 @@ class $$AppSettingsEntriesTableTableManager
                 Value<double> nearestAssignDistanceMeters =
                     const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
+                Value<String> mapTileProvider = const Value.absent(),
+                Value<String> customXyzTileUrl = const Value.absent(),
+                Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -7174,6 +7392,9 @@ class $$AppSettingsEntriesTableTableManager
                 referenceImageScale: referenceImageScale,
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
+                mapTileProvider: mapTileProvider,
+                customXyzTileUrl: customXyzTileUrl,
+                customMapLibreStyleUrl: customMapLibreStyleUrl,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7188,6 +7409,9 @@ class $$AppSettingsEntriesTableTableManager
                 Value<double> nearestAssignDistanceMeters =
                     const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
+                Value<String> mapTileProvider = const Value.absent(),
+                Value<String> customXyzTileUrl = const Value.absent(),
+                Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -7199,6 +7423,9 @@ class $$AppSettingsEntriesTableTableManager
                 referenceImageScale: referenceImageScale,
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
+                mapTileProvider: mapTileProvider,
+                customXyzTileUrl: customXyzTileUrl,
+                customMapLibreStyleUrl: customMapLibreStyleUrl,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

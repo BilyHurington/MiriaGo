@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
@@ -18,6 +17,7 @@ import '../records/visit_record_detail_screen.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'map_navigation_launcher.dart';
+import 'map_tile_config.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
@@ -256,10 +256,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'app.miriago.miriago',
-              ),
+              configuredMapTileLayer(widget.settings),
               PolygonLayer(
                 polygons: groupAreaPolygons(
                   groups,
@@ -288,19 +285,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                     ),
                 ],
               ),
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                    onTap: () {
-                      launchUrl(
-                        Uri.parse('https://www.openstreetmap.org/copyright'),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    },
-                  ),
-                ],
-              ),
+              configuredMapAttribution(widget.settings),
             ],
           ),
           if (selectedGroup != null)

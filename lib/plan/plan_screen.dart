@@ -16,6 +16,7 @@ import '../data/reference_image_cache_stub.dart'
 import '../point_detail/point_detail_sheet.dart';
 import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
+import '../map/map_tile_config.dart';
 import 'plan_group_utils.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
@@ -263,6 +264,7 @@ class _PlanScreenState extends State<PlanScreen> {
               sortMode: _sortMode,
               sortDescending: _sortDescending,
               mapHeightRatio: _mapHeightRatio,
+              settings: settings,
               showVirtualLocation: _showVirtualLocation,
               isLocating: _isLocating,
               currentLocation: _currentLocation,
@@ -563,6 +565,7 @@ class _PlanGroupControls extends StatelessWidget {
     required this.sortMode,
     required this.sortDescending,
     required this.mapHeightRatio,
+    required this.settings,
     required this.showVirtualLocation,
     required this.isLocating,
     required this.currentLocation,
@@ -582,6 +585,7 @@ class _PlanGroupControls extends StatelessWidget {
   final PointSortMode sortMode;
   final bool sortDescending;
   final double mapHeightRatio;
+  final AppSettings settings;
   final bool showVirtualLocation;
   final bool isLocating;
   final LatLng? currentLocation;
@@ -650,6 +654,7 @@ class _PlanGroupControls extends StatelessWidget {
               isLocating: isLocating,
               currentLocation: currentLocation,
               height: mapHeight,
+              settings: settings,
               onSelectPoint: onSelectPoint,
               onToggleVirtualLocation: onToggleVirtualLocation,
               onDrag: (deltaY) => onResizeMap(deltaY, viewportHeight),
@@ -894,6 +899,7 @@ class _PlanInlineMap extends StatefulWidget {
     required this.isLocating,
     required this.currentLocation,
     required this.height,
+    required this.settings,
     required this.onSelectPoint,
     required this.onToggleVirtualLocation,
     required this.onDrag,
@@ -906,6 +912,7 @@ class _PlanInlineMap extends StatefulWidget {
   final bool isLocating;
   final LatLng? currentLocation;
   final double height;
+  final AppSettings settings;
   final ValueChanged<PilgrimagePoint> onSelectPoint;
   final VoidCallback onToggleVirtualLocation;
   final ValueChanged<double> onDrag;
@@ -992,11 +999,7 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                   ),
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'app.miriago.miriago',
-                  ),
+                  configuredMapTileLayer(widget.settings),
                   MarkerLayer(
                     markers: [
                       for (final point in widget.group.points)
@@ -1024,11 +1027,7 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                         ),
                     ],
                   ),
-                  const RichAttributionWidget(
-                    attributions: [
-                      TextSourceAttribution('OpenStreetMap contributors'),
-                    ],
-                  ),
+                  configuredMapAttribution(widget.settings),
                 ],
               ),
               Positioned(
