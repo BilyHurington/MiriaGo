@@ -664,11 +664,12 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   static const String _cancelGroupMove = '__cancel__';
+  static const String _ungroupedGroupMove = '__ungrouped__';
 
   Future<String?> _pickTargetGroup({String? currentGroupId}) async {
     final groups = _plan.groups.toList(growable: false)
       ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
-    return showModalBottomSheet<String?>(
+    return showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (context) {
@@ -682,7 +683,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               _MoveTargetTile(
                 title: '未分配点位',
                 selected: currentGroupId == null,
-                onTap: () => Navigator.of(context).pop(null),
+                onTap: () => Navigator.of(context).pop(_ungroupedGroupMove),
               ),
               for (final group in groups)
                 _MoveTargetTile(
@@ -694,7 +695,15 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
           ),
         );
       },
-    ).then((value) => value ?? _cancelGroupMove);
+    ).then((value) {
+      if (value == null) {
+        return _cancelGroupMove;
+      }
+      if (value == _ungroupedGroupMove) {
+        return null;
+      }
+      return value;
+    });
   }
 
   Future<void> _openNearestAssign() async {

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
-import '../widgets/snackbar_helper.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
+import '../map/map_tile_config.dart';
+import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'anitabi_map_import_screen.dart';
@@ -88,6 +90,17 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
             ),
             const SizedBox(height: 8),
             _AddSourceCard(
+              icon: Icons.travel_explore_outlined,
+              title: '从 Anitabi 点位 ID 导入',
+              body: '输入 Anitabi 地图里的点位 ID，自动补齐对应作品并显示点位。',
+              enabled: currentPlan != null,
+              actionLabel: currentPlan == null ? '不可用' : '输入',
+              onTap: currentPlan == null
+                  ? null
+                  : () => _openAnitabiPointIdImport(context, currentPlan),
+            ),
+            const SizedBox(height: 8),
+            _AddSourceCard(
               icon: Icons.add_location_alt_outlined,
               title: '手动添加点位',
               body: '选择已添加作品，再输入名称、坐标和场景信息。',
@@ -134,6 +147,25 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       ),
     );
     if (!context.mounted || didAdd != true) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _openAnitabiPointIdImport(
+    BuildContext context,
+    PilgrimagePlan plan,
+  ) async {
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => _AnitabiPointIdImportScreen(
+          plan: plan,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!context.mounted || didUpdate != true) {
       return;
     }
 
@@ -392,6 +424,120 @@ class _BangumiTypeFilter extends StatelessWidget {
           ),
       ],
     );
+  }
+}
+
+class _AnitabiPointIdImportScreen extends StatefulWidget {
+  const _AnitabiPointIdImportScreen({
+    required this.plan,
+    required this.repository,
+  });
+
+  final PilgrimagePlan plan;
+  final PilgrimageRepository repository;
+
+  @override
+  State<_AnitabiPointIdImportScreen> createState() =>
+      _AnitabiPointIdImportScreenState();
+}
+
+class _AnitabiPointIdImportScreenState
+    extends State<_AnitabiPointIdImportScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _pointIdController = TextEditingController();
+
+  @override
+  void dispose() {
+    _pointIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openImport() async {
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid) {
+      return;
+    }
+
+    final pointId = _pointIdController.text.trim();
+    final didUpdate = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AnitabiMapImportScreen(
+          plan: widget.plan,
+          repository: widget.repository,
+          initialPointId: pointId,
+        ),
+      ),
+    );
+    if (!mounted || didUpdate != true) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Anitabi 点位 ID 导入')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            Text(
+              '加入到：${widget.plan.name}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _FormSection(
+              children: [
+                TextFormField(
+                  controller: _pointIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'Anitabi 点位 ID',
+                    hintText: '例如 qdmnf6iqj',
+                  ),
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.done,
+                  validator: _validatePointId,
+                  onFieldSubmitted: (_) => _openImport(),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  '会按点位 ID 查找所属作品；如果当前计划还没有该作品，会先自动导入作品，再显示这个点位供你加入计划。',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _openImport,
+              icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+              label: const Text('查找点位'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _validatePointId(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return '请输入点位 ID';
+    }
+    if (!RegExp(r'^[a-zA-Z0-9_-]{3,32}$').hasMatch(text)) {
+      return '请输入有效点位 ID';
+    }
+    return null;
   }
 }
 
@@ -667,10 +813,66 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     });
   }
 
+  Future<void> _pickCoordinateFromMap() async {
+    final settings = await widget.repository.loadAppSettings();
+    if (!mounted) {
+      return;
+    }
+
+    final initialPosition = _currentPositionInput() ?? _planCenter;
+    final picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute<LatLng>(
+        builder: (_) => _ManualPointMapPickerScreen(
+          initialPosition: initialPosition,
+          settings: settings,
+        ),
+      ),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _latitudeController.text = picked.latitude.toStringAsFixed(6);
+      _longitudeController.text = picked.longitude.toStringAsFixed(6);
+    });
+  }
+
   void _removeReferenceImage() {
     setState(() {
       _pickedReferenceImage = null;
     });
+  }
+
+  LatLng? _currentPositionInput() {
+    final latitude = double.tryParse(_latitudeController.text.trim());
+    final longitude = double.tryParse(_longitudeController.text.trim());
+    if (latitude == null ||
+        longitude == null ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      return null;
+    }
+    return LatLng(latitude, longitude);
+  }
+
+  LatLng get _planCenter {
+    if (widget.plan.points.isEmpty) {
+      return const LatLng(35, 135);
+    }
+    final latitude =
+        widget.plan.points
+            .map((point) => point.position.latitude)
+            .reduce((a, b) => a + b) /
+        widget.plan.points.length;
+    final longitude =
+        widget.plan.points
+            .map((point) => point.position.longitude)
+            .reduce((a, b) => a + b) /
+        widget.plan.points.length;
+    return LatLng(latitude, longitude);
   }
 
   @override
@@ -781,6 +983,12 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
             const SizedBox(height: 12),
             _FormSection(
               children: [
+                OutlinedButton.icon(
+                  onPressed: _isSaving ? null : _pickCoordinateFromMap,
+                  icon: const Icon(Icons.ads_click_outlined, size: 18),
+                  label: const Text('从地图选择坐标'),
+                ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _latitudeController,
                   decoration: const InputDecoration(
@@ -876,6 +1084,225 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     }
 
     return null;
+  }
+}
+
+class _ManualPointMapPickerScreen extends StatefulWidget {
+  const _ManualPointMapPickerScreen({
+    required this.initialPosition,
+    required this.settings,
+  });
+
+  final LatLng initialPosition;
+  final AppSettings settings;
+
+  @override
+  State<_ManualPointMapPickerScreen> createState() =>
+      _ManualPointMapPickerScreenState();
+}
+
+class _ManualPointMapPickerScreenState
+    extends State<_ManualPointMapPickerScreen> {
+  final MapController _mapController = MapController();
+  LatLng? _selectedPosition;
+  var _isPickMode = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedPosition = _selectedPosition;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('选择点位坐标')),
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: widget.initialPosition,
+              initialZoom: 15,
+              minZoom: 4,
+              maxZoom: 19,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
+              onTap: (_, latLng) {
+                if (!_isPickMode) {
+                  return;
+                }
+                setState(() {
+                  _selectedPosition = latLng;
+                });
+              },
+            ),
+            children: [
+              configuredMapTileLayer(widget.settings),
+              MarkerLayer(
+                markers: [
+                  if (selectedPosition != null)
+                    Marker(
+                      point: selectedPosition,
+                      width: 48,
+                      height: 48,
+                      child: const _ManualPointPositionMarker(),
+                    ),
+                ],
+              ),
+              configuredMapAttribution(widget.settings),
+            ],
+          ),
+          if (_isPickMode)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTapDown: (details) {
+                  setState(() {
+                    _selectedPosition = _mapController.camera.offsetToCrs(
+                      details.localPosition,
+                    );
+                  });
+                },
+              ),
+            ),
+          Positioned(
+            right: 12,
+            top: 12,
+            child: SafeArea(
+              bottom: false,
+              child: _MapToolButton(
+                tooltip: _isPickMode ? '关闭地图选点' : '在地图上选点',
+                icon: Icons.ads_click_outlined,
+                selected: _isPickMode,
+                onTap: () {
+                  setState(() {
+                    _isPickMode = !_isPickMode;
+                  });
+                },
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _ManualPointSelectionCard(
+              position: selectedPosition,
+              pickMode: _isPickMode,
+              onSave: selectedPosition == null
+                  ? null
+                  : () => Navigator.of(context).pop(selectedPosition),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManualPointPositionMarker extends StatelessWidget {
+  const _ManualPointPositionMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white, width: 3),
+      ),
+      child: const Icon(Icons.add_location_alt, color: Colors.white),
+    );
+  }
+}
+
+class _MapToolButton extends StatelessWidget {
+  const _MapToolButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+    required this.selected,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.accent : AppColors.surface,
+      borderRadius: BorderRadius.circular(8),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onTap,
+        icon: Icon(icon),
+        color: selected ? Colors.white : AppColors.textPrimary,
+      ),
+    );
+  }
+}
+
+class _ManualPointSelectionCard extends StatelessWidget {
+  const _ManualPointSelectionCard({
+    required this.position,
+    required this.pickMode,
+    required this.onSave,
+  });
+
+  final LatLng? position;
+  final bool pickMode;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final position = this.position;
+    final subtitle = position == null
+        ? (pickMode ? '点击地图任意位置设置点位坐标' : '先点击右上角选点按钮，再点击地图设置坐标')
+        : '点击地图可继续调整位置\n${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.add_location_alt_outlined, color: AppColors.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '地图选点',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(onPressed: onSave, child: const Text('使用')),
+        ],
+      ),
+    );
   }
 }
 

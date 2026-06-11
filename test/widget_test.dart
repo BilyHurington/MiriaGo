@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:miriago/main.dart';
+import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/plan/anitabi_map_import_screen.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
@@ -186,4 +191,154 @@ void main() {
     expect(find.text('鸭川三条'), findsWidgets);
     expect(find.text('轻音少女 / 鸭川沿岸 / 自定义场景 1'), findsWidgets);
   });
+
+  testWidgets('manual point map picker requires explicit pick mode', (
+    tester,
+  ) async {
+    await _pumpAppWithEmptyPlan(tester);
+
+    await tester.tap(find.text('添加点位'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('手动添加点位'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('从地图选择坐标'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('从地图选择坐标'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择点位坐标'), findsOneWidget);
+    expect(find.text('先点击右上角选点按钮，再点击地图设置坐标'), findsOneWidget);
+    expect(find.text('35.000000, 135.000000'), findsNothing);
+
+    await tester.tap(find.byTooltip('在地图上选点'));
+    await tester.pumpAndSettle();
+    expect(find.text('点击地图任意位置设置点位坐标'), findsOneWidget);
+
+    await tester.tap(find.byType(FlutterMap).last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('点击地图可继续调整位置'), findsOneWidget);
+
+    await tester.tap(find.text('使用'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextFormField, '纬度'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, '经度'), findsOneWidget);
+    expect(find.text('35.000000'), findsOneWidget);
+    expect(find.text('135.000000'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Anitabi point ID import adds missing work before showing point',
+    (tester) async {
+      final repository = SamplePilgrimageRepository(plans: const []);
+      final plan = await repository.createPlan(name: '点位 ID 测试', area: '京都');
+      final anitabiClient = _FakeAnitabiClient();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AnitabiMapImportScreen(
+            plan: plan,
+            repository: repository,
+            initialPointId: 'point-1',
+            anitabiClient: anitabiClient,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final updatedPlan = await repository.loadActivePlan();
+      expect(
+        updatedPlan.works.where((work) => work.bangumiId == 12345),
+        hasLength(1),
+      );
+      expect(anitabiClient.lookedUpPointIds, contains('point-1'));
+    },
+  );
+
+  testWidgets('Anitabi point ID import reuses existing work', (tester) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '点位 ID 测试', area: '京都');
+    final existingWork = PilgrimageWork(
+      id: 'existing-work',
+      bangumiId: 12345,
+      title: '已有作品',
+      subtitle: 'Existing',
+      city: '京都',
+      source: WorkSource.bangumi,
+    );
+    final planWithWork = await repository.addWorkToPlan(
+      planId: plan.id,
+      work: existingWork,
+    );
+    final anitabiClient = _FakeAnitabiClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: planWithWork,
+          repository: repository,
+          initialPointId: 'point-1',
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final updatedPlan = await repository.loadActivePlan();
+    final works = updatedPlan.works
+        .where((work) => work.bangumiId == 12345)
+        .toList(growable: false);
+    expect(works, hasLength(1));
+    expect(works.single.id, existingWork.id);
+    expect(anitabiClient.lookedUpPointIds, contains('point-1'));
+  });
+}
+
+class _FakeAnitabiClient extends AnitabiClient {
+  final fetchedPointPids = <int>[];
+  final lookedUpPointIds = <String>[];
+
+  @override
+  Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
+    return AnitabiBangumiLite(
+      bangumiId: bangumiId,
+      title: 'PID 作品',
+      subtitle: 'Pid Work',
+      city: '京都',
+      center: const LatLng(35, 135),
+      zoom: 14,
+      pointsLength: 1,
+    );
+  }
+
+  @override
+  Future<List<AnitabiPoint>> fetchPoints(int bangumiId) async {
+    fetchedPointPids.add(bangumiId);
+    return [
+      AnitabiPoint(
+        bangumiId: bangumiId,
+        id: 'point-1',
+        name: 'PID 点位',
+        subtitle: '测试地点',
+        position: const LatLng(35, 135),
+        episodeLabel: 'EP 1',
+        referenceImageUrl: null,
+        origin: 'Anitabi',
+        originUrl: 'https://anitabi.cn/',
+      ),
+    ];
+  }
+
+  @override
+  Future<AnitabiPointLookupResult?> findPointById(String pointId) async {
+    lookedUpPointIds.add(pointId);
+    return AnitabiPointLookupResult(
+      work: await fetchBangumiLite(12345),
+      point: (await fetchPoints(12345)).single,
+    );
+  }
 }

@@ -26,12 +26,16 @@ class AnitabiMapImportScreen extends StatefulWidget {
   AnitabiMapImportScreen({
     required this.plan,
     required this.repository,
+    this.initialBangumiId,
+    this.initialPointId,
     AnitabiClient? anitabiClient,
     super.key,
   }) : anitabiClient = anitabiClient ?? AnitabiClient();
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final int? initialBangumiId;
+  final String? initialPointId;
   final AnitabiClient anitabiClient;
 
   @override
@@ -50,12 +54,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Object? _error;
   bool _isLoading = false;
   bool _isImporting = false;
-  bool _didImportPoints = false;
+  bool _didUpdatePlan = false;
   bool _isBoxSelecting = false;
   Offset? _selectionStart;
   Offset? _selectionEnd;
 
-  List<PilgrimageWork> get _bangumiWorks => widget.plan.works
+  List<PilgrimageWork> get _bangumiWorks => _importedPlan.works
       .where((work) => work.bangumiId != null)
       .toList(growable: false);
 
@@ -64,10 +68,21 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     super.initState();
     _importedPointIds = widget.plan.points.map((point) => point.id).toSet();
     _loadSettings();
-    final works = _bangumiWorks;
-    if (works.isNotEmpty) {
-      _selectedWork = works.first;
-      _loadPoints(works.first);
+    final initialPointId = widget.initialPointId;
+    if (initialPointId != null) {
+      _loadInitialPointId(initialPointId);
+      return;
+    }
+
+    final initialBangumiId = widget.initialBangumiId;
+    if (initialBangumiId != null) {
+      _loadInitialBangumiId(initialBangumiId);
+    } else {
+      final works = _bangumiWorks;
+      if (works.isNotEmpty) {
+        _selectedWork = works.first;
+        _loadPoints(works.first);
+      }
     }
   }
 
@@ -123,6 +138,143 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadInitialBangumiId(int bangumiId) async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _points = const [];
+      _selectedPoint = null;
+    });
+
+    try {
+      final lite = await widget.anitabiClient.fetchBangumiLite(bangumiId);
+      var work = _workForBangumiId(lite.bangumiId);
+      if (work == null) {
+        work = _workFromLite(lite);
+        final updatedPlan = await widget.repository.addWorkToPlan(
+          planId: _importedPlan.id,
+          work: work,
+        );
+        if (!mounted) {
+          return;
+        }
+        _replaceImportedPlan(updatedPlan);
+        _didUpdatePlan = true;
+      }
+
+      final points = await widget.anitabiClient.fetchPoints(lite.bangumiId);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedWork = work;
+        _lite = lite;
+        _points = points;
+        _selectedPoint = points.firstOrNull;
+      });
+      _mapController.move(lite.center, lite.zoom);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = error;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadInitialPointId(String pointId) async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _points = const [];
+      _selectedPoint = null;
+    });
+
+    try {
+      final result = await widget.anitabiClient.findPointById(pointId);
+      if (result == null) {
+        throw const AnitabiPointNotFoundException();
+      }
+
+      final lite = result.work;
+      var work = _workForBangumiId(lite.bangumiId);
+      if (work == null) {
+        work = _workFromLite(lite);
+        final updatedPlan = await widget.repository.addWorkToPlan(
+          planId: _importedPlan.id,
+          work: work,
+        );
+        if (!mounted) {
+          return;
+        }
+        _replaceImportedPlan(updatedPlan);
+        _didUpdatePlan = true;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedWork = work;
+        _lite = lite;
+        _points = [result.point];
+        _selectedPoint = result.point;
+      });
+      _mapController.move(result.point.position, math.max(lite.zoom, 15));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = error;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  PilgrimageWork? _workForBangumiId(int bangumiId) {
+    for (final work in _importedPlan.works) {
+      if (work.bangumiId == bangumiId) {
+        return work;
+      }
+    }
+    return null;
+  }
+
+  PilgrimageWork _workFromLite(AnitabiBangumiLite lite) {
+    return PilgrimageWork(
+      id: 'bangumi-${lite.bangumiId}',
+      bangumiId: lite.bangumiId,
+      title: lite.title,
+      subtitle: lite.subtitle,
+      city: lite.city,
+      source: WorkSource.bangumi,
+    );
+  }
+
+  void _replaceImportedPlan(PilgrimagePlan plan) {
+    _importedPlan = plan;
+    _importedPointIds
+      ..clear()
+      ..addAll(plan.points.map((point) => point.id));
   }
 
   void _selectPoint(AnitabiPoint point) {
@@ -295,9 +447,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       }
 
       setState(() {
-        _importedPlan = importedPlan;
-        _importedPointIds.addAll(pilgrimagePoints.map((point) => point.id));
-        _didImportPoints = true;
+        _replaceImportedPlan(importedPlan);
+        _didUpdatePlan = true;
         _selectionStart = null;
         _selectionEnd = null;
       });
@@ -424,11 +575,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return;
     }
     setState(() {
-      _importedPlan = plan;
-      _importedPointIds
-        ..clear()
-        ..addAll(plan.points.map((point) => point.id));
-      _didImportPoints = true;
+      _replaceImportedPlan(plan);
+      _didUpdatePlan = true;
     });
   }
 
@@ -452,7 +600,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           return;
         }
 
-        Navigator.of(context).pop(_didImportPoints);
+        Navigator.of(context).pop(_didUpdatePlan);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -489,16 +637,36 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         ),
         body: Builder(
           builder: (context) {
-            if (works.isEmpty) {
-              return const _EmptyImportState();
-            }
-
             if (_error != null) {
               return _ImportErrorState(
                 message: _errorMessageFor(_error),
                 detail: _errorDetailFor(_error),
-                onRetry: () => _loadPoints(_selectedWork ?? works.first),
+                onRetry: () {
+                  final initialPointId = widget.initialPointId;
+                  if (initialPointId != null) {
+                    _loadInitialPointId(initialPointId);
+                    return;
+                  }
+
+                  final initialBangumiId = widget.initialBangumiId;
+                  if (initialBangumiId != null && _selectedWork == null) {
+                    _loadInitialBangumiId(initialBangumiId);
+                  } else if (_selectedWork != null || works.isNotEmpty) {
+                    _loadPoints(_selectedWork ?? works.first);
+                  } else {
+                    setState(() {
+                      _error = null;
+                    });
+                  }
+                },
               );
+            }
+
+            if (works.isEmpty) {
+              if (_isLoading) {
+                return const _ImportLoadingState();
+              }
+              return const _EmptyImportState();
             }
 
             return LayoutBuilder(
@@ -615,6 +783,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   String _errorMessageFor(Object? error) {
+    if (error is AnitabiStaticDataUnavailableException) {
+      return 'Anitabi 地图数据无法加载';
+    }
+
     if (error is AnitabiException && error.statusCode == 404) {
       return '这个 Bangumi 条目暂无 Anitabi 地图数据';
     }
@@ -623,6 +795,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   String _errorDetailFor(Object? error) {
+    if (error is AnitabiStaticDataUnavailableException) {
+      return '纯 Web 端需要通过同源代理读取 Anitabi 地图索引；当前预览服务未提供代理或网络请求被拦截。';
+    }
+
     if (error is AnitabiException && error.statusCode == 404) {
       return '可以尝试在作品管理中添加同名的原作、游戏或其他关联条目。';
     }
@@ -1308,6 +1484,35 @@ class _EmptyImportState extends StatelessWidget {
             fontSize: 14,
             letterSpacing: 0,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImportLoadingState extends StatelessWidget {
+  const _ImportLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              '正在加载 Anitabi 作品和点位',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
         ),
       ),
     );

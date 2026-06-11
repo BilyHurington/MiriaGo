@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
@@ -48,4 +51,49 @@ void main() {
     expect(point.episodeLabel, 'EP 1 / 2:05');
     expect(point.referenceImageUrl, endsWith('/2ehwpjt.jpg'));
   });
+
+  test('finds a point by compact Anitabi map point ID', () async {
+    final client = AnitabiClient(
+      httpClient: _FixtureHttpClient({
+        'https://www.anitabi.cn/d/g.json':
+            '[[[8290,"头文字D",0,"頭文字D","日本","#d8101b","/images/bangumi/8290.jpg",7.7,"TV",36.098525,139.518473,7.1,["qdmnf6iqj",36.335315,138.738551,15644]]],250,1780488405409]',
+        'https://www.anitabi.cn/d/g0.json':
+            '[[8290,0,[["qdmnf6iqj","峠の釜めしや看板",0,0,0,1073,"/images/points/8290/qdmnf6iqj_1732560149766.jpg",0,null,"",0,0,0,"碓氷峠",3134]],1771771832628]]',
+      }),
+    );
+
+    final result = await client.findPointById('qdmnf6iqj');
+
+    expect(result, isNotNull);
+    expect(result!.work.bangumiId, 8290);
+    expect(result.work.title, '头文字D');
+    expect(result.point.id, 'qdmnf6iqj');
+    expect(result.point.name, '峠の釜めしや看板');
+    expect(result.point.position.latitude, 36.335315);
+    expect(result.point.position.longitude, 138.738551);
+    expect(
+      result.point.referenceImageUrl,
+      'https://image.anitabi.cn/points/8290/qdmnf6iqj_1732560149766.jpg',
+    );
+  });
+}
+
+class _FixtureHttpClient extends http.BaseClient {
+  _FixtureHttpClient(this.responses);
+
+  final Map<String, String> responses;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final body = responses[request.url.toString()];
+    if (body == null) {
+      return http.StreamedResponse(Stream.value(const <int>[]), 404);
+    }
+
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      200,
+      headers: const {'content-type': 'application/json'},
+    );
+  }
 }
