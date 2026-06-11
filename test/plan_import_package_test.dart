@@ -70,6 +70,50 @@ void main() {
     expect(importPackage.assetEntries.keys, ['assets/thumbnails/safe.jpg']);
   });
 
+  test(
+    'legacy v1 json import ignores visit records without bundled photos',
+    () {
+      final bytes = utf8.encode(
+        jsonEncode({
+          'format': 'miriago-plan',
+          'version': 1,
+          'exportedAt': '2026-06-07T00:00:00.000',
+          'plan': {
+            'id': 'plan-1',
+            'name': 'Legacy Plan',
+            'area': 'Test Area',
+            'createdAt': '2026-06-07T00:00:00.000',
+            'updatedAt': '2026-06-07T00:00:00.000',
+            'currentPointId': null,
+            'completedPointIds': [],
+            'works': [],
+            'points': [],
+          },
+          'visitRecords': [
+            {
+              'id': 'legacy-record',
+              'planId': 'plan-1',
+              'pointId': 'point-1',
+              'workId': 'work-1',
+              'photoPath': '/missing/photo.jpg',
+              'referenceMode': '叠影',
+              'capturedAt': '2026-06-07T00:00:00.000',
+            },
+          ],
+        }),
+      );
+
+      final importPackage = readPlanImportPackageFromBytes(
+        bytes,
+        sourceName: 'legacy.sjhplan',
+      );
+
+      expect(importPackage.kind, PlanImportPackageKind.legacyJson);
+      expect(importPackage.visitRecordCount, 0);
+      expect(importPackage.package.visitRecords, isEmpty);
+    },
+  );
+
   test('applies restored asset paths to plan points and records', () {
     final bytes = _zipPackageBytes(
       assetFiles: {
@@ -196,6 +240,10 @@ String _planJson() {
         'planId': 'plan-1',
         'pointId': 'point-1',
         'workId': 'work-1',
+        'workTitle': 'Work',
+        'workSubtitle': '',
+        'pointName': 'Point',
+        'pointSubtitle': '',
         'photoPath': '/old/photo.jpg',
         'originalPhotoPath': null,
         'gradedPhotoPath': '/old/graded.jpg',

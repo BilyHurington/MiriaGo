@@ -114,9 +114,13 @@ PlanImportPackage readPlanImportPackageFromBytes(
     return _readV2ZipPackage(bytes, sourceName: sourceName);
   }
   final package = PlanPackage.fromJsonString(utf8.decode(bytes));
+  final planOnlyPackage = PlanPackage(
+    plan: package.plan,
+    visitRecords: const <PilgrimageVisitRecord>[],
+  );
   return PlanImportPackage(
     kind: PlanImportPackageKind.legacyJson,
-    package: package,
+    package: planOnlyPackage,
     sourceName: sourceName,
     manifest: const {},
     assetCounts: const {},
@@ -463,6 +467,10 @@ PilgrimageVisitRecord _visitRecordFromV2Json(Map<String, Object?> json) {
     planId: _stringValue(json['planId'], fallback: ''),
     pointId: _stringValue(json['pointId'], fallback: ''),
     workId: _stringValue(json['workId'], fallback: ''),
+    workTitle: json['workTitle'] as String?,
+    workSubtitle: json['workSubtitle'] as String?,
+    pointName: json['pointName'] as String?,
+    pointSubtitle: json['pointSubtitle'] as String?,
     photoPath: _stringValue(json['photoPath'], fallback: ''),
     originalPhotoPath: json['originalPhotoPath'] as String?,
     gradedPhotoPath: json['gradedPhotoPath'] as String?,

@@ -76,6 +76,10 @@ class VisitRecords extends Table {
   TextColumn get planId => text()();
   TextColumn get pointId => text()();
   TextColumn get workId => text()();
+  TextColumn get workTitle => text().nullable()();
+  TextColumn get workSubtitle => text().nullable()();
+  TextColumn get pointName => text().nullable()();
+  TextColumn get pointSubtitle => text().nullable()();
   TextColumn get photoPath => text()();
   TextColumn get originalPhotoPath => text().nullable()();
   TextColumn get gradedPhotoPath => text().nullable()();
@@ -123,7 +127,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -209,6 +213,44 @@ class AppDatabase extends _$AppDatabase {
           appSettingsEntries,
           appSettingsEntries.customMapLibreStyleUrl,
         );
+      }
+      if (from < 14) {
+        await migrator.addColumn(visitRecords, visitRecords.workTitle);
+        await migrator.addColumn(visitRecords, visitRecords.workSubtitle);
+        await migrator.addColumn(visitRecords, visitRecords.pointName);
+        await migrator.addColumn(visitRecords, visitRecords.pointSubtitle);
+        await customStatement('''
+          UPDATE visit_records
+          SET
+            work_title = (
+              SELECT works.title
+              FROM works
+              WHERE works.id = visit_records.work_id
+                AND works.plan_id = visit_records.plan_id
+              LIMIT 1
+            ),
+            work_subtitle = (
+              SELECT works.subtitle
+              FROM works
+              WHERE works.id = visit_records.work_id
+                AND works.plan_id = visit_records.plan_id
+              LIMIT 1
+            ),
+            point_name = (
+              SELECT points.name
+              FROM points
+              WHERE points.id = visit_records.point_id
+                AND points.plan_id = visit_records.plan_id
+              LIMIT 1
+            ),
+            point_subtitle = (
+              SELECT points.subtitle
+              FROM points
+              WHERE points.id = visit_records.point_id
+                AND points.plan_id = visit_records.plan_id
+              LIMIT 1
+            )
+        ''');
       }
     },
   );

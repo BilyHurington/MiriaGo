@@ -2796,6 +2796,50 @@ class $VisitRecordsTable extends VisitRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _workTitleMeta = const VerificationMeta(
+    'workTitle',
+  );
+  @override
+  late final GeneratedColumn<String> workTitle = GeneratedColumn<String>(
+    'work_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _workSubtitleMeta = const VerificationMeta(
+    'workSubtitle',
+  );
+  @override
+  late final GeneratedColumn<String> workSubtitle = GeneratedColumn<String>(
+    'work_subtitle',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pointNameMeta = const VerificationMeta(
+    'pointName',
+  );
+  @override
+  late final GeneratedColumn<String> pointName = GeneratedColumn<String>(
+    'point_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pointSubtitleMeta = const VerificationMeta(
+    'pointSubtitle',
+  );
+  @override
+  late final GeneratedColumn<String> pointSubtitle = GeneratedColumn<String>(
+    'point_subtitle',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _photoPathMeta = const VerificationMeta(
     'photoPath',
   );
@@ -2914,6 +2958,10 @@ class $VisitRecordsTable extends VisitRecords
     planId,
     pointId,
     workId,
+    workTitle,
+    workSubtitle,
+    pointName,
+    pointSubtitle,
     photoPath,
     originalPhotoPath,
     gradedPhotoPath,
@@ -2965,6 +3013,36 @@ class $VisitRecordsTable extends VisitRecords
       );
     } else if (isInserting) {
       context.missing(_workIdMeta);
+    }
+    if (data.containsKey('work_title')) {
+      context.handle(
+        _workTitleMeta,
+        workTitle.isAcceptableOrUnknown(data['work_title']!, _workTitleMeta),
+      );
+    }
+    if (data.containsKey('work_subtitle')) {
+      context.handle(
+        _workSubtitleMeta,
+        workSubtitle.isAcceptableOrUnknown(
+          data['work_subtitle']!,
+          _workSubtitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('point_name')) {
+      context.handle(
+        _pointNameMeta,
+        pointName.isAcceptableOrUnknown(data['point_name']!, _pointNameMeta),
+      );
+    }
+    if (data.containsKey('point_subtitle')) {
+      context.handle(
+        _pointSubtitleMeta,
+        pointSubtitle.isAcceptableOrUnknown(
+          data['point_subtitle']!,
+          _pointSubtitleMeta,
+        ),
+      );
     }
     if (data.containsKey('photo_path')) {
       context.handle(
@@ -3081,6 +3159,22 @@ class $VisitRecordsTable extends VisitRecords
         DriftSqlType.string,
         data['${effectivePrefix}work_id'],
       )!,
+      workTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}work_title'],
+      ),
+      workSubtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}work_subtitle'],
+      ),
+      pointName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}point_name'],
+      ),
+      pointSubtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}point_subtitle'],
+      ),
       photoPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}photo_path'],
@@ -3135,6 +3229,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
   final String planId;
   final String pointId;
   final String workId;
+  final String? workTitle;
+  final String? workSubtitle;
+  final String? pointName;
+  final String? pointSubtitle;
   final String photoPath;
   final String? originalPhotoPath;
   final String? gradedPhotoPath;
@@ -3150,6 +3248,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     required this.planId,
     required this.pointId,
     required this.workId,
+    this.workTitle,
+    this.workSubtitle,
+    this.pointName,
+    this.pointSubtitle,
     required this.photoPath,
     this.originalPhotoPath,
     this.gradedPhotoPath,
@@ -3168,6 +3270,18 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     map['plan_id'] = Variable<String>(planId);
     map['point_id'] = Variable<String>(pointId);
     map['work_id'] = Variable<String>(workId);
+    if (!nullToAbsent || workTitle != null) {
+      map['work_title'] = Variable<String>(workTitle);
+    }
+    if (!nullToAbsent || workSubtitle != null) {
+      map['work_subtitle'] = Variable<String>(workSubtitle);
+    }
+    if (!nullToAbsent || pointName != null) {
+      map['point_name'] = Variable<String>(pointName);
+    }
+    if (!nullToAbsent || pointSubtitle != null) {
+      map['point_subtitle'] = Variable<String>(pointSubtitle);
+    }
     map['photo_path'] = Variable<String>(photoPath);
     if (!nullToAbsent || originalPhotoPath != null) {
       map['original_photo_path'] = Variable<String>(originalPhotoPath);
@@ -3203,6 +3317,18 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       planId: Value(planId),
       pointId: Value(pointId),
       workId: Value(workId),
+      workTitle: workTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workTitle),
+      workSubtitle: workSubtitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workSubtitle),
+      pointName: pointName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pointName),
+      pointSubtitle: pointSubtitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pointSubtitle),
       photoPath: Value(photoPath),
       originalPhotoPath: originalPhotoPath == null && nullToAbsent
           ? const Value.absent()
@@ -3240,6 +3366,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       planId: serializer.fromJson<String>(json['planId']),
       pointId: serializer.fromJson<String>(json['pointId']),
       workId: serializer.fromJson<String>(json['workId']),
+      workTitle: serializer.fromJson<String?>(json['workTitle']),
+      workSubtitle: serializer.fromJson<String?>(json['workSubtitle']),
+      pointName: serializer.fromJson<String?>(json['pointName']),
+      pointSubtitle: serializer.fromJson<String?>(json['pointSubtitle']),
       photoPath: serializer.fromJson<String>(json['photoPath']),
       originalPhotoPath: serializer.fromJson<String?>(
         json['originalPhotoPath'],
@@ -3270,6 +3400,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       'planId': serializer.toJson<String>(planId),
       'pointId': serializer.toJson<String>(pointId),
       'workId': serializer.toJson<String>(workId),
+      'workTitle': serializer.toJson<String?>(workTitle),
+      'workSubtitle': serializer.toJson<String?>(workSubtitle),
+      'pointName': serializer.toJson<String?>(pointName),
+      'pointSubtitle': serializer.toJson<String?>(pointSubtitle),
       'photoPath': serializer.toJson<String>(photoPath),
       'originalPhotoPath': serializer.toJson<String?>(originalPhotoPath),
       'gradedPhotoPath': serializer.toJson<String?>(gradedPhotoPath),
@@ -3292,6 +3426,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     String? planId,
     String? pointId,
     String? workId,
+    Value<String?> workTitle = const Value.absent(),
+    Value<String?> workSubtitle = const Value.absent(),
+    Value<String?> pointName = const Value.absent(),
+    Value<String?> pointSubtitle = const Value.absent(),
     String? photoPath,
     Value<String?> originalPhotoPath = const Value.absent(),
     Value<String?> gradedPhotoPath = const Value.absent(),
@@ -3307,6 +3445,12 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     planId: planId ?? this.planId,
     pointId: pointId ?? this.pointId,
     workId: workId ?? this.workId,
+    workTitle: workTitle.present ? workTitle.value : this.workTitle,
+    workSubtitle: workSubtitle.present ? workSubtitle.value : this.workSubtitle,
+    pointName: pointName.present ? pointName.value : this.pointName,
+    pointSubtitle: pointSubtitle.present
+        ? pointSubtitle.value
+        : this.pointSubtitle,
     photoPath: photoPath ?? this.photoPath,
     originalPhotoPath: originalPhotoPath.present
         ? originalPhotoPath.value
@@ -3338,6 +3482,14 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
       planId: data.planId.present ? data.planId.value : this.planId,
       pointId: data.pointId.present ? data.pointId.value : this.pointId,
       workId: data.workId.present ? data.workId.value : this.workId,
+      workTitle: data.workTitle.present ? data.workTitle.value : this.workTitle,
+      workSubtitle: data.workSubtitle.present
+          ? data.workSubtitle.value
+          : this.workSubtitle,
+      pointName: data.pointName.present ? data.pointName.value : this.pointName,
+      pointSubtitle: data.pointSubtitle.present
+          ? data.pointSubtitle.value
+          : this.pointSubtitle,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       originalPhotoPath: data.originalPhotoPath.present
           ? data.originalPhotoPath.value
@@ -3376,6 +3528,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
           ..write('planId: $planId, ')
           ..write('pointId: $pointId, ')
           ..write('workId: $workId, ')
+          ..write('workTitle: $workTitle, ')
+          ..write('workSubtitle: $workSubtitle, ')
+          ..write('pointName: $pointName, ')
+          ..write('pointSubtitle: $pointSubtitle, ')
           ..write('photoPath: $photoPath, ')
           ..write('originalPhotoPath: $originalPhotoPath, ')
           ..write('gradedPhotoPath: $gradedPhotoPath, ')
@@ -3396,6 +3552,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
     planId,
     pointId,
     workId,
+    workTitle,
+    workSubtitle,
+    pointName,
+    pointSubtitle,
     photoPath,
     originalPhotoPath,
     gradedPhotoPath,
@@ -3415,6 +3575,10 @@ class VisitRecord extends DataClass implements Insertable<VisitRecord> {
           other.planId == this.planId &&
           other.pointId == this.pointId &&
           other.workId == this.workId &&
+          other.workTitle == this.workTitle &&
+          other.workSubtitle == this.workSubtitle &&
+          other.pointName == this.pointName &&
+          other.pointSubtitle == this.pointSubtitle &&
           other.photoPath == this.photoPath &&
           other.originalPhotoPath == this.originalPhotoPath &&
           other.gradedPhotoPath == this.gradedPhotoPath &&
@@ -3432,6 +3596,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
   final Value<String> planId;
   final Value<String> pointId;
   final Value<String> workId;
+  final Value<String?> workTitle;
+  final Value<String?> workSubtitle;
+  final Value<String?> pointName;
+  final Value<String?> pointSubtitle;
   final Value<String> photoPath;
   final Value<String?> originalPhotoPath;
   final Value<String?> gradedPhotoPath;
@@ -3448,6 +3616,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     this.planId = const Value.absent(),
     this.pointId = const Value.absent(),
     this.workId = const Value.absent(),
+    this.workTitle = const Value.absent(),
+    this.workSubtitle = const Value.absent(),
+    this.pointName = const Value.absent(),
+    this.pointSubtitle = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.originalPhotoPath = const Value.absent(),
     this.gradedPhotoPath = const Value.absent(),
@@ -3465,6 +3637,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     required String planId,
     required String pointId,
     required String workId,
+    this.workTitle = const Value.absent(),
+    this.workSubtitle = const Value.absent(),
+    this.pointName = const Value.absent(),
+    this.pointSubtitle = const Value.absent(),
     required String photoPath,
     this.originalPhotoPath = const Value.absent(),
     this.gradedPhotoPath = const Value.absent(),
@@ -3488,6 +3664,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     Expression<String>? planId,
     Expression<String>? pointId,
     Expression<String>? workId,
+    Expression<String>? workTitle,
+    Expression<String>? workSubtitle,
+    Expression<String>? pointName,
+    Expression<String>? pointSubtitle,
     Expression<String>? photoPath,
     Expression<String>? originalPhotoPath,
     Expression<String>? gradedPhotoPath,
@@ -3505,6 +3685,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
       if (planId != null) 'plan_id': planId,
       if (pointId != null) 'point_id': pointId,
       if (workId != null) 'work_id': workId,
+      if (workTitle != null) 'work_title': workTitle,
+      if (workSubtitle != null) 'work_subtitle': workSubtitle,
+      if (pointName != null) 'point_name': pointName,
+      if (pointSubtitle != null) 'point_subtitle': pointSubtitle,
       if (photoPath != null) 'photo_path': photoPath,
       if (originalPhotoPath != null) 'original_photo_path': originalPhotoPath,
       if (gradedPhotoPath != null) 'graded_photo_path': gradedPhotoPath,
@@ -3527,6 +3711,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     Value<String>? planId,
     Value<String>? pointId,
     Value<String>? workId,
+    Value<String?>? workTitle,
+    Value<String?>? workSubtitle,
+    Value<String?>? pointName,
+    Value<String?>? pointSubtitle,
     Value<String>? photoPath,
     Value<String?>? originalPhotoPath,
     Value<String?>? gradedPhotoPath,
@@ -3544,6 +3732,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
       planId: planId ?? this.planId,
       pointId: pointId ?? this.pointId,
       workId: workId ?? this.workId,
+      workTitle: workTitle ?? this.workTitle,
+      workSubtitle: workSubtitle ?? this.workSubtitle,
+      pointName: pointName ?? this.pointName,
+      pointSubtitle: pointSubtitle ?? this.pointSubtitle,
       photoPath: photoPath ?? this.photoPath,
       originalPhotoPath: originalPhotoPath ?? this.originalPhotoPath,
       gradedPhotoPath: gradedPhotoPath ?? this.gradedPhotoPath,
@@ -3574,6 +3766,18 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
     }
     if (workId.present) {
       map['work_id'] = Variable<String>(workId.value);
+    }
+    if (workTitle.present) {
+      map['work_title'] = Variable<String>(workTitle.value);
+    }
+    if (workSubtitle.present) {
+      map['work_subtitle'] = Variable<String>(workSubtitle.value);
+    }
+    if (pointName.present) {
+      map['point_name'] = Variable<String>(pointName.value);
+    }
+    if (pointSubtitle.present) {
+      map['point_subtitle'] = Variable<String>(pointSubtitle.value);
     }
     if (photoPath.present) {
       map['photo_path'] = Variable<String>(photoPath.value);
@@ -3622,6 +3826,10 @@ class VisitRecordsCompanion extends UpdateCompanion<VisitRecord> {
           ..write('planId: $planId, ')
           ..write('pointId: $pointId, ')
           ..write('workId: $workId, ')
+          ..write('workTitle: $workTitle, ')
+          ..write('workSubtitle: $workSubtitle, ')
+          ..write('pointName: $pointName, ')
+          ..write('pointSubtitle: $pointSubtitle, ')
           ..write('photoPath: $photoPath, ')
           ..write('originalPhotoPath: $originalPhotoPath, ')
           ..write('gradedPhotoPath: $gradedPhotoPath, ')
@@ -6706,6 +6914,10 @@ typedef $$VisitRecordsTableCreateCompanionBuilder =
       required String planId,
       required String pointId,
       required String workId,
+      Value<String?> workTitle,
+      Value<String?> workSubtitle,
+      Value<String?> pointName,
+      Value<String?> pointSubtitle,
       required String photoPath,
       Value<String?> originalPhotoPath,
       Value<String?> gradedPhotoPath,
@@ -6724,6 +6936,10 @@ typedef $$VisitRecordsTableUpdateCompanionBuilder =
       Value<String> planId,
       Value<String> pointId,
       Value<String> workId,
+      Value<String?> workTitle,
+      Value<String?> workSubtitle,
+      Value<String?> pointName,
+      Value<String?> pointSubtitle,
       Value<String> photoPath,
       Value<String?> originalPhotoPath,
       Value<String?> gradedPhotoPath,
@@ -6763,6 +6979,26 @@ class $$VisitRecordsTableFilterComposer
 
   ColumnFilters<String> get workId => $composableBuilder(
     column: $table.workId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workTitle => $composableBuilder(
+    column: $table.workTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workSubtitle => $composableBuilder(
+    column: $table.workSubtitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pointName => $composableBuilder(
+    column: $table.pointName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pointSubtitle => $composableBuilder(
+    column: $table.pointSubtitle,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6846,6 +7082,26 @@ class $$VisitRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get workTitle => $composableBuilder(
+    column: $table.workTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workSubtitle => $composableBuilder(
+    column: $table.workSubtitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pointName => $composableBuilder(
+    column: $table.pointName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pointSubtitle => $composableBuilder(
+    column: $table.pointSubtitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get photoPath => $composableBuilder(
     column: $table.photoPath,
     builder: (column) => ColumnOrderings(column),
@@ -6917,6 +7173,22 @@ class $$VisitRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get workId =>
       $composableBuilder(column: $table.workId, builder: (column) => column);
+
+  GeneratedColumn<String> get workTitle =>
+      $composableBuilder(column: $table.workTitle, builder: (column) => column);
+
+  GeneratedColumn<String> get workSubtitle => $composableBuilder(
+    column: $table.workSubtitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pointName =>
+      $composableBuilder(column: $table.pointName, builder: (column) => column);
+
+  GeneratedColumn<String> get pointSubtitle => $composableBuilder(
+    column: $table.pointSubtitle,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get photoPath =>
       $composableBuilder(column: $table.photoPath, builder: (column) => column);
@@ -7002,6 +7274,10 @@ class $$VisitRecordsTableTableManager
                 Value<String> planId = const Value.absent(),
                 Value<String> pointId = const Value.absent(),
                 Value<String> workId = const Value.absent(),
+                Value<String?> workTitle = const Value.absent(),
+                Value<String?> workSubtitle = const Value.absent(),
+                Value<String?> pointName = const Value.absent(),
+                Value<String?> pointSubtitle = const Value.absent(),
                 Value<String> photoPath = const Value.absent(),
                 Value<String?> originalPhotoPath = const Value.absent(),
                 Value<String?> gradedPhotoPath = const Value.absent(),
@@ -7018,6 +7294,10 @@ class $$VisitRecordsTableTableManager
                 planId: planId,
                 pointId: pointId,
                 workId: workId,
+                workTitle: workTitle,
+                workSubtitle: workSubtitle,
+                pointName: pointName,
+                pointSubtitle: pointSubtitle,
                 photoPath: photoPath,
                 originalPhotoPath: originalPhotoPath,
                 gradedPhotoPath: gradedPhotoPath,
@@ -7036,6 +7316,10 @@ class $$VisitRecordsTableTableManager
                 required String planId,
                 required String pointId,
                 required String workId,
+                Value<String?> workTitle = const Value.absent(),
+                Value<String?> workSubtitle = const Value.absent(),
+                Value<String?> pointName = const Value.absent(),
+                Value<String?> pointSubtitle = const Value.absent(),
                 required String photoPath,
                 Value<String?> originalPhotoPath = const Value.absent(),
                 Value<String?> gradedPhotoPath = const Value.absent(),
@@ -7052,6 +7336,10 @@ class $$VisitRecordsTableTableManager
                 planId: planId,
                 pointId: pointId,
                 workId: workId,
+                workTitle: workTitle,
+                workSubtitle: workSubtitle,
+                pointName: pointName,
+                pointSubtitle: pointSubtitle,
                 photoPath: photoPath,
                 originalPhotoPath: originalPhotoPath,
                 gradedPhotoPath: gradedPhotoPath,

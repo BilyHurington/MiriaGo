@@ -376,6 +376,10 @@ Map<String, Object?> _visitRecordJson(
     'planId': record.planId,
     'pointId': record.pointId,
     'workId': record.workId,
+    'workTitle': record.workTitle,
+    'workSubtitle': record.workSubtitle,
+    'pointName': record.pointName,
+    'pointSubtitle': record.pointSubtitle,
     'photoPath': record.photoPath,
     'originalPhotoPath': record.originalPhotoPath,
     'gradedPhotoPath': record.gradedPhotoPath,
@@ -457,9 +461,10 @@ String _recordsCsv(PilgrimagePlan plan, List<PilgrimageVisitRecord> records) {
     ['作品', '片区', '点位名', '记录ID', '拍摄时间', '参考模式', '是否调色', '照片文件名', '调色照片文件名'],
     for (final record in records)
       [
-        pointById[record.pointId]?.work.title ?? record.workId,
+        pointById[record.pointId]?.work.title ??
+            record.displayWorkTitleSnapshot,
         _groupName(plan, pointById[record.pointId]?.groupId),
-        pointById[record.pointId]?.name ?? record.pointId,
+        pointById[record.pointId]?.name ?? record.displayPointNameSnapshot,
         record.id,
         record.capturedAt.toIso8601String(),
         record.referenceMode,

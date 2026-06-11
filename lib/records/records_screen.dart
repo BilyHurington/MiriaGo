@@ -265,6 +265,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
       record.id,
       record.pointId,
       record.workId,
+      record.workTitle ?? '',
+      record.workSubtitle ?? '',
+      record.pointName ?? '',
+      record.pointSubtitle ?? '',
       record.referenceMode,
       record.referenceImagePath ?? '',
       record.referenceImageUrl ?? '',
@@ -897,6 +901,10 @@ class _VisitRecordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolvedPoint = point;
+    final title = resolvedPoint?.name ?? record.displayPointNameSnapshot;
+    final subtitle = resolvedPoint == null
+        ? _recordSnapshotSubtitle(record)
+        : '${resolvedPoint.work.title} / ${resolvedPoint.displayEpisodeLabel}';
     return Material(
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
@@ -920,7 +928,7 @@ class _VisitRecordCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      resolvedPoint?.name ?? '已删除点位',
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -931,9 +939,7 @@ class _VisitRecordCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      resolvedPoint == null
-                          ? record.workId
-                          : '${resolvedPoint.work.title} / ${resolvedPoint.displayEpisodeLabel}',
+                      subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -970,6 +976,15 @@ class _VisitRecordCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _recordSnapshotSubtitle(PilgrimageVisitRecord record) {
+  final workTitle = record.displayWorkTitleSnapshot;
+  final pointSubtitle = record.displayPointSubtitleSnapshot;
+  if (pointSubtitle.isEmpty) {
+    return workTitle;
+  }
+  return '$workTitle / $pointSubtitle';
 }
 
 class _RecordChip extends StatelessWidget {

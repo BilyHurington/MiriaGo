@@ -11,6 +11,10 @@ void main() {
       planId: plan.id,
       pointId: point.id,
       workId: point.work.id,
+      workTitle: point.work.title,
+      workSubtitle: point.work.subtitle,
+      pointName: point.name,
+      pointSubtitle: point.subtitle,
       photoPath: '/tmp/photo.jpg',
       referenceImagePath: '/tmp/reference.jpg',
       referenceImageUrl: 'https://example.com/reference.jpg',
@@ -34,5 +38,7 @@ void main() {
     );
     expect(decoded.visitRecords, hasLength(1));
     expect(decoded.visitRecords.single.referenceMode, '叠影');
+    expect(decoded.visitRecords.single.workTitle, point.work.title);
+    expect(decoded.visitRecords.single.pointName, point.name);
   });
 }

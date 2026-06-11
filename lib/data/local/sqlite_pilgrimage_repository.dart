@@ -172,6 +172,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
                 planId: importedId,
                 pointId: pointIdMap[record.pointId] ?? record.pointId,
                 workId: workIdMap[record.workId] ?? record.workId,
+                workTitle: Value(record.workTitle),
+                workSubtitle: Value(record.workSubtitle),
+                pointName: Value(record.pointName),
+                pointSubtitle: Value(record.pointSubtitle),
                 photoPath: record.photoPath,
                 originalPhotoPath: Value(record.originalPhotoPath),
                 gradedPhotoPath: Value(record.gradedPhotoPath),
@@ -394,11 +398,6 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       final deletedCurrentPoint = pointRows.any((point) => point.isCurrent);
 
       if (pointIds.isNotEmpty) {
-        await (_database.delete(_database.visitRecords)..where(
-              (table) =>
-                  table.planId.equals(planId) & table.pointId.isIn(pointIds),
-            ))
-            .go();
         await (_database.delete(_database.points)..where(
               (table) =>
                   table.planId.equals(planId) & table.workId.equals(workId),
@@ -561,6 +560,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String pointId,
     required String workId,
+    String? workTitle,
+    String? workSubtitle,
+    String? pointName,
+    String? pointSubtitle,
     required String photoPath,
     String? referenceImagePath,
     String? referenceImageUrl,
@@ -574,6 +577,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       planId: planId,
       pointId: pointId,
       workId: workId,
+      workTitle: workTitle,
+      workSubtitle: workSubtitle,
+      pointName: pointName,
+      pointSubtitle: pointSubtitle,
       photoPath: photoPath,
       referenceImagePath: referenceImagePath,
       referenceImageUrl: referenceImageUrl,
@@ -588,6 +595,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             planId: record.planId,
             pointId: record.pointId,
             workId: record.workId,
+            workTitle: Value(record.workTitle),
+            workSubtitle: Value(record.workSubtitle),
+            pointName: Value(record.pointName),
+            pointSubtitle: Value(record.pointSubtitle),
             photoPath: record.photoPath,
             originalPhotoPath: Value(record.originalPhotoPath),
             gradedPhotoPath: Value(record.gradedPhotoPath),
@@ -739,6 +750,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       planId: row.planId,
       pointId: row.pointId,
       workId: row.workId,
+      workTitle: row.workTitle,
+      workSubtitle: row.workSubtitle,
+      pointName: row.pointName,
+      pointSubtitle: row.pointSubtitle,
       photoPath: row.photoPath,
       originalPhotoPath: row.originalPhotoPath,
       gradedPhotoPath: row.gradedPhotoPath,
@@ -784,11 +799,6 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
       await (_database.delete(_database.points)..where(
             (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
-          ))
-          .go();
-      await (_database.delete(_database.visitRecords)..where(
-            (table) =>
-                table.planId.equals(planId) & table.pointId.isIn(pointIds),
           ))
           .go();
 

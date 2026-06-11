@@ -58,7 +58,9 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           _ImportOptionTile(
             icon: Icons.collections_bookmark_outlined,
             title: '拍摄记录',
-            subtitle: _package.hasVisitRecords
+            subtitle: _package.isLegacyJson
+                ? 'v1 文件不包含照片资源，仅导入计划结构。'
+                : _package.hasVisitRecords
                 ? '${_package.visitRecordCount} 条记录，包含照片路径和调色参数。'
                 : '这个包里没有拍摄记录。',
             value: _includeRecords,

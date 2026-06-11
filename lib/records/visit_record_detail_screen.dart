@@ -78,7 +78,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            resolvedPoint?.name ?? '已删除点位',
+            resolvedPoint?.name ?? _record.displayPointNameSnapshot,
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -88,7 +88,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           const SizedBox(height: 6),
           Text(
             resolvedPoint == null
-                ? _record.workId
+                ? _recordSnapshotSubtitle(_record)
                 : '${resolvedPoint.work.title} / ${resolvedPoint.subtitle}',
             style: const TextStyle(
               color: AppColors.textSecondary,
@@ -339,6 +339,11 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       if (resolvedPoint.sourceId != null) {
         meta[ComparisonMetadataField.anitabiId] = resolvedPoint.sourceId!;
       }
+    } else {
+      meta[ComparisonMetadataField.pointName] =
+          _record.displayPointNameSnapshot;
+      meta[ComparisonMetadataField.workTitle] =
+          _record.displayWorkTitleSnapshot;
     }
 
     ComparisonExportSheet.show(
@@ -714,4 +719,13 @@ String _formatDateTime(DateTime value) {
   final hour = value.hour.toString().padLeft(2, '0');
   final minute = value.minute.toString().padLeft(2, '0');
   return '$year-$month-$day $hour:$minute';
+}
+
+String _recordSnapshotSubtitle(PilgrimageVisitRecord record) {
+  final workTitle = record.displayWorkTitleSnapshot;
+  final pointSubtitle = record.displayPointSubtitleSnapshot;
+  if (pointSubtitle.isEmpty) {
+    return workTitle;
+  }
+  return '$workTitle / $pointSubtitle';
 }

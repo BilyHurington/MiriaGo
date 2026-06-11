@@ -167,36 +167,50 @@ void main() {
     expect(settings.customMapLibreStyleUrl, 'https://example.com/style.json');
   });
 
-  test('deletes work with related points and visit records', () async {
-    final database = AppDatabase(NativeDatabase.memory());
-    addTearDown(database.close);
+  test(
+    'deletes work and points while preserving visit record history',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
 
-    final repository = SqlitePilgrimageRepository(database: database);
-    final plan = await repository.loadActivePlan();
-    final work = plan.works.first;
-    final point = plan.points.firstWhere((point) => point.work.id == work.id);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+      final work = plan.works.first;
+      final point = plan.points.firstWhere((point) => point.work.id == work.id);
 
-    await repository.createVisitRecord(
-      planId: plan.id,
-      pointId: point.id,
-      workId: work.id,
-      photoPath: '/tmp/photo.jpg',
-      referenceMode: '小窗',
-    );
+      await repository.createVisitRecord(
+        planId: plan.id,
+        pointId: point.id,
+        workId: work.id,
+        workTitle: work.title,
+        workSubtitle: work.subtitle,
+        pointName: point.name,
+        pointSubtitle: point.subtitle,
+        photoPath: '/tmp/photo.jpg',
+        referenceMode: '小窗',
+      );
 
-    final updatedPlan = await repository.deleteWorkFromPlan(
-      planId: plan.id,
-      workId: work.id,
-    );
-    final records = await repository.loadVisitRecords(plan.id);
+      final updatedPlan = await repository.deleteWorkFromPlan(
+        planId: plan.id,
+        workId: work.id,
+      );
+      final records = await repository.loadVisitRecords(plan.id);
 
-    expect(updatedPlan.works.map((work) => work.id), isNot(contains(work.id)));
-    expect(
-      updatedPlan.points.map((point) => point.work.id),
-      isNot(contains(work.id)),
-    );
-    expect(records, isEmpty);
-  });
+      expect(
+        updatedPlan.works.map((work) => work.id),
+        isNot(contains(work.id)),
+      );
+      expect(
+        updatedPlan.points.map((point) => point.work.id),
+        isNot(contains(work.id)),
+      );
+      expect(records, hasLength(1));
+      expect(records.single.workId, work.id);
+      expect(records.single.workTitle, work.title);
+      expect(records.single.pointId, point.id);
+      expect(records.single.pointName, point.name);
+    },
+  );
 
   test('reopens completed point as current target', () async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -236,6 +250,10 @@ void main() {
       planId: plan.id,
       pointId: point.id,
       workId: point.work.id,
+      workTitle: point.work.title,
+      workSubtitle: point.work.subtitle,
+      pointName: point.name,
+      pointSubtitle: point.subtitle,
       photoPath: '/tmp/photo.jpg',
       referenceImagePath: '/tmp/reference.jpg',
       referenceImageUrl: 'https://example.com/reference.jpg',
@@ -247,6 +265,8 @@ void main() {
     expect(records, hasLength(1));
     expect(records.single.id, record.id);
     expect(records.single.pointId, point.id);
+    expect(records.single.workTitle, point.work.title);
+    expect(records.single.pointName, point.name);
     expect(records.single.photoPath, '/tmp/photo.jpg');
     expect(records.single.referenceImagePath, '/tmp/reference.jpg');
     expect(

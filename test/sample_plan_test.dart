@@ -73,6 +73,8 @@ void main() {
       expect(record.planId, plan.id);
       expect(record.pointId, isIn(pointIds));
       expect(record.workId, isIn(workIds));
+      expect(record.workTitle, isNotEmpty);
+      expect(record.pointName, isNotEmpty);
       expect(record.photoPath, isNotEmpty);
       expect(record.photoPath, startsWith('docs/sample_images/'));
       expect(record.referenceMode, isNotEmpty);

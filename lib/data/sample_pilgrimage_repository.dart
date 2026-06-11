@@ -110,6 +110,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
           planId: importedPlan.id,
           pointId: record.pointId,
           workId: record.workId,
+          workTitle: record.workTitle,
+          workSubtitle: record.workSubtitle,
+          pointName: record.pointName,
+          pointSubtitle: record.pointSubtitle,
           photoPath: record.photoPath,
           originalPhotoPath: record.originalPhotoPath,
           gradedPhotoPath: record.gradedPhotoPath,
@@ -372,11 +376,6 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
-    _visitRecords.removeWhere(
-      (record) =>
-          record.planId == planId &&
-          (record.workId == workId || removedPointIds.contains(record.pointId)),
-    );
     return updatedPlan;
   }
 
@@ -423,9 +422,6 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
-    _visitRecords.removeWhere(
-      (record) => record.planId == planId && pointIds.contains(record.pointId),
-    );
     return updatedPlan;
   }
 
@@ -562,6 +558,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String pointId,
     required String workId,
+    String? workTitle,
+    String? workSubtitle,
+    String? pointName,
+    String? pointSubtitle,
     required String photoPath,
     String? referenceImagePath,
     String? referenceImageUrl,
@@ -574,6 +574,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       planId: planId,
       pointId: pointId,
       workId: workId,
+      workTitle: workTitle,
+      workSubtitle: workSubtitle,
+      pointName: pointName,
+      pointSubtitle: pointSubtitle,
       photoPath: photoPath,
       referenceImagePath: referenceImagePath,
       referenceImageUrl: referenceImageUrl,
@@ -1326,6 +1330,10 @@ PilgrimageVisitRecord _sampleVisitRecord({
     planId: samplePilgrimagePlan.id,
     pointId: pointId,
     workId: point.work.id,
+    workTitle: point.work.title,
+    workSubtitle: point.work.subtitle,
+    pointName: point.name,
+    pointSubtitle: point.subtitle,
     photoPath: photoPath,
     originalPhotoPath: graded ? photoPath : null,
     gradedPhotoPath: graded ? photoPath : null,

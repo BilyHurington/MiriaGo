@@ -84,6 +84,8 @@ void main() {
       recordJson['gradedPhotoAsset'],
       'assets/graded_photos/${recordWithGrading.id}.jpg',
     );
+    expect(recordJson['workTitle'], recordWithGrading.workTitle);
+    expect(recordJson['pointName'], recordWithGrading.pointName);
   });
 
   test(

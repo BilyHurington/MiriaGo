@@ -149,6 +149,10 @@ class PilgrimageVisitRecord {
     required this.planId,
     required this.pointId,
     required this.workId,
+    this.workTitle,
+    this.workSubtitle,
+    this.pointName,
+    this.pointSubtitle,
     required this.photoPath,
     this.originalPhotoPath,
     this.gradedPhotoPath,
@@ -165,6 +169,10 @@ class PilgrimageVisitRecord {
   final String planId;
   final String pointId;
   final String workId;
+  final String? workTitle;
+  final String? workSubtitle;
+  final String? pointName;
+  final String? pointSubtitle;
   final String photoPath;
   final String? originalPhotoPath;
   final String? gradedPhotoPath;
@@ -180,11 +188,24 @@ class PilgrimageVisitRecord {
 
   String get displayPhotoPath => gradedPhotoPath ?? photoPath;
 
+  String get displayWorkTitleSnapshot => _displaySnapshot(workTitle, workId);
+
+  String get displayWorkSubtitleSnapshot => _displaySnapshot(workSubtitle, '');
+
+  String get displayPointNameSnapshot => _displaySnapshot(pointName, pointId);
+
+  String get displayPointSubtitleSnapshot =>
+      _displaySnapshot(pointSubtitle, '');
+
   bool get hasColorGrading =>
       gradedPhotoPath != null && colorGradingParamsJson != null;
 
   PilgrimageVisitRecord copyWith({
     String? photoPath,
+    Object? workTitle = _unset,
+    Object? workSubtitle = _unset,
+    Object? pointName = _unset,
+    Object? pointSubtitle = _unset,
     Object? originalPhotoPath = _unset,
     Object? gradedPhotoPath = _unset,
     Object? colorGradingMode = _unset,
@@ -197,6 +218,14 @@ class PilgrimageVisitRecord {
       planId: planId,
       pointId: pointId,
       workId: workId,
+      workTitle: workTitle == _unset ? this.workTitle : workTitle as String?,
+      workSubtitle: workSubtitle == _unset
+          ? this.workSubtitle
+          : workSubtitle as String?,
+      pointName: pointName == _unset ? this.pointName : pointName as String?,
+      pointSubtitle: pointSubtitle == _unset
+          ? this.pointSubtitle
+          : pointSubtitle as String?,
       photoPath: photoPath ?? this.photoPath,
       originalPhotoPath: originalPhotoPath == _unset
           ? this.originalPhotoPath
@@ -221,6 +250,11 @@ class PilgrimageVisitRecord {
       capturedAt: capturedAt,
     );
   }
+}
+
+String _displaySnapshot(String? value, String fallback) {
+  final text = value?.trim();
+  return text == null || text.isEmpty ? fallback : text;
 }
 
 class PilgrimageWork {
