@@ -68,6 +68,7 @@ class _CamerawesomeReferenceScreenState
   bool _nativeCameraFailed = false;
   String? _nativeCameraError;
   double? _referenceAspectRatio;
+  bool _referenceAspectRatioLoading = false;
   int _referenceAspectRatioRequest = 0;
 
   @override
@@ -128,6 +129,9 @@ class _CamerawesomeReferenceScreenState
 
   Future<void> _refreshReferenceAspectRatio() async {
     final requestId = ++_referenceAspectRatioRequest;
+    setState(() {
+      _referenceAspectRatioLoading = true;
+    });
     final ratio = await _resolveReferenceAspectRatio(
       bytes: _localReferenceBytes,
       localPath: widget.point.referenceFullImagePath,
@@ -139,7 +143,16 @@ class _CamerawesomeReferenceScreenState
 
     setState(() {
       _referenceAspectRatio = ratio;
+      _referenceAspectRatioLoading = false;
     });
+  }
+
+  bool _shouldWaitForReferenceAspectRatio(_ReferenceImageSource reference) {
+    return widget.settings.cameraCaptureAspectRatio ==
+            CameraPhotoAspectRatio.auto &&
+        reference.hasImage &&
+        _referenceAspectRatio == null &&
+        _referenceAspectRatioLoading;
   }
 
   Future<void> _pickGalleryImage() async {
@@ -250,7 +263,7 @@ class _CamerawesomeReferenceScreenState
       localPath: widget.point.referenceFullImagePath,
       url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
     );
-    final captureAspectRatio = _captureAspectRatio(
+    final captureAspectRatio = resolveCameraCaptureAspectRatio(
       referenceAspectRatio: _referenceAspectRatio,
       settings: widget.settings,
       orientation: MediaQuery.orientationOf(context),
@@ -296,6 +309,12 @@ class _CamerawesomeReferenceScreenState
               onModeChanged: (mode) => setState(() => _mode = mode),
               onOpacityChanged: (value) => _overlayOpacity.value = value,
               onCapture: () async {
+                if (_shouldWaitForReferenceAspectRatio(reference)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('正在读取参考图比例，请稍后拍摄。')),
+                  );
+                  return;
+                }
                 final path = await _nativeCameraController.takePicture();
                 if (path != null) {
                   await _openConfirmation(path);
@@ -377,7 +396,8 @@ double _aspectRatioValue(CameraPhotoAspectRatio ratio) {
   };
 }
 
-double _captureAspectRatio({
+@visibleForTesting
+double resolveCameraCaptureAspectRatio({
   required double? referenceAspectRatio,
   required AppSettings settings,
   required Orientation orientation,
@@ -499,8 +519,14 @@ class _NativeCameraController extends ChangeNotifier {
   var _lensMode = 'backAuto';
   var _supportsTelephoto = false;
   var _captureAspectRatio = 1.0;
+  var _cropCaptureToAspectRatio = true;
   double? _preferredInitialZoomRatio;
-  var _initialZoomApplied = false;
+  double? _appliedCaptureAspectRatio;
+  bool? _appliedCropCaptureToAspectRatio;
+  double? _appliedInitialZoomRatio;
+  var _configuringCapture = false;
+  var _configurationGeneration = 0;
+  Future<void>? _configurationFuture;
 
   bool get ready => _ready;
   bool get busy => _busy;
@@ -512,6 +538,7 @@ class _NativeCameraController extends ChangeNotifier {
   String get lensFacing => _lensFacing;
   String get lensMode => _lensMode;
   bool get supportsTelephoto => _supportsTelephoto;
+  bool get configuringCapture => _configuringCapture;
 
   Future<void> attach(int viewId) async {
     if (_channel != null && _viewId == viewId) {
@@ -543,7 +570,7 @@ class _NativeCameraController extends ChangeNotifier {
       _applyZoomState(result);
       _ready = true;
       _error = null;
-      await _applyPreferredInitialZoomIfNeeded();
+      await _runCaptureConfiguration();
     } on PlatformException catch (error) {
       _error = error.message ?? '原生相机初始化失败';
     } catch (error) {
@@ -568,15 +595,31 @@ class _NativeCameraController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setPreferredInitialZoomRatio(double ratio) {
-    final safeRatio = ratio <= 0 ? 1.0 : ratio;
-    if ((_preferredInitialZoomRatio ?? -1) == safeRatio) {
-      return;
+  Future<void> configureCapture({
+    required double captureAspectRatio,
+    required bool cropCaptureToAspectRatio,
+    required double preferredInitialZoomRatio,
+  }) {
+    final safeRatio = captureAspectRatio <= 0 ? 1.0 : captureAspectRatio;
+    final safeZoom = preferredInitialZoomRatio <= 0
+        ? 1.0
+        : preferredInitialZoomRatio;
+    final unchanged =
+        (_captureAspectRatio - safeRatio).abs() < 0.001 &&
+        _cropCaptureToAspectRatio == cropCaptureToAspectRatio &&
+        ((_preferredInitialZoomRatio ?? -1) - safeZoom).abs() < 0.001;
+    if (unchanged) {
+      return _configurationFuture ?? Future<void>.value();
     }
 
-    _preferredInitialZoomRatio = safeRatio;
-    _initialZoomApplied = false;
-    unawaited(_applyPreferredInitialZoomIfNeeded());
+    _captureAspectRatio = safeRatio;
+    _cropCaptureToAspectRatio = cropCaptureToAspectRatio;
+    _preferredInitialZoomRatio = safeZoom;
+    _configurationGeneration += 1;
+    _configurationFuture ??= _runCaptureConfiguration().whenComplete(() {
+      _configurationFuture = null;
+    });
+    return _configurationFuture!;
   }
 
   Future<void> setCaptureAspectRatio(double ratio) async {
@@ -596,6 +639,7 @@ class _NativeCameraController extends ChangeNotifier {
   }
 
   Future<void> setCropCaptureToAspectRatio(bool enabled) async {
+    _cropCaptureToAspectRatio = enabled;
     final channel = _channel;
     if (channel == null || !_ready) {
       return;
@@ -641,8 +685,8 @@ class _NativeCameraController extends ChangeNotifier {
         'switchLens',
       );
       _applyZoomState(result);
-      _initialZoomApplied = false;
-      await _applyPreferredInitialZoomIfNeeded();
+      _appliedInitialZoomRatio = null;
+      await _runCaptureConfiguration();
     } on PlatformException {
       final result = await channel.invokeMapMethod<String, Object?>(
         'getZoomState',
@@ -655,6 +699,10 @@ class _NativeCameraController extends ChangeNotifier {
   Future<String?> takePicture() async {
     final channel = _channel;
     if (channel == null || !_ready || _busy) {
+      return null;
+    }
+    await (_configurationFuture ?? _runCaptureConfiguration());
+    if (_configuringCapture) {
       return null;
     }
 
@@ -688,18 +736,55 @@ class _NativeCameraController extends ChangeNotifier {
         (state['supportsTelephoto'] as bool?) ?? _supportsTelephoto;
   }
 
-  Future<void> _applyPreferredInitialZoomIfNeeded() async {
-    final preferredZoom = _preferredInitialZoomRatio;
-    if (_initialZoomApplied ||
-        preferredZoom == null ||
-        _channel == null ||
-        !_ready ||
-        _maxZoomRatio <= _minZoomRatio) {
+  Future<void> _runCaptureConfiguration() async {
+    final channel = _channel;
+    if (channel == null || !_ready) {
       return;
     }
 
-    _initialZoomApplied = true;
-    await setZoomRatio(preferredZoom.clamp(_minZoomRatio, _maxZoomRatio));
+    _configuringCapture = true;
+    notifyListeners();
+    try {
+      var appliedGeneration = -1;
+      while (appliedGeneration != _configurationGeneration) {
+        final generation = _configurationGeneration;
+        final captureAspectRatio = _captureAspectRatio;
+        final cropCaptureToAspectRatio = _cropCaptureToAspectRatio;
+        final preferredZoom = _preferredInitialZoomRatio;
+
+        if (((_appliedCaptureAspectRatio ?? -1) - captureAspectRatio).abs() >=
+            0.001) {
+          await channel.invokeMethod<void>('setTargetAspectRatio', {
+            'targetAspectRatio': captureAspectRatio,
+          });
+          _appliedCaptureAspectRatio = captureAspectRatio;
+        }
+
+        if (_appliedCropCaptureToAspectRatio != cropCaptureToAspectRatio) {
+          await channel.invokeMethod<void>('setCropCaptureToAspectRatio', {
+            'enabled': cropCaptureToAspectRatio,
+          });
+          _appliedCropCaptureToAspectRatio = cropCaptureToAspectRatio;
+        }
+
+        if (preferredZoom != null && _maxZoomRatio > _minZoomRatio) {
+          final clampedZoom = preferredZoom.clamp(_minZoomRatio, _maxZoomRatio);
+          if (((_appliedInitialZoomRatio ?? -1) - clampedZoom).abs() >= 0.001) {
+            final result = await channel.invokeMapMethod<String, Object?>(
+              'setZoomRatio',
+              {'zoomRatio': clampedZoom},
+            );
+            _applyZoomState(result);
+            _appliedInitialZoomRatio = clampedZoom;
+          }
+        }
+
+        appliedGeneration = generation;
+      }
+    } finally {
+      _configuringCapture = false;
+      notifyListeners();
+    }
   }
 }
 
@@ -747,11 +832,13 @@ class _NativeReferenceCameraBody extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        unawaited(controller.setCaptureAspectRatio(captureAspectRatio));
         unawaited(
-          controller.setCropCaptureToAspectRatio(cropCaptureToAspectRatio),
+          controller.configureCapture(
+            captureAspectRatio: captureAspectRatio,
+            cropCaptureToAspectRatio: cropCaptureToAspectRatio,
+            preferredInitialZoomRatio: settings.cameraMinZoom,
+          ),
         );
-        controller.setPreferredInitialZoomRatio(settings.cameraMinZoom);
         if (controller.error != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             onNativeUnavailable();
@@ -1208,7 +1295,10 @@ class _NativeCameraBottomPanel extends StatelessWidget {
                 onPressed: onPickGallery,
               ),
               const Spacer(),
-              _NativeCaptureButton(busy: controller.busy, onPressed: onCapture),
+              _NativeCaptureButton(
+                busy: controller.busy || controller.configuringCapture,
+                onPressed: onCapture,
+              ),
               const Spacer(),
               _CameraActionButton(
                 tooltip: '切换镜头',
@@ -1531,7 +1621,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                     child: _NativeCaptureButton(
                       size: layout.captureButtonSize,
                       innerSize: layout.captureInnerSize,
-                      busy: controller.busy,
+                      busy: controller.busy || controller.configuringCapture,
                       onPressed: onCapture,
                     ),
                   ),
