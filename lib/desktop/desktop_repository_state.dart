@@ -75,6 +75,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'mapTileProvider': settings.mapTileProvider.name,
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
+    'saveVisitPhotoToGallery': settings.saveVisitPhotoToGallery,
   };
 }
 
@@ -109,6 +110,8 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
       json['customMapLibreStyleUrl'],
       fallback: '',
     ),
+    saveVisitPhotoToGallery:
+        _boolValue(json['saveVisitPhotoToGallery']) ?? true,
   );
 }
 
@@ -352,6 +355,15 @@ double? _doubleValue(Object? value) {
   return switch (value) {
     num number => number.toDouble(),
     String text => double.tryParse(text),
+    _ => null,
+  };
+}
+
+bool? _boolValue(Object? value) {
+  return switch (value) {
+    bool boolean => boolean,
+    String text when text == 'true' => true,
+    String text when text == 'false' => false,
     _ => null,
   };
 }

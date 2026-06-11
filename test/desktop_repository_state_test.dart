@@ -14,6 +14,7 @@ void main() {
         mapTileProvider: MapTileProvider.customMapLibreStyle,
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
+        saveVisitPhotoToGallery: false,
       ),
     );
     final source = repository.snapshot();
@@ -41,6 +42,7 @@ void main() {
       decoded.settings.customMapLibreStyleUrl,
       'https://example.com/style.json',
     );
+    expect(decoded.settings.saveVisitPhotoToGallery, isFalse);
     expect(decoded.plans.single.id, source.plans.single.id);
     expect(
       decoded.plans.single.points.length,

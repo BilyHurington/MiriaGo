@@ -67,6 +67,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       mapTileProvider: _mapTileProviderFromName(row.mapTileProvider),
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
+      saveVisitPhotoToGallery: row.saveVisitPhotoToGallery,
     );
   }
 
@@ -740,6 +741,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             customMapLibreStyleUrl: Value(
               settings.customMapLibreStyleUrl.trim(),
             ),
+            saveVisitPhotoToGallery: Value(settings.saveVisitPhotoToGallery),
           ),
         );
   }

@@ -149,6 +149,7 @@ void main() {
         mapTileProvider: MapTileProvider.customXyz,
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
+        saveVisitPhotoToGallery: false,
       ),
     );
 
@@ -165,6 +166,7 @@ void main() {
     expect(settings.mapTileProvider, MapTileProvider.customXyz);
     expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
     expect(settings.customMapLibreStyleUrl, 'https://example.com/style.json');
+    expect(settings.saveVisitPhotoToGallery, isFalse);
   });
 
   test(

@@ -331,6 +331,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          if (_shouldShowGalleryBackupOption) ...[
+            _SettingsSection(
+              title: '照片备份',
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(
+                    Icons.photo_library_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  title: const Text(
+                    '保存巡礼照片到相册',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    '保存记录时同时备份一张巡礼照片。',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  value: settings.saveVisitPhotoToGallery,
+                  onChanged: (value) {
+                    onChanged(
+                      settings.copyWith(saveVisitPhotoToGallery: value),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           _SettingsSection(
             title: '地图',
             children: [
@@ -547,6 +584,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   bool get _shouldShowDesktopSection => kIsWeb;
+
+  bool get _shouldShowGalleryBackupOption {
+    if (kIsWeb) {
+      return false;
+    }
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
 
   Future<void> _showMapUrlDialog({
     required String title,

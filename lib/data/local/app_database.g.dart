@@ -3994,6 +3994,21 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant(''),
       );
+  static const VerificationMeta _saveVisitPhotoToGalleryMeta =
+      const VerificationMeta('saveVisitPhotoToGallery');
+  @override
+  late final GeneratedColumn<bool> saveVisitPhotoToGallery =
+      GeneratedColumn<bool>(
+        'save_visit_photo_to_gallery',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("save_visit_photo_to_gallery" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4008,6 +4023,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     mapTileProvider,
     customXyzTileUrl,
     customMapLibreStyleUrl,
+    saveVisitPhotoToGallery,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4122,6 +4138,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('save_visit_photo_to_gallery')) {
+      context.handle(
+        _saveVisitPhotoToGalleryMeta,
+        saveVisitPhotoToGallery.isAcceptableOrUnknown(
+          data['save_visit_photo_to_gallery']!,
+          _saveVisitPhotoToGalleryMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4179,6 +4204,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}custom_map_libre_style_url'],
       )!,
+      saveVisitPhotoToGallery: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}save_visit_photo_to_gallery'],
+      )!,
     );
   }
 
@@ -4202,6 +4231,7 @@ class AppSettingsEntry extends DataClass
   final String mapTileProvider;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
+  final bool saveVisitPhotoToGallery;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -4215,6 +4245,7 @@ class AppSettingsEntry extends DataClass
     required this.mapTileProvider,
     required this.customXyzTileUrl,
     required this.customMapLibreStyleUrl,
+    required this.saveVisitPhotoToGallery,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4237,6 +4268,9 @@ class AppSettingsEntry extends DataClass
     map['custom_map_libre_style_url'] = Variable<String>(
       customMapLibreStyleUrl,
     );
+    map['save_visit_photo_to_gallery'] = Variable<bool>(
+      saveVisitPhotoToGallery,
+    );
     return map;
   }
 
@@ -4254,6 +4288,7 @@ class AppSettingsEntry extends DataClass
       mapTileProvider: Value(mapTileProvider),
       customXyzTileUrl: Value(customXyzTileUrl),
       customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
+      saveVisitPhotoToGallery: Value(saveVisitPhotoToGallery),
     );
   }
 
@@ -4283,6 +4318,9 @@ class AppSettingsEntry extends DataClass
       customMapLibreStyleUrl: serializer.fromJson<String>(
         json['customMapLibreStyleUrl'],
       ),
+      saveVisitPhotoToGallery: serializer.fromJson<bool>(
+        json['saveVisitPhotoToGallery'],
+      ),
     );
   }
   @override
@@ -4307,6 +4345,9 @@ class AppSettingsEntry extends DataClass
       'customMapLibreStyleUrl': serializer.toJson<String>(
         customMapLibreStyleUrl,
       ),
+      'saveVisitPhotoToGallery': serializer.toJson<bool>(
+        saveVisitPhotoToGallery,
+      ),
     };
   }
 
@@ -4323,6 +4364,7 @@ class AppSettingsEntry extends DataClass
     String? mapTileProvider,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
+    bool? saveVisitPhotoToGallery,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -4339,6 +4381,8 @@ class AppSettingsEntry extends DataClass
     customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
     customMapLibreStyleUrl:
         customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
+    saveVisitPhotoToGallery:
+        saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -4374,6 +4418,9 @@ class AppSettingsEntry extends DataClass
       customMapLibreStyleUrl: data.customMapLibreStyleUrl.present
           ? data.customMapLibreStyleUrl.value
           : this.customMapLibreStyleUrl,
+      saveVisitPhotoToGallery: data.saveVisitPhotoToGallery.present
+          ? data.saveVisitPhotoToGallery.value
+          : this.saveVisitPhotoToGallery,
     );
   }
 
@@ -4391,7 +4438,8 @@ class AppSettingsEntry extends DataClass
           ..write('themePalette: $themePalette, ')
           ..write('mapTileProvider: $mapTileProvider, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
-          ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl')
+          ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
+          ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery')
           ..write(')'))
         .toString();
   }
@@ -4410,6 +4458,7 @@ class AppSettingsEntry extends DataClass
     mapTileProvider,
     customXyzTileUrl,
     customMapLibreStyleUrl,
+    saveVisitPhotoToGallery,
   );
   @override
   bool operator ==(Object other) =>
@@ -4427,7 +4476,8 @@ class AppSettingsEntry extends DataClass
           other.themePalette == this.themePalette &&
           other.mapTileProvider == this.mapTileProvider &&
           other.customXyzTileUrl == this.customXyzTileUrl &&
-          other.customMapLibreStyleUrl == this.customMapLibreStyleUrl);
+          other.customMapLibreStyleUrl == this.customMapLibreStyleUrl &&
+          other.saveVisitPhotoToGallery == this.saveVisitPhotoToGallery);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -4443,6 +4493,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> mapTileProvider;
   final Value<String> customXyzTileUrl;
   final Value<String> customMapLibreStyleUrl;
+  final Value<bool> saveVisitPhotoToGallery;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -4457,6 +4508,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapTileProvider = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
+    this.saveVisitPhotoToGallery = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -4472,6 +4524,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapTileProvider = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
+    this.saveVisitPhotoToGallery = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -4487,6 +4540,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? mapTileProvider,
     Expression<String>? customXyzTileUrl,
     Expression<String>? customMapLibreStyleUrl,
+    Expression<bool>? saveVisitPhotoToGallery,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4506,6 +4560,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (customXyzTileUrl != null) 'custom_xyz_tile_url': customXyzTileUrl,
       if (customMapLibreStyleUrl != null)
         'custom_map_libre_style_url': customMapLibreStyleUrl,
+      if (saveVisitPhotoToGallery != null)
+        'save_visit_photo_to_gallery': saveVisitPhotoToGallery,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4523,6 +4579,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? mapTileProvider,
     Value<String>? customXyzTileUrl,
     Value<String>? customMapLibreStyleUrl,
+    Value<bool>? saveVisitPhotoToGallery,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -4541,6 +4598,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
+      saveVisitPhotoToGallery:
+          saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4592,6 +4651,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         customMapLibreStyleUrl.value,
       );
     }
+    if (saveVisitPhotoToGallery.present) {
+      map['save_visit_photo_to_gallery'] = Variable<bool>(
+        saveVisitPhotoToGallery.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4613,6 +4677,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('mapTileProvider: $mapTileProvider, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
+          ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7391,6 +7456,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> mapTileProvider,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
+      Value<bool> saveVisitPhotoToGallery,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -7407,6 +7473,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> mapTileProvider,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
+      Value<bool> saveVisitPhotoToGallery,
       Value<int> rowid,
     });
 
@@ -7476,6 +7543,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<String> get customMapLibreStyleUrl => $composableBuilder(
     column: $table.customMapLibreStyleUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get saveVisitPhotoToGallery => $composableBuilder(
+    column: $table.saveVisitPhotoToGallery,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7548,6 +7620,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.customMapLibreStyleUrl,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get saveVisitPhotoToGallery => $composableBuilder(
+    column: $table.saveVisitPhotoToGallery,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -7614,6 +7691,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     column: $table.customMapLibreStyleUrl,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get saveVisitPhotoToGallery => $composableBuilder(
+    column: $table.saveVisitPhotoToGallery,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsEntriesTableTableManager
@@ -7669,6 +7751,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> mapTileProvider = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
+                Value<bool> saveVisitPhotoToGallery = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -7683,6 +7766,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapTileProvider: mapTileProvider,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
+                saveVisitPhotoToGallery: saveVisitPhotoToGallery,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7700,6 +7784,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> mapTileProvider = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
+                Value<bool> saveVisitPhotoToGallery = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -7714,6 +7799,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapTileProvider: mapTileProvider,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
+                saveVisitPhotoToGallery: saveVisitPhotoToGallery,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

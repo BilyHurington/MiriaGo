@@ -96,6 +96,7 @@ class AppSettings {
     this.mapTileProvider = MapTileProvider.openFreeMap,
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
+    this.saveVisitPhotoToGallery = true,
   });
 
   final double uiScale;
@@ -109,6 +110,7 @@ class AppSettings {
   final MapTileProvider mapTileProvider;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
+  final bool saveVisitPhotoToGallery;
 
   AppSettings copyWith({
     double? uiScale,
@@ -122,6 +124,7 @@ class AppSettings {
     MapTileProvider? mapTileProvider,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
+    bool? saveVisitPhotoToGallery,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -139,6 +142,8 @@ class AppSettings {
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
+      saveVisitPhotoToGallery:
+          saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
     );
   }
 }

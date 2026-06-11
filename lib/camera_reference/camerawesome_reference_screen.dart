@@ -210,6 +210,9 @@ class _CamerawesomeReferenceScreenState
             widget.point.referenceImageUrl,
           ),
           capturedAtOverride: capturedAtOverride,
+          saveVisitPhotoToGallery: shouldAutoSaveVisitPhotoToGallery(
+            widget.settings,
+          ),
         ),
       ),
     );

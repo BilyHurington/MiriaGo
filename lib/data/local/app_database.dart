@@ -115,6 +115,8 @@ class AppSettingsEntries extends Table {
   TextColumn get customXyzTileUrl => text().withDefault(const Constant(''))();
   TextColumn get customMapLibreStyleUrl =>
       text().withDefault(const Constant(''))();
+  BoolColumn get saveVisitPhotoToGallery =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -127,7 +129,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -251,6 +253,12 @@ class AppDatabase extends _$AppDatabase {
               LIMIT 1
             )
         ''');
+      }
+      if (from < 15) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.saveVisitPhotoToGallery,
+        );
       }
     },
   );

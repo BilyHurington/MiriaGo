@@ -26,6 +26,7 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
     this.referenceImagePath,
     this.referenceImageUrl,
     this.capturedAtOverride,
+    this.saveVisitPhotoToGallery = false,
     super.key,
   });
 
@@ -37,6 +38,7 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
   final String? referenceImagePath;
   final String? referenceImageUrl;
   final DateTime? capturedAtOverride;
+  final bool saveVisitPhotoToGallery;
 
   @override
   State<VisitRecordConfirmationScreen> createState() =>
@@ -78,6 +80,13 @@ class _VisitRecordConfirmationScreenState
       capturedAt: widget.capturedAtOverride,
     );
 
+    var attemptedGalleryBackup = false;
+    var galleryBackupSucceeded = false;
+    if (widget.saveVisitPhotoToGallery) {
+      attemptedGalleryBackup = true;
+      galleryBackupSucceeded = await saveImageToGallery(widget.photoPath);
+    }
+
     String? nextPointName;
     if (completePoint) {
       controller.completePoint(widget.point);
@@ -87,9 +96,12 @@ class _VisitRecordConfirmationScreenState
     if (!mounted) {
       return;
     }
-    final message = completePoint
-        ? (nextPointName != null ? '已保存并标记完成，下一个：$nextPointName' : '已保存并标记完成')
-        : '已保存巡礼记录';
+    final message = _saveSuccessMessage(
+      completePoint: completePoint,
+      nextPointName: nextPointName,
+      attemptedGalleryBackup: attemptedGalleryBackup,
+      galleryBackupSucceeded: galleryBackupSucceeded,
+    );
     ScaffoldMessenger.of(
       context,
     ).showReplacingSnackBar(SnackBar(content: Text(message)));
@@ -155,6 +167,30 @@ class _VisitRecordConfirmationScreenState
       ),
     );
   }
+}
+
+bool shouldAutoSaveVisitPhotoToGallery(AppSettings settings) {
+  if (!settings.saveVisitPhotoToGallery || kIsWeb) {
+    return false;
+  }
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+}
+
+String _saveSuccessMessage({
+  required bool completePoint,
+  required String? nextPointName,
+  required bool attemptedGalleryBackup,
+  required bool galleryBackupSucceeded,
+}) {
+  final base = completePoint ? '已保存并标记完成' : '已保存巡礼记录';
+  final backupText = attemptedGalleryBackup
+      ? (galleryBackupSucceeded ? '，并备份到相册' : '；相册备份失败')
+      : '';
+  final nextText = completePoint && nextPointName != null
+      ? '，下一个：$nextPointName'
+      : '';
+  return '$base$backupText$nextText';
 }
 
 Future<void> _showGallerySaveSheet(
