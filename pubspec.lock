@@ -386,10 +386,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_map_maplibre
-      sha256: d5d4c9e19ea26caa459a1a55c9cd3c5b7a5600b4400d4ecb6015cf7a8d5f63f1
+      sha256: "512f22e5209606b7ff78ebc775c4fe8b2139913b289960f9063535b63b302069"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.4"
+    version: "0.0.5"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -408,6 +408,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  geobase:
+    dependency: transitive
+    description:
+      name: geobase
+      sha256: "3a4e2eb17a7ab452dda78fb45ee498a3ab02469ded749a5f4a9abea21fc95919"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.0"
   geoclue:
     dependency: transitive
     description:
@@ -472,14 +480,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.5"
-  geotypes:
-    dependency: transitive
-    description:
-      name: geotypes
-      sha256: "5bedf57de92283133dd221e363812ef50eaaba414f0823b1974ef7d84b86991f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.2"
   glob:
     dependency: transitive
     description:
@@ -636,10 +636,18 @@ packages:
     dependency: transitive
     description:
       name: jni
-      sha256: d2c361082d554d4593c3012e26f6b188f902acd291330f13d6427641a92b3da1
+      sha256: c2230682d5bc2362c1c9e8d3c7f406d9cbba23ab3f2e203a025dd47e0fb2e68f
       url: "https://pub.dev"
     source: hosted
-    version: "0.14.2"
+    version: "1.0.0"
+  jni_flutter:
+    dependency: transitive
+    description:
+      name: jni_flutter
+      sha256: "8b59e590786050b1cd866677dddaf76b1ade5e7bc751abe04b86e84d379d3ba6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   json_annotation:
     dependency: transitive
     description:
@@ -688,6 +696,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
+  lists:
+    dependency: transitive
+    description:
+      name: lists
+      sha256: "4ca5c19ae4350de036a7e996cdd1ee39c93ac0a2b840f4915459b7d0a7d4ab27"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   logging:
     dependency: transitive
     description:
@@ -700,10 +716,42 @@ packages:
     dependency: "direct main"
     description:
       name: maplibre
-      sha256: "590d270dcee00229203fea19558e36087972cd47356e6752d2f2711894a9477b"
+      sha256: "581e17a1eca80b2be555b00acc03afff22464efd0712d68fcc46be56efa61e59"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.2"
+    version: "0.3.5"
+  maplibre_android:
+    dependency: transitive
+    description:
+      name: maplibre_android
+      sha256: a25de86c315842a6c3f470745322ae7df4d5e25eb187bf95747061a5a8ca9ad5
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5"
+  maplibre_ios:
+    dependency: transitive
+    description:
+      name: maplibre_ios
+      sha256: "037da4f1270f8fa57e2d0161d21d076406ad3ab87c323fd47ef5cfe4eb359bdd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5"
+  maplibre_platform_interface:
+    dependency: transitive
+    description:
+      name: maplibre_platform_interface
+      sha256: "4951696a38c79e0739854fd4129dbe768ffb2056b1268f1a1459c9696d255bc2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5"
+  maplibre_web:
+    dependency: transitive
+    description:
+      name: maplibre_web
+      sha256: b8fc47882dfa5f443a3492f28d8c9ae578f937de34b286cd490d1738cfb3b8b7
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5"
   matcher:
     dependency: transitive
     description:
@@ -740,10 +788,10 @@ packages:
     dependency: transitive
     description:
       name: mgrs_dart
-      sha256: "385e7168ecc77eb545220223c49eef8ab249da7bf57f22781c40a04d23fb196f"
+      sha256: fb89ae62f05fa0bb90f70c31fc870bcbcfd516c843fb554452ab3396f78586f7
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.0"
+    version: "2.0.0"
   mime:
     dependency: transitive
     description:
@@ -972,10 +1020,10 @@ packages:
     dependency: transitive
     description:
       name: proj4dart
-      sha256: ddcedc1f7876e62717de43ab3491e2829bdad0b028261805f94aa080967e5859
+      sha256: c8a659ac9b6864aa47c171e78d41bbe6f5e1d7bd790a5814249e6b68bc44324e
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.0"
+    version: "2.1.0"
   pub_semver:
     dependency: transitive
     description:
@@ -1048,14 +1096,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  simple_sparse_list:
-    dependency: transitive
-    description:
-      name: simple_sparse_list
-      sha256: aa648fd240fa39b49dcd11c19c266990006006de6699a412de485695910fbc1f
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.4"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -1161,10 +1201,10 @@ packages:
     dependency: transitive
     description:
       name: unicode
-      sha256: a6f7bcfc8ea1d5ce1f6c0b1c39117a9919f4953edd9fd7a64090a9796c499b57
+      sha256: "0f69e46593d65245774d4f17125c6084d2c20b4e473a983f6e21b7d7762218f1"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.9"
+    version: "0.3.1"
   url_launcher:
     dependency: "direct main"
     description:
