@@ -25,13 +25,19 @@ class AnitabiClient {
   }
 
   Future<List<AnitabiPoint>> fetchPoints(int bangumiId) async {
+    final staticPoints = await _fetchStaticPointsForBangumi(bangumiId);
+    if (staticPoints != null) {
+      return staticPoints;
+    }
+
+    return _fetchDetailedPoints(bangumiId);
+  }
+
+  Future<List<AnitabiPoint>> _fetchDetailedPoints(int bangumiId) async {
     final uri = Uri.parse(
       'https://api.anitabi.cn/bangumi/$bangumiId/points/detail',
     ).replace(queryParameters: const {'haveImage': 'true'});
-    final response = await _httpClient.get(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw AnitabiException(response.statusCode, response.body);
-    }
+    final response = await _checkedGet(uri);
 
     final decoded = jsonDecode(response.body) as List<Object?>;
     return decoded
@@ -46,16 +52,10 @@ class AnitabiClient {
       return null;
     }
 
-    final indexResponse = await _getAnitabiStaticJson('g.json');
-
-    final index = jsonDecode(indexResponse.body) as List<Object?>;
-    final rawWorks = (index[0] as List<Object?>).whereType<List<Object?>>();
-    final pageSize = (index[1] as num).toInt();
-    final works = rawWorks
-        .map(AnitabiMapWorkLite.fromCompactJson)
-        .toList(growable: false);
+    final staticIndex = await _fetchStaticIndex();
+    final works = staticIndex.works;
     final workById = {for (final work in works) work.bangumiId: work};
-    final pageCount = (works.length / pageSize).ceil();
+    final pageCount = (works.length / staticIndex.pageSize).ceil();
 
     for (var pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
       final pageResponse = await _getAnitabiStaticJson('g$pageIndex.json');
@@ -93,6 +93,69 @@ class AnitabiClient {
     return null;
   }
 
+  Future<List<AnitabiPoint>?> _fetchStaticPointsForBangumi(
+    int bangumiId,
+  ) async {
+    try {
+      final staticIndex = await _fetchStaticIndex();
+      final workIndex = staticIndex.works.indexWhere(
+        (work) => work.bangumiId == bangumiId,
+      );
+      if (workIndex < 0) {
+        return null;
+      }
+
+      final work = staticIndex.works[workIndex];
+      final pageIndex = workIndex ~/ staticIndex.pageSize;
+      final pageResponse = await _getAnitabiStaticJson('g$pageIndex.json');
+      final page = (jsonDecode(pageResponse.body) as List<Object?>)
+          .whereType<List<Object?>>();
+      for (final entry in page) {
+        final entryBangumiId = (entry[0] as num).toInt();
+        if (entryBangumiId != bangumiId) {
+          continue;
+        }
+
+        final pointRows = (entry[2] as List<Object?>)
+            .whereType<List<Object?>>();
+        return pointRows
+            .map((pointRow) {
+              final id = _stringValue(pointRow[0]);
+              final litePoint = id == null ? null : work.pointById(id);
+              if (litePoint == null) {
+                return null;
+              }
+
+              return AnitabiPoint.fromCompactJson(
+                pointRow,
+                bangumiId: bangumiId,
+                position: litePoint.position,
+              );
+            })
+            .nonNulls
+            .toList(growable: false);
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  Future<AnitabiStaticIndex> _fetchStaticIndex() async {
+    final indexResponse = await _getAnitabiStaticJson('g.json');
+    final index = jsonDecode(indexResponse.body) as List<Object?>;
+    final rawWorks = (index[0] as List<Object?>).whereType<List<Object?>>();
+    final works = rawWorks
+        .map(AnitabiMapWorkLite.fromCompactJson)
+        .toList(growable: false);
+
+    return AnitabiStaticIndex(
+      works: works,
+      pageSize: (index[1] as num).toInt(),
+    );
+  }
+
   Future<http.Response> _getAnitabiStaticJson(String fileName) async {
     final primaryUri = Uri.parse('https://www.anitabi.cn/d/$fileName');
     try {
@@ -118,6 +181,13 @@ class AnitabiClient {
     }
     return response;
   }
+}
+
+class AnitabiStaticIndex {
+  const AnitabiStaticIndex({required this.works, required this.pageSize});
+
+  final List<AnitabiMapWorkLite> works;
+  final int pageSize;
 }
 
 class AnitabiBangumiLite {
