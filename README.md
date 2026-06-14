@@ -21,6 +21,17 @@ MiriaGo 使用 Flutter 开发，用于规划动漫圣地巡礼、从 Anitabi 导
 
 当前目标平台包括 Android、iOS、macOS 和 Windows。桌面端由 Tauri 启动器承载 Web 前端，并把数据保存在应用同目录的本地数据文件夹中；普通 Web 版本主要用于开发预览。
 
+## 视频介绍
+
+- V1.0：[Bilibili BV1jHG26ZECg](https://www.bilibili.com/video/BV1jHG26ZECg/)
+- V1.1：[Bilibili BV1kDJA6eEfQ](https://www.bilibili.com/video/BV1kDJA6eEfQ/)
+
+## iOS TestFlight 测试
+
+如果想加入 iOS TestFlight 测试，可以加入测试群获取链接：`904476316`。
+
+群里也会提供测试版本 App。测试版本通常会比 GitHub 正式 Release 更早包含一些小 bug 修复，因为很多小修复不会立刻在 GitHub 上发布新版本。
+
 ## 为什么需要 MiriaGo
 
 巡礼前：点位散在网页里。巡礼时：相机和参考图来回切。巡礼后：照片、调色、拼图还要慢慢整理。
