@@ -3,6 +3,8 @@ import 'package:file_selector/file_selector.dart' as file_selector;
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../platform/platform_flags_stub.dart'
+    if (dart.library.io) '../platform/platform_flags_io.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/snackbar_helper.dart';
 import 'my_maps_csv_export.dart';
@@ -33,6 +35,8 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   var _exporting = false;
   var _importing = false;
 
+  bool get _usesExternalIosImport => isIosPlatform;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,17 +49,29 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
           _SectionTitle(
             icon: Icons.import_export_outlined,
             title: '导入',
-            subtitle: '选择 .sjhplan 文件，先预览内容再导入。',
+            subtitle: _usesExternalIosImport
+                ? '从文件、聊天、浏览器或网盘等位置用 MiriaGo 打开 .sjhplan。'
+                : '选择 .sjhplan 文件，先预览内容再导入。',
           ),
           const SizedBox(height: 10),
           _ActionTile(
             icon: _importing
                 ? Icons.hourglass_empty_outlined
+                : _usesExternalIosImport
+                ? Icons.open_in_new_outlined
                 : Icons.import_export_outlined,
-            title: _importing ? '读取中...' : '导入 MiriaGo 文件',
-            subtitle: '支持 v2 数据包和旧版 v1 JSON 计划包。',
+            title: _importing
+                ? '读取中...'
+                : _usesExternalIosImport
+                ? '从其他 App 打开 .sjhplan'
+                : '导入 MiriaGo 文件',
+            subtitle: _usesExternalIosImport
+                ? '在文件、聊天、浏览器下载页或网盘中选择 .sjhplan，然后分享或用 MiriaGo 打开。'
+                : '支持 v2 数据包和旧版 v1 JSON 计划包。',
             enabled: !_exporting && !_importing,
-            onTap: _importFromFile,
+            onTap: _usesExternalIosImport
+                ? _showExternalIosImportHelp
+                : _importFromFile,
           ),
           const SizedBox(height: 20),
           _SectionTitle(
@@ -95,6 +111,11 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   }
 
   Future<void> _importFromFile() async {
+    if (_usesExternalIosImport) {
+      _showExternalIosImportHelp();
+      return;
+    }
+
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _importing = true);
     try {
@@ -104,10 +125,14 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             label: 'MiriaGo plan package',
             extensions: [seichiPlanFileExtension],
             mimeTypes: [
-              seichiPlanMimeType,
               miriagoExportPackageMimeType,
+              'application/zip',
+              'application/x-zip-compressed',
+              seichiPlanMimeType,
               'application/octet-stream',
               'application/json',
+              'text/json',
+              'text/plain',
             ],
           ),
         ],
@@ -145,6 +170,25 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         setState(() => _importing = false);
       }
     }
+  }
+
+  Future<void> _showExternalIosImportHelp() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('从其他 App 打开 .sjhplan'),
+        content: const Text(
+          '请在文件、聊天、浏览器下载页、网盘或其他保存位置找到 .sjhplan 文件，然后点开文件，或使用分享/更多菜单选择 MiriaGo。\n\n'
+          'MiriaGo 收到文件后会自动进入导入预览页面。若列表里没有 MiriaGo，可以先把文件保存到“文件”App，再长按文件选择分享或打开方式。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _exportV2() async {

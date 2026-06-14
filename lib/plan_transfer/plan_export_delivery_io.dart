@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart' as file_selector;
+import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as share_plus;
@@ -47,7 +48,8 @@ Future<PlanExportDeliveryResult> deliverPlanExportImpl({
     await share_plus.Share.shareXFiles(
       [share_plus.XFile(file.path, mimeType: mimeType, name: fileName)],
       subject: shareSubject,
-      text: shareText,
+      sharePositionOrigin: _mobileSharePositionOrigin(),
+      fileNameOverrides: [fileName],
     );
     return PlanExportDeliveryResult(
       PlanExportDeliveryAction.shared,
@@ -114,4 +116,12 @@ class _FileSelectorPreparedDestination
       path: location.path,
     );
   }
+}
+
+Rect _mobileSharePositionOrigin() {
+  final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+  final size = view == null
+      ? const Size(1, 1)
+      : view.physicalSize / view.devicePixelRatio;
+  return Offset.zero & size;
 }
