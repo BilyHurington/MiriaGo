@@ -3,8 +3,6 @@ name: iOS Build Check
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
 
