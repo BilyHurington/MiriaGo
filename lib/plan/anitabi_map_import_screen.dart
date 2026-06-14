@@ -112,7 +112,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     try {
       final lite = await widget.anitabiClient.fetchBangumiLite(bangumiId);
-      final points = await widget.anitabiClient.fetchPoints(bangumiId);
+      final points = await widget.anitabiClient.fetchPoints(
+        bangumiId,
+        lite: lite,
+      );
       if (!mounted) {
         return;
       }
@@ -164,7 +167,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _didUpdatePlan = true;
       }
 
-      final points = await widget.anitabiClient.fetchPoints(lite.bangumiId);
+      final points = await widget.anitabiClient.fetchPoints(
+        lite.bangumiId,
+        lite: lite,
+      );
       if (!mounted) {
         return;
       }
@@ -787,6 +793,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return 'Anitabi 地图数据无法加载';
     }
 
+    if (error is AnitabiPartialPointsException) {
+      return 'Anitabi 点位只加载到一部分';
+    }
+
     if (error is AnitabiException && error.statusCode == 404) {
       return '这个 Bangumi 条目暂无 Anitabi 地图数据';
     }
@@ -797,6 +807,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   String _errorDetailFor(Object? error) {
     if (error is AnitabiStaticDataUnavailableException) {
       return '纯 Web 端需要通过同源代理读取 Anitabi 地图索引；当前预览服务未提供代理或网络请求被拦截。';
+    }
+
+    if (error is AnitabiPartialPointsException) {
+      return '当前只取得 ${error.loadedCount} / 共 ${error.expectedCount} 个点位。请重新加载，或检查网络是否能访问 Anitabi 地图数据。';
     }
 
     if (error is AnitabiException && error.statusCode == 404) {

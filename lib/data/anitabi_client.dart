@@ -24,13 +24,27 @@ class AnitabiClient {
     return AnitabiBangumiLite.fromJson(decoded);
   }
 
-  Future<List<AnitabiPoint>> fetchPoints(int bangumiId) async {
+  Future<List<AnitabiPoint>> fetchPoints(
+    int bangumiId, {
+    AnitabiBangumiLite? lite,
+  }) async {
     final staticPoints = await _fetchStaticPointsForBangumi(bangumiId);
     if (staticPoints != null) {
       return staticPoints;
     }
 
-    return _fetchDetailedPoints(bangumiId);
+    final detailedPoints = await _fetchDetailedPoints(bangumiId);
+    final expectedCount = lite?.pointsLength;
+    if (expectedCount != null &&
+        expectedCount > 0 &&
+        detailedPoints.length < expectedCount) {
+      throw AnitabiPartialPointsException(
+        loadedCount: detailedPoints.length,
+        expectedCount: expectedCount,
+      );
+    }
+
+    return detailedPoints;
   }
 
   Future<List<AnitabiPoint>> _fetchDetailedPoints(int bangumiId) async {
@@ -162,7 +176,12 @@ class AnitabiClient {
       return await _checkedGet(primaryUri);
     } catch (error) {
       if (!kIsWeb) {
-        rethrow;
+        final fallbackUri = Uri.parse('https://anitabi.cn/d/$fileName');
+        try {
+          return await _checkedGet(fallbackUri);
+        } catch (_) {
+          rethrow;
+        }
       }
 
       final proxyUri = Uri.base.resolve('/__anitabi_static__/$fileName');
@@ -468,5 +487,20 @@ class AnitabiStaticDataUnavailableException implements Exception {
   @override
   String toString() {
     return 'Anitabi static map data is unavailable: $cause';
+  }
+}
+
+class AnitabiPartialPointsException implements Exception {
+  const AnitabiPartialPointsException({
+    required this.loadedCount,
+    required this.expectedCount,
+  });
+
+  final int loadedCount;
+  final int expectedCount;
+
+  @override
+  String toString() {
+    return 'Only loaded $loadedCount of $expectedCount Anitabi points';
   }
 }

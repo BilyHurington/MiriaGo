@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
@@ -113,6 +114,34 @@ void main() {
 
       expect(points, hasLength(1));
       expect(points.single.id, 'p1');
+    },
+  );
+
+  test(
+    'reports partial detail API result when it is smaller than lite total',
+    () async {
+      final client = AnitabiClient(
+        httpClient: _FixtureHttpClient({
+          'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
+              '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',
+        }),
+      );
+
+      expect(
+        () => client.fetchPoints(
+          999001,
+          lite: const AnitabiBangumiLite(
+            bangumiId: 999001,
+            title: '测试作品',
+            subtitle: 'Fixture Work',
+            city: '测试市',
+            center: LatLng(34.421, 134.057),
+            zoom: 11,
+            pointsLength: 3,
+          ),
+        ),
+        throwsA(isA<AnitabiPartialPointsException>()),
+      );
     },
   );
 }

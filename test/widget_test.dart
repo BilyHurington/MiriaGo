@@ -316,7 +316,10 @@ class _FakeAnitabiClient extends AnitabiClient {
   }
 
   @override
-  Future<List<AnitabiPoint>> fetchPoints(int bangumiId) async {
+  Future<List<AnitabiPoint>> fetchPoints(
+    int bangumiId, {
+    AnitabiBangumiLite? lite,
+  }) async {
     fetchedPointPids.add(bangumiId);
     return [
       AnitabiPoint(
