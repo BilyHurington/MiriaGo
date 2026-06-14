@@ -19,10 +19,10 @@ jobs:
         include:
           - os: windows-latest
             artifact-name: miriago-desktop-windows
-            zip-name: MiriaGo-windows-x64.zip
+            platform-name: windows-x64
           - os: macos-latest
             artifact-name: miriago-desktop-macos
-            zip-name: MiriaGo-macos.zip
+            platform-name: macos
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -50,6 +50,15 @@ jobs:
           flutter pub get
           npm install
 
+      - name: Read app version
+        shell: bash
+        run: |
+          version_line="$(grep '^version:' pubspec.yaml | head -n 1)"
+          app_version="${version_line#version: }"
+          app_version="${app_version%%+*}"
+          echo "APP_VERSION=$app_version" >> "$GITHUB_ENV"
+          echo "ZIP_NAME=MiriaGo-v$app_version-${{ matrix.platform-name }}.zip" >> "$GITHUB_ENV"
+
       - name: Analyze Flutter
         run: flutter analyze --no-pub
 
@@ -76,7 +85,7 @@ jobs:
           mkdir -p "$package_dir/MiriaGoData"
           cp -R "$app_path" "$package_dir/"
           codesign --verify --deep --strict --verbose=4 "$package_dir/MiriaGo.app"
-          ditto -c -k --sequesterRsrc --keepParent "$package_dir" "dist/desktop/${{ matrix.zip-name }}"
+          ditto -c -k --sequesterRsrc --keepParent "$package_dir" "dist/desktop/$ZIP_NAME"
 
       - name: Package Windows zip
         if: runner.os == 'Windows'
@@ -93,16 +102,16 @@ jobs:
           }
           New-Item -ItemType Directory -Path "$packageDir\MiriaGoData" -Force | Out-Null
           Copy-Item $exePath "$packageDir\MiriaGo.exe"
-          Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\${{ matrix.zip-name }}" -Force
+          Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\$env:ZIP_NAME" -Force
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/desktop/${{ matrix.zip-name }}
+          path: dist/desktop/*.zip
 
       - name: Attach zip to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/desktop/${{ matrix.zip-name }}
+          files: dist/desktop/*.zip
