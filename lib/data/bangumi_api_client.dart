@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/bangumi_config.dart';
@@ -25,10 +26,10 @@ class BangumiApiClient {
     ).replace(queryParameters: const {'limit': '12'});
     final response = await _httpClient.post(
       uri,
-      headers: const {
+      headers: {
         'Authorization': 'Bearer ${BangumiConfig.apiToken}',
-        'User-Agent': BangumiConfig.userAgent,
         'Content-Type': 'application/json',
+        if (!kIsWeb) 'User-Agent': BangumiConfig.userAgent,
       },
       body: jsonEncode({
         'keyword': query,
