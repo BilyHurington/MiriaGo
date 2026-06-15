@@ -12,11 +12,16 @@ pub struct DataDirs {
 }
 
 pub fn ensure_data_dirs() -> Result<DataDirs, String> {
+    if cfg!(target_os = "macos") {
+        let data_dir = system_data_dir()?;
+        return create_data_dirs(data_dir, false, false);
+    }
+
     let portable_dir = portable_data_dir();
     match create_data_dirs(portable_dir.clone(), true, false) {
         Ok(dirs) => Ok(dirs),
         Err(_) => {
-            let fallback_dir = fallback_data_dir()?;
+            let fallback_dir = system_data_dir()?;
             create_data_dirs(fallback_dir, false, true)
         }
     }
@@ -50,28 +55,17 @@ fn create_data_dirs(
 
 fn portable_data_dir() -> PathBuf {
     let current_exe = env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
-    portable_data_dir_for_exe(current_exe, cfg!(target_os = "macos"))
+    portable_data_dir_for_exe(current_exe)
 }
 
-fn portable_data_dir_for_exe(current_exe: PathBuf, is_macos: bool) -> PathBuf {
-    if is_macos {
-        if let Some(app_bundle) = current_exe
-            .ancestors()
-            .find(|path| path.extension().is_some_and(|extension| extension == "app"))
-        {
-            if let Some(parent) = app_bundle.parent() {
-                return parent.join("MiriaGoData");
-            }
-        }
-    }
-
+fn portable_data_dir_for_exe(current_exe: PathBuf) -> PathBuf {
     current_exe
         .parent()
         .map(|parent| parent.join("MiriaGoData"))
         .unwrap_or_else(|| PathBuf::from("MiriaGoData"))
 }
 
-fn fallback_data_dir() -> Result<PathBuf, String> {
+fn system_data_dir() -> Result<PathBuf, String> {
     let base =
         dirs::data_dir().ok_or_else(|| "could not resolve system data directory".to_string())?;
     Ok(base.join("MiriaGo"))
@@ -84,21 +78,11 @@ mod tests {
     use super::portable_data_dir_for_exe;
 
     #[test]
-    fn macos_portable_data_dir_is_next_to_app_bundle() {
-        let exe = PathBuf::from("/Applications/MiriaGo/MiriaGo.app/Contents/MacOS/MiriaGo");
-
-        assert_eq!(
-            portable_data_dir_for_exe(exe, true),
-            PathBuf::from("/Applications/MiriaGo/MiriaGoData")
-        );
-    }
-
-    #[test]
     fn non_macos_portable_data_dir_uses_miriago_data_next_to_exe() {
         let exe = PathBuf::from("/opt/MiriaGo/MiriaGo.exe");
 
         assert_eq!(
-            portable_data_dir_for_exe(exe, false),
+            portable_data_dir_for_exe(exe),
             PathBuf::from("/opt/MiriaGo/MiriaGoData")
         );
     }

@@ -575,7 +575,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (info == null || !isTauriLauncherAvailable) {
       return '桌面启动器 不可用';
     }
-    final mode = info.fallbackUsed
+    final mode = info.platform == 'macos'
+        ? '系统数据目录'
+        : info.fallbackUsed
         ? '系统数据目录'
         : info.portable
         ? '便携目录'

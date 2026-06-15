@@ -19,7 +19,7 @@
 
 MiriaGo 使用 Flutter 开发，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录、自动调色与分享用对比图。
 
-当前目标平台包括 Android、iOS、macOS 和 Windows。桌面端由 Tauri 启动器承载 Web 前端，并把数据保存在应用同目录的本地数据文件夹中；普通 Web 版本主要用于开发预览。
+当前目标平台包括 Android、iOS、macOS 和 Windows。桌面端由 Tauri 启动器承载 Web 前端，并使用本地数据库和资源目录保存数据；普通 Web 版本主要用于开发预览。
 
 ## 视频介绍
 
@@ -48,7 +48,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 
 - Android APK：请前往 [Releases](https://github.com/BilyHurington/MiriaGo/releases) 下载最新版本。
 - iOS：当前通过 TestFlight 分发测试版本。
-- macOS / Windows：Release 中提供 zip 包，解压后直接运行，数据保存在随包的 `MiriaGoData` 文件夹中。
+- macOS / Windows：Release 中提供 zip 包，解压后直接运行。macOS 使用系统应用数据目录，Windows 使用随包的 `MiriaGoData` 文件夹。
 - 使用指南：[docs/USAGE.md](docs/USAGE.md)
 - 地图源默认使用 OpenFreeMap + MapLibre，也可以在设置中切换为 OpenStreetMap、自定义 XYZ 瓦片 URL 或自定义 MapLibre style URL。导航仍交给外部地图应用，例如 Google Maps 或系统地图。
 
@@ -64,7 +64,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - 自动调色：根据参考图生成可解释的调色参数，用强度滑块控制应用比例。
 - 对比图导出：导出适合分享的参考图/巡礼图对比图，支持主题、元数据和巡礼者名称。
 - 计划数据包：`.sjhplan` v2 数据包可包含计划结构、记录、照片和参考图资源，导入时可恢复本地资源。
-- 桌面端本地存储：macOS / Windows 版本使用内置数据库和本地资源目录，导出数据包与 CSV 时可选择保存位置。
+- 桌面端本地存储：macOS 使用系统应用数据目录，Windows 使用随包的 `MiriaGoData` 文件夹；导出数据包与 CSV 时可选择保存位置。
 
 ## 效果展示
 
@@ -170,7 +170,7 @@ ANDROID_KEY_PASSWORD
 
 本地签名文件不会提交到仓库。请妥善备份 release keystore。
 
-iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple Developer Team；仓库不保存个人签名团队配置。桌面端 Release 会产出 `MiriaGo-macos.zip` 和 `MiriaGo-windows-x64.zip`，zip 内包含应用本体和 `MiriaGoData` 数据文件夹。
+iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple Developer Team；仓库不保存个人签名团队配置。桌面端 Release 会产出 `MiriaGo-macos.zip` 和 `MiriaGo-windows-x64.zip`；macOS zip 只包含应用本体，Windows zip 包含应用本体和 `MiriaGoData` 数据文件夹。
 
 ## 第三方服务与数据
 

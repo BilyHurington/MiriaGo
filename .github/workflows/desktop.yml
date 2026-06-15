@@ -80,7 +80,7 @@ jobs:
           codesign --verify --deep --strict --verbose=4 "$app_path"
 
           rm -rf dist/desktop
-          mkdir -p "$package_dir/MiriaGoData"
+          mkdir -p "$package_dir"
           cp -R "$app_path" "$package_dir/"
           codesign --verify --deep --strict --verbose=4 "$package_dir/MiriaGo.app"
           ditto -c -k --sequesterRsrc --keepParent "$package_dir" "dist/desktop/$ZIP_NAME"
