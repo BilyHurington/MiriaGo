@@ -14,6 +14,7 @@ tauri-build = { version = "2", features = [] }
 base64 = "0.22"
 dirs = "6"
 rfd = "0.15"
+reqwest = { version = "0.13", features = ["blocking", "rustls"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

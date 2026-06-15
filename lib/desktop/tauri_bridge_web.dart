@@ -218,6 +218,20 @@ Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
   );
 }
 
+Future<String> fetchDesktopAnitabiStaticJson({required String fileName}) async {
+  final result = await _invokeObject('fetch_anitabi_static_json', {
+    'request': {'fileName': fileName},
+  });
+  if (result == null) {
+    throw StateError('Tauri fetch_anitabi_static_json returned no result.');
+  }
+  final body = _stringProperty(result, 'body');
+  if (body == null) {
+    throw StateError('Tauri fetch_anitabi_static_json returned no body.');
+  }
+  return body;
+}
+
 Future<DesktopAssetResult> writeDesktopAsset({
   required String path,
   required String dataBase64,

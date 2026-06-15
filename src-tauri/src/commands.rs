@@ -101,6 +101,12 @@ pub struct WriteAssetRequest {
     pub data_base64: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchAnitabiStaticJsonRequest {
+    pub file_name: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadAssetResult {
@@ -126,6 +132,12 @@ pub struct DesktopStateResult {
 pub struct ExportDestinationResult {
     pub action: String,
     pub path: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnitabiStaticJsonResult {
+    pub body: String,
 }
 
 impl From<storage::DataDirs> for LauncherInfo {
@@ -377,6 +389,18 @@ pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> 
     })
 }
 
+#[tauri::command]
+pub fn fetch_anitabi_static_json(
+    request: FetchAnitabiStaticJsonRequest,
+) -> Result<AnitabiStaticJsonResult, String> {
+    let file_name = safe_anitabi_static_file_name(&request.file_name)?;
+    let primary_url = format!("https://www.anitabi.cn/d/{file_name}");
+    let fallback_url = format!("https://anitabi.cn/d/{file_name}");
+
+    let body = fetch_text(&primary_url).or_else(|_| fetch_text(&fallback_url))?;
+    Ok(AnitabiStaticJsonResult { body })
+}
+
 fn normalize_extension(extension: &str) -> String {
     extension
         .trim()
@@ -426,6 +450,33 @@ fn safe_local_asset_path(path: &str) -> Result<PathBuf, String> {
         relative.push(segment);
     }
     Ok(relative)
+}
+
+fn safe_anitabi_static_file_name(file_name: &str) -> Result<String, String> {
+    let Some(stem) = file_name
+        .strip_prefix('g')
+        .and_then(|value| value.strip_suffix(".json"))
+    else {
+        return Err(format!("invalid Anitabi static file name: {file_name}"));
+    };
+    if !stem.chars().all(|character| character.is_ascii_digit()) {
+        return Err(format!("invalid Anitabi static file name: {file_name}"));
+    }
+    Ok(file_name.to_string())
+}
+
+fn fetch_text(url: &str) -> Result<String, String> {
+    let response = reqwest::blocking::Client::builder()
+        .user_agent("MiriaGo desktop launcher")
+        .build()
+        .map_err(|error| error.to_string())?
+        .get(url)
+        .send()
+        .map_err(|error| error.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("request failed: {}", response.status()));
+    }
+    response.text().map_err(|error| error.to_string())
 }
 
 fn mime_type_for_path(path: &std::path::Path) -> String {

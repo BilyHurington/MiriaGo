@@ -21,7 +21,8 @@ fn main() {
             commands::delete_desktop_visit_record,
             commands::restore_import_assets,
             commands::write_asset,
-            commands::read_asset
+            commands::read_asset,
+            commands::fetch_anitabi_static_json
         ])
         .run(tauri::generate_context!())
         .expect("failed to run MiriaGo desktop launcher");

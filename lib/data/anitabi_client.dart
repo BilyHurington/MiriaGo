@@ -1,17 +1,22 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_url.dart';
+import 'anitabi_static_data_reader.dart';
 
 class AnitabiClient {
-  AnitabiClient({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+  AnitabiClient({
+    http.Client? httpClient,
+    AnitabiStaticDataReader? staticDataReader,
+  }) : _httpClient = httpClient ?? http.Client(),
+       _staticDataReader =
+           staticDataReader ?? AnitabiStaticDataReader(httpClient: httpClient);
 
   final http.Client _httpClient;
+  final AnitabiStaticDataReader _staticDataReader;
 
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
     final uri = Uri.parse('https://api.anitabi.cn/bangumi/$bangumiId/lite');
@@ -171,26 +176,12 @@ class AnitabiClient {
   }
 
   Future<http.Response> _getAnitabiStaticJson(String fileName) async {
-    final primaryUri = Uri.parse('https://www.anitabi.cn/d/$fileName');
-    try {
-      return await _checkedGet(primaryUri);
-    } catch (error) {
-      if (!kIsWeb) {
-        final fallbackUri = Uri.parse('https://anitabi.cn/d/$fileName');
-        try {
-          return await _checkedGet(fallbackUri);
-        } catch (_) {
-          rethrow;
-        }
-      }
-
-      final proxyUri = Uri.base.resolve('/__anitabi_static__/$fileName');
-      try {
-        return await _checkedGet(proxyUri);
-      } catch (_) {
-        throw AnitabiStaticDataUnavailableException(error);
-      }
-    }
+    final body = await _staticDataReader.read(fileName);
+    return http.Response.bytes(
+      utf8.encode(body),
+      200,
+      headers: const {'content-type': 'application/json; charset=utf-8'},
+    );
   }
 
   Future<http.Response> _checkedGet(Uri uri) async {
