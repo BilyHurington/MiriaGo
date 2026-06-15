@@ -20,10 +20,6 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>app.miriago.plan</string>
-				<string>public.zip-archive</string>
-				<string>com.pkware.zip-archive</string>
-				<string>public.json</string>
-				<string>public.data</string>
 			</array>
 		</dict>
 	</array>
