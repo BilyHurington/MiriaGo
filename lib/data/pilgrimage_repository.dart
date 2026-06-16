@@ -26,6 +26,12 @@ abstract interface class PilgrimageRepository {
     required String name,
   });
 
+  Future<PilgrimagePlan> updatePlanInfo({
+    required String planId,
+    required String name,
+    required String area,
+  });
+
   Future<PilgrimagePlan> addPointToPlan({
     required String planId,
     required PilgrimagePoint point,

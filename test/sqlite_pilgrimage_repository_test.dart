@@ -160,7 +160,11 @@ void main() {
     final repository = SqlitePilgrimageRepository(database: database);
     final plan = await repository.loadActivePlan();
 
-    await repository.renamePlan(planId: plan.id, name: '改名后的计划');
+    await repository.updatePlanInfo(
+      planId: plan.id,
+      name: '改名后的计划',
+      area: '京都市',
+    );
     await repository.saveAppSettings(
       const AppSettings(
         uiScale: 1.5,
@@ -177,6 +181,7 @@ void main() {
     final settings = await repository.loadAppSettings();
 
     expect(reloadedPlan.name, '改名后的计划');
+    expect(reloadedPlan.area, '京都市');
     expect(settings.uiScale, 1.5);
     expect(settings.cameraCaptureAspectRatio, CameraPhotoAspectRatio.photo3x2);
     expect(

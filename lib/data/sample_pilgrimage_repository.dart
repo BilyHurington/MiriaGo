@@ -136,9 +136,20 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String name,
   }) async {
+    final plan = _plans[_planIndex(planId)];
+    return updatePlanInfo(planId: planId, name: name, area: plan.area);
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePlanInfo({
+    required String planId,
+    required String name,
+    required String area,
+  }) async {
     final index = _planIndex(planId);
     final updatedPlan = _plans[index].copyWith(
       name: name,
+      area: area,
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;

@@ -97,18 +97,35 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     await _loadPlans();
   }
 
-  Future<void> _renamePlan(PilgrimagePlan plan) async {
-    final controller = TextEditingController(text: plan.name);
-    final name = await showDialog<String>(
+  Future<void> _editPlanInfo(PilgrimagePlan plan) async {
+    final nameController = TextEditingController(text: plan.name);
+    final areaController = TextEditingController(text: plan.area);
+    final result = await showDialog<_PlanInfoFormResult>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重命名计划'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '计划名称'),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        title: const Text('编辑计划信息'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: '计划名称'),
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: areaController,
+              decoration: const InputDecoration(labelText: '地区 / 区域'),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => Navigator.of(context).pop(
+                _PlanInfoFormResult(
+                  name: nameController.text.trim(),
+                  area: areaController.text.trim(),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -116,18 +133,33 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () => Navigator.of(context).pop(
+              _PlanInfoFormResult(
+                name: nameController.text.trim(),
+                area: areaController.text.trim(),
+              ),
+            ),
             child: const Text('保存'),
           ),
         ],
       ),
     );
-    controller.dispose();
-    if (name == null || name.isEmpty || name == plan.name) {
+    nameController.dispose();
+    areaController.dispose();
+    if (result == null || result.name.isEmpty) {
       return;
     }
 
-    await widget.repository.renamePlan(planId: plan.id, name: name);
+    final area = result.area.isEmpty ? '未设置区域' : result.area;
+    if (result.name == plan.name && area == plan.area) {
+      return;
+    }
+
+    await widget.repository.updatePlanInfo(
+      planId: plan.id,
+      name: result.name,
+      area: area,
+    );
     await _loadPlans();
   }
 
@@ -172,7 +204,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                 selected: plan.id == _activePlan?.id,
                 canDelete: plans.length > 1,
                 onSwitch: () => _switchPlan(plan),
-                onRename: () => _renamePlan(plan),
+                onRename: () => _editPlanInfo(plan),
                 onExport: () => _openImportExport(plan),
                 onDelete: () => _deletePlan(plan),
               );
@@ -184,6 +216,13 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       ),
     );
   }
+}
+
+class _PlanInfoFormResult {
+  const _PlanInfoFormResult({required this.name, required this.area});
+
+  final String name;
+  final String area;
 }
 
 class _CreatePlanButton extends StatelessWidget {
@@ -315,7 +354,7 @@ class _PlanCard extends StatelessWidget {
                     child: const Text('切换'),
                   ),
                 _CompactPlanButton(
-                  tooltip: '重命名计划',
+                  tooltip: '编辑计划信息',
                   onPressed: onRename,
                   icon: const Icon(Icons.edit_outlined, size: 22),
                 ),

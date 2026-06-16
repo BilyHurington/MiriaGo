@@ -200,10 +200,24 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String name,
   }) async {
+    final plan = await _planFromRow(await _planRowById(planId));
+    return updatePlanInfo(planId: planId, name: name, area: plan.area);
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePlanInfo({
+    required String planId,
+    required String name,
+    required String area,
+  }) async {
     await (_database.update(
       _database.plans,
     )..where((table) => table.id.equals(planId))).write(
-      PlansCompanion(name: Value(name), updatedAt: Value(DateTime.now())),
+      PlansCompanion(
+        name: Value(name),
+        area: Value(area),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
     return _planFromRow(await _planRowById(planId));
   }

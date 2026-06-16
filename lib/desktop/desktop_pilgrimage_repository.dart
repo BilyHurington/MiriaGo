@@ -94,6 +94,17 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePlanInfo({
+    required String planId,
+    required String name,
+    required String area,
+  }) {
+    return _withPlanSave(
+      () => super.updatePlanInfo(planId: planId, name: name, area: area),
+    );
+  }
+
+  @override
   Future<PilgrimagePlan> addPointToPlan({
     required String planId,
     required PilgrimagePoint point,
