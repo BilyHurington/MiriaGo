@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+const _exportNetworkTimeout = Duration(seconds: 8);
+
 Future<List<int>?> readExportAssetBytes(String path) async {
   final normalizedPath = path.trim();
   if (normalizedPath.isEmpty || _isNetworkUrl(normalizedPath)) {
@@ -27,7 +29,9 @@ Future<List<int>?> readExportNetworkBytes(String url) async {
     return null;
   }
   try {
-    final response = await http.get(Uri.parse(normalizedUrl));
+    final response = await http
+        .get(Uri.parse(normalizedUrl))
+        .timeout(_exportNetworkTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;
     }

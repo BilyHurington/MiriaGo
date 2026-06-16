@@ -214,7 +214,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         options: options,
         exportedAt: exportedAt,
       );
-      return deliverPlanExport(
+      final result = await deliverPlanExport(
         bytes: package.bytes,
         fileName: package.fileName,
         mimeType: miriagoExportPackageMimeType,
@@ -223,6 +223,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         extension: seichiPlanFileExtension,
         destination: destination,
       );
+      return _PlanExportRunResult(result, package.warnings);
     }, successMessage: '数据包已导出');
   }
 
@@ -234,7 +235,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         mimeType: export.mimeType,
         extension: myMapsCsvExtension,
       );
-      return deliverPlanExport(
+      final result = await deliverPlanExport(
         bytes: export.bytes,
         fileName: export.fileName,
         mimeType: export.mimeType,
@@ -243,11 +244,12 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         extension: myMapsCsvExtension,
         destination: destination,
       );
+      return _PlanExportRunResult(result);
     }, successMessage: 'My Maps CSV 已导出');
   }
 
   Future<void> _runExport(
-    Future<PlanExportDeliveryResult> Function() action, {
+    Future<_PlanExportRunResult> Function() action, {
     required String successMessage,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -258,11 +260,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (!mounted) {
         return;
       }
-      if (result.action == PlanExportDeliveryAction.canceled) {
+      if (result.delivery.action == PlanExportDeliveryAction.canceled) {
         messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
         return;
       }
-      messenger.showReplacingSnackBar(SnackBar(content: Text(successMessage)));
+      messenger.showReplacingSnackBar(
+        SnackBar(content: Text(result.successMessage(successMessage))),
+      );
     } on PlanExportCanceledException {
       if (!mounted) {
         return;
@@ -278,6 +282,20 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         setState(() => _exporting = false);
       }
     }
+  }
+}
+
+class _PlanExportRunResult {
+  const _PlanExportRunResult(this.delivery, [this.warnings = const <String>[]]);
+
+  final PlanExportDeliveryResult delivery;
+  final List<String> warnings;
+
+  String successMessage(String fallback) {
+    if (warnings.isEmpty) {
+      return fallback;
+    }
+    return '$fallback，部分资源未能加入';
   }
 }
 

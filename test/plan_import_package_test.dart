@@ -16,7 +16,10 @@ void main() {
     final record = records.firstWhere(
       (record) => record.gradedPhotoPath != null,
     );
-    final point = plan.points.first;
+    final point = plan.points.first.copyWith(
+      referenceThumbnailPath: 'docs/sample_images/铃音-记录详情页面-调色前.jpg',
+      referenceFullImagePath: 'docs/sample_images/铃音-记录详情页面-调色后.jpg',
+    );
     final package = await buildPlanExportV2Package(
       plan: plan.copyWith(points: [point]),
       visitRecords: [record],
@@ -24,7 +27,6 @@ void main() {
         mode: PlanExportV2Mode.planWithRecords,
         includeFullReferenceCache: true,
       ),
-      networkBytesReader: (url) async => utf8.encode('asset:$url'),
     );
 
     final importPackage = readPlanImportPackageFromBytes(

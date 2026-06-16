@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import '../desktop/desktop_asset_image.dart';
 import '../desktop/tauri_bridge.dart' as tauri;
 
+const _exportNetworkTimeout = Duration(seconds: 8);
+
 Future<List<int>?> readExportAssetBytes(String path) async {
   final normalizedPath = path.trim();
   if (normalizedPath.isEmpty || _isNetworkUrl(normalizedPath)) {
@@ -34,7 +36,9 @@ Future<List<int>?> readExportNetworkBytes(String url) async {
     return null;
   }
   try {
-    final response = await http.get(Uri.parse(normalizedUrl));
+    final response = await http
+        .get(Uri.parse(normalizedUrl))
+        .timeout(_exportNetworkTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;
     }
