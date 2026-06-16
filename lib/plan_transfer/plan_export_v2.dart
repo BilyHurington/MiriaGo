@@ -44,7 +44,7 @@ typedef ExportNetworkBytesReader = Future<List<int>?> Function(String url);
 const miriagoExportPackageFormat = 'miriago_export_package';
 const miriagoExportPackageMimeType = 'application/vnd.miriago.plan+zip';
 const miriagoExportSchemaVersion = 2;
-const miriagoAppVersion = '1.1.2+10';
+const miriagoAppVersion = '1.1.2+12';
 
 Future<PlanExportV2Result> buildPlanExportV2Package({
   required PilgrimagePlan plan,

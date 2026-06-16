@@ -63,7 +63,7 @@ void main() {
     final recordJson = visitRecords.single as Map<String, Object?>;
     final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
 
-    expect(manifest['appVersion'], '1.1.2+10');
+    expect(manifest['appVersion'], '1.1.2+12');
     expect(archive.files.any((file) => file.name.startsWith('assets/')), true);
     expect(assetCounts['thumbnails'], 1);
     expect(assetCounts['fullReferences'], 1);
