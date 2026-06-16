@@ -82,8 +82,8 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
               icon: Icons.map_outlined,
               title: '从作品地图导入点位',
               body: '在 Anitabi 地图上查看作品点位，点击缩略图详情后加入计划。',
-              enabled: _hasBangumiWork(currentPlan),
-              actionLabel: _hasBangumiWork(currentPlan) ? '打开' : '需作品',
+              enabled: currentPlan != null,
+              actionLabel: currentPlan == null ? '不可用' : '打开',
               onTap: currentPlan == null
                   ? null
                   : () => _openAnitabiMapImport(context, currentPlan),
@@ -199,10 +199,6 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       _plan = plans.firstWhere((plan) => plan.id == planId);
       _didUpdate = true;
     });
-  }
-
-  bool _hasBangumiWork(PilgrimagePlan? plan) {
-    return plan?.works.any((work) => work.bangumiId != null) ?? false;
   }
 }
 

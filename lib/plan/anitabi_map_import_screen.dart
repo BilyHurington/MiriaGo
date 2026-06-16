@@ -59,9 +59,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Offset? _selectionStart;
   Offset? _selectionEnd;
 
-  List<PilgrimageWork> get _bangumiWorks => _importedPlan.works
-      .where((work) => work.bangumiId != null)
-      .toList(growable: false);
+  List<PilgrimageWork> get _works => _importedPlan.works;
 
   @override
   void initState() {
@@ -78,10 +76,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     if (initialBangumiId != null) {
       _loadInitialBangumiId(initialBangumiId);
     } else {
-      final works = _bangumiWorks;
+      final works = _works;
       if (works.isNotEmpty) {
-        _selectedWork = works.first;
-        _loadPoints(works.first);
+        final bangumiWork = works
+            .where((work) => work.bangumiId != null)
+            .firstOrNull;
+        final initialWork = bangumiWork ?? works.first;
+        _selectedWork = initialWork;
+        if (initialWork.bangumiId != null) {
+          _loadPoints(initialWork);
+        }
       }
     }
   }
@@ -99,6 +103,15 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Future<void> _loadPoints(PilgrimageWork work) async {
     final bangumiId = work.bangumiId;
     if (bangumiId == null) {
+      setState(() {
+        _selectedWork = work;
+        _isLoading = false;
+        _error = null;
+        _lite = null;
+        _points = const [];
+        _selectedPoint = null;
+      });
+      _showManualWorkMessage();
       return;
     }
 
@@ -141,6 +154,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         });
       }
     }
+  }
+
+  void _showManualWorkMessage() {
+    ScaffoldMessenger.of(context).showReplacingSnackBar(
+      const SnackBar(content: Text('手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。')),
+    );
   }
 
   Future<void> _loadInitialBangumiId(int bangumiId) async {
@@ -596,7 +615,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final works = _bangumiWorks;
+    final works = _works;
     final selectedPoint = _selectedPoint;
 
     return PopScope(
@@ -657,7 +676,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                   final initialBangumiId = widget.initialBangumiId;
                   if (initialBangumiId != null && _selectedWork == null) {
                     _loadInitialBangumiId(initialBangumiId);
-                  } else if (_selectedWork != null || works.isNotEmpty) {
+                  } else if (_selectedWork?.bangumiId != null ||
+                      works.any((work) => work.bangumiId != null)) {
                     _loadPoints(_selectedWork ?? works.first);
                   } else {
                     setState(() {
@@ -673,6 +693,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                 return const _ImportLoadingState();
               }
               return const _EmptyImportState();
+            }
+
+            if (_selectedWork?.bangumiId == null && _points.isEmpty) {
+              return const _ManualWorkImportState();
             }
 
             return LayoutBuilder(
@@ -1505,6 +1529,29 @@ class _EmptyImportState extends StatelessWidget {
           style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 14,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualWorkImportState extends StatelessWidget {
+  const _ManualWorkImportState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          '手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。\n\n请通过 Bangumi/Anitabi 搜索添加作品，或使用手动添加点位。',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.45,
             letterSpacing: 0,
           ),
         ),

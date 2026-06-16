@@ -300,6 +300,39 @@ void main() {
     expect(works.single.id, existingWork.id);
     expect(anitabiClient.lookedUpPointIds, contains('point-1'));
   });
+
+  testWidgets('Anitabi map import explains manual works', (tester) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '手动作品测试', area: '京都');
+    final manualWork = PilgrimageWork(
+      id: 'manual-work',
+      title: '原创短片',
+      subtitle: 'Original',
+      city: '京都',
+      source: WorkSource.manual,
+    );
+    final planWithWork = await repository.addWorkToPlan(
+      planId: plan.id,
+      work: manualWork,
+    );
+    final anitabiClient = _FakeAnitabiClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: planWithWork,
+          repository: repository,
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('从作品地图导入'), findsOneWidget);
+    expect(find.textContaining('手动添加的作品没有 Bangumi ID'), findsOneWidget);
+    expect(anitabiClient.fetchedPointPids, isEmpty);
+    expect(anitabiClient.lookedUpPointIds, isEmpty);
+  });
 }
 
 class _FakeAnitabiClient extends AnitabiClient {
