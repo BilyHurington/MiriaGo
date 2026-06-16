@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "preview:web": "node tool/web_preview_server.mjs",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
