@@ -304,6 +304,14 @@ class PointDetailSheet extends StatelessWidget {
                     value: point.sourceUrl!,
                   ),
                 ],
+                if (point.note?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.sticky_note_2_outlined,
+                    label: '备注',
+                    value: point.note!,
+                  ),
+                ],
                 if (records.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   _PointRecordsPreview(

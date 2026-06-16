@@ -311,6 +311,7 @@ class PilgrimagePoint {
     this.referenceThumbnailPath,
     this.referenceFullImagePath,
     this.sourceUrl,
+    this.note,
     this.groupId,
     this.groupOrderIndex,
   });
@@ -328,6 +329,7 @@ class PilgrimagePoint {
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
   final String? sourceUrl;
+  final String? note;
   final String? groupId;
   final int? groupOrderIndex;
 
@@ -357,6 +359,7 @@ class PilgrimagePoint {
           ? this.referenceFullImagePath
           : referenceFullImagePath as String?,
       sourceUrl: sourceUrl,
+      note: note,
       groupId: groupId == _unset ? this.groupId : groupId as String?,
       groupOrderIndex: groupOrderIndex == _unset
           ? this.groupOrderIndex

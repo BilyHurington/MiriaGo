@@ -226,6 +226,7 @@ Map<String, Object?> _pointJson(PilgrimagePoint point) {
     'referenceThumbnailPath': point.referenceThumbnailPath,
     'referenceFullImagePath': point.referenceFullImagePath,
     'sourceUrl': point.sourceUrl,
+    'note': point.note,
     'groupId': point.groupId,
     'groupOrderIndex': point.groupOrderIndex,
   };
@@ -263,6 +264,7 @@ PilgrimagePoint _pointFromJson(
     referenceThumbnailPath: json['referenceThumbnailPath'] as String?,
     referenceFullImagePath: json['referenceFullImagePath'] as String?,
     sourceUrl: json['sourceUrl'] as String?,
+    note: json['note'] as String?,
     groupId: json['groupId'] as String?,
     groupOrderIndex: (json['groupOrderIndex'] as num?)?.toInt(),
   );

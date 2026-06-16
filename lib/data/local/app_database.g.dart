@@ -1758,6 +1758,15 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _groupIdMeta = const VerificationMeta(
     'groupId',
   );
@@ -1838,6 +1847,7 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
     referenceThumbnailPath,
     referenceFullImagePath,
     sourceUrl,
+    note,
     groupId,
     groupOrderIndex,
     sortOrder,
@@ -1978,6 +1988,12 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
       );
     }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
     if (data.containsKey('group_id')) {
       context.handle(
         _groupIdMeta,
@@ -2083,6 +2099,10 @@ class $PointsTable extends Points with TableInfo<$PointsTable, Point> {
         DriftSqlType.string,
         data['${effectivePrefix}source_url'],
       ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
       groupId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}group_id'],
@@ -2128,6 +2148,7 @@ class Point extends DataClass implements Insertable<Point> {
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
   final String? sourceUrl;
+  final String? note;
   final String? groupId;
   final int? groupOrderIndex;
   final int sortOrder;
@@ -2149,6 +2170,7 @@ class Point extends DataClass implements Insertable<Point> {
     this.referenceThumbnailPath,
     this.referenceFullImagePath,
     this.sourceUrl,
+    this.note,
     this.groupId,
     this.groupOrderIndex,
     required this.sortOrder,
@@ -2186,6 +2208,9 @@ class Point extends DataClass implements Insertable<Point> {
     }
     if (!nullToAbsent || sourceUrl != null) {
       map['source_url'] = Variable<String>(sourceUrl);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
     }
     if (!nullToAbsent || groupId != null) {
       map['group_id'] = Variable<String>(groupId);
@@ -2228,6 +2253,7 @@ class Point extends DataClass implements Insertable<Point> {
       sourceUrl: sourceUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceUrl),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       groupId: groupId == null && nullToAbsent
           ? const Value.absent()
           : Value(groupId),
@@ -2269,6 +2295,7 @@ class Point extends DataClass implements Insertable<Point> {
         json['referenceFullImagePath'],
       ),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
+      note: serializer.fromJson<String?>(json['note']),
       groupId: serializer.fromJson<String?>(json['groupId']),
       groupOrderIndex: serializer.fromJson<int?>(json['groupOrderIndex']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
@@ -2299,6 +2326,7 @@ class Point extends DataClass implements Insertable<Point> {
         referenceFullImagePath,
       ),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
+      'note': serializer.toJson<String?>(note),
       'groupId': serializer.toJson<String?>(groupId),
       'groupOrderIndex': serializer.toJson<int?>(groupOrderIndex),
       'sortOrder': serializer.toJson<int>(sortOrder),
@@ -2323,6 +2351,7 @@ class Point extends DataClass implements Insertable<Point> {
     Value<String?> referenceThumbnailPath = const Value.absent(),
     Value<String?> referenceFullImagePath = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
+    Value<String?> note = const Value.absent(),
     Value<String?> groupId = const Value.absent(),
     Value<int?> groupOrderIndex = const Value.absent(),
     int? sortOrder,
@@ -2350,6 +2379,7 @@ class Point extends DataClass implements Insertable<Point> {
         ? referenceFullImagePath.value
         : this.referenceFullImagePath,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
+    note: note.present ? note.value : this.note,
     groupId: groupId.present ? groupId.value : this.groupId,
     groupOrderIndex: groupOrderIndex.present
         ? groupOrderIndex.value
@@ -2385,6 +2415,7 @@ class Point extends DataClass implements Insertable<Point> {
           ? data.referenceFullImagePath.value
           : this.referenceFullImagePath,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      note: data.note.present ? data.note.value : this.note,
       groupId: data.groupId.present ? data.groupId.value : this.groupId,
       groupOrderIndex: data.groupOrderIndex.present
           ? data.groupOrderIndex.value
@@ -2415,6 +2446,7 @@ class Point extends DataClass implements Insertable<Point> {
           ..write('referenceThumbnailPath: $referenceThumbnailPath, ')
           ..write('referenceFullImagePath: $referenceFullImagePath, ')
           ..write('sourceUrl: $sourceUrl, ')
+          ..write('note: $note, ')
           ..write('groupId: $groupId, ')
           ..write('groupOrderIndex: $groupOrderIndex, ')
           ..write('sortOrder: $sortOrder, ')
@@ -2425,7 +2457,7 @@ class Point extends DataClass implements Insertable<Point> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     planId,
     workId,
@@ -2441,12 +2473,13 @@ class Point extends DataClass implements Insertable<Point> {
     referenceThumbnailPath,
     referenceFullImagePath,
     sourceUrl,
+    note,
     groupId,
     groupOrderIndex,
     sortOrder,
     isCurrent,
     completedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2466,6 +2499,7 @@ class Point extends DataClass implements Insertable<Point> {
           other.referenceThumbnailPath == this.referenceThumbnailPath &&
           other.referenceFullImagePath == this.referenceFullImagePath &&
           other.sourceUrl == this.sourceUrl &&
+          other.note == this.note &&
           other.groupId == this.groupId &&
           other.groupOrderIndex == this.groupOrderIndex &&
           other.sortOrder == this.sortOrder &&
@@ -2489,6 +2523,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
   final Value<String?> referenceThumbnailPath;
   final Value<String?> referenceFullImagePath;
   final Value<String?> sourceUrl;
+  final Value<String?> note;
   final Value<String?> groupId;
   final Value<int?> groupOrderIndex;
   final Value<int> sortOrder;
@@ -2511,6 +2546,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.referenceThumbnailPath = const Value.absent(),
     this.referenceFullImagePath = const Value.absent(),
     this.sourceUrl = const Value.absent(),
+    this.note = const Value.absent(),
     this.groupId = const Value.absent(),
     this.groupOrderIndex = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -2534,6 +2570,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
     this.referenceThumbnailPath = const Value.absent(),
     this.referenceFullImagePath = const Value.absent(),
     this.sourceUrl = const Value.absent(),
+    this.note = const Value.absent(),
     this.groupId = const Value.absent(),
     this.groupOrderIndex = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -2566,6 +2603,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Expression<String>? referenceThumbnailPath,
     Expression<String>? referenceFullImagePath,
     Expression<String>? sourceUrl,
+    Expression<String>? note,
     Expression<String>? groupId,
     Expression<int>? groupOrderIndex,
     Expression<int>? sortOrder,
@@ -2591,6 +2629,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
       if (referenceFullImagePath != null)
         'reference_full_image_path': referenceFullImagePath,
       if (sourceUrl != null) 'source_url': sourceUrl,
+      if (note != null) 'note': note,
       if (groupId != null) 'group_id': groupId,
       if (groupOrderIndex != null) 'group_order_index': groupOrderIndex,
       if (sortOrder != null) 'sort_order': sortOrder,
@@ -2616,6 +2655,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
     Value<String?>? referenceThumbnailPath,
     Value<String?>? referenceFullImagePath,
     Value<String?>? sourceUrl,
+    Value<String?>? note,
     Value<String?>? groupId,
     Value<int?>? groupOrderIndex,
     Value<int>? sortOrder,
@@ -2641,6 +2681,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
       referenceFullImagePath:
           referenceFullImagePath ?? this.referenceFullImagePath,
       sourceUrl: sourceUrl ?? this.sourceUrl,
+      note: note ?? this.note,
       groupId: groupId ?? this.groupId,
       groupOrderIndex: groupOrderIndex ?? this.groupOrderIndex,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -2702,6 +2743,9 @@ class PointsCompanion extends UpdateCompanion<Point> {
     if (sourceUrl.present) {
       map['source_url'] = Variable<String>(sourceUrl.value);
     }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
     if (groupId.present) {
       map['group_id'] = Variable<String>(groupId.value);
     }
@@ -2741,6 +2785,7 @@ class PointsCompanion extends UpdateCompanion<Point> {
           ..write('referenceThumbnailPath: $referenceThumbnailPath, ')
           ..write('referenceFullImagePath: $referenceFullImagePath, ')
           ..write('sourceUrl: $sourceUrl, ')
+          ..write('note: $note, ')
           ..write('groupId: $groupId, ')
           ..write('groupOrderIndex: $groupOrderIndex, ')
           ..write('sortOrder: $sortOrder, ')
@@ -6203,6 +6248,7 @@ typedef $$PointsTableCreateCompanionBuilder =
       Value<String?> referenceThumbnailPath,
       Value<String?> referenceFullImagePath,
       Value<String?> sourceUrl,
+      Value<String?> note,
       Value<String?> groupId,
       Value<int?> groupOrderIndex,
       Value<int> sortOrder,
@@ -6227,6 +6273,7 @@ typedef $$PointsTableUpdateCompanionBuilder =
       Value<String?> referenceThumbnailPath,
       Value<String?> referenceFullImagePath,
       Value<String?> sourceUrl,
+      Value<String?> note,
       Value<String?> groupId,
       Value<int?> groupOrderIndex,
       Value<int> sortOrder,
@@ -6362,6 +6409,11 @@ class $$PointsTableFilterComposer
 
   ColumnFilters<String> get sourceUrl => $composableBuilder(
     column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6529,6 +6581,11 @@ class $$PointsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get groupOrderIndex => $composableBuilder(
     column: $table.groupOrderIndex,
     builder: (column) => ColumnOrderings(column),
@@ -6677,6 +6734,9 @@ class $$PointsTableAnnotationComposer
   GeneratedColumn<String> get sourceUrl =>
       $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
 
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
   GeneratedColumn<int> get groupOrderIndex => $composableBuilder(
     column: $table.groupOrderIndex,
     builder: (column) => column,
@@ -6806,6 +6866,7 @@ class $$PointsTableTableManager
                 Value<String?> referenceThumbnailPath = const Value.absent(),
                 Value<String?> referenceFullImagePath = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
+                Value<String?> note = const Value.absent(),
                 Value<String?> groupId = const Value.absent(),
                 Value<int?> groupOrderIndex = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -6828,6 +6889,7 @@ class $$PointsTableTableManager
                 referenceThumbnailPath: referenceThumbnailPath,
                 referenceFullImagePath: referenceFullImagePath,
                 sourceUrl: sourceUrl,
+                note: note,
                 groupId: groupId,
                 groupOrderIndex: groupOrderIndex,
                 sortOrder: sortOrder,
@@ -6852,6 +6914,7 @@ class $$PointsTableTableManager
                 Value<String?> referenceThumbnailPath = const Value.absent(),
                 Value<String?> referenceFullImagePath = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
+                Value<String?> note = const Value.absent(),
                 Value<String?> groupId = const Value.absent(),
                 Value<int?> groupOrderIndex = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -6874,6 +6937,7 @@ class $$PointsTableTableManager
                 referenceThumbnailPath: referenceThumbnailPath,
                 referenceFullImagePath: referenceFullImagePath,
                 sourceUrl: sourceUrl,
+                note: note,
                 groupId: groupId,
                 groupOrderIndex: groupOrderIndex,
                 sortOrder: sortOrder,

@@ -134,6 +134,7 @@ Map<String, Object?> _pointToJson(PilgrimagePoint point) {
     'referenceThumbnailPath': point.referenceThumbnailPath,
     'referenceFullImagePath': point.referenceFullImagePath,
     'sourceUrl': point.sourceUrl,
+    'note': point.note,
   };
 }
 
@@ -172,6 +173,7 @@ PilgrimagePoint _pointFromJson(
     referenceThumbnailPath: json['referenceThumbnailPath'] as String?,
     referenceFullImagePath: json['referenceFullImagePath'] as String?,
     sourceUrl: json['sourceUrl'] as String?,
+    note: json['note'] as String?,
   );
 }
 

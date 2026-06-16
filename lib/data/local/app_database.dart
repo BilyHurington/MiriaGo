@@ -61,6 +61,7 @@ class Points extends Table {
   TextColumn get referenceThumbnailPath => text().nullable()();
   TextColumn get referenceFullImagePath => text().nullable()();
   TextColumn get sourceUrl => text().nullable()();
+  TextColumn get note => text().nullable()();
   TextColumn get groupId => text().nullable().references(PlanGroups, #id)();
   IntColumn get groupOrderIndex => integer().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
@@ -129,7 +130,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -259,6 +260,9 @@ class AppDatabase extends _$AppDatabase {
           appSettingsEntries,
           appSettingsEntries.saveVisitPhotoToGallery,
         );
+      }
+      if (from < 16) {
+        await migrator.addColumn(points, points.note);
       }
     },
   );

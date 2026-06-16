@@ -1208,6 +1208,7 @@ class _AnitabiPointCard extends StatelessWidget {
       point.name,
       point.subtitle,
       point.episodeLabel,
+      point.note ?? '',
       point.origin,
       '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}',
     ].where((value) => value.trim().isNotEmpty).join('\n');
@@ -1329,6 +1330,14 @@ class _AnitabiPointDetailSheet extends StatelessWidget {
                           label: '场景',
                           value: '${point.subtitle} / ${point.episodeLabel}',
                         ),
+                        if (point.note?.trim().isNotEmpty == true) ...[
+                          const SizedBox(height: 6),
+                          _AnitabiDetailInfoLine(
+                            icon: Icons.sticky_note_2_outlined,
+                            label: '备注',
+                            value: point.note!,
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         _AnitabiDetailInfoLine(
                           icon: Icons.source_outlined,

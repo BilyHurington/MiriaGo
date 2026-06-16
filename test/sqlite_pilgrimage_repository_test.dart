@@ -77,14 +77,34 @@ void main() {
     final repository = SqlitePilgrimageRepository(database: database);
     final sourcePlan = await repository.loadActivePlan();
     final emptyPlan = await repository.createPlan(name: '空计划', area: '京都');
+    final sourcePoint = sourcePlan.points.first;
+    final pointWithNote = PilgrimagePoint(
+      id: sourcePoint.id,
+      work: sourcePoint.work,
+      name: sourcePoint.name,
+      subtitle: sourcePoint.subtitle,
+      position: sourcePoint.position,
+      episodeLabel: sourcePoint.episodeLabel,
+      referenceLabel: sourcePoint.referenceLabel,
+      source: sourcePoint.source,
+      sourceId: sourcePoint.sourceId,
+      referenceImageUrl: sourcePoint.referenceImageUrl,
+      referenceThumbnailPath: sourcePoint.referenceThumbnailPath,
+      referenceFullImagePath: sourcePoint.referenceFullImagePath,
+      sourceUrl: sourcePoint.sourceUrl,
+      note: '翻修后外观已有变化',
+      groupId: sourcePoint.groupId,
+      groupOrderIndex: sourcePoint.groupOrderIndex,
+    );
 
     final updatedPlan = await repository.addPointToPlan(
       planId: emptyPlan.id,
-      point: sourcePlan.points.first,
+      point: pointWithNote,
     );
 
     expect(updatedPlan.points, hasLength(1));
     expect(updatedPlan.currentPointId, sourcePlan.points.first.id);
+    expect(updatedPlan.points.single.note, '翻修后外观已有变化');
   });
 
   test('repairs missing current target when loading persisted plan', () async {

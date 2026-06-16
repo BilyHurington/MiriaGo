@@ -85,7 +85,7 @@ void main() {
         'https://www.anitabi.cn/d/g.json':
             '[[[999001,"测试作品",0,"Fixture Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["p1",34.1,134.1,1,"p2",34.2,134.2,2,"p3",34.3,134.3,3]]],250,1780488405409]',
         'https://www.anitabi.cn/d/g0.json':
-            '[[999001,0,[["p1","地点一",0,0,0,0,"/images/points/999001/p1.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"],["p2","地点二",0,0,0,0,"/images/points/999001/p2.jpg",0,2,130,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"],["p3","地点三",0,0,0,0,"/images/points/999001/p3.jpg",0,3,135,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1771771832628]]',
+            '[[999001,0,[["p1","地点一",0,0,0,0,"/images/points/999001/p1.jpg",0,1,125,"备注一","Anitabi","https://anitabi.cn/map?bangumi=999001"],["p2","地点二",0,0,0,0,"/images/points/999001/p2.jpg",0,2,130,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"],["p3","地点三",0,0,0,0,"/images/points/999001/p3.jpg",0,3,135,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1771771832628]]',
         'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
             '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',
       }),
@@ -94,6 +94,7 @@ void main() {
     final points = await client.fetchPoints(999001);
 
     expect(points.map((point) => point.id), ['p1', 'p2', 'p3']);
+    expect(points.first.note, '备注一');
     expect(points[1].position.latitude, 34.2);
     expect(
       points[2].referenceImageUrl,
@@ -131,50 +132,44 @@ void main() {
     expect(points.map((point) => point.id), ['p1', 'p2']);
   });
 
-  test(
-    'falls back to detail API when static Anitabi map data is unavailable',
-    () async {
-      final client = AnitabiClient(
-        httpClient: _FixtureHttpClient({
-          'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
-              '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',
-        }),
-      );
+  test('throws when static Anitabi map data is unavailable', () async {
+    final client = AnitabiClient(
+      httpClient: _FixtureHttpClient({
+        'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
+            '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',
+      }),
+    );
 
-      final points = await client.fetchPoints(999001);
+    expect(
+      () => client.fetchPoints(999001),
+      throwsA(isA<AnitabiStaticDataUnavailableException>()),
+    );
+  });
 
-      expect(points, hasLength(1));
-      expect(points.single.id, 'p1');
-    },
-  );
+  test('does not use detail API when lite total is available', () async {
+    final client = AnitabiClient(
+      httpClient: _FixtureHttpClient({
+        'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
+            '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',
+      }),
+    );
 
-  test(
-    'reports partial detail API result when it is smaller than lite total',
-    () async {
-      final client = AnitabiClient(
-        httpClient: _FixtureHttpClient({
-          'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
-              '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',
-        }),
-      );
-
-      expect(
-        () => client.fetchPoints(
-          999001,
-          lite: const AnitabiBangumiLite(
-            bangumiId: 999001,
-            title: '测试作品',
-            subtitle: 'Fixture Work',
-            city: '测试市',
-            center: LatLng(34.421, 134.057),
-            zoom: 11,
-            pointsLength: 3,
-          ),
+    expect(
+      () => client.fetchPoints(
+        999001,
+        lite: const AnitabiBangumiLite(
+          bangumiId: 999001,
+          title: '测试作品',
+          subtitle: 'Fixture Work',
+          city: '测试市',
+          center: LatLng(34.421, 134.057),
+          zoom: 11,
+          pointsLength: 3,
         ),
-        throwsA(isA<AnitabiPartialPointsException>()),
-      );
-    },
-  );
+      ),
+      throwsA(isA<AnitabiStaticDataUnavailableException>()),
+    );
+  });
 }
 
 class _FixtureHttpClient extends http.BaseClient {

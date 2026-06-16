@@ -980,6 +980,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceThumbnailPath: Value(point.referenceThumbnailPath),
       referenceFullImagePath: Value(point.referenceFullImagePath),
       sourceUrl: Value(point.sourceUrl),
+      note: Value(point.note),
       groupId: Value(point.groupId),
       groupOrderIndex: Value(point.groupOrderIndex),
       sortOrder: Value(sortOrder),
@@ -1075,6 +1076,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           referenceThumbnailPath: point.referenceThumbnailPath,
           referenceFullImagePath: point.referenceFullImagePath,
           sourceUrl: point.sourceUrl,
+          note: point.note,
           groupId: point.groupId == null
               ? null
               : groupIdMap[point.groupId] ?? point.groupId,
@@ -1194,6 +1196,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceThumbnailPath: row.referenceThumbnailPath,
       referenceFullImagePath: row.referenceFullImagePath,
       sourceUrl: row.sourceUrl,
+      note: row.note,
       groupId: row.groupId,
       groupOrderIndex: row.groupOrderIndex,
     );

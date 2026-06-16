@@ -34,35 +34,23 @@ class AnitabiClient {
     AnitabiBangumiLite? lite,
   }) async {
     final staticPoints = await _fetchStaticPointsForBangumi(bangumiId);
-    if (staticPoints != null) {
-      return staticPoints;
+    if (staticPoints == null) {
+      throw AnitabiStaticDataUnavailableException(
+        'No static points for Bangumi $bangumiId',
+      );
     }
 
-    final detailedPoints = await _fetchDetailedPoints(bangumiId);
     final expectedCount = lite?.pointsLength;
     if (expectedCount != null &&
         expectedCount > 0 &&
-        detailedPoints.length < expectedCount) {
+        staticPoints.length < expectedCount) {
       throw AnitabiPartialPointsException(
-        loadedCount: detailedPoints.length,
+        loadedCount: staticPoints.length,
         expectedCount: expectedCount,
       );
     }
 
-    return detailedPoints;
-  }
-
-  Future<List<AnitabiPoint>> _fetchDetailedPoints(int bangumiId) async {
-    final uri = Uri.parse(
-      'https://api.anitabi.cn/bangumi/$bangumiId/points/detail',
-    ).replace(queryParameters: const {'haveImage': 'true'});
-    final response = await _checkedGet(uri);
-
-    final decoded = jsonDecode(response.body) as List<Object?>;
-    return decoded
-        .whereType<Map<String, Object?>>()
-        .map((json) => AnitabiPoint.fromJson(json, bangumiId: bangumiId))
-        .toList(growable: false);
+    return staticPoints;
   }
 
   Future<AnitabiPointLookupResult?> findPointById(String pointId) async {
@@ -184,13 +172,6 @@ class AnitabiClient {
     );
   }
 
-  Future<http.Response> _checkedGet(Uri uri) async {
-    final response = await _httpClient.get(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw AnitabiException(response.statusCode, response.body);
-    }
-    return response;
-  }
 }
 
 class AnitabiStaticIndex {
@@ -330,6 +311,7 @@ class AnitabiPoint {
     required this.referenceImageUrl,
     required this.origin,
     required this.originUrl,
+    this.note,
   });
 
   factory AnitabiPoint.fromJson(
@@ -354,6 +336,7 @@ class AnitabiPoint {
       ),
       origin: _stringValue(json['origin']) ?? 'Anitabi',
       originUrl: _stringValue(json['originURL']),
+      note: _stringValue(json['mark']) ?? _stringValue(json['description']),
     );
   }
 
@@ -379,6 +362,7 @@ class AnitabiPoint {
       ),
       origin: _compactStringValue(json[11]) ?? 'Anitabi',
       originUrl: _compactStringValue(json[12]),
+      note: _compactStringValue(json[10]),
     );
   }
 
@@ -391,6 +375,7 @@ class AnitabiPoint {
   final String? referenceImageUrl;
   final String origin;
   final String? originUrl;
+  final String? note;
 
   PilgrimagePoint toPilgrimagePoint(PilgrimageWork work) {
     return PilgrimagePoint(
@@ -405,6 +390,7 @@ class AnitabiPoint {
       sourceId: id,
       referenceImageUrl: referenceImageUrl,
       sourceUrl: originUrl,
+      note: note,
     );
   }
 

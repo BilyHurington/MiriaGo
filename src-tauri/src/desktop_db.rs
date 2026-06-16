@@ -206,6 +206,7 @@ impl DesktopDatabase {
                   reference_thumbnail_path TEXT,
                   reference_full_image_path TEXT,
                   source_url TEXT,
+                  note TEXT,
                   group_id TEXT,
                   group_order_index INTEGER,
                   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -256,6 +257,7 @@ impl DesktopDatabase {
             )
             .map_err(|error| error.to_string())?;
         self.ensure_app_settings_columns()?;
+        self.ensure_points_columns()?;
 
         if self.plan_count()? == 0 {
             if let Some(snapshot) = self.load_legacy_state_json()? {
@@ -299,6 +301,27 @@ impl DesktopDatabase {
                     &format!("ALTER TABLE app_settings ADD COLUMN {name} {definition}"),
                     [],
                 )
+                .map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+
+    fn ensure_points_columns(&self) -> Result<(), String> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA table_info(points)")
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|error| error.to_string())?;
+        let mut columns = Vec::new();
+        for row in rows {
+            columns.push(row.map_err(|error| error.to_string())?);
+        }
+
+        if !columns.iter().any(|column| column == "note") {
+            self.connection
+                .execute("ALTER TABLE points ADD COLUMN note TEXT", [])
                 .map_err(|error| error.to_string())?;
         }
         Ok(())
@@ -506,7 +529,7 @@ impl DesktopDatabase {
                 "SELECT id, work_id, name, subtitle, latitude, longitude, episode_label,
                         reference_label, source, source_id, reference_image_url,
                         reference_thumbnail_path, reference_full_image_path, source_url,
-                        group_id, group_order_index, is_current, completed_at
+                        note, group_id, group_order_index, is_current, completed_at
                  FROM points WHERE plan_id = ?1 ORDER BY sort_order ASC",
             )
             .map_err(|error| error.to_string())?;
@@ -527,10 +550,11 @@ impl DesktopDatabase {
                     "referenceThumbnailPath": row.get::<_, Option<String>>(11)?,
                     "referenceFullImagePath": row.get::<_, Option<String>>(12)?,
                     "sourceUrl": row.get::<_, Option<String>>(13)?,
-                    "groupId": row.get::<_, Option<String>>(14)?,
-                    "groupOrderIndex": row.get::<_, Option<i64>>(15)?,
-                    "isCurrent": row.get::<_, i64>(16)? != 0,
-                    "completedAt": row.get::<_, Option<String>>(17)?,
+                    "note": row.get::<_, Option<String>>(14)?,
+                    "groupId": row.get::<_, Option<String>>(15)?,
+                    "groupOrderIndex": row.get::<_, Option<i64>>(16)?,
+                    "isCurrent": row.get::<_, i64>(17)? != 0,
+                    "completedAt": row.get::<_, Option<String>>(18)?,
                 }))
             })
             .map_err(|error| error.to_string())?;
@@ -809,9 +833,9 @@ fn insert_point(
         "INSERT INTO points (
            id, plan_id, work_id, name, subtitle, latitude, longitude, episode_label,
            reference_label, source, source_id, reference_image_url, reference_thumbnail_path,
-           reference_full_image_path, source_url, group_id, group_order_index, sort_order,
+           reference_full_image_path, source_url, note, group_id, group_order_index, sort_order,
            is_current, completed_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
         params![
             point_id,
             plan_id,
@@ -828,6 +852,7 @@ fn insert_point(
             optional_string(point, "referenceThumbnailPath"),
             optional_string(point, "referenceFullImagePath"),
             optional_string(point, "sourceUrl"),
+            optional_string(point, "note"),
             optional_string(point, "groupId"),
             optional_i64(point, "groupOrderIndex"),
             sort_order as i64,

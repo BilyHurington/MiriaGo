@@ -233,6 +233,8 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
   Object? _error;
   bool _isSearching = false;
   bool _isAdding = false;
+  bool _didAdd = false;
+  final Set<String> _addedWorkIds = {};
 
   @override
   void dispose() {
@@ -296,7 +298,13 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
         return;
       }
 
-      Navigator.of(context).pop(true);
+      setState(() {
+        _didAdd = true;
+        _addedWorkIds.add(work.id);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showReplacingSnackBar(SnackBar(content: Text('已添加「${work.title}」。')));
     } catch (_) {
       if (!mounted) {
         return;
@@ -316,72 +324,87 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('搜索 Bangumi')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          _FormSection(
-            children: [
-              TextField(
-                controller: _queryController,
-                decoration: const InputDecoration(
-                  labelText: '作品名称',
-                  hintText: '例如 轻音少女',
-                ),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _search(),
-              ),
-              const SizedBox(height: 12),
-              _BangumiTypeFilter(
-                selectedTypes: _selectedTypes,
-                onChanged: (types) {
-                  setState(() {
-                    _selectedTypes = types;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _isSearching ? null : _search,
-                icon: _isSearching
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search, size: 18),
-                label: Text(_isSearching ? '搜索中' : '搜索作品'),
-              ),
-            ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        Navigator.of(context).pop(_didAdd);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('搜索 Bangumi'),
+          leading: BackButton(
+            onPressed: () => Navigator.of(context).pop(_didAdd),
           ),
-          const SizedBox(height: 12),
-          if (_error != null)
-            const _MessageCard(
-              icon: Icons.error_outline,
-              text: 'Bangumi 搜索失败，请检查网络后重试。',
-            )
-          else if (_results.isEmpty)
-            const _MessageCard(
-              icon: Icons.info_outline,
-              text: '输入作品名后搜索，选择结果即可加入当前计划。',
-            )
-          else
-            for (final work in _results) ...[
-              _WorkResultCard(
-                work: work,
-                disabled: _isAdding || _hasWork(widget.plan, work),
-                onAdd: () => _addWork(work),
-              ),
-              const SizedBox(height: 8),
-            ],
-        ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _FormSection(
+              children: [
+                TextField(
+                  controller: _queryController,
+                  decoration: const InputDecoration(
+                    labelText: '作品名称',
+                    hintText: '例如 轻音少女',
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _search(),
+                ),
+                const SizedBox(height: 12),
+                _BangumiTypeFilter(
+                  selectedTypes: _selectedTypes,
+                  onChanged: (types) {
+                    setState(() {
+                      _selectedTypes = types;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _isSearching ? null : _search,
+                  icon: _isSearching
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.search, size: 18),
+                  label: Text(_isSearching ? '搜索中' : '搜索作品'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_error != null)
+              const _MessageCard(
+                icon: Icons.error_outline,
+                text: 'Bangumi 搜索失败，请检查网络后重试。',
+              )
+            else if (_results.isEmpty)
+              const _MessageCard(
+                icon: Icons.info_outline,
+                text: '输入作品名后搜索，选择结果即可加入当前计划。',
+              )
+            else
+              for (final work in _results) ...[
+                _WorkResultCard(
+                  work: work,
+                  disabled: _isAdding || _hasWork(widget.plan, work),
+                  onAdd: () => _addWork(work),
+                ),
+                const SizedBox(height: 8),
+              ],
+          ],
+        ),
       ),
     );
   }
 
   bool _hasWork(PilgrimagePlan plan, PilgrimageWork work) {
-    return plan.works.any((candidate) => candidate.id == work.id);
+    return _addedWorkIds.contains(work.id) ||
+        plan.works.any((candidate) => candidate.id == work.id);
   }
 }
 
@@ -561,6 +584,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
   final _subtitleController = TextEditingController();
   final _cityController = TextEditingController();
   bool _isSaving = false;
+  bool _didAdd = false;
 
   @override
   void dispose() {
@@ -598,7 +622,14 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
         return;
       }
 
-      Navigator.of(context).pop(true);
+      setState(() {
+        _didAdd = true;
+      });
+      _titleController.clear();
+      _subtitleController.clear();
+      ScaffoldMessenger.of(
+        context,
+      ).showReplacingSnackBar(SnackBar(content: Text('已添加「$title」。')));
     } catch (_) {
       if (!mounted) {
         return;
@@ -618,55 +649,69 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('手动添加作品')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _FormSection(
-              children: [
-                TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(labelText: '作品名称'),
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredText,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _subtitleController,
-                  decoration: const InputDecoration(
-                    labelText: '作品原名',
-                    hintText: '可选',
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        Navigator.of(context).pop(_didAdd);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('手动添加作品'),
+          leading: BackButton(
+            onPressed: () => Navigator.of(context).pop(_didAdd),
+          ),
+        ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              _FormSection(
+                children: [
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: '作品名称'),
+                    textInputAction: TextInputAction.next,
+                    validator: _requiredText,
                   ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _cityController,
-                  decoration: InputDecoration(
-                    labelText: '主要地区',
-                    hintText: '可选，默认 ${widget.plan.area}',
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _subtitleController,
+                    decoration: const InputDecoration(
+                      labelText: '作品原名',
+                      hintText: '可选',
+                    ),
+                    textInputAction: TextInputAction.next,
                   ),
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _saveWork(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _saveWork,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check_outlined, size: 18),
-              label: Text(_isSaving ? '保存中' : '保存作品'),
-            ),
-          ],
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cityController,
+                    decoration: InputDecoration(
+                      labelText: '主要地区',
+                      hintText: '可选，默认 ${widget.plan.area}',
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _saveWork(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _isSaving ? null : _saveWork,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_outlined, size: 18),
+                label: Text(_isSaving ? '保存中' : '保存作品'),
+              ),
+            ],
+          ),
         ),
       ),
     );

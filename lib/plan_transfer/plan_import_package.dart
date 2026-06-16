@@ -456,6 +456,7 @@ PilgrimagePoint _pointFromV2Json(
     referenceThumbnailPath: json['referenceThumbnailPath'] as String?,
     referenceFullImagePath: json['referenceFullImagePath'] as String?,
     sourceUrl: json['sourceUrl'] as String?,
+    note: json['note'] as String?,
     groupId: json['groupId'] as String?,
     groupOrderIndex: (json['groupOrderIndex'] as num?)?.toInt(),
   );
