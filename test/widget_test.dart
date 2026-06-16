@@ -150,6 +150,10 @@ void main() {
     await tester.tap(find.text('保存作品'));
     await tester.pumpAndSettle();
 
+    expect(find.text('手动添加作品'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
     expect(find.text('原创短片'), findsOneWidget);
     expect(find.textContaining('0 个点位'), findsOneWidget);
   });
