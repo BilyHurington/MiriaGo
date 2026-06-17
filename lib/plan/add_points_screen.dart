@@ -16,6 +16,21 @@ import 'anitabi_map_import_screen.dart';
 import 'pilgrimage_models.dart';
 import 'work_manager_screen.dart';
 
+InputDecoration stableInputDecoration({
+  required String labelText,
+  String? hintText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+}) {
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    helperText: ' ',
+  );
+}
+
 class AddPointsScreen extends StatefulWidget {
   AddPointsScreen({
     required this.plan,
@@ -545,7 +560,7 @@ class _AnitabiPointIdImportScreenState
               children: [
                 TextFormField(
                   controller: _pointIdController,
-                  decoration: const InputDecoration(
+                  decoration: stableInputDecoration(
                     labelText: 'Anitabi 点位 ID',
                     hintText: '例如 qdmnf6iqj',
                   ),
@@ -698,7 +713,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
                 children: [
                   TextFormField(
                     controller: _titleController,
-                    decoration: const InputDecoration(labelText: '作品名称'),
+                    decoration: stableInputDecoration(labelText: '作品名称'),
                     textInputAction: TextInputAction.next,
                     validator: _requiredText,
                   ),
@@ -993,7 +1008,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                 else ...[
                   TextFormField(
                     controller: _fallbackWorkTitleController,
-                    decoration: const InputDecoration(labelText: '动画/作品名称'),
+                    decoration: stableInputDecoration(labelText: '动画/作品名称'),
                     textInputAction: TextInputAction.next,
                     validator: _requiredText,
                   ),
@@ -1023,28 +1038,28 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: '点位名称'),
+                  decoration: stableInputDecoration(labelText: '点位名称'),
                   textInputAction: TextInputAction.next,
                   validator: _requiredText,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _subtitleController,
-                  decoration: const InputDecoration(labelText: '位置说明'),
+                  decoration: stableInputDecoration(labelText: '位置说明'),
                   textInputAction: TextInputAction.next,
                   validator: _requiredText,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _episodeController,
-                  decoration: const InputDecoration(labelText: '集数/场景标签'),
+                  decoration: stableInputDecoration(labelText: '集数/场景标签'),
                   textInputAction: TextInputAction.next,
                   validator: _requiredText,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _referenceController,
-                  decoration: const InputDecoration(labelText: '参考来源'),
+                  decoration: stableInputDecoration(labelText: '参考来源'),
                   textInputAction: TextInputAction.next,
                   validator: _requiredText,
                 ),
@@ -1061,7 +1076,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _latitudeController,
-                  decoration: const InputDecoration(
+                  decoration: stableInputDecoration(
                     labelText: '纬度',
                     hintText: '例如 34.8917',
                   ),
@@ -1075,7 +1090,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _longitudeController,
-                  decoration: const InputDecoration(
+                  decoration: stableInputDecoration(
                     labelText: '经度',
                     hintText: '例如 135.8077',
                   ),
