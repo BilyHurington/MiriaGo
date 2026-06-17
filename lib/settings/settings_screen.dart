@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
+import '../app_version.dart';
 import '../app_theme.dart';
 import '../camera_reference/camera_zoom_capabilities.dart';
 import '../desktop/tauri_bridge.dart';
@@ -25,12 +26,14 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   CameraZoomCapabilities _zoomCapabilities = CameraZoomCapabilities.fallback;
   DesktopLauncherInfo? _desktopLauncherInfo;
+  String? _appVersionLabel;
   var _desktopLauncherLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _loadZoomCapabilities();
+    _loadAppVersionLabel();
     if (_shouldShowDesktopSection) {
       _loadDesktopLauncherInfo();
     }
@@ -56,6 +59,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _desktopLauncherInfo = info;
       _desktopLauncherLoaded = true;
+    });
+  }
+
+  Future<void> _loadAppVersionLabel() async {
+    final label = await loadAppVersionLabel();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _appVersionLabel = label;
     });
   }
 
@@ -500,10 +514,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          const _SettingsSection(
+          _SettingsSection(
             title: '关于',
             children: [
-              Row(
+              const Row(
                 children: [
                   _AppIconMark(),
                   SizedBox(width: 12),
@@ -534,24 +548,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: 14),
-              _InfoRow(icon: Icons.new_releases_outlined, text: '版本 1.1.2'),
-              SizedBox(height: 10),
-              _InfoRow(icon: Icons.person_outline, text: 'BilyHurington'),
-              SizedBox(height: 10),
+              const SizedBox(height: 14),
               _InfoRow(
+                icon: Icons.new_releases_outlined,
+                text: '版本 ${_appVersionLabel ?? '读取中'}',
+              ),
+              const SizedBox(height: 10),
+              const _InfoRow(icon: Icons.person_outline, text: 'BilyHurington'),
+              const SizedBox(height: 10),
+              const _InfoRow(
                 icon: Icons.mail_outline,
                 text: 'bilyhurington@gmail.com',
               ),
-              SizedBox(height: 10),
-              _InfoRow(
+              const SizedBox(height: 10),
+              const _InfoRow(
                 icon: Icons.code_outlined,
                 text: 'github.com/BilyHurington/MiriaGo',
               ),
-              SizedBox(height: 10),
-              _InfoRow(icon: Icons.balance_outlined, text: 'MIT License'),
-              SizedBox(height: 12),
-              Text(
+              const SizedBox(height: 10),
+              const _InfoRow(icon: Icons.balance_outlined, text: 'MIT License'),
+              const SizedBox(height: 12),
+              const Text(
                 '地图可使用 OpenFreeMap、OpenStreetMap 或自定义服务；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
                 style: TextStyle(
                   color: AppColors.textSecondary,

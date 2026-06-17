@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
+import 'plan_group_utils.dart';
 
 class PilgrimagePlanController extends ChangeNotifier {
   PilgrimagePlanController({
@@ -87,9 +88,11 @@ class PilgrimagePlanController extends ChangeNotifier {
     _completedPointIds.add(point.id);
 
     if (point.id == _currentPointId) {
-      final nextPoint = points
-          .where((candidate) => !_completedPointIds.contains(candidate.id))
-          .firstOrNull;
+      final nextPoint = nextPendingPointAfterCompletion(
+        points: points,
+        completedPoint: point,
+        completedPointIds: _completedPointIds,
+      );
       _currentPointId = nextPoint?.id;
       _selectedPointId = nextPoint?.id ?? point.id;
     }

@@ -103,6 +103,28 @@ List<PilgrimagePoint> sortPointsByPlanOrder(Iterable<PilgrimagePoint> points) {
   return sorted;
 }
 
+PilgrimagePoint? nextPendingPointAfterCompletion({
+  required Iterable<PilgrimagePoint> points,
+  required PilgrimagePoint completedPoint,
+  required Set<String> completedPointIds,
+}) {
+  final sortedPoints = sortPointsByPlanOrder(points);
+  final sameGroupNext = sortedPoints
+      .where(
+        (point) =>
+            point.groupId == completedPoint.groupId &&
+            !completedPointIds.contains(point.id),
+      )
+      .firstOrNull;
+  if (sameGroupNext != null) {
+    return sameGroupNext;
+  }
+
+  return sortedPoints
+      .where((point) => !completedPointIds.contains(point.id))
+      .firstOrNull;
+}
+
 List<PilgrimagePoint> displayPointsForGroup(
   PlanGroupBucket group, {
   required PointSortMode sortMode,
@@ -135,10 +157,14 @@ LatLng groupMapCenter(PlanGroupBucket group) {
   }
 
   final latitude =
-      group.points.map((point) => point.position.latitude).reduce((a, b) => a + b) /
+      group.points
+          .map((point) => point.position.latitude)
+          .reduce((a, b) => a + b) /
       group.points.length;
   final longitude =
-      group.points.map((point) => point.position.longitude).reduce((a, b) => a + b) /
+      group.points
+          .map((point) => point.position.longitude)
+          .reduce((a, b) => a + b) /
       group.points.length;
   return LatLng(latitude, longitude);
 }
@@ -251,7 +277,9 @@ List<math.Point<double>> _convexHull(List<math.Point<double>> points) {
 
 math.Point<double> _latLngToWorldPixel(LatLng latLng, double zoom) {
   final scale = 256 * math.pow(2, zoom).toDouble();
-  final sinLat = math.sin(latLng.latitude * math.pi / 180).clamp(-0.9999, 0.9999);
+  final sinLat = math
+      .sin(latLng.latitude * math.pi / 180)
+      .clamp(-0.9999, 0.9999);
   final x = (latLng.longitude + 180) / 360 * scale;
   final y =
       (0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi)) * scale;

@@ -837,10 +837,11 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   Future<void> _complete(PilgrimagePoint point) async {
     final completedPointIds = {..._plan.completedPointIds, point.id};
     final nextCurrentPointId = _plan.currentPointId == point.id
-        ? _plan.points
-              .where((candidate) => !completedPointIds.contains(candidate.id))
-              .firstOrNull
-              ?.id
+        ? nextPendingPointAfterCompletion(
+            points: _plan.points,
+            completedPoint: point,
+            completedPointIds: completedPointIds,
+          )?.id
         : _plan.currentPointId;
     await _saveStatusChange(
       action: () => widget.repository.completePoint(

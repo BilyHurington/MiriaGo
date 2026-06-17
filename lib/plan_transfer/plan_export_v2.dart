@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 
+import '../app_version.dart';
 import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 import 'plan_export_asset_stub.dart'
@@ -44,7 +45,6 @@ typedef ExportNetworkBytesReader = Future<List<int>?> Function(String url);
 const miriagoExportPackageFormat = 'miriago_export_package';
 const miriagoExportPackageMimeType = 'application/vnd.miriago.plan+zip';
 const miriagoExportSchemaVersion = 2;
-const miriagoAppVersion = '1.1.2+12';
 
 Future<PlanExportV2Result> buildPlanExportV2Package({
   required PilgrimagePlan plan,
