@@ -106,7 +106,7 @@ class _CamerawesomeReferenceScreenState
   }
 
   Future<CaptureRequest> _buildPhotoPath(List<Sensor> sensors) async {
-    final path = await camera_storage.buildReferencePhotoPath();
+    final path = await camera_storage.buildVisitRecordPhotoPath();
     return SingleCaptureRequest(path, sensors.first);
   }
 
@@ -165,7 +165,19 @@ class _CamerawesomeReferenceScreenState
       _galleryImage = picked;
     });
     final capturedAt = await readGalleryCaptureTime(picked.path);
-    await _openConfirmation(picked.path, capturedAtOverride: capturedAt);
+    String photoPath;
+    try {
+      photoPath = await camera_storage.copyVisitRecordPhoto(picked.path);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('照片导入失败，请重新选择。')));
+      return;
+    }
+    await _openConfirmation(photoPath, capturedAtOverride: capturedAt);
   }
 
   Future<XFile?> _pickImageInPortrait() async {
