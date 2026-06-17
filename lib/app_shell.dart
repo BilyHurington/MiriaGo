@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
@@ -68,7 +69,9 @@ class _AppShellState extends State<AppShell> {
         );
         _settings = settings;
       });
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load active pilgrimage plan: $error');
+      debugPrint(stackTrace.toString());
       if (!mounted) {
         return;
       }
@@ -349,6 +352,18 @@ class _PlanLoadState extends StatelessWidget {
                   letterSpacing: 0,
                 ),
               ),
+              if (hasError && kDebugMode) ...[
+                const SizedBox(height: 10),
+                SelectableText(
+                  error.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               if (hasError)
                 OutlinedButton.icon(

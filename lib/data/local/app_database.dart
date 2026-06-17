@@ -266,18 +266,44 @@ class AppDatabase extends _$AppDatabase {
         );
       }
       if (from < 16) {
-        await migrator.addColumn(points, points.note);
+        await _addColumnIfMissing(
+          migrator,
+          'points',
+          'note',
+          points,
+          points.note,
+        );
       }
       if (from < 17) {
-        await migrator.addColumn(
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'comparison_show_pilgrim_name',
           appSettingsEntries,
           appSettingsEntries.comparisonShowPilgrimName,
         );
-        await migrator.addColumn(
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'comparison_pilgrim_name',
           appSettingsEntries,
           appSettingsEntries.comparisonPilgrimName,
         );
       }
     },
   );
+
+  Future<void> _addColumnIfMissing(
+    Migrator migrator,
+    String tableName,
+    String columnName,
+    TableInfo<Table, Object?> table,
+    GeneratedColumn<Object> column,
+  ) async {
+    final columns = await customSelect('PRAGMA table_info($tableName)').get();
+    final exists = columns.any((row) => row.data['name'] == columnName);
+    if (!exists) {
+      await migrator.addColumn(table, column);
+    }
+  }
 }
