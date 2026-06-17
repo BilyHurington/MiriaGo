@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -13,6 +14,7 @@ import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'anitabi_map_import_screen.dart';
+import 'coordinate_parser.dart';
 import 'pilgrimage_models.dart';
 import 'work_manager_screen.dart';
 
@@ -923,6 +925,28 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     });
   }
 
+  Future<void> _pasteCoordinateFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final coordinate = parseCoordinateText(data?.text ?? '');
+    if (!mounted) {
+      return;
+    }
+    if (coordinate == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showReplacingSnackBar(const SnackBar(content: Text('剪切板中没有可识别的坐标。')));
+      return;
+    }
+
+    setState(() {
+      _latitudeController.text = coordinate.latitude.toStringAsFixed(6);
+      _longitudeController.text = coordinate.longitude.toStringAsFixed(6);
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showReplacingSnackBar(const SnackBar(content: Text('已填入剪切板坐标。')));
+  }
+
   void _removeReferenceImage() {
     setState(() {
       _pickedReferenceImage = null;
@@ -1068,10 +1092,24 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
             const SizedBox(height: 12),
             _FormSection(
               children: [
-                OutlinedButton.icon(
-                  onPressed: _isSaving ? null : _pickCoordinateFromMap,
-                  icon: const Icon(Icons.ads_click_outlined, size: 18),
-                  label: const Text('从地图选择坐标'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isSaving ? null : _pickCoordinateFromMap,
+                        icon: const Icon(Icons.ads_click_outlined, size: 18),
+                        label: const Text('从地图选择坐标'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.outlined(
+                      tooltip: '粘贴剪切板坐标',
+                      onPressed: _isSaving
+                          ? null
+                          : _pasteCoordinateFromClipboard,
+                      icon: const Icon(Icons.content_paste_outlined),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
