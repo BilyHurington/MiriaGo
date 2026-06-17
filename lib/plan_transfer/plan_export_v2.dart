@@ -340,7 +340,7 @@ Map<String, Object?> _workJson(PilgrimageWork work) {
   return {
     'id': work.id,
     'bangumiId': work.bangumiId,
-    'bangumiSubjectType': work.bangumiSubjectType,
+    'bangumiSubjectType': work.bangumiSubjectType?.name,
     'title': work.title,
     'subtitle': work.subtitle,
     'city': work.city,

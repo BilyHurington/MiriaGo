@@ -323,7 +323,9 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
     } on _ExportAbortedException {
       return;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Plan export failed: $error');
+      debugPrint(stackTrace.toString());
       if (!_isCurrentExport(generation)) {
         return;
       }

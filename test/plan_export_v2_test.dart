@@ -219,4 +219,68 @@ void main() {
     expect(assetCounts['thumbnails'], 0);
     expect(assetCounts['fullReferences'], 0);
   });
+
+  test('exports works with Bangumi subject types', () async {
+    final now = DateTime(2026, 6, 18, 12);
+    final plan = PilgrimagePlan(
+      id: 'typed-works-plan',
+      name: '分类作品计划',
+      area: '测试地区',
+      works: const [
+        PilgrimageWork(
+          id: 'anime-work',
+          bangumiId: 1,
+          bangumiSubjectType: BangumiSubjectType.anime,
+          title: '动画作品',
+          subtitle: 'Anime',
+          city: '动画 / 2026',
+          source: WorkSource.bangumi,
+        ),
+        PilgrimageWork(
+          id: 'game-work',
+          bangumiId: 2,
+          bangumiSubjectType: BangumiSubjectType.game,
+          title: '游戏作品',
+          subtitle: 'Game',
+          city: '游戏 / 2026',
+          source: WorkSource.bangumi,
+        ),
+        PilgrimageWork(
+          id: 'book-work',
+          bangumiId: 3,
+          bangumiSubjectType: BangumiSubjectType.book,
+          title: '书籍作品',
+          subtitle: 'Book',
+          city: '书籍 / 2026',
+          source: WorkSource.bangumi,
+        ),
+      ],
+      points: const [],
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    final package = await buildPlanExportV2Package(
+      plan: plan,
+      visitRecords: const [],
+      options: const PlanExportV2Options(
+        mode: PlanExportV2Mode.planOnly,
+        includeFullReferenceCache: false,
+      ),
+      exportedAt: now,
+    );
+
+    final archive = ZipDecoder().decodeBytes(package.bytes);
+    final planJson =
+        jsonDecode(utf8.decode(archive.findFile('plan.json')!.readBytes()!))
+            as Map<String, Object?>;
+    final planRoot = planJson['plan'] as Map<String, Object?>;
+    final works = planRoot['works'] as List<Object?>;
+
+    expect(works.map((work) => (work as Map)['bangumiSubjectType']), [
+      'anime',
+      'game',
+      'book',
+    ]);
+  });
 }
