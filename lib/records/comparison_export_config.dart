@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../plan/pilgrimage_models.dart';
+
 enum ComparisonOutputWidth { auto, w1080, w1920, w2560, w3840 }
 
 enum ComparisonMetadataField {
@@ -66,6 +68,20 @@ class ComparisonExportConfig {
   final Set<ComparisonMetadataField> metadataFields;
 
   static ComparisonExportConfig lastUsed = const ComparisonExportConfig();
+
+  ComparisonExportConfig withSettings(AppSettings settings) {
+    return copyWith(
+      showPilgrimName: settings.comparisonShowPilgrimName,
+      pilgrimName: settings.comparisonPilgrimName,
+    );
+  }
+
+  AppSettings applyToSettings(AppSettings settings) {
+    return settings.copyWith(
+      comparisonShowPilgrimName: showPilgrimName,
+      comparisonPilgrimName: pilgrimName,
+    );
+  }
 
   Map<String, Object?> toJson() {
     return {

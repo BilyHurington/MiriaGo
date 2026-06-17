@@ -174,6 +174,8 @@ void main() {
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
         saveVisitPhotoToGallery: false,
+        comparisonShowPilgrimName: true,
+        comparisonPilgrimName: 'BilyHurington',
       ),
     );
 
@@ -192,6 +194,8 @@ void main() {
     expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
     expect(settings.customMapLibreStyleUrl, 'https://example.com/style.json');
     expect(settings.saveVisitPhotoToGallery, isFalse);
+    expect(settings.comparisonShowPilgrimName, isTrue);
+    expect(settings.comparisonPilgrimName, 'BilyHurington');
   });
 
   test(

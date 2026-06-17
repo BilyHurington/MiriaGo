@@ -68,6 +68,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
       saveVisitPhotoToGallery: row.saveVisitPhotoToGallery,
+      comparisonShowPilgrimName: row.comparisonShowPilgrimName,
+      comparisonPilgrimName: row.comparisonPilgrimName,
     );
   }
 
@@ -756,6 +758,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.customMapLibreStyleUrl.trim(),
             ),
             saveVisitPhotoToGallery: Value(settings.saveVisitPhotoToGallery),
+            comparisonShowPilgrimName: Value(
+              settings.comparisonShowPilgrimName,
+            ),
+            comparisonPilgrimName: Value(settings.comparisonPilgrimName.trim()),
           ),
         );
   }

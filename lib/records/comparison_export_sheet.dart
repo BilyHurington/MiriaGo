@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../data/pilgrimage_repository.dart';
+import '../plan/pilgrimage_models.dart';
 import '../widgets/image_viewer_screen.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_config_storage_stub.dart'
@@ -15,6 +17,7 @@ class ComparisonExportSheet extends StatefulWidget {
     required this.capturedPath,
     required this.metadata,
     required this.colorGradingSummary,
+    required this.repository,
     super.key,
   });
 
@@ -23,6 +26,7 @@ class ComparisonExportSheet extends StatefulWidget {
   final String capturedPath;
   final Map<ComparisonMetadataField, String> metadata;
   final String? colorGradingSummary;
+  final PilgrimageRepository repository;
 
   static Future<void> show(
     BuildContext context, {
@@ -31,6 +35,7 @@ class ComparisonExportSheet extends StatefulWidget {
     required String capturedPath,
     required Map<ComparisonMetadataField, String> metadata,
     required String? colorGradingSummary,
+    required PilgrimageRepository repository,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -43,6 +48,7 @@ class ComparisonExportSheet extends StatefulWidget {
         capturedPath: capturedPath,
         metadata: metadata,
         colorGradingSummary: colorGradingSummary,
+        repository: repository,
       ),
     );
   }
@@ -53,6 +59,8 @@ class ComparisonExportSheet extends StatefulWidget {
 
 class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   var _config = ComparisonExportConfig.lastUsed;
+  var _settings = const AppSettings();
+  late final TextEditingController _pilgrimNameController;
   var _exporting = false;
 
   static List<Color> get _borderColorOptions => <Color>[
@@ -66,25 +74,57 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   @override
   void initState() {
     super.initState();
+    _config = ComparisonExportConfig.lastUsed.withSettings(_settings);
+    _pilgrimNameController = TextEditingController(text: _config.pilgrimName);
     _loadSavedConfig();
   }
 
+  @override
+  void dispose() {
+    _pilgrimNameController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadSavedConfig() async {
+    final settings = await widget.repository.loadAppSettings();
     final saved = await loadComparisonExportConfig();
-    if (!mounted || saved == null) {
+    if (!mounted) {
       return;
     }
 
+    final migratedConfig = (saved ?? _config).copyWith(
+      showPilgrimName: settings.comparisonShowPilgrimName,
+      pilgrimName: settings.comparisonPilgrimName.isEmpty
+          ? saved?.pilgrimName
+          : settings.comparisonPilgrimName,
+    );
+    final migratedSettings = migratedConfig.applyToSettings(settings);
+    if (migratedSettings.comparisonPilgrimName !=
+            settings.comparisonPilgrimName ||
+        migratedSettings.comparisonShowPilgrimName !=
+            settings.comparisonShowPilgrimName) {
+      await widget.repository.saveAppSettings(migratedSettings);
+    }
+    if (!mounted) {
+      return;
+    }
     setState(() {
-      _config = saved;
-      ComparisonExportConfig.lastUsed = saved;
+      _settings = migratedSettings;
+      _config = migratedConfig;
+      ComparisonExportConfig.lastUsed = migratedConfig;
+      _pilgrimNameController.text = migratedConfig.pilgrimName;
     });
   }
 
-  void _updateConfig(ComparisonExportConfig config) {
+  Future<void> _updateConfig(ComparisonExportConfig config) async {
     setState(() => _config = config);
     ComparisonExportConfig.lastUsed = config;
-    saveComparisonExportConfig(config);
+    final settings = config.applyToSettings(_settings);
+    _settings = settings;
+    await Future.wait([
+      saveComparisonExportConfig(config),
+      widget.repository.saveAppSettings(settings),
+    ]);
   }
 
   @override
@@ -114,7 +154,11 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
                       onChanged: _updateConfig,
                     ),
                     const SizedBox(height: 18),
-                    _MetadataSection(config: _config, onChanged: _updateConfig),
+                    _MetadataSection(
+                      config: _config,
+                      pilgrimNameController: _pilgrimNameController,
+                      onChanged: _updateConfig,
+                    ),
                   ],
                 ),
               ),
@@ -133,7 +177,11 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   Future<void> _doExport() async {
     setState(() => _exporting = true);
     ComparisonExportConfig.lastUsed = _config;
-    await saveComparisonExportConfig(_config);
+    final settings = _config.applyToSettings(_settings);
+    await Future.wait([
+      saveComparisonExportConfig(_config),
+      widget.repository.saveAppSettings(settings),
+    ]);
 
     final path = await exportComparisonImage(
       referenceImagePath: widget.referenceImagePath,
@@ -287,9 +335,14 @@ class _AppearanceSection extends StatelessWidget {
 }
 
 class _MetadataSection extends StatelessWidget {
-  const _MetadataSection({required this.config, required this.onChanged});
+  const _MetadataSection({
+    required this.config,
+    required this.pilgrimNameController,
+    required this.onChanged,
+  });
 
   final ComparisonExportConfig config;
+  final TextEditingController pilgrimNameController;
   final ValueChanged<ComparisonExportConfig> onChanged;
 
   @override
@@ -300,7 +353,7 @@ class _MetadataSection extends StatelessWidget {
         const _SectionLabel('元数据'),
         const SizedBox(height: 8),
         TextFormField(
-          initialValue: config.pilgrimName,
+          controller: pilgrimNameController,
           decoration: const InputDecoration(
             labelText: '巡礼者名字',
             prefixIcon: Icon(Icons.person_outline),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/records/comparison_export_config.dart';
 
 void main() {
@@ -31,5 +32,20 @@ void main() {
       ComparisonMetadataField.pointName,
       ComparisonMetadataField.episodeLabel,
     });
+  });
+
+  test('applies pilgrim identity to app settings', () {
+    const config = ComparisonExportConfig(
+      showPilgrimName: true,
+      pilgrimName: '巡礼者',
+    );
+
+    final settings = config.applyToSettings(const AppSettings());
+    final restored = const ComparisonExportConfig().withSettings(settings);
+
+    expect(settings.comparisonShowPilgrimName, isTrue);
+    expect(settings.comparisonPilgrimName, '巡礼者');
+    expect(restored.showPilgrimName, isTrue);
+    expect(restored.pilgrimName, '巡礼者');
   });
 }

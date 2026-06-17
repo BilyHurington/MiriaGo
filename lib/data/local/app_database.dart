@@ -118,6 +118,10 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(''))();
   BoolColumn get saveVisitPhotoToGallery =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get comparisonShowPilgrimName =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get comparisonPilgrimName =>
+      text().withDefault(const Constant(''))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -130,7 +134,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -263,6 +267,16 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 16) {
         await migrator.addColumn(points, points.note);
+      }
+      if (from < 17) {
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.comparisonShowPilgrimName,
+        );
+        await migrator.addColumn(
+          appSettingsEntries,
+          appSettingsEntries.comparisonPilgrimName,
+        );
       }
     },
   );

@@ -97,6 +97,8 @@ class AppSettings {
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
     this.saveVisitPhotoToGallery = true,
+    this.comparisonShowPilgrimName = false,
+    this.comparisonPilgrimName = '',
   });
 
   final double uiScale;
@@ -111,6 +113,8 @@ class AppSettings {
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
+  final bool comparisonShowPilgrimName;
+  final String comparisonPilgrimName;
 
   AppSettings copyWith({
     double? uiScale,
@@ -125,6 +129,8 @@ class AppSettings {
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
+    bool? comparisonShowPilgrimName,
+    String? comparisonPilgrimName,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -144,6 +150,10 @@ class AppSettings {
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
       saveVisitPhotoToGallery:
           saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
+      comparisonShowPilgrimName:
+          comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
+      comparisonPilgrimName:
+          comparisonPilgrimName ?? this.comparisonPilgrimName,
     );
   }
 }

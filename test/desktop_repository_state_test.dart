@@ -15,6 +15,8 @@ void main() {
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
         saveVisitPhotoToGallery: false,
+        comparisonShowPilgrimName: true,
+        comparisonPilgrimName: 'BilyHurington',
       ),
     );
     final source = repository.snapshot();
@@ -43,6 +45,8 @@ void main() {
       'https://example.com/style.json',
     );
     expect(decoded.settings.saveVisitPhotoToGallery, isFalse);
+    expect(decoded.settings.comparisonShowPilgrimName, isTrue);
+    expect(decoded.settings.comparisonPilgrimName, 'BilyHurington');
     expect(decoded.plans.single.id, source.plans.single.id);
     expect(
       decoded.plans.single.points.length,

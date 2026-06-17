@@ -346,6 +346,14 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           _record.displayWorkTitleSnapshot;
     }
 
+    final repository = widget.controller.repository;
+    if (repository == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('当前平台暂不支持保存导出偏好。')));
+      return;
+    }
+
     ComparisonExportSheet.show(
       context,
       referenceImagePath: _resolvedReferenceImagePath(resolvedPoint),
@@ -353,6 +361,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       capturedPath: _record.displayPhotoPath,
       metadata: meta,
       colorGradingSummary: _colorGradingSummary(),
+      repository: repository,
     );
   }
 

@@ -30,6 +30,8 @@ class PilgrimagePlanController extends ChangeNotifier {
 
   List<PilgrimagePoint> get points => _plan.points;
 
+  PilgrimageRepository? get repository => _repository;
+
   PilgrimagePoint? get currentPoint => _pointById(_currentPointId);
 
   PilgrimagePoint? get selectedPoint => _pointById(_selectedPointId);

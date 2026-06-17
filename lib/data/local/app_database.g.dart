@@ -4054,6 +4054,33 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(true),
       );
+  static const VerificationMeta _comparisonShowPilgrimNameMeta =
+      const VerificationMeta('comparisonShowPilgrimName');
+  @override
+  late final GeneratedColumn<bool> comparisonShowPilgrimName =
+      GeneratedColumn<bool>(
+        'comparison_show_pilgrim_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("comparison_show_pilgrim_name" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _comparisonPilgrimNameMeta =
+      const VerificationMeta('comparisonPilgrimName');
+  @override
+  late final GeneratedColumn<String> comparisonPilgrimName =
+      GeneratedColumn<String>(
+        'comparison_pilgrim_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4069,6 +4096,8 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
+    comparisonShowPilgrimName,
+    comparisonPilgrimName,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4192,6 +4221,24 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('comparison_show_pilgrim_name')) {
+      context.handle(
+        _comparisonShowPilgrimNameMeta,
+        comparisonShowPilgrimName.isAcceptableOrUnknown(
+          data['comparison_show_pilgrim_name']!,
+          _comparisonShowPilgrimNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('comparison_pilgrim_name')) {
+      context.handle(
+        _comparisonPilgrimNameMeta,
+        comparisonPilgrimName.isAcceptableOrUnknown(
+          data['comparison_pilgrim_name']!,
+          _comparisonPilgrimNameMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4253,6 +4300,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}save_visit_photo_to_gallery'],
       )!,
+      comparisonShowPilgrimName: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}comparison_show_pilgrim_name'],
+      )!,
+      comparisonPilgrimName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}comparison_pilgrim_name'],
+      )!,
     );
   }
 
@@ -4277,6 +4332,8 @@ class AppSettingsEntry extends DataClass
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
+  final bool comparisonShowPilgrimName;
+  final String comparisonPilgrimName;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -4291,6 +4348,8 @@ class AppSettingsEntry extends DataClass
     required this.customXyzTileUrl,
     required this.customMapLibreStyleUrl,
     required this.saveVisitPhotoToGallery,
+    required this.comparisonShowPilgrimName,
+    required this.comparisonPilgrimName,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4316,6 +4375,10 @@ class AppSettingsEntry extends DataClass
     map['save_visit_photo_to_gallery'] = Variable<bool>(
       saveVisitPhotoToGallery,
     );
+    map['comparison_show_pilgrim_name'] = Variable<bool>(
+      comparisonShowPilgrimName,
+    );
+    map['comparison_pilgrim_name'] = Variable<String>(comparisonPilgrimName);
     return map;
   }
 
@@ -4334,6 +4397,8 @@ class AppSettingsEntry extends DataClass
       customXyzTileUrl: Value(customXyzTileUrl),
       customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
       saveVisitPhotoToGallery: Value(saveVisitPhotoToGallery),
+      comparisonShowPilgrimName: Value(comparisonShowPilgrimName),
+      comparisonPilgrimName: Value(comparisonPilgrimName),
     );
   }
 
@@ -4366,6 +4431,12 @@ class AppSettingsEntry extends DataClass
       saveVisitPhotoToGallery: serializer.fromJson<bool>(
         json['saveVisitPhotoToGallery'],
       ),
+      comparisonShowPilgrimName: serializer.fromJson<bool>(
+        json['comparisonShowPilgrimName'],
+      ),
+      comparisonPilgrimName: serializer.fromJson<String>(
+        json['comparisonPilgrimName'],
+      ),
     );
   }
   @override
@@ -4393,6 +4464,10 @@ class AppSettingsEntry extends DataClass
       'saveVisitPhotoToGallery': serializer.toJson<bool>(
         saveVisitPhotoToGallery,
       ),
+      'comparisonShowPilgrimName': serializer.toJson<bool>(
+        comparisonShowPilgrimName,
+      ),
+      'comparisonPilgrimName': serializer.toJson<String>(comparisonPilgrimName),
     };
   }
 
@@ -4410,6 +4485,8 @@ class AppSettingsEntry extends DataClass
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
+    bool? comparisonShowPilgrimName,
+    String? comparisonPilgrimName,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -4428,6 +4505,9 @@ class AppSettingsEntry extends DataClass
         customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
     saveVisitPhotoToGallery:
         saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
+    comparisonShowPilgrimName:
+        comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
+    comparisonPilgrimName: comparisonPilgrimName ?? this.comparisonPilgrimName,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -4466,6 +4546,12 @@ class AppSettingsEntry extends DataClass
       saveVisitPhotoToGallery: data.saveVisitPhotoToGallery.present
           ? data.saveVisitPhotoToGallery.value
           : this.saveVisitPhotoToGallery,
+      comparisonShowPilgrimName: data.comparisonShowPilgrimName.present
+          ? data.comparisonShowPilgrimName.value
+          : this.comparisonShowPilgrimName,
+      comparisonPilgrimName: data.comparisonPilgrimName.present
+          ? data.comparisonPilgrimName.value
+          : this.comparisonPilgrimName,
     );
   }
 
@@ -4484,7 +4570,9 @@ class AppSettingsEntry extends DataClass
           ..write('mapTileProvider: $mapTileProvider, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
-          ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery')
+          ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
+          ..write('comparisonShowPilgrimName: $comparisonShowPilgrimName, ')
+          ..write('comparisonPilgrimName: $comparisonPilgrimName')
           ..write(')'))
         .toString();
   }
@@ -4504,6 +4592,8 @@ class AppSettingsEntry extends DataClass
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
+    comparisonShowPilgrimName,
+    comparisonPilgrimName,
   );
   @override
   bool operator ==(Object other) =>
@@ -4522,7 +4612,9 @@ class AppSettingsEntry extends DataClass
           other.mapTileProvider == this.mapTileProvider &&
           other.customXyzTileUrl == this.customXyzTileUrl &&
           other.customMapLibreStyleUrl == this.customMapLibreStyleUrl &&
-          other.saveVisitPhotoToGallery == this.saveVisitPhotoToGallery);
+          other.saveVisitPhotoToGallery == this.saveVisitPhotoToGallery &&
+          other.comparisonShowPilgrimName == this.comparisonShowPilgrimName &&
+          other.comparisonPilgrimName == this.comparisonPilgrimName);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -4539,6 +4631,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> customXyzTileUrl;
   final Value<String> customMapLibreStyleUrl;
   final Value<bool> saveVisitPhotoToGallery;
+  final Value<bool> comparisonShowPilgrimName;
+  final Value<String> comparisonPilgrimName;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -4554,6 +4648,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
+    this.comparisonShowPilgrimName = const Value.absent(),
+    this.comparisonPilgrimName = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -4570,6 +4666,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
+    this.comparisonShowPilgrimName = const Value.absent(),
+    this.comparisonPilgrimName = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -4586,6 +4684,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? customXyzTileUrl,
     Expression<String>? customMapLibreStyleUrl,
     Expression<bool>? saveVisitPhotoToGallery,
+    Expression<bool>? comparisonShowPilgrimName,
+    Expression<String>? comparisonPilgrimName,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4607,6 +4707,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'custom_map_libre_style_url': customMapLibreStyleUrl,
       if (saveVisitPhotoToGallery != null)
         'save_visit_photo_to_gallery': saveVisitPhotoToGallery,
+      if (comparisonShowPilgrimName != null)
+        'comparison_show_pilgrim_name': comparisonShowPilgrimName,
+      if (comparisonPilgrimName != null)
+        'comparison_pilgrim_name': comparisonPilgrimName,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4625,6 +4729,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? customXyzTileUrl,
     Value<String>? customMapLibreStyleUrl,
     Value<bool>? saveVisitPhotoToGallery,
+    Value<bool>? comparisonShowPilgrimName,
+    Value<String>? comparisonPilgrimName,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -4645,6 +4751,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
       saveVisitPhotoToGallery:
           saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
+      comparisonShowPilgrimName:
+          comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
+      comparisonPilgrimName:
+          comparisonPilgrimName ?? this.comparisonPilgrimName,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4701,6 +4811,16 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         saveVisitPhotoToGallery.value,
       );
     }
+    if (comparisonShowPilgrimName.present) {
+      map['comparison_show_pilgrim_name'] = Variable<bool>(
+        comparisonShowPilgrimName.value,
+      );
+    }
+    if (comparisonPilgrimName.present) {
+      map['comparison_pilgrim_name'] = Variable<String>(
+        comparisonPilgrimName.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4723,6 +4843,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
+          ..write('comparisonShowPilgrimName: $comparisonShowPilgrimName, ')
+          ..write('comparisonPilgrimName: $comparisonPilgrimName, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7521,6 +7643,8 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
+      Value<bool> comparisonShowPilgrimName,
+      Value<String> comparisonPilgrimName,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -7538,6 +7662,8 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
+      Value<bool> comparisonShowPilgrimName,
+      Value<String> comparisonPilgrimName,
       Value<int> rowid,
     });
 
@@ -7612,6 +7738,16 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<bool> get saveVisitPhotoToGallery => $composableBuilder(
     column: $table.saveVisitPhotoToGallery,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get comparisonShowPilgrimName => $composableBuilder(
+    column: $table.comparisonShowPilgrimName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get comparisonPilgrimName => $composableBuilder(
+    column: $table.comparisonPilgrimName,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7689,6 +7825,16 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.saveVisitPhotoToGallery,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get comparisonShowPilgrimName => $composableBuilder(
+    column: $table.comparisonShowPilgrimName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get comparisonPilgrimName => $composableBuilder(
+    column: $table.comparisonPilgrimName,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -7760,6 +7906,16 @@ class $$AppSettingsEntriesTableAnnotationComposer
     column: $table.saveVisitPhotoToGallery,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get comparisonShowPilgrimName => $composableBuilder(
+    column: $table.comparisonShowPilgrimName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get comparisonPilgrimName => $composableBuilder(
+    column: $table.comparisonPilgrimName,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsEntriesTableTableManager
@@ -7816,6 +7972,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
+                Value<bool> comparisonShowPilgrimName = const Value.absent(),
+                Value<String> comparisonPilgrimName = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -7831,6 +7989,8 @@ class $$AppSettingsEntriesTableTableManager
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
+                comparisonShowPilgrimName: comparisonShowPilgrimName,
+                comparisonPilgrimName: comparisonPilgrimName,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7849,6 +8009,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
+                Value<bool> comparisonShowPilgrimName = const Value.absent(),
+                Value<String> comparisonPilgrimName = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -7864,6 +8026,8 @@ class $$AppSettingsEntriesTableTableManager
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
+                comparisonShowPilgrimName: comparisonShowPilgrimName,
+                comparisonPilgrimName: comparisonPilgrimName,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

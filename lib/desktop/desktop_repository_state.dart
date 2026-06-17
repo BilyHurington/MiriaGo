@@ -76,6 +76,8 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
     'saveVisitPhotoToGallery': settings.saveVisitPhotoToGallery,
+    'comparisonShowPilgrimName': settings.comparisonShowPilgrimName,
+    'comparisonPilgrimName': settings.comparisonPilgrimName,
   };
 }
 
@@ -112,6 +114,12 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     ),
     saveVisitPhotoToGallery:
         _boolValue(json['saveVisitPhotoToGallery']) ?? true,
+    comparisonShowPilgrimName:
+        _boolValue(json['comparisonShowPilgrimName']) ?? false,
+    comparisonPilgrimName: _stringValue(
+      json['comparisonPilgrimName'],
+      fallback: '',
+    ),
   );
 }
 
