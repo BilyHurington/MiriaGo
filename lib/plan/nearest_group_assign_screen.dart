@@ -77,7 +77,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: !_isSaving,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
@@ -458,7 +458,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
     final selectedBoxPoints = _selectedBoxPoints;
 
     return PopScope(
-      canPop: false,
+      canPop: !_isSaving,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;

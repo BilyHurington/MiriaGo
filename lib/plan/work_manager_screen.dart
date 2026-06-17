@@ -34,7 +34,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
     final works = _worksForPlan(_plan);
 
     return PopScope(
-      canPop: false,
+      canPop: !_isSaving,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
@@ -80,7 +80,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
   }
 
   Future<void> _openBangumiSearch() async {
-    final didAdd = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => BangumiWorkSearchScreen(
           plan: _plan,
@@ -89,19 +89,19 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
         ),
       ),
     );
-    if (didAdd == true) {
+    if (mounted) {
       await _reloadPlan();
     }
   }
 
   Future<void> _openManualWorkForm() async {
-    final didAdd = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
             ManualWorkFormScreen(plan: _plan, repository: widget.repository),
       ),
     );
-    if (didAdd == true) {
+    if (mounted) {
       await _reloadPlan();
     }
   }

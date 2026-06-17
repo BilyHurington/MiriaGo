@@ -62,7 +62,7 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
     final groups = _groups;
 
     return PopScope(
-      canPop: false,
+      canPop: !_isSaving,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;

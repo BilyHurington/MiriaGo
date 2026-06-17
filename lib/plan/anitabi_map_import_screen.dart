@@ -562,7 +562,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   Future<void> _openGroupManager() async {
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PlanGroupManagerScreen(
           plan: _importedPlan,
@@ -570,7 +570,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         ),
       ),
     );
-    if (didUpdate == true) {
+    if (mounted) {
       await _reloadImportedPlan();
     }
   }
@@ -580,7 +580,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     if (!mounted) {
       return;
     }
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => NearestGroupAssignScreen(
           plan: _importedPlan,
@@ -589,7 +589,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         ),
       ),
     );
-    if (didUpdate == true) {
+    if (mounted) {
       await _reloadImportedPlan();
     }
   }
@@ -619,7 +619,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     final selectedPoint = _selectedPoint;
 
     return PopScope(
-      canPop: false,
+      canPop: !_isImporting,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;

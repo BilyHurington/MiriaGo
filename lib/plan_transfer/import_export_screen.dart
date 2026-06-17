@@ -34,80 +34,113 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   var _includeFullReferenceCache = false;
   var _exporting = false;
   var _importing = false;
+  var _exportGeneration = 0;
 
   bool get _usesExternalIosImport => isIosPlatform;
 
   @override
+  void dispose() {
+    _exportGeneration++;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('导入导出')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          _PlanExportSummary(plan: widget.plan),
-          const SizedBox(height: 16),
-          _SectionTitle(
-            icon: Icons.import_export_outlined,
-            title: '导入',
-            subtitle: _usesExternalIosImport
-                ? '从文件、聊天、浏览器或网盘等位置用 MiriaGo 打开 .sjhplan。'
-                : '选择 .sjhplan 文件，先预览内容再导入。',
+    return PopScope(
+      canPop: !_exporting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        _handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: '返回',
+            onPressed: _handleBack,
+            icon: const Icon(Icons.arrow_back),
           ),
-          const SizedBox(height: 10),
-          _ActionTile(
-            icon: _importing
-                ? Icons.hourglass_empty_outlined
-                : _usesExternalIosImport
-                ? Icons.open_in_new_outlined
-                : Icons.import_export_outlined,
-            title: _importing
-                ? '读取中...'
-                : _usesExternalIosImport
-                ? '从其他 App 打开 .sjhplan'
-                : '导入 MiriaGo 文件',
-            subtitle: _usesExternalIosImport
-                ? '在文件、聊天、浏览器下载页或网盘中选择 .sjhplan，然后分享或用 MiriaGo 打开。'
-                : '支持 v2 数据包和旧版 v1 JSON 计划包。',
-            enabled: !_exporting && !_importing,
-            onTap: _usesExternalIosImport
-                ? _showExternalIosImportHelp
-                : _importFromFile,
-          ),
-          const SizedBox(height: 20),
-          _SectionTitle(
-            icon: Icons.inventory_2_outlined,
-            title: 'MiriaGo 数据包',
-            subtitle: '新版 .sjhplan，内部为 zip，包含 manifest.json。',
-          ),
-          const SizedBox(height: 10),
-          _BackupOptions(
-            mode: _mode,
-            includeFullReferenceCache: _includeFullReferenceCache,
-            exporting: _exporting || _importing,
-            onModeChanged: (mode) => setState(() => _mode = mode),
-            onFullReferenceChanged: (value) =>
-                setState(() => _includeFullReferenceCache = value),
-            onExport: _exportV2,
-          ),
-          const SizedBox(height: 20),
-          _SectionTitle(
-            icon: Icons.map_outlined,
-            title: 'Google My Maps',
-            subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
-          ),
-          const SizedBox(height: 10),
-          _ActionTile(
-            icon: _exporting
-                ? Icons.hourglass_empty_outlined
-                : Icons.table_chart_outlined,
-            title: '导出 My Maps CSV',
-            subtitle: '前 6 列贴近示例格式，作品、集数、来源等拆成独立列。',
-            enabled: !_exporting && !_importing,
-            onTap: _exportMyMapsCsv,
-          ),
-        ],
+          title: const Text('导入导出'),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _PlanExportSummary(plan: widget.plan),
+            const SizedBox(height: 16),
+            _SectionTitle(
+              icon: Icons.import_export_outlined,
+              title: '导入',
+              subtitle: _usesExternalIosImport
+                  ? '从文件、聊天、浏览器或网盘等位置用 MiriaGo 打开 .sjhplan。'
+                  : '选择 .sjhplan 文件，先预览内容再导入。',
+            ),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: _importing
+                  ? Icons.hourglass_empty_outlined
+                  : _usesExternalIosImport
+                  ? Icons.open_in_new_outlined
+                  : Icons.import_export_outlined,
+              title: _importing
+                  ? '读取中...'
+                  : _usesExternalIosImport
+                  ? '从其他 App 打开 .sjhplan'
+                  : '导入 MiriaGo 文件',
+              subtitle: _usesExternalIosImport
+                  ? '在文件、聊天、浏览器下载页或网盘中选择 .sjhplan，然后分享或用 MiriaGo 打开。'
+                  : '支持 v2 数据包和旧版 v1 JSON 计划包。',
+              enabled: !_exporting && !_importing,
+              onTap: _usesExternalIosImport
+                  ? _showExternalIosImportHelp
+                  : _importFromFile,
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle(
+              icon: Icons.inventory_2_outlined,
+              title: 'MiriaGo 数据包',
+              subtitle: '新版 .sjhplan，内部为 zip，包含 manifest.json。',
+            ),
+            const SizedBox(height: 10),
+            _BackupOptions(
+              mode: _mode,
+              includeFullReferenceCache: _includeFullReferenceCache,
+              exporting: _exporting || _importing,
+              onModeChanged: (mode) => setState(() => _mode = mode),
+              onFullReferenceChanged: (value) =>
+                  setState(() => _includeFullReferenceCache = value),
+              onExport: _exportV2,
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle(
+              icon: Icons.map_outlined,
+              title: 'Google My Maps',
+              subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
+            ),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: _exporting
+                  ? Icons.hourglass_empty_outlined
+                  : Icons.table_chart_outlined,
+              title: '导出 My Maps CSV',
+              subtitle: '前 6 列贴近示例格式，作品、集数、来源等拆成独立列。',
+              enabled: !_exporting && !_importing,
+              onTap: _exportMyMapsCsv,
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _handleBack() {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_exporting) {
+      _exportGeneration++;
+      setState(() => _exporting = false);
+      messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+    }
+    Navigator.of(context).pop();
   }
 
   Future<void> _importFromFile() async {
@@ -192,7 +225,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   }
 
   Future<void> _exportV2() async {
-    await _runExport(() async {
+    await _runExport((generation) async {
       final exportedAt = DateTime.now();
       final options = PlanExportV2Options(
         mode: _mode,
@@ -207,13 +240,22 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         mimeType: miriagoExportPackageMimeType,
         extension: seichiPlanFileExtension,
       );
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
       final records = await widget.repository.loadVisitRecords(widget.plan.id);
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
       final package = await buildPlanExportV2Package(
         plan: widget.plan,
         visitRecords: records,
         options: options,
         exportedAt: exportedAt,
       );
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
       final result = await deliverPlanExport(
         bytes: package.bytes,
         fileName: package.fileName,
@@ -228,13 +270,19 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   }
 
   Future<void> _exportMyMapsCsv() async {
-    await _runExport(() async {
+    await _runExport((generation) async {
       final export = buildMyMapsCsvExport(plan: widget.plan);
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
       final destination = await preparePlanExportDestination(
         fileName: export.fileName,
         mimeType: export.mimeType,
         extension: myMapsCsvExtension,
       );
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
       final result = await deliverPlanExport(
         bytes: export.bytes,
         fileName: export.fileName,
@@ -249,15 +297,16 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   }
 
   Future<void> _runExport(
-    Future<_PlanExportRunResult> Function() action, {
+    Future<_PlanExportRunResult> Function(int generation) action, {
     required String successMessage,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
+    final generation = ++_exportGeneration;
     setState(() => _exporting = true);
     messenger.showReplacingSnackBar(const SnackBar(content: Text('正在导出...')));
     try {
-      final result = await action();
-      if (!mounted) {
+      final result = await action(generation);
+      if (!_isCurrentExport(generation)) {
         return;
       }
       if (result.delivery.action == PlanExportDeliveryAction.canceled) {
@@ -268,21 +317,31 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         SnackBar(content: Text(result.successMessage(successMessage))),
       );
     } on PlanExportCanceledException {
-      if (!mounted) {
+      if (!_isCurrentExport(generation)) {
         return;
       }
       messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+    } on _ExportAbortedException {
+      return;
     } catch (_) {
-      if (!mounted) {
+      if (!_isCurrentExport(generation)) {
         return;
       }
       messenger.showReplacingSnackBar(const SnackBar(content: Text('导出失败')));
     } finally {
-      if (mounted) {
+      if (_isCurrentExport(generation)) {
         setState(() => _exporting = false);
       }
     }
   }
+
+  bool _isCurrentExport(int generation) {
+    return mounted && generation == _exportGeneration;
+  }
+}
+
+class _ExportAbortedException implements Exception {
+  const _ExportAbortedException();
 }
 
 class _PlanExportRunResult {

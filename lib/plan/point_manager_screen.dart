@@ -94,7 +94,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     final selectedGroup = _selectedGroup;
 
     return PopScope(
-      canPop: false,
+      canPop: !_isSaving,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
@@ -331,13 +331,13 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Future<void> _openGroupManager() async {
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) =>
             PlanGroupManagerScreen(plan: _plan, repository: widget.repository),
       ),
     );
-    if (didUpdate != true || !mounted) {
+    if (!mounted) {
       return;
     }
     final updatedPlan = await widget.repository.loadActivePlan();
@@ -711,7 +711,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (!mounted) {
       return;
     }
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => NearestGroupAssignScreen(
           plan: _plan,
@@ -720,7 +720,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         ),
       ),
     );
-    if (didUpdate != true || !mounted) {
+    if (!mounted) {
       return;
     }
     final updatedPlan = await widget.repository.loadActivePlan();
@@ -738,7 +738,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     if (!mounted) {
       return;
     }
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => BoxGroupAssignScreen(
           plan: _plan,
@@ -747,7 +747,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         ),
       ),
     );
-    if (didUpdate != true || !mounted) {
+    if (!mounted) {
       return;
     }
     final updatedPlan = await widget.repository.loadActivePlan();

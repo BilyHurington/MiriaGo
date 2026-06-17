@@ -45,14 +45,14 @@ Future<PlanExportDeliveryResult> deliverPlanExportImpl({
     final directory = await getTemporaryDirectory();
     final file = File(p.join(directory.path, fileName));
     await file.writeAsBytes(bytes, flush: true);
-    await share_plus.Share.shareXFiles(
+    final shareResult = await share_plus.Share.shareXFiles(
       [share_plus.XFile(file.path, mimeType: mimeType, name: fileName)],
       subject: shareSubject,
       sharePositionOrigin: _mobileSharePositionOrigin(),
       fileNameOverrides: [fileName],
     );
     return PlanExportDeliveryResult(
-      PlanExportDeliveryAction.shared,
+      planExportDeliveryActionForShareResult(shareResult.status),
       path: file.path,
     );
   }
@@ -124,4 +124,14 @@ Rect _mobileSharePositionOrigin() {
       ? const Size(1, 1)
       : view.physicalSize / view.devicePixelRatio;
   return Offset.zero & size;
+}
+
+PlanExportDeliveryAction planExportDeliveryActionForShareResult(
+  share_plus.ShareResultStatus status,
+) {
+  return switch (status) {
+    share_plus.ShareResultStatus.dismissed => PlanExportDeliveryAction.canceled,
+    share_plus.ShareResultStatus.success => PlanExportDeliveryAction.shared,
+    share_plus.ShareResultStatus.unavailable => PlanExportDeliveryAction.shared,
+  };
 }

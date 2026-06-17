@@ -41,7 +41,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     final currentPlan = _plan;
 
     return PopScope(
-      canPop: false,
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
@@ -120,7 +120,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     BuildContext context,
     PilgrimagePlan plan,
   ) async {
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => WorkManagerScreen(
           plan: plan,
@@ -129,7 +129,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
         ),
       ),
     );
-    if (!context.mounted || didUpdate != true) {
+    if (!context.mounted) {
       return;
     }
 
@@ -140,16 +140,20 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     BuildContext context,
     PilgrimagePlan plan,
   ) async {
-    final didAdd = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
             AnitabiMapImportScreen(plan: plan, repository: widget.repository),
       ),
     );
-    if (!context.mounted || didAdd != true) {
+    if (!context.mounted) {
       return;
     }
 
+    final changed = await _reloadPlan(plan.id);
+    if (!context.mounted || !changed) {
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
@@ -157,7 +161,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     BuildContext context,
     PilgrimagePlan plan,
   ) async {
-    final didUpdate = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => _AnitabiPointIdImportScreen(
           plan: plan,
@@ -165,10 +169,14 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
         ),
       ),
     );
-    if (!context.mounted || didUpdate != true) {
+    if (!context.mounted) {
       return;
     }
 
+    final changed = await _reloadPlan(plan.id);
+    if (!context.mounted || !changed) {
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
@@ -176,29 +184,41 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     BuildContext context,
     PilgrimagePlan plan,
   ) async {
-    final didAdd = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
             _ManualPointFormScreen(plan: plan, repository: widget.repository),
       ),
     );
-    if (!context.mounted || didAdd != true) {
+    if (!context.mounted) {
       return;
     }
 
+    final changed = await _reloadPlan(plan.id);
+    if (!context.mounted || !changed) {
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
-  Future<void> _reloadPlan(String planId) async {
+  Future<bool> _reloadPlan(String planId) async {
+    final oldPlan = _plan;
     final plans = await widget.repository.loadPlans();
     if (!mounted) {
-      return;
+      return false;
     }
+    final updatedPlan = plans.firstWhere((plan) => plan.id == planId);
+    final changed =
+        oldPlan == null ||
+        oldPlan.works.length != updatedPlan.works.length ||
+        oldPlan.points.length != updatedPlan.points.length ||
+        oldPlan.groups.length != updatedPlan.groups.length;
 
     setState(() {
-      _plan = plans.firstWhere((plan) => plan.id == planId);
-      _didUpdate = true;
+      _plan = updatedPlan;
+      _didUpdate = _didUpdate || changed;
     });
+    return changed;
   }
 }
 
@@ -321,7 +341,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
@@ -478,7 +498,8 @@ class _AnitabiPointIdImportScreenState
     }
 
     final pointId = _pointIdController.text.trim();
-    final didUpdate = await Navigator.of(context).push<bool>(
+    final oldPointCount = widget.plan.points.length;
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => AnitabiMapImportScreen(
           plan: widget.plan,
@@ -487,7 +508,15 @@ class _AnitabiPointIdImportScreenState
         ),
       ),
     );
-    if (!mounted || didUpdate != true) {
+    if (!mounted) {
+      return;
+    }
+    final plans = await widget.repository.loadPlans();
+    if (!mounted) {
+      return;
+    }
+    final updatedPlan = plans.firstWhere((plan) => plan.id == widget.plan.id);
+    if (updatedPlan.points.length == oldPointCount) {
       return;
     }
 
@@ -646,7 +675,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
