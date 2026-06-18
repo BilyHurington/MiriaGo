@@ -10,6 +10,7 @@ import '../widgets/snackbar_helper.dart';
 import 'my_maps_csv_export.dart';
 import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
+import 'plan_export_size_estimator.dart';
 import 'plan_export_v2.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
@@ -35,12 +36,22 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   var _exporting = false;
   var _importing = false;
   var _exportGeneration = 0;
+  var _estimateGeneration = 0;
+  PlanExportSizeEstimate? _sizeEstimate;
+  var _estimatingSize = false;
 
   bool get _usesExternalIosImport => isIosPlatform;
 
   @override
+  void initState() {
+    super.initState();
+    _refreshSizeEstimate();
+  }
+
+  @override
   void dispose() {
     _exportGeneration++;
+    _estimateGeneration++;
     super.dispose();
   }
 
@@ -105,10 +116,17 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             _BackupOptions(
               mode: _mode,
               includeFullReferenceCache: _includeFullReferenceCache,
+              sizeEstimate: _sizeEstimate,
+              estimatingSize: _estimatingSize,
               exporting: _exporting || _importing,
-              onModeChanged: (mode) => setState(() => _mode = mode),
-              onFullReferenceChanged: (value) =>
-                  setState(() => _includeFullReferenceCache = value),
+              onModeChanged: (mode) {
+                setState(() => _mode = mode);
+                _refreshSizeEstimate();
+              },
+              onFullReferenceChanged: (value) {
+                setState(() => _includeFullReferenceCache = value);
+                _refreshSizeEstimate();
+              },
               onExport: _exportV2,
             ),
             const SizedBox(height: 20),
@@ -267,6 +285,41 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       );
       return _PlanExportRunResult(result, package.warnings);
     }, successMessage: '数据包已导出');
+  }
+
+  Future<void> _refreshSizeEstimate() async {
+    final generation = ++_estimateGeneration;
+    setState(() {
+      _estimatingSize = true;
+    });
+    try {
+      final records = _mode == PlanExportV2Mode.planWithRecords
+          ? await widget.repository.loadVisitRecords(widget.plan.id)
+          : const <PilgrimageVisitRecord>[];
+      final estimate = await estimatePlanExportV2Size(
+        plan: widget.plan,
+        visitRecords: records,
+        options: PlanExportV2Options(
+          mode: _mode,
+          includeFullReferenceCache: _includeFullReferenceCache,
+        ),
+      );
+      if (!mounted || generation != _estimateGeneration) {
+        return;
+      }
+      setState(() {
+        _sizeEstimate = estimate;
+        _estimatingSize = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != _estimateGeneration) {
+        return;
+      }
+      setState(() {
+        _sizeEstimate = null;
+        _estimatingSize = false;
+      });
+    }
   }
 
   Future<void> _exportMyMapsCsv() async {
@@ -469,6 +522,8 @@ class _BackupOptions extends StatelessWidget {
   const _BackupOptions({
     required this.mode,
     required this.includeFullReferenceCache,
+    required this.sizeEstimate,
+    required this.estimatingSize,
     required this.exporting,
     required this.onModeChanged,
     required this.onFullReferenceChanged,
@@ -477,6 +532,8 @@ class _BackupOptions extends StatelessWidget {
 
   final PlanExportV2Mode mode;
   final bool includeFullReferenceCache;
+  final PlanExportSizeEstimate? sizeEstimate;
+  final bool estimatingSize;
   final bool exporting;
   final ValueChanged<PlanExportV2Mode> onModeChanged;
   final ValueChanged<bool> onFullReferenceChanged;
@@ -523,6 +580,11 @@ class _BackupOptions extends StatelessWidget {
             value: includeFullReferenceCache,
             onChanged: exporting ? null : onFullReferenceChanged,
           ),
+          const SizedBox(height: 2),
+          _ExportSizeEstimateRow(
+            estimate: sizeEstimate,
+            estimating: estimatingSize,
+          ),
           const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: exporting ? null : onExport,
@@ -537,6 +599,48 @@ class _BackupOptions extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ExportSizeEstimateRow extends StatelessWidget {
+  const _ExportSizeEstimateRow({
+    required this.estimate,
+    required this.estimating,
+  });
+
+  final PlanExportSizeEstimate? estimate;
+  final bool estimating;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (estimating)
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 18,
+            color: AppColors.textSecondary,
+          ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            estimating ? '正在估算数据包大小...' : estimate?.label ?? '预计数据包大小：暂时无法估算',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

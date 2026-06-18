@@ -7,9 +7,6 @@ import '../data/pilgrimage_repository.dart';
 import '../map/map_tile_config.dart';
 import '../data/reference_cache_file_stub.dart'
     if (dart.library.io) '../data/reference_cache_file_io.dart';
-import '../data/reference_image_cache_stub.dart'
-    if (dart.library.io) '../data/reference_image_cache_io.dart'
-    as reference_image_cache;
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
@@ -19,6 +16,7 @@ import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_manager_screen.dart';
 import 'plan_group_utils.dart';
+import 'reference_full_cache_runner.dart';
 
 const Object _unsetGroupField = Object();
 
@@ -59,6 +57,8 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   var _selectedGroupIndex = 0;
   var _didUpdate = false;
   var _isSaving = false;
+  var _isCachingFullReferences = false;
+  ReferenceFullCacheProgress? _fullReferenceCacheProgress;
   var _selectionMode = false;
 
   List<PlanGroupBucket> get _groups =>
@@ -129,9 +129,17 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               ),
             if (!_isSaving && _plan.points.isNotEmpty)
               IconButton(
-                tooltip: '缓存完整参考图',
-                onPressed: _selectionMode ? null : _cacheFullReferenceImages,
-                icon: const Icon(Icons.download_for_offline_outlined),
+                tooltip: _isCachingFullReferences
+                    ? _fullReferenceCacheProgress?.label ?? '正在缓存完整参考图'
+                    : '缓存完整参考图',
+                onPressed: _selectionMode ? null : _handleReferenceCachePressed,
+                icon: _isCachingFullReferences
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.download_for_offline_outlined),
               ),
             if (!_isSaving && _plan.points.isNotEmpty)
               IconButton(
@@ -967,72 +975,82 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Future<void> _cacheFullReferenceImages() async {
-    final fullPoints = _plan.points
-        .where(
-          (point) =>
-              point.referenceImageUrl != null &&
-              !referenceFullCacheFileIsCurrent(
-                path: point.referenceFullImagePath,
-                imageUrl: point.referenceImageUrl,
-              ),
-        )
-        .toList(growable: false);
-    if (fullPoints.isEmpty) {
-      return _showInfo('当前计划没有需要缓存的参考图');
-    }
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showReplacingSnackBar(
-      const SnackBar(content: Text('正在缓存完整参考图...')),
-    );
-    var cached = 0;
-    var failed = 0;
-    var processed = 0;
-    for (final point in fullPoints) {
-      PilgrimagePlan? updatedPlan;
-      try {
-        final path = await reference_image_cache.cacheReferenceFullImage(point);
-        if (path == null) {
-          failed += 1;
-        } else {
-          updatedPlan = await widget.repository.updatePointImageCache(
-            planId: _plan.id,
-            pointId: point.id,
-            referenceThumbnailPath: point.referenceThumbnailPath,
-            referenceFullImagePath: path,
-          );
-          cached += 1;
-        }
-      } catch (_) {
-        failed += 1;
-      }
-      processed += 1;
-      if (!mounted) {
-        return;
-      }
-      if (updatedPlan != null) {
-        setState(() {
-          _plan = updatedPlan!;
-          _didUpdate = true;
-        });
-      }
-      messenger.showReplacingSnackBar(
-        SnackBar(
-          content: Text('正在缓存完整参考图 $processed/${fullPoints.length}，成功 $cached'),
-        ),
-      );
-    }
-    if (!mounted) {
+    if (_isCachingFullReferences) {
       return;
     }
+    setState(() {
+      _isCachingFullReferences = true;
+      _fullReferenceCacheProgress = null;
+    });
     messenger.showReplacingSnackBar(
-      SnackBar(
-        content: Text(
-          failed == 0
-              ? '已缓存 $cached/${fullPoints.length} 张完整参考图'
-              : '已缓存 $cached/${fullPoints.length} 张完整参考图，失败 $failed 张',
-        ),
+      const SnackBar(content: Text('已开始缓存完整参考图')),
+    );
+    try {
+      await cacheFullReferenceImages(
+        plan: _plan,
+        repository: widget.repository,
+        onPlanUpdated: (plan) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _plan = plan;
+            _didUpdate = true;
+          });
+        },
+        onProgress: (progress) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _fullReferenceCacheProgress = progress;
+          });
+        },
+      );
+    } finally {
+      if (mounted) {
+        final progress = _fullReferenceCacheProgress;
+        setState(() {
+          _isCachingFullReferences = false;
+        });
+        if (progress != null) {
+          messenger.showReplacingSnackBar(
+            SnackBar(content: Text(progress.label)),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleReferenceCachePressed() async {
+    if (_isCachingFullReferences) {
+      return _showInfo(_fullReferenceCacheProgress?.label ?? '正在缓存完整参考图...');
+    }
+    final points = pointsNeedingFullReferenceCache(_plan.points);
+    if (points.isEmpty) {
+      return _showInfo('当前计划没有需要缓存的参考图');
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('缓存完整参考图'),
+        content: Text('将缓存当前计划中 ${points.length} 张完整参考图，可能需要较长时间和网络流量。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('开始缓存'),
+          ),
+        ],
       ),
     );
+    if (confirmed == true) {
+      await _cacheFullReferenceImages();
+    }
   }
 
   Future<void> _showInfo(String message) async {

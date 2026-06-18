@@ -149,22 +149,14 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     return targetPath;
   }
 
-  String? remoteReferenceDescription(PilgrimagePoint point) {
-    final url = point.referenceImageUrl?.trim();
-    if (url == null || url.isEmpty) {
-      return null;
-    }
-    return 'reference url=$url';
-  }
-
   for (final point in plan.points) {
     final pointAssetRefs = _PointAssetRefs();
-    pointAssetRefs.referenceThumbnailAsset = await addLocalAsset(
+    pointAssetRefs.referenceThumbnailAsset = await addLocalOrNetworkAsset(
       sourcePath: point.referenceThumbnailPath,
+      sourceUrl: anitabiThumbnailImageUrl(point.referenceImageUrl),
       targetPath: 'assets/thumbnails/${_assetName(point.id, 'thumbnail.jpg')}',
       warningLabel: 'thumbnail',
       countKey: 'thumbnails',
-      missingSourceDescription: remoteReferenceDescription(point),
     );
     if (_isUserReference(point)) {
       pointAssetRefs.userReferenceAsset = await addFileAsset(

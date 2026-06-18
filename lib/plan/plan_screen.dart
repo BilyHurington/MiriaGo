@@ -8,11 +8,6 @@ import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
-import '../data/reference_cache_file_stub.dart'
-    if (dart.library.io) '../data/reference_cache_file_io.dart';
-import '../data/reference_image_cache_stub.dart'
-    if (dart.library.io) '../data/reference_image_cache_io.dart'
-    as reference_image_cache;
 import '../point_detail/point_detail_sheet.dart';
 import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
@@ -20,6 +15,7 @@ import '../map/map_tile_config.dart';
 import 'plan_group_utils.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
+import 'reference_full_cache_runner.dart';
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({
@@ -54,6 +50,8 @@ class _PlanScreenState extends State<PlanScreen> {
   bool _showMap = false;
   bool _showVirtualLocation = false;
   bool _isLocating = false;
+  bool _isCachingFullReferences = false;
+  ReferenceFullCacheProgress? _fullReferenceCacheProgress;
   double _mapHeightRatio = 0.42;
   LatLng? _currentLocation;
   final _pointListController = ScrollController();
@@ -180,6 +178,11 @@ class _PlanScreenState extends State<PlanScreen> {
       appBar: AppBar(
         title: Text(plan.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          _ReferenceCacheIconButton(
+            isCaching: _isCachingFullReferences,
+            progress: _fullReferenceCacheProgress,
+            onPressed: _handleReferenceCachePressed,
+          ),
           PopupMenuButton<_PlanMenuAction>(
             tooltip: '计划操作',
             icon: const Icon(Icons.more_horiz),
@@ -193,8 +196,6 @@ class _PlanScreenState extends State<PlanScreen> {
                   widget.onOpenPointManager();
                 case _PlanMenuAction.importExport:
                   widget.onOpenImportExport();
-                case _PlanMenuAction.cacheReference:
-                  _cacheFullReferenceImages(context);
               }
             },
             itemBuilder: (context) => const [
@@ -224,13 +225,6 @@ class _PlanScreenState extends State<PlanScreen> {
                 child: ListTile(
                   leading: Icon(Icons.import_export_outlined),
                   title: Text('导入导出'),
-                ),
-              ),
-              PopupMenuItem(
-                value: _PlanMenuAction.cacheReference,
-                child: ListTile(
-                  leading: Icon(Icons.download_for_offline_outlined),
-                  title: Text('缓存完整参考图'),
                 ),
               ),
             ],
@@ -375,67 +369,80 @@ class _PlanScreenState extends State<PlanScreen> {
     );
   }
 
-  Future<void> _cacheFullReferenceImages(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final points = controller.points
-        .where(
-          (point) =>
-              point.referenceImageUrl != null &&
-              !referenceFullCacheFileIsCurrent(
-                path: point.referenceFullImagePath,
-                imageUrl: point.referenceImageUrl,
-              ),
-        )
-        .toList(growable: false);
-    if (points.isEmpty) {
-      messenger.showReplacingSnackBar(
-        const SnackBar(content: Text('当前计划没有需要缓存的参考图')),
-      );
+  Future<void> _handleReferenceCachePressed() async {
+    if (_isCachingFullReferences) {
+      _showSnackBar(_fullReferenceCacheProgress?.label ?? '正在缓存完整参考图...');
       return;
     }
 
-    messenger.showReplacingSnackBar(
-      const SnackBar(content: Text('正在缓存完整参考图...')),
-    );
-    var cached = 0;
-    var failed = 0;
-    var processed = 0;
-    for (final point in points) {
-      try {
-        final path = await reference_image_cache.cacheReferenceFullImage(point);
-        if (path == null) {
-          failed += 1;
-        } else {
-          await controller.updatePointImageCache(
-            point,
-            referenceThumbnailPath: point.referenceThumbnailPath,
-            referenceFullImagePath: path,
-          );
-          cached += 1;
-        }
-      } catch (_) {
-        failed += 1;
-      }
-      processed += 1;
-      if (!mounted) {
-        return;
-      }
-      messenger.showReplacingSnackBar(
-        SnackBar(
-          content: Text('正在缓存完整参考图 $processed/${points.length}，成功 $cached'),
-        ),
-      );
+    final points = pointsNeedingFullReferenceCache(controller.points);
+    if (points.isEmpty) {
+      _showSnackBar('当前计划没有需要缓存的参考图');
+      return;
     }
 
-    messenger.showReplacingSnackBar(
-      SnackBar(
-        content: Text(
-          failed == 0
-              ? '已缓存 $cached/${points.length} 张完整参考图'
-              : '已缓存 $cached/${points.length} 张完整参考图，失败 $failed 张',
-        ),
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('缓存完整参考图'),
+        content: Text('将缓存当前计划中 ${points.length} 张完整参考图，可能需要较长时间和网络流量。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('开始缓存'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    await _cacheFullReferenceImages();
+  }
+
+  Future<void> _cacheFullReferenceImages() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_isCachingFullReferences) {
+      return;
+    }
+    setState(() {
+      _isCachingFullReferences = true;
+      _fullReferenceCacheProgress = null;
+    });
+    messenger.showReplacingSnackBar(
+      const SnackBar(content: Text('已开始缓存完整参考图')),
+    );
+    try {
+      await cacheFullReferenceImages(
+        plan: controller.plan,
+        repository: widget.repository,
+        onPlanUpdated: controller.replacePlan,
+        onProgress: (progress) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _fullReferenceCacheProgress = progress;
+          });
+        },
+      );
+    } finally {
+      if (mounted) {
+        final progress = _fullReferenceCacheProgress;
+        setState(() {
+          _isCachingFullReferences = false;
+        });
+        if (progress != null) {
+          messenger.showReplacingSnackBar(
+            SnackBar(content: Text(progress.label)),
+          );
+        }
+      }
+    }
   }
 
   void _showSnackBar(String message) {
@@ -449,12 +456,34 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 }
 
-enum _PlanMenuAction {
-  switchPlan,
-  addPoints,
-  managePoints,
-  importExport,
-  cacheReference,
+enum _PlanMenuAction { switchPlan, addPoints, managePoints, importExport }
+
+class _ReferenceCacheIconButton extends StatelessWidget {
+  const _ReferenceCacheIconButton({
+    required this.isCaching,
+    required this.progress,
+    required this.onPressed,
+  });
+
+  final bool isCaching;
+  final ReferenceFullCacheProgress? progress;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final tooltip = isCaching ? progress?.label ?? '正在缓存完整参考图' : '缓存完整参考图';
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: isCaching
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download_for_offline_outlined),
+    );
+  }
 }
 
 class _GroupSwitcher extends StatelessWidget {

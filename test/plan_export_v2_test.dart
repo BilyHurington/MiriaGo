@@ -90,7 +90,7 @@ void main() {
     expect(recordJson['pointName'], recordWithGrading.pointName);
   });
 
-  test('plan export does not fetch remote thumbnails', () async {
+  test('plan export fetches remote thumbnail fallback', () async {
     final repository = SamplePilgrimageRepository();
     final plan = await repository.loadActivePlan();
     final firstPoint = plan.points.first;
@@ -126,7 +126,7 @@ void main() {
       ),
       networkBytesReader: (url) async {
         requestedUrls.add(url);
-        return utf8.encode('unexpected network bytes');
+        return utf8.encode('network bytes for $url');
       },
     );
 
@@ -141,26 +141,28 @@ void main() {
     final points = planRoot['points'] as List<Object?>;
     final pointJson = points.single as Map<String, Object?>;
     final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
-    final warnings = manifest['warnings'] as List<Object?>;
 
-    expect(archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'), isNull);
     expect(requestedUrls, [
+      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=h160',
       'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg',
     ]);
+    expect(
+      archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'),
+      isNotNull,
+    );
     expect(
       archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
       isNotNull,
     );
-    expect(assetCounts['thumbnails'], 0);
+    expect(assetCounts['thumbnails'], 1);
     expect(assetCounts['fullReferences'], 1);
-    expect(pointJson['referenceThumbnailAsset'], isNull);
+    expect(
+      pointJson['referenceThumbnailAsset'],
+      'assets/thumbnails/${firstPoint.id}.jpg',
+    );
     expect(
       pointJson['referenceFullReferenceAsset'],
       'assets/full_references/${firstPoint.id}.jpg',
-    );
-    expect(
-      warnings,
-      contains('thumbnail missing local cache: reference url=$referenceUrl'),
     );
   });
 
@@ -210,13 +212,18 @@ void main() {
             as Map<String, Object?>;
     final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
 
-    expect(requestedUrls, isEmpty);
-    expect(archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'), isNull);
+    expect(requestedUrls, [
+      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=h160',
+    ]);
+    expect(
+      archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'),
+      isNotNull,
+    );
     expect(
       archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
       isNull,
     );
-    expect(assetCounts['thumbnails'], 0);
+    expect(assetCounts['thumbnails'], 1);
     expect(assetCounts['fullReferences'], 0);
   });
 
