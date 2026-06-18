@@ -11,6 +11,8 @@ import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_image_placeholder.dart';
+import '../widgets/reference_image_source_stub.dart'
+    if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
 import 'point_visit_records_screen.dart';
@@ -553,10 +555,13 @@ class _RecordImageTile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: child,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: child,
+            ),
           ),
         ),
         const SizedBox(height: 6),
@@ -584,8 +589,8 @@ class _RecordReferencePhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localPath = path;
-    if (localPath != null) {
-      return VisitRecordPhoto(path: localPath, fit: BoxFit.contain);
+    if (referenceImageLocalPathCanDisplay(localPath)) {
+      return VisitRecordPhoto(path: localPath!, fit: BoxFit.contain);
     }
 
     final imageUrl = url;

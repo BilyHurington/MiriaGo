@@ -41,4 +41,14 @@ void main() {
       expect(ratio, closeTo(3 / 4, 0.001));
     },
   );
+
+  test('camera reference display keeps full resolution Anitabi URL', () {
+    const thumbnailUrl =
+        'https://image.anitabi.cn/points/115908/demo.jpg?plan=h160';
+
+    expect(
+      cameraReferenceFullResolutionDisplayUrl(thumbnailUrl),
+      'https://image.anitabi.cn/points/115908/demo.jpg',
+    );
+  });
 }

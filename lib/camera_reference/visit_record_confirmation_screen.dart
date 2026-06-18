@@ -11,6 +11,8 @@ import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_image_placeholder.dart';
+import '../widgets/reference_image_source_stub.dart'
+    if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'camera_storage_stub.dart'
@@ -67,7 +69,10 @@ class _VisitRecordConfirmationScreenState
         prefix: 'reference',
       );
     }
-    final fallbackReferencePath = widget.referenceImagePath;
+    final fallbackReferencePath =
+        referenceImageLocalPathCanDisplay(widget.referenceImagePath)
+        ? widget.referenceImagePath
+        : null;
 
     await controller.createVisitRecord(
       point: widget.point,
@@ -290,7 +295,14 @@ class _ImageCompareTile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: InkWell(onTap: onTap, onLongPress: onLongPress, child: child),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: InkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              child: child,
+            ),
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -327,7 +339,7 @@ class _ReferencePreview extends StatelessWidget {
     }
 
     final localPath = imagePath;
-    if (localPath != null) {
+    if (referenceImageLocalPathCanDisplay(localPath)) {
       return ReferenceThumbnail(
         localPath: localPath,
         imageUrl: null,

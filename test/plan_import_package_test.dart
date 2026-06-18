@@ -153,6 +153,30 @@ void main() {
     expect(restored.visitRecords.single.gradedPhotoPath, '/local/graded.jpg');
     expect(restored.warnings, isEmpty);
   });
+
+  test('clears stale full reference path when asset is not restored', () {
+    final bytes = _zipPackageBytes(
+      assetFiles: {'assets/thumbnails/point-1.jpg': utf8.encode('thumb')},
+    );
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'restore.sjhplan',
+    );
+
+    final restored = applyRestoredAssetPaths(
+      importPackage: importPackage,
+      restoredPaths: const {
+        'assets/thumbnails/point-1.jpg': '/local/thumb.jpg',
+      },
+      includeRecords: true,
+    );
+
+    expect(
+      restored.plan.points.single.referenceThumbnailPath,
+      '/local/thumb.jpg',
+    );
+    expect(restored.plan.points.single.referenceFullImagePath, isNull);
+  });
 }
 
 List<int> _zipPackageBytes({required Map<String, List<int>> assetFiles}) {

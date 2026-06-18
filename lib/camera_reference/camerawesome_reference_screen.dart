@@ -15,6 +15,8 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../widgets/reference_image_source_stub.dart'
+    if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
@@ -231,9 +233,9 @@ class _CamerawesomeReferenceScreenState
           referenceMode: _mode.label,
           referenceBytes: _localReferenceBytes,
           referenceImagePath: widget.point.referenceFullImagePath,
-          referenceImageUrl: anitabiFullResolutionImageUrl(
-            widget.point.referenceImageUrl,
-          ),
+          referenceImageUrl: _localReferenceBytes != null
+              ? null
+              : anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
           capturedAtOverride: capturedAtOverride,
           saveVisitPhotoToGallery: shouldAutoSaveVisitPhotoToGallery(
             widget.settings,
@@ -270,9 +272,12 @@ class _CamerawesomeReferenceScreenState
 
   @override
   Widget build(BuildContext context) {
+    final referenceFullImagePath = widget.point.referenceFullImagePath;
     final reference = _ReferenceImageSource(
       bytes: _localReferenceBytes,
-      localPath: widget.point.referenceFullImagePath,
+      localPath: referenceImageLocalPathCanDisplay(referenceFullImagePath)
+          ? referenceFullImagePath
+          : null,
       url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
     );
     final captureAspectRatio = resolveCameraCaptureAspectRatio(
@@ -3660,14 +3665,38 @@ class _ReferenceImageView extends StatelessWidget {
         fit: fit,
         gaplessPlayback: true,
       );
-    } else if (source.localPath != null || source.url != null) {
+    } else if (source.localPath != null) {
       image = ReferenceThumbnail(
         localPath: source.localPath,
-        imageUrl: source.url,
+        imageUrl: null,
         placeholder: const _ReferenceError(),
         width: double.infinity,
         height: double.infinity,
         fit: fit,
+      );
+    } else if (source.url != null) {
+      image = Image.network(
+        cameraReferenceFullResolutionDisplayUrl(source.url!),
+        width: double.infinity,
+        height: double.infinity,
+        fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            return child;
+          }
+          return const ColoredBox(
+            color: Colors.black,
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return const _ReferenceError();
+        },
       );
     } else {
       return const SizedBox.shrink();
@@ -3683,6 +3712,11 @@ class _ReferenceImageView extends StatelessWidget {
       child: image,
     );
   }
+}
+
+@visibleForTesting
+String cameraReferenceFullResolutionDisplayUrl(String url) {
+  return anitabiFullResolutionImageUrl(url) ?? url;
 }
 
 class _ReferenceError extends StatelessWidget {

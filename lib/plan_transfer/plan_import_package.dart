@@ -321,7 +321,7 @@ PilgrimagePoint _pointWithRestoredAssets(
   );
   return point.copyWith(
     referenceThumbnailPath: thumbnailPath ?? point.referenceThumbnailPath,
-    referenceFullImagePath: fullReferencePath ?? point.referenceFullImagePath,
+    referenceFullImagePath: fullReferencePath,
   );
 }
 
