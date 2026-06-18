@@ -25,6 +25,17 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
   );
 }
 
+Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
+  final existingPath = point.referenceThumbnailPath;
+  if (existingPath != null) {
+    final file = File(existingPath);
+    if (file.existsSync() && file.lengthSync() > 0) {
+      return existingPath;
+    }
+  }
+  return cacheReferenceThumbnail(point);
+}
+
 Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
   final url = anitabiFullResolutionImageUrl(point.referenceImageUrl);
   if (url == null || url.isEmpty) {

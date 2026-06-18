@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../desktop/tauri_bridge.dart' as tauri;
+import '../desktop/desktop_asset_image.dart';
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_url.dart';
 
@@ -20,6 +21,21 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
     filename:
         '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
   );
+}
+
+Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
+  final existingPath = point.referenceThumbnailPath;
+  if (existingPath != null && isDesktopAssetPath(existingPath)) {
+    try {
+      final existing = await tauri.readDesktopAsset(path: existingPath);
+      if (existing.dataBase64.isNotEmpty) {
+        return existingPath;
+      }
+    } on Object {
+      // Missing files are expected when data was restored without assets.
+    }
+  }
+  return cacheReferenceThumbnail(point);
 }
 
 Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {

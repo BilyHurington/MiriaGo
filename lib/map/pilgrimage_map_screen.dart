@@ -16,6 +16,7 @@ import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/auto_caching_reference_thumbnail.dart';
 import 'map_navigation_launcher.dart';
 import 'map_tile_config.dart';
 import '../widgets/reference_thumbnail_stub.dart'
@@ -334,6 +335,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
             child: selectedPoint == null
                 ? const _EmptyMapCard()
                 : _PointCard(
+                    controller: _controller,
                     point: selectedPoint,
                     status: _controller.statusFor(selectedPoint),
                     recordCount: _controller
@@ -542,6 +544,7 @@ class _CurrentLocationMarker extends StatelessWidget {
 
 class _PointCard extends StatelessWidget {
   const _PointCard({
+    required this.controller,
     required this.point,
     required this.status,
     required this.recordCount,
@@ -553,6 +556,7 @@ class _PointCard extends StatelessWidget {
     required this.onComplete,
   });
 
+  final PilgrimagePlanController controller;
   final PilgrimagePoint point;
   final VisitStatus status;
   final int recordCount;
@@ -582,7 +586,7 @@ class _PointCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PointThumbnail(point: point),
+              _PointThumbnail(controller: controller, point: point),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -713,12 +717,14 @@ class _PointCard extends StatelessWidget {
 }
 
 class _PointThumbnail extends StatelessWidget {
-  const _PointThumbnail({required this.point});
+  const _PointThumbnail({required this.controller, required this.point});
 
+  final PilgrimagePlanController controller;
   final PilgrimagePoint point;
 
   @override
   Widget build(BuildContext context) {
+    final repository = controller.repository;
     return GestureDetector(
       onTap: () => ImageViewerScreen.show(
         context,
@@ -731,14 +737,25 @@ class _PointThumbnail extends StatelessWidget {
           width: 64,
           height: 64,
           color: AppColors.surfaceMuted,
-          child: ReferenceThumbnail(
-            localPath: point.referenceThumbnailPath,
-            imageUrl: point.referenceImageUrl,
-            placeholder: Icon(
-              Icons.image_outlined,
-              color: AppColors.accentDark,
-            ),
-          ),
+          child: repository == null
+              ? ReferenceThumbnail(
+                  localPath: point.referenceThumbnailPath,
+                  imageUrl: point.referenceImageUrl,
+                  placeholder: Icon(
+                    Icons.image_outlined,
+                    color: AppColors.accentDark,
+                  ),
+                )
+              : AutoCachingReferenceThumbnail(
+                  planId: controller.plan.id,
+                  point: point,
+                  repository: repository,
+                  onPlanUpdated: controller.replacePlan,
+                  placeholder: Icon(
+                    Icons.image_outlined,
+                    color: AppColors.accentDark,
+                  ),
+                ),
         ),
       ),
     );

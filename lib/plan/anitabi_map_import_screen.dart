@@ -15,6 +15,7 @@ import '../data/reference_image_cache_stub.dart'
     as reference_image_cache;
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -54,6 +55,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Object? _error;
   bool _isLoading = false;
   bool _isImporting = false;
+  _ImportProgress? _importProgress;
   bool _didUpdatePlan = false;
   bool _isBoxSelecting = false;
   Offset? _selectionStart;
@@ -296,10 +298,34 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   void _replaceImportedPlan(PilgrimagePlan plan) {
+    final previousSelectedWork = _selectedWork;
     _importedPlan = plan;
+    if (previousSelectedWork != null) {
+      _selectedWork = _matchingWorkInPlan(plan, previousSelectedWork);
+    }
     _importedPointIds
       ..clear()
       ..addAll(plan.points.map((point) => point.id));
+  }
+
+  PilgrimageWork? _matchingWorkInPlan(
+    PilgrimagePlan plan,
+    PilgrimageWork selectedWork,
+  ) {
+    for (final work in plan.works) {
+      if (work.id == selectedWork.id) {
+        return work;
+      }
+    }
+    final bangumiId = selectedWork.bangumiId;
+    if (bangumiId != null) {
+      for (final work in plan.works) {
+        if (work.bangumiId == bangumiId) {
+          return work;
+        }
+      }
+    }
+    return plan.works.firstOrNull;
   }
 
   void _selectPoint(AnitabiPoint point) {
@@ -439,9 +465,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     setState(() {
       _isImporting = true;
+      _importProgress = _ImportProgress.importing(
+        total: pilgrimagePoints.length,
+      );
     });
 
     try {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showReplacingSnackBar(
+        SnackBar(content: Text('正在导入 ${pilgrimagePoints.length} 个点位...')),
+      );
       var importedPlan = pilgrimagePoints.length == 1
           ? await widget.repository.addPointToPlan(
               planId: widget.plan.id,
@@ -451,22 +484,6 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               planId: widget.plan.id,
               points: pilgrimagePoints,
             );
-
-      for (final pilgrimagePoint in pilgrimagePoints) {
-        final thumbnailPath = await reference_image_cache
-            .cacheReferenceThumbnail(pilgrimagePoint);
-        if (thumbnailPath == null) {
-          continue;
-        }
-        importedPlan = await widget.repository.updatePointImageCache(
-          planId: widget.plan.id,
-          pointId: pilgrimagePoint.id,
-          referenceThumbnailPath: thumbnailPath,
-          referenceFullImagePath: importedPlan.points
-              .firstWhere((point) => point.id == pilgrimagePoint.id)
-              .referenceFullImagePath,
-        );
-      }
       if (!mounted) {
         return;
       }
@@ -476,14 +493,84 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _didUpdatePlan = true;
         _selectionStart = null;
         _selectionEnd = null;
+        _importProgress = _ImportProgress.caching(
+          total: pilgrimagePoints.length,
+        );
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(SnackBar(content: Text(successMessage)));
+
+      var cached = 0;
+      var cacheFailed = 0;
+      var processed = 0;
+      for (final pilgrimagePoint in pilgrimagePoints) {
+        String? thumbnailPath;
+        try {
+          thumbnailPath = await reference_image_cache
+              .ensureReferenceThumbnailCached(pilgrimagePoint);
+        } catch (_) {
+          thumbnailPath = null;
+        }
+
+        if (thumbnailPath == null) {
+          cacheFailed += 1;
+        } else {
+          try {
+            importedPlan = await widget.repository.updatePointImageCache(
+              planId: widget.plan.id,
+              pointId: pilgrimagePoint.id,
+              referenceThumbnailPath: thumbnailPath,
+              referenceFullImagePath: importedPlan.points
+                  .firstWhere((point) => point.id == pilgrimagePoint.id)
+                  .referenceFullImagePath,
+            );
+            cached += 1;
+          } catch (_) {
+            cacheFailed += 1;
+          }
+        }
+
+        processed += 1;
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _replaceImportedPlan(importedPlan);
+          _didUpdatePlan = true;
+          _importProgress = _ImportProgress.caching(
+            total: pilgrimagePoints.length,
+            processed: processed,
+            succeeded: cached,
+          );
+        });
+        messenger.showReplacingSnackBar(
+          SnackBar(
+            content: Text(
+              '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+            ),
+          ),
+        );
+      }
+
+      setState(() {
+        _replaceImportedPlan(importedPlan);
+        _didUpdatePlan = true;
+        _selectionStart = null;
+        _selectionEnd = null;
+      });
+      messenger.showReplacingSnackBar(
+        SnackBar(
+          content: Text(
+            cacheFailed == 0
+                ? successMessage
+                : '已导入 ${pilgrimagePoints.length} 个点位，缩略图缓存 $cached/${pilgrimagePoints.length}，其余稍后会自动补齐。',
+          ),
+        ),
+      );
       if (pilgrimagePoints.length > 1) {
         await _showOrganizeImportedPointsGuide(pilgrimagePoints.length);
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Failed to import Anitabi points: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) {
         return;
       }
@@ -495,6 +582,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       if (mounted) {
         setState(() {
           _isImporting = false;
+          _importProgress = null;
         });
       }
     }
@@ -766,6 +854,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                       child: _ImportSummary(
                         isLoading: _isLoading,
                         isImporting: _isImporting,
+                        importProgress: _importProgress,
                         importedCount: _points
                             .where(
                               (point) => _importedPointIds.contains(
@@ -792,6 +881,17 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                             )
                           : _AnitabiPointCard(
                               point: selectedPoint,
+                              planId: _importedPlan.id,
+                              repository: widget.repository,
+                              onPlanUpdated: (plan) {
+                                if (!mounted) {
+                                  return;
+                                }
+                                setState(() {
+                                  _replaceImportedPlan(plan);
+                                  _didUpdatePlan = true;
+                                });
+                              },
                               importedPoint: _importedPointFor(selectedPoint),
                               imported: _importedPointIds.contains(
                                 selectedPoint
@@ -845,6 +945,33 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 }
 
+enum _ImportProgressStage { importing, caching }
+
+class _ImportProgress {
+  const _ImportProgress.importing({required this.total})
+    : stage = _ImportProgressStage.importing,
+      processed = 0,
+      succeeded = 0;
+
+  const _ImportProgress.caching({
+    required this.total,
+    this.processed = 0,
+    this.succeeded = 0,
+  }) : stage = _ImportProgressStage.caching;
+
+  final _ImportProgressStage stage;
+  final int total;
+  final int processed;
+  final int succeeded;
+
+  String get label {
+    return switch (stage) {
+      _ImportProgressStage.importing => '正在导入 $total 个点位...',
+      _ImportProgressStage.caching => '正在缓存缩略图 $processed/$total，成功 $succeeded',
+    };
+  }
+}
+
 enum _ImportOrganizeAction { later, groupManager, nearestAssign }
 
 class _ImportMarker extends StatelessWidget {
@@ -880,6 +1007,7 @@ class _ImportSummary extends StatelessWidget {
   const _ImportSummary({
     required this.isLoading,
     required this.isImporting,
+    required this.importProgress,
     required this.importedCount,
     required this.totalCount,
     required this.expectedCount,
@@ -893,6 +1021,7 @@ class _ImportSummary extends StatelessWidget {
 
   final bool isLoading;
   final bool isImporting;
+  final _ImportProgress? importProgress;
   final int importedCount;
   final int totalCount;
   final int? expectedCount;
@@ -932,7 +1061,8 @@ class _ImportSummary extends StatelessWidget {
                 child: Text(
                   isLoading
                       ? '正在加载 Anitabi 点位'
-                      : '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
+                      : importProgress?.label ??
+                            '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
@@ -1069,6 +1199,9 @@ class _SelectionRectPainter extends CustomPainter {
 class _AnitabiPointCard extends StatelessWidget {
   const _AnitabiPointCard({
     required this.point,
+    required this.planId,
+    required this.repository,
+    required this.onPlanUpdated,
     required this.importedPoint,
     required this.imported,
     required this.isImporting,
@@ -1076,6 +1209,9 @@ class _AnitabiPointCard extends StatelessWidget {
   });
 
   final AnitabiPoint point;
+  final String planId;
+  final PilgrimageRepository repository;
+  final ValueChanged<PilgrimagePlan> onPlanUpdated;
   final PilgrimagePoint? importedPoint;
   final bool imported;
   final bool isImporting;
@@ -1133,11 +1269,19 @@ class _AnitabiPointCard extends StatelessWidget {
                 child: SizedBox(
                   width: 86,
                   height: 86,
-                  child: ReferenceThumbnail(
-                    localPath: localThumbnailPath,
-                    imageUrl: imageUrl,
-                    placeholder: const Icon(Icons.image_outlined),
-                  ),
+                  child: importedPoint == null
+                      ? ReferenceThumbnail(
+                          localPath: localThumbnailPath,
+                          imageUrl: imageUrl,
+                          placeholder: const Icon(Icons.image_outlined),
+                        )
+                      : AutoCachingReferenceThumbnail(
+                          planId: planId,
+                          point: importedPoint!,
+                          repository: repository,
+                          onPlanUpdated: onPlanUpdated,
+                          placeholder: const Icon(Icons.image_outlined),
+                        ),
                 ),
               ),
             ),

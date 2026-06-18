@@ -38,6 +38,16 @@ class PilgrimagePlanController extends ChangeNotifier {
 
   PilgrimagePoint? pointById(String id) => _pointById(id);
 
+  void replacePlan(PilgrimagePlan plan) {
+    _plan = plan;
+    _completedPointIds = {...plan.completedPointIds};
+    _currentPointId = plan.currentPointId;
+    if (_selectedPointId != null && _pointById(_selectedPointId!) == null) {
+      _selectedPointId = plan.points.firstOrNull?.id;
+    }
+    notifyListeners();
+  }
+
   List<PilgrimagePoint> get completedPoints => points
       .where((point) => _completedPointIds.contains(point.id))
       .toList(growable: false);

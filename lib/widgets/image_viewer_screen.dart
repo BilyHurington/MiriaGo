@@ -297,21 +297,15 @@ class ImageViewerScreen extends StatelessWidget {
           builder: (context, snapshot) {
             final dataUrl = snapshot.data;
             if (dataUrl == null || dataUrl.isEmpty) {
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              return const _ImageViewerPlaceholder(
+                state: _ImageViewerPlaceholderState.loading,
               );
             }
             return Image.network(
               dataUrl,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
-                return const Center(
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: Colors.white54,
-                    size: 48,
-                  ),
-                );
+                return const _ImageViewerPlaceholder();
               },
             );
           },
@@ -323,13 +317,7 @@ class ImageViewerScreen extends StatelessWidget {
           path,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
-            return const Center(
-              child: Icon(
-                Icons.broken_image_outlined,
-                color: Colors.white54,
-                size: 48,
-              ),
-            );
+            return const _ImageViewerPlaceholder();
           },
         );
       }
@@ -347,29 +335,76 @@ class ImageViewerScreen extends StatelessWidget {
         fit: BoxFit.contain,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
+          return const _ImageViewerPlaceholder(
+            state: _ImageViewerPlaceholderState.loading,
           );
         },
         errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Icon(
-              Icons.broken_image_outlined,
-              color: Colors.white54,
-              size: 48,
-            ),
-          );
+          return const _ImageViewerPlaceholder();
         },
       );
     }
 
-    return const Center(
-      child: Icon(Icons.image_outlined, color: Colors.white54, size: 48),
+    return const _ImageViewerPlaceholder(
+      state: _ImageViewerPlaceholderState.empty,
     );
   }
 
   bool _isBundledSampleAssetPath(String path) {
     return path.startsWith('docs/sample_images/');
+  }
+}
+
+enum _ImageViewerPlaceholderState { loading, unavailable, empty }
+
+class _ImageViewerPlaceholder extends StatelessWidget {
+  const _ImageViewerPlaceholder({
+    this.state = _ImageViewerPlaceholderState.unavailable,
+  });
+
+  final _ImageViewerPlaceholderState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (state) {
+      _ImageViewerPlaceholderState.loading => Icons.hourglass_empty_rounded,
+      _ImageViewerPlaceholderState.empty => Icons.image_outlined,
+      _ImageViewerPlaceholderState.unavailable => Icons.broken_image_outlined,
+    };
+    final label = switch (state) {
+      _ImageViewerPlaceholderState.loading => '图片加载中',
+      _ImageViewerPlaceholderState.empty => '暂无图片',
+      _ImageViewerPlaceholderState.unavailable => '图片暂不可用',
+    };
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (state == _ImageViewerPlaceholderState.loading)
+            const SizedBox(
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(
+                color: Colors.white70,
+                strokeWidth: 3,
+              ),
+            )
+          else
+            Icon(icon, color: Colors.white54, size: 48),
+          const SizedBox(height: 14),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'reference_image_placeholder.dart';
+import '../data/anitabi_image_url.dart';
 
 class ReferenceThumbnail extends StatelessWidget {
   const ReferenceThumbnail({
@@ -35,31 +35,14 @@ class ReferenceThumbnail extends StatelessWidget {
     final url = imageUrl;
     if (url != null) {
       return Image.network(
-        url,
+        anitabiThumbnailImageUrl(url) ?? url,
         width: width,
         height: height,
         fit: fit,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            return child;
-          }
-          return _sizedPlaceholder(
-            const ReferenceImagePlaceholder(
-              state: ReferenceImagePlaceholderState.loading,
-            ),
-          );
-        },
         errorBuilder: (_, _, _) => placeholder,
       );
     }
 
     return placeholder;
-  }
-
-  Widget _sizedPlaceholder(Widget child) {
-    if (width == null && height == null) {
-      return child;
-    }
-    return SizedBox(width: width, height: height, child: child);
   }
 }
