@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/app_version.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan_transfer/plan_export_v2.dart';
@@ -63,7 +64,7 @@ void main() {
     final recordJson = visitRecords.single as Map<String, Object?>;
     final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
 
-    expect(manifest['appVersion'], '1.1.2+13');
+    expect(manifest['appVersion'], miriagoAppVersion);
     expect(archive.files.any((file) => file.name.startsWith('assets/')), true);
     expect(assetCounts['thumbnails'], 1);
     expect(assetCounts['fullReferences'], 1);
