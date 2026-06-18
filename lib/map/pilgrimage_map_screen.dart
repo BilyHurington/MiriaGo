@@ -346,7 +346,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                     onOpenDetail: () => _showPointDetail(selectedPoint),
                     onOpenNavigation: () => _openNavigation(selectedPoint),
                     onOpenCamera: () => _openCamera(selectedPoint),
-                    onComplete: () => _controller.completePoint(selectedPoint),
+                    onComplete: () =>
+                        _controller.statusFor(selectedPoint) ==
+                            VisitStatus.completed
+                        ? _controller.reopenPoint(selectedPoint)
+                        : _controller.completePoint(selectedPoint),
                   ),
           ),
         ],
@@ -669,12 +673,20 @@ class _PointCard extends StatelessWidget {
                 icon: const Icon(Icons.photo_camera_outlined),
               ),
               const SizedBox(width: 4),
-              IconButton.outlined(
-                tooltip: '标记完成',
-                onPressed: onComplete,
-                icon: const Icon(Icons.check_outlined),
-              ),
-              if (status != VisitStatus.current) ...[
+              if (status == VisitStatus.completed)
+                IconButton.outlined(
+                  tooltip: '重新打开并设为当前目标',
+                  onPressed: onComplete,
+                  icon: const Icon(Icons.replay_outlined),
+                )
+              else
+                IconButton.outlined(
+                  tooltip: '标记完成',
+                  onPressed: onComplete,
+                  icon: const Icon(Icons.check_circle_outline),
+                ),
+              if (status != VisitStatus.current &&
+                  status != VisitStatus.completed) ...[
                 const SizedBox(width: 4),
                 IconButton.outlined(
                   tooltip: '设为当前目标',
