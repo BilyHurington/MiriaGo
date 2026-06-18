@@ -10,6 +10,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/reference_image_placeholder.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
 import 'point_visit_records_screen.dart';
@@ -592,6 +593,14 @@ class _RecordReferencePhoto extends StatelessWidget {
       return Image.network(
         imageUrl,
         fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            return child;
+          }
+          return const _RecordReferencePlaceholder(
+            state: ReferenceImagePlaceholderState.loading,
+          );
+        },
         errorBuilder: (context, error, stackTrace) {
           return const _RecordReferencePlaceholder();
         },
@@ -603,16 +612,15 @@ class _RecordReferencePhoto extends StatelessWidget {
 }
 
 class _RecordReferencePlaceholder extends StatelessWidget {
-  const _RecordReferencePlaceholder();
+  const _RecordReferencePlaceholder({
+    this.state = ReferenceImagePlaceholderState.unavailable,
+  });
+
+  final ReferenceImagePlaceholderState state;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.surfaceMuted,
-      child: Center(
-        child: Icon(Icons.image_outlined, color: AppColors.accentDark),
-      ),
-    );
+    return ReferenceImagePlaceholder(state: state);
   }
 }
 

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'reference_image_placeholder.dart';
+
 class ReferenceThumbnail extends StatelessWidget {
   const ReferenceThumbnail({
     required this.localPath,
@@ -37,10 +39,27 @@ class ReferenceThumbnail extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            return child;
+          }
+          return _sizedPlaceholder(
+            const ReferenceImagePlaceholder(
+              state: ReferenceImagePlaceholderState.loading,
+            ),
+          );
+        },
         errorBuilder: (_, _, _) => placeholder,
       );
     }
 
     return placeholder;
+  }
+
+  Widget _sizedPlaceholder(Widget child) {
+    if (width == null && height == null) {
+      return child;
+    }
+    return SizedBox(width: width, height: height, child: child);
   }
 }

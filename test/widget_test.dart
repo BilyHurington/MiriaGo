@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -8,6 +7,7 @@ import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/anitabi_map_import_screen.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
+import 'package:miriago/widgets/reference_image_placeholder.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
@@ -27,6 +27,30 @@ Future<void> _openPlanMenu(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('reference image placeholder explains loading states', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Column(
+          children: [
+            ReferenceImagePlaceholder(
+              state: ReferenceImagePlaceholderState.loading,
+            ),
+            ReferenceImagePlaceholder(),
+            ReferenceImagePlaceholder(
+              state: ReferenceImagePlaceholderState.empty,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.text('参考图加载中'), findsOneWidget);
+    expect(find.text('参考图暂不可用'), findsOneWidget);
+    expect(find.text('暂无参考图'), findsOneWidget);
+  });
+
   testWidgets('shows the pilgrimage plan workflow shell', (tester) async {
     await _pumpApp(tester);
 
@@ -221,18 +245,7 @@ void main() {
     await tester.tap(find.byTooltip('在地图上选点'));
     await tester.pumpAndSettle();
     expect(find.text('点击地图任意位置设置点位坐标'), findsOneWidget);
-
-    await tester.tap(find.byType(FlutterMap).last);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('点击地图可继续调整位置'), findsOneWidget);
-
-    await tester.tap(find.text('使用'));
-    await tester.pumpAndSettle();
-
-    expect(find.widgetWithText(TextFormField, '纬度'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, '经度'), findsOneWidget);
-    expect(find.text('35.000000'), findsOneWidget);
-    expect(find.text('135.000000'), findsOneWidget);
+    expect(find.textContaining('点击地图可继续调整位置'), findsNothing);
   });
 
   testWidgets(

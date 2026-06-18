@@ -10,6 +10,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/reference_image_placeholder.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'camera_storage_stub.dart'
@@ -340,6 +341,14 @@ class _ReferencePreview extends StatelessWidget {
       return Image.network(
         url,
         fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            return child;
+          }
+          return const _ReferencePlaceholder(
+            state: ReferenceImagePlaceholderState.loading,
+          );
+        },
         errorBuilder: (context, error, stackTrace) {
           return const _ReferencePlaceholder();
         },
@@ -351,16 +360,15 @@ class _ReferencePreview extends StatelessWidget {
 }
 
 class _ReferencePlaceholder extends StatelessWidget {
-  const _ReferencePlaceholder();
+  const _ReferencePlaceholder({
+    this.state = ReferenceImagePlaceholderState.unavailable,
+  });
+
+  final ReferenceImagePlaceholderState state;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.surfaceMuted,
-      child: Center(
-        child: Icon(Icons.image_outlined, color: AppColors.accentDark),
-      ),
-    );
+    return ReferenceImagePlaceholder(state: state);
   }
 }
 
