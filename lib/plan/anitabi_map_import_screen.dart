@@ -501,6 +501,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       var cached = 0;
       var cacheFailed = 0;
       var processed = 0;
+      var lastProgressSnackBarAt = DateTime.fromMillisecondsSinceEpoch(0);
       for (final pilgrimagePoint in pilgrimagePoints) {
         String? thumbnailPath;
         try {
@@ -541,13 +542,22 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
             succeeded: cached,
           );
         });
-        messenger.showReplacingSnackBar(
-          SnackBar(
-            content: Text(
-              '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+        final now = DateTime.now();
+        final shouldShowProgressSnackBar =
+            processed == pilgrimagePoints.length ||
+            now.difference(lastProgressSnackBarAt) >=
+                const Duration(milliseconds: 450);
+        if (shouldShowProgressSnackBar && mounted) {
+          lastProgressSnackBarAt = now;
+          messenger.showReplacingSnackBar(
+            SnackBar(
+              duration: const Duration(milliseconds: 1200),
+              content: Text(
+                '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
 
       setState(() {
