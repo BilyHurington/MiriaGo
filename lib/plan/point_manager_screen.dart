@@ -12,6 +12,7 @@ import '../data/user_reference_image_stub.dart'
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import 'add_points_screen.dart';
 import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_manager_screen.dart';
@@ -410,27 +411,30 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             separatorBuilder: (_, _) => const SizedBox(height: 6),
             itemBuilder: (context, index) {
               final group = groups[index];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  group.isUngrouped
-                      ? Icons.inbox_outlined
-                      : Icons.folder_outlined,
-                  color: index == _selectedGroupIndex
-                      ? AppColors.accent
-                      : AppColors.textSecondary,
+              return Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    group.isUngrouped
+                        ? Icons.inbox_outlined
+                        : Icons.folder_outlined,
+                    color: index == _selectedGroupIndex
+                        ? AppColors.accent
+                        : AppColors.textSecondary,
+                  ),
+                  title: Text(group.name),
+                  subtitle: Text(
+                    '${group.completedCount} / ${group.points.length}',
+                  ),
+                  trailing: index == _selectedGroupIndex
+                      ? Icon(Icons.check, color: AppColors.accent)
+                      : null,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _selectGroup(index);
+                  },
                 ),
-                title: Text(group.name),
-                subtitle: Text(
-                  '${group.completedCount} / ${group.points.length}',
-                ),
-                trailing: index == _selectedGroupIndex
-                    ? Icon(Icons.check, color: AppColors.accent)
-                    : null,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _selectGroup(index);
-                },
               );
             },
           ),
@@ -635,7 +639,30 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       actionScope: PointDetailActionScope.manage,
       groups: _plan.groups,
       onMoveToGroup: _movePointToGroup,
+      onEditPoint: () => _editPoint(currentPoint),
     );
+  }
+
+  Future<void> _editPoint(PilgrimagePoint point) async {
+    final updated = await EditPointScreen.open(
+      context,
+      plan: _plan,
+      repository: widget.repository,
+      point: point,
+    );
+    if (updated != true || !mounted) {
+      return;
+    }
+    final updatedPlan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _didUpdate = true;
+      _selectedPointIds.clear();
+      _selectionMode = false;
+    });
   }
 
   Future<void> _replaceReferenceImage(
@@ -1625,14 +1652,17 @@ class _OrderModeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: selected ? AppColors.accent : AppColors.textSecondary,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          color: selected ? AppColors.accent : AppColors.textSecondary,
+        ),
+        title: Text(title),
+        onTap: onTap,
       ),
-      title: Text(title),
-      onTap: onTap,
     );
   }
 }
@@ -1650,14 +1680,17 @@ class _MoveTargetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: selected ? AppColors.accent : AppColors.textSecondary,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          color: selected ? AppColors.accent : AppColors.textSecondary,
+        ),
+        title: Text(title),
+        onTap: onTap,
       ),
-      title: Text(title),
-      onTap: onTap,
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +15,7 @@ import '../map/map_tile_config.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../widgets/image_viewer_screen.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pilgrimage_models.dart';
@@ -770,13 +773,39 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
 }
 
 class _ManualPointFormScreen extends StatefulWidget {
-  const _ManualPointFormScreen({required this.plan, required this.repository});
+  const _ManualPointFormScreen({
+    required this.plan,
+    required this.repository,
+    this.editingPoint,
+  });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final PilgrimagePoint? editingPoint;
 
   @override
   State<_ManualPointFormScreen> createState() => _ManualPointFormScreenState();
+}
+
+class EditPointScreen {
+  const EditPointScreen._();
+
+  static Future<bool?> open(
+    BuildContext context, {
+    required PilgrimagePlan plan,
+    required PilgrimageRepository repository,
+    required PilgrimagePoint point,
+  }) {
+    return Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => _ManualPointFormScreen(
+          plan: plan,
+          repository: repository,
+          editingPoint: point,
+        ),
+      ),
+    );
+  }
 }
 
 class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
@@ -791,18 +820,55 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _referenceController = TextEditingController();
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
+  final _noteController = TextEditingController();
   PilgrimageWork? _selectedWork;
-  XFile? _pickedReferenceImage;
+  StoredUserReferenceImage? _pendingReferenceImage;
   bool _isSaving = false;
+  bool _didCommitPendingReference = false;
+
+  PilgrimagePoint? get _editingPoint => widget.editingPoint;
+
+  bool get _isEditing => _editingPoint != null;
+
+  List<PilgrimageWork> get _workOptions {
+    final works = [...widget.plan.works];
+    final selectedWork = _selectedWork;
+    if (selectedWork != null &&
+        !works.any((work) => work.id == selectedWork.id)) {
+      works.add(selectedWork);
+    }
+    return works;
+  }
 
   @override
   void initState() {
     super.initState();
-    _selectedWork = widget.plan.works.firstOrNull;
+    final editingPoint = _editingPoint;
+    _selectedWork = editingPoint == null
+        ? widget.plan.works.firstOrNull
+        : widget.plan.works.firstWhere(
+            (work) => work.id == editingPoint.work.id,
+            orElse: () => editingPoint.work,
+          );
+    if (editingPoint != null) {
+      _nameController.text = editingPoint.name;
+      _subtitleController.text = editingPoint.subtitle;
+      _episodeController.text = editingPoint.episodeLabel;
+      _referenceController.text = editingPoint.referenceLabel;
+      _latitudeController.text = editingPoint.position.latitude.toStringAsFixed(
+        6,
+      );
+      _longitudeController.text = editingPoint.position.longitude
+          .toStringAsFixed(6);
+      _noteController.text = editingPoint.note ?? '';
+    }
   }
 
   @override
   void dispose() {
+    if (!_didCommitPendingReference) {
+      unawaited(deleteStoredUserReferenceImage(_pendingReferenceImage));
+    }
     _fallbackWorkTitleController.dispose();
     _fallbackWorkSubtitleController.dispose();
     _fallbackWorkCityController.dispose();
@@ -812,6 +878,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     _referenceController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -827,37 +894,61 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
     try {
       final now = DateTime.now();
+      final editingPoint = _editingPoint;
       final work = _selectedWork ?? _fallbackWork(now);
-      final pointId = 'manual-${now.microsecondsSinceEpoch}';
-      final storedReference = _pickedReferenceImage == null
-          ? null
-          : await storeUserReferenceImage(
-              sourcePath: _pickedReferenceImage!.path,
-              pointId: pointId,
+      final pointId =
+          editingPoint?.id ?? 'manual-${now.microsecondsSinceEpoch}';
+      final storedReference = _pendingReferenceImage;
+      final position = LatLng(
+        double.parse(_latitudeController.text.trim()),
+        double.parse(_longitudeController.text.trim()),
+      );
+      final noteText = _noteController.text.trim();
+      final point = editingPoint == null
+          ? PilgrimagePoint(
+              id: pointId,
+              work: work,
+              name: _nameController.text.trim(),
+              subtitle: _subtitleController.text.trim(),
+              position: position,
+              episodeLabel: _episodeController.text.trim(),
+              referenceLabel: _referenceController.text.trim(),
+              referenceThumbnailPath: storedReference?.thumbnailPath,
+              referenceFullImagePath: storedReference?.fullImagePath,
+              note: noteText.isEmpty ? null : noteText,
+            )
+          : editingPoint.copyWith(
+              work: work,
+              name: _nameController.text.trim(),
+              subtitle: _subtitleController.text.trim(),
+              position: position,
+              episodeLabel: _episodeController.text.trim(),
+              referenceLabel: _referenceController.text.trim(),
+              referenceThumbnailPath:
+                  storedReference?.thumbnailPath ??
+                  editingPoint.referenceThumbnailPath,
+              referenceFullImagePath:
+                  storedReference?.fullImagePath ??
+                  editingPoint.referenceFullImagePath,
+              note: noteText.isEmpty ? null : noteText,
             );
-      final point = PilgrimagePoint(
-        id: pointId,
-        work: work,
-        name: _nameController.text.trim(),
-        subtitle: _subtitleController.text.trim(),
-        position: LatLng(
-          double.parse(_latitudeController.text.trim()),
-          double.parse(_longitudeController.text.trim()),
-        ),
-        episodeLabel: _episodeController.text.trim(),
-        referenceLabel: _referenceController.text.trim(),
-        referenceThumbnailPath: storedReference?.thumbnailPath,
-        referenceFullImagePath: storedReference?.fullImagePath,
-      );
 
-      await widget.repository.addPointToPlan(
-        planId: widget.plan.id,
-        point: point,
-      );
+      if (editingPoint == null) {
+        await widget.repository.addPointToPlan(
+          planId: widget.plan.id,
+          point: point,
+        );
+      } else {
+        await widget.repository.updatePointInPlan(
+          planId: widget.plan.id,
+          point: point,
+        );
+      }
       if (!mounted) {
         return;
       }
 
+      _didCommitPendingReference = true;
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) {
@@ -895,8 +986,32 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       return;
     }
 
+    final editingPoint = _editingPoint;
+    final pointId =
+        editingPoint?.id ?? 'manual-${DateTime.now().microsecondsSinceEpoch}';
+    final stored = await storeUserReferenceImage(
+      sourcePath: picked.path,
+      pointId: pointId,
+    );
+    if (stored == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showReplacingSnackBar(const SnackBar(content: Text('参考图读取失败，请重新选择。')));
+      return;
+    }
+
+    await deleteStoredUserReferenceImage(_pendingReferenceImage);
+    if (!mounted) {
+      await deleteStoredUserReferenceImage(stored);
+      return;
+    }
+
     setState(() {
-      _pickedReferenceImage = picked;
+      _pendingReferenceImage = stored;
+      _didCommitPendingReference = false;
     });
   }
 
@@ -948,8 +1063,10 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   }
 
   void _removeReferenceImage() {
+    unawaited(deleteStoredUserReferenceImage(_pendingReferenceImage));
     setState(() {
-      _pickedReferenceImage = null;
+      _pendingReferenceImage = null;
+      _didCommitPendingReference = false;
     });
   }
 
@@ -986,183 +1103,234 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasPlanWorks = widget.plan.works.isNotEmpty;
+    final workOptions = _workOptions;
+    final hasPlanWorks = workOptions.isNotEmpty;
+    final editingPoint = _editingPoint;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('手动添加点位')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            Text(
-              '加入到：${widget.plan.name}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                letterSpacing: 0,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && !_didCommitPendingReference) {
+          unawaited(deleteStoredUserReferenceImage(_pendingReferenceImage));
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_isEditing ? '编辑点位' : '手动添加点位'),
+          leading: BackButton(
+            onPressed: () {
+              if (!_didCommitPendingReference) {
+                unawaited(
+                  deleteStoredUserReferenceImage(_pendingReferenceImage),
+                );
+              }
+              Navigator.of(context).pop(false);
+            },
+          ),
+        ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              Text(
+                _isEditing
+                    ? '修改：${editingPoint!.name}'
+                    : '加入到：${widget.plan.name}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _FormSection(
-              children: [
-                if (hasPlanWorks)
-                  DropdownButtonFormField<PilgrimageWork>(
-                    initialValue: _selectedWork,
-                    decoration: const InputDecoration(labelText: '所属作品'),
-                    items: [
-                      for (final work in widget.plan.works)
-                        DropdownMenuItem<PilgrimageWork>(
-                          value: work,
-                          child: Text(
-                            work.displayBangumiSubjectType == null
-                                ? work.title
-                                : '${work.title} · ${work.displayBangumiSubjectType!.label}',
-                            overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 12),
+              _FormSection(
+                children: [
+                  if (hasPlanWorks)
+                    DropdownButtonFormField<PilgrimageWork>(
+                      initialValue: _selectedWork,
+                      decoration: const InputDecoration(labelText: '所属作品'),
+                      isExpanded: true,
+                      items: [
+                        for (final work in workOptions)
+                          DropdownMenuItem<PilgrimageWork>(
+                            value: work,
+                            child: Text(
+                              work.displayBangumiSubjectType == null
+                                  ? work.title
+                                  : '${work.title} · ${work.displayBangumiSubjectType!.label}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                    ],
-                    onChanged: (work) {
-                      setState(() {
-                        _selectedWork = work;
-                      });
-                    },
-                    validator: (work) => work == null ? '请选择作品' : null,
-                  )
-                else ...[
+                      ],
+                      onChanged: (work) {
+                        setState(() {
+                          _selectedWork = work;
+                        });
+                      },
+                      validator: (work) => work == null ? '请选择作品' : null,
+                    )
+                  else ...[
+                    TextFormField(
+                      controller: _fallbackWorkTitleController,
+                      decoration: stableInputDecoration(labelText: '动画/作品名称'),
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredText,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _fallbackWorkSubtitleController,
+                      decoration: const InputDecoration(
+                        labelText: '作品原名',
+                        hintText: '可选',
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _fallbackWorkCityController,
+                      decoration: InputDecoration(
+                        labelText: '作品主要地区',
+                        hintText: '可选，默认 ${widget.plan.area}',
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              _FormSection(
+                children: [
                   TextFormField(
-                    controller: _fallbackWorkTitleController,
-                    decoration: stableInputDecoration(labelText: '动画/作品名称'),
+                    controller: _nameController,
+                    decoration: stableInputDecoration(labelText: '点位名称'),
                     textInputAction: TextInputAction.next,
                     validator: _requiredText,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _fallbackWorkSubtitleController,
-                    decoration: const InputDecoration(
-                      labelText: '作品原名',
-                      hintText: '可选',
-                    ),
+                    controller: _subtitleController,
+                    decoration: stableInputDecoration(labelText: '位置说明'),
                     textInputAction: TextInputAction.next,
+                    validator: _requiredText,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _fallbackWorkCityController,
-                    decoration: InputDecoration(
-                      labelText: '作品主要地区',
-                      hintText: '可选，默认 ${widget.plan.area}',
-                    ),
+                    controller: _episodeController,
+                    decoration: stableInputDecoration(labelText: '集数/场景标签'),
                     textInputAction: TextInputAction.next,
+                    validator: _requiredText,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _referenceController,
+                    decoration: stableInputDecoration(labelText: '参考来源'),
+                    textInputAction: TextInputAction.next,
+                    validator: _requiredText,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _noteController,
+                    decoration: const InputDecoration(
+                      labelText: '备注',
+                      hintText: '可选，例如闭店、翻修、拍摄建议',
+                    ),
+                    minLines: 2,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
                   ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 12),
-            _FormSection(
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: stableInputDecoration(labelText: '点位名称'),
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredText,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _subtitleController,
-                  decoration: stableInputDecoration(labelText: '位置说明'),
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredText,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _episodeController,
-                  decoration: stableInputDecoration(labelText: '集数/场景标签'),
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredText,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _referenceController,
-                  decoration: stableInputDecoration(labelText: '参考来源'),
-                  textInputAction: TextInputAction.next,
-                  validator: _requiredText,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _FormSection(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isSaving ? null : _pickCoordinateFromMap,
-                        icon: const Icon(Icons.ads_click_outlined, size: 18),
-                        label: const Text('从地图选择坐标'),
+              ),
+              const SizedBox(height: 12),
+              _FormSection(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isSaving ? null : _pickCoordinateFromMap,
+                          icon: const Icon(Icons.ads_click_outlined, size: 18),
+                          label: const Text('从地图选择坐标'),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      IconButton.outlined(
+                        tooltip: '粘贴剪切板坐标',
+                        onPressed: _isSaving
+                            ? null
+                            : _pasteCoordinateFromClipboard,
+                        style: AppButtonStyles.compactOutlinedIconButton(),
+                        icon: const Icon(Icons.content_paste_outlined),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _latitudeController,
+                    decoration: stableInputDecoration(
+                      labelText: '纬度',
+                      hintText: '例如 34.8917',
                     ),
-                    const SizedBox(width: 8),
-                    IconButton.outlined(
-                      tooltip: '粘贴剪切板坐标',
-                      onPressed: _isSaving
-                          ? null
-                          : _pasteCoordinateFromClipboard,
-                      icon: const Icon(Icons.content_paste_outlined),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                      signed: true,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _latitudeController,
-                  decoration: stableInputDecoration(
-                    labelText: '纬度',
-                    hintText: '例如 34.8917',
+                    textInputAction: TextInputAction.next,
+                    validator: _validateLatitude,
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _longitudeController,
+                    decoration: stableInputDecoration(
+                      labelText: '经度',
+                      hintText: '例如 135.8077',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                      signed: true,
+                    ),
+                    textInputAction: TextInputAction.done,
+                    validator: _validateLongitude,
+                    onFieldSubmitted: (_) => _savePoint(),
                   ),
-                  textInputAction: TextInputAction.next,
-                  validator: _validateLatitude,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _longitudeController,
-                  decoration: stableInputDecoration(
-                    labelText: '经度',
-                    hintText: '例如 135.8077',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  textInputAction: TextInputAction.done,
-                  validator: _validateLongitude,
-                  onFieldSubmitted: (_) => _savePoint(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _ManualReferenceImagePicker(
-              imagePath: _pickedReferenceImage?.path,
-              onPick: _isSaving ? null : _pickReferenceImage,
-              onRemove: _isSaving || _pickedReferenceImage == null
-                  ? null
-                  : _removeReferenceImage,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _savePoint,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check_outlined, size: 18),
-              label: Text(_isSaving ? '保存中' : '保存点位'),
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              _ManualReferenceImagePicker(
+                localPath:
+                    _pendingReferenceImage?.thumbnailPath ??
+                    editingPoint?.referenceThumbnailPath ??
+                    editingPoint?.referenceFullImagePath,
+                fullImagePath:
+                    _pendingReferenceImage?.fullImagePath ??
+                    editingPoint?.referenceFullImagePath,
+                imageUrl: _pendingReferenceImage == null
+                    ? editingPoint?.referenceImageUrl
+                    : null,
+                hasPendingSelection: _pendingReferenceImage != null,
+                hasExistingImage:
+                    editingPoint?.referenceThumbnailPath != null ||
+                    editingPoint?.referenceFullImagePath != null ||
+                    editingPoint?.referenceImageUrl != null,
+                onPick: _isSaving ? null : _pickReferenceImage,
+                onRemove: _isSaving || _pendingReferenceImage == null
+                    ? null
+                    : _removeReferenceImage,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _isSaving ? null : _savePoint,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_outlined, size: 18),
+                label: Text(_isSaving ? '保存中' : (_isEditing ? '保存修改' : '保存点位')),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1469,18 +1637,28 @@ class _WorkSummary extends StatelessWidget {
 
 class _ManualReferenceImagePicker extends StatelessWidget {
   const _ManualReferenceImagePicker({
-    required this.imagePath,
+    required this.localPath,
+    required this.fullImagePath,
+    required this.imageUrl,
+    required this.hasPendingSelection,
+    required this.hasExistingImage,
     required this.onPick,
     required this.onRemove,
   });
 
-  final String? imagePath;
+  final String? localPath;
+  final String? fullImagePath;
+  final String? imageUrl;
+  final bool hasPendingSelection;
+  final bool hasExistingImage;
   final VoidCallback? onPick;
   final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final path = imagePath;
+    final hasImage = hasPendingSelection || hasExistingImage;
+    final previewPath = fullImagePath ?? (imageUrl == null ? localPath : null);
+    final canPreview = previewPath != null || imageUrl != null;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1491,19 +1669,31 @@ class _ManualReferenceImagePicker extends StatelessWidget {
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: 72,
-              height: 72,
-              color: AppColors.surfaceMuted,
-              child: ReferenceThumbnail(
-                localPath: path,
-                imageUrl: null,
-                fit: BoxFit.cover,
-                placeholder: const Icon(
-                  Icons.image_outlined,
-                  color: AppColors.textSecondary,
+          Tooltip(
+            message: canPreview ? '查看大图' : '暂无参考图',
+            child: GestureDetector(
+              onTap: canPreview
+                  ? () => ImageViewerScreen.show(
+                      context,
+                      filePath: previewPath,
+                      imageUrl: imageUrl,
+                    )
+                  : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  color: AppColors.surfaceMuted,
+                  child: ReferenceThumbnail(
+                    localPath: localPath,
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: const Icon(
+                      Icons.image_outlined,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1523,7 +1713,11 @@ class _ManualReferenceImagePicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  path == null ? '可选，保存时会复制到 App 本地目录。' : '已选择本地图片',
+                  hasPendingSelection
+                      ? '已选择新图片，保存后生效。'
+                      : hasExistingImage
+                      ? '当前参考图，重新选择后需保存才会生效。'
+                      : '可选，保存时会复制到 App 本地目录。',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
@@ -1538,9 +1732,9 @@ class _ManualReferenceImagePicker extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: onPick,
                       icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: Text(path == null ? '上传参考图' : '重新选择'),
+                      label: Text(hasImage ? '重新选择' : '上传参考图'),
                     ),
-                    if (path != null)
+                    if (hasPendingSelection)
                       TextButton.icon(
                         onPressed: onRemove,
                         icon: const Icon(Icons.close_outlined, size: 18),

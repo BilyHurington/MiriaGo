@@ -12,6 +12,7 @@ import '../point_detail/point_detail_sheet.dart';
 import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../map/map_tile_config.dart';
+import 'add_points_screen.dart';
 import 'plan_group_utils.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
@@ -426,7 +427,25 @@ class _PlanScreenState extends State<PlanScreen> {
       records: controller.recordsForPoint(point.id),
       onOpenRecords: () => _openPointRecords(context, point),
       onOpenRecord: (record) => _openRecordDetail(context, record),
+      onEditPoint: () => _editPoint(context, point),
     );
+  }
+
+  Future<void> _editPoint(BuildContext context, PilgrimagePoint point) async {
+    final updated = await EditPointScreen.open(
+      context,
+      plan: controller.plan,
+      repository: widget.repository,
+      point: point,
+    );
+    if (updated != true || !mounted) {
+      return;
+    }
+    final updatedPlan = await widget.repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    controller.replacePlan(updatedPlan);
   }
 
   void _openPointRecords(BuildContext context, PilgrimagePoint point) {
@@ -634,31 +653,34 @@ class _GroupSwitcher extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 6),
             itemBuilder: (context, index) {
               final group = groups[index];
-              return ListTile(
-                selected: index == selectedIndex,
-                selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                leading: Icon(
-                  group.isUngrouped
-                      ? Icons.inventory_2_outlined
-                      : Icons.folder_outlined,
-                ),
-                title: Text(group.name),
-                subtitle: Text(group.anchorLabel),
-                trailing: Text(
-                  '${group.completedCount} / ${group.points.length}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
+              return Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  selected: index == selectedIndex,
+                  selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  leading: Icon(
+                    group.isUngrouped
+                        ? Icons.inventory_2_outlined
+                        : Icons.folder_outlined,
+                  ),
+                  title: Text(group.name),
+                  subtitle: Text(group.anchorLabel),
+                  trailing: Text(
+                    '${group.completedCount} / ${group.points.length}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onSelectGroup(index);
+                  },
                 ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onSelectGroup(index);
-                },
               );
             },
           ),

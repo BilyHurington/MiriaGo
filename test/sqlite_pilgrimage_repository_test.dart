@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:miriago/data/local/app_database.dart';
 import 'package:miriago/data/local/sqlite_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
@@ -106,6 +107,49 @@ void main() {
     expect(updatedPlan.currentPointId, sourcePlan.points.first.id);
     expect(updatedPlan.points.single.note, '翻修后外观已有变化');
   });
+
+  test(
+    'updates point editable fields without changing progress state',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+      final point = plan.points.first;
+      await repository.completePoint(
+        planId: plan.id,
+        pointId: point.id,
+        nextCurrentPointId: plan.points[1].id,
+      );
+
+      final editedPoint = point.copyWith(
+        name: '编辑后的点位',
+        subtitle: '编辑后的位置说明',
+        episodeLabel: 'EP 99 / 9:99',
+        referenceLabel: '编辑后的来源',
+        position: const LatLng(35.1, 135.2),
+        note: '编辑备注',
+      );
+      final updatedPlan = await repository.updatePointInPlan(
+        planId: plan.id,
+        point: editedPoint,
+      );
+
+      final updatedPoint = updatedPlan.points.firstWhere(
+        (candidate) => candidate.id == point.id,
+      );
+      expect(updatedPoint.name, '编辑后的点位');
+      expect(updatedPoint.subtitle, '编辑后的位置说明');
+      expect(updatedPoint.episodeLabel, 'EP 99 / 9:99');
+      expect(updatedPoint.referenceLabel, '编辑后的来源');
+      expect(updatedPoint.position.latitude, 35.1);
+      expect(updatedPoint.position.longitude, 135.2);
+      expect(updatedPoint.note, '编辑备注');
+      expect(updatedPlan.completedPointIds, contains(point.id));
+      expect(updatedPlan.currentPointId, plan.points[1].id);
+    },
+  );
 
   test('repairs missing current target when loading persisted plan', () async {
     final database = AppDatabase(NativeDatabase.memory());

@@ -141,3 +141,37 @@ class AppTheme {
     );
   }
 }
+
+class AppButtonStyles {
+  const AppButtonStyles._();
+
+  static const compactHeight = 36.0;
+  static const compactSize = Size.square(compactHeight);
+
+  static ButtonStyle compactOutlinedButton() {
+    return OutlinedButton.styleFrom(
+      minimumSize: const Size(44, compactHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+    );
+  }
+
+  static ButtonStyle compactFilledButton() {
+    return FilledButton.styleFrom(
+      minimumSize: const Size(44, compactHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+    );
+  }
+
+  static ButtonStyle compactOutlinedIconButton() {
+    return IconButton.styleFrom(
+      foregroundColor: AppColors.textPrimary,
+      disabledForegroundColor: AppColors.textSecondary,
+      fixedSize: compactSize,
+      minimumSize: compactSize,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.standard,
+      side: const BorderSide(color: AppColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+  }
+}

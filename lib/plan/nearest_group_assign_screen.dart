@@ -11,6 +11,7 @@ import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/constrained_menu_anchor.dart';
 import '../widgets/snackbar_helper.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_utils.dart';
@@ -781,40 +782,52 @@ class _BoxAssignPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: MenuAnchor(
-                    builder: (context, controller, child) {
-                      return OutlinedButton.icon(
-                        onPressed: groups.isEmpty
-                            ? null
-                            : () {
-                                if (controller.isOpen) {
-                                  controller.close();
-                                } else {
-                                  controller.open();
-                                }
-                              },
-                        icon: const Icon(Icons.folder_outlined, size: 18),
-                        label: Text(
-                          targetGroup?.name ?? '选择片区',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    },
-                    menuChildren: [
-                      for (final group in groups)
-                        MenuItemButton(
-                          onPressed: () => onSelectGroup(group),
-                          child: Text(group.name),
-                        ),
-                    ],
+                  child: SizedBox(
+                    height: AppButtonStyles.compactHeight,
+                    child: ConstrainedMenuAnchor(
+                      builder: (context, controller, child) {
+                        return OutlinedButton.icon(
+                          onPressed: groups.isEmpty
+                              ? null
+                              : () {
+                                  if (controller.isOpen) {
+                                    controller.close();
+                                  } else {
+                                    controller.open();
+                                  }
+                                },
+                          icon: const Icon(Icons.folder_outlined, size: 18),
+                          style: AppButtonStyles.compactOutlinedButton(),
+                          label: Text(
+                            targetGroup?.name ?? '选择片区',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      },
+                      menuChildrenBuilder: (context, itemWidth) => [
+                        for (final group in groups)
+                          MenuItemButton(
+                            onPressed: () => onSelectGroup(group),
+                            child: SizedBox(
+                              width: itemWidth,
+                              child: Text(
+                                group.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
-                  height: 36,
+                  height: AppButtonStyles.compactHeight,
                   child: OutlinedButton.icon(
                     onPressed: isSaving ? null : onToggleBoxSelection,
+                    style: AppButtonStyles.compactOutlinedButton(),
                     icon: Icon(
                       isBoxSelecting ? Icons.close : Icons.select_all_outlined,
                       size: 17,
@@ -842,12 +855,13 @@ class _BoxAssignPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
-                  height: 36,
+                  height: AppButtonStyles.compactHeight,
                   child: FilledButton(
                     onPressed:
                         isSaving || targetGroup == null || selectedCount == 0
                         ? null
                         : onAssign,
+                    style: AppButtonStyles.compactFilledButton(),
                     child: Text(isSaving ? '分配中' : '分配'),
                   ),
                 ),

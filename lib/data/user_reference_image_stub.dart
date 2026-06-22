@@ -53,6 +53,13 @@ Future<StoredUserReferenceImage?> storeUserReferenceImage({
   );
 }
 
+Future<void> deleteStoredUserReferenceImage(
+  StoredUserReferenceImage? image,
+) async {
+  // The web/desktop bridge currently only exposes asset writes. Uncommitted
+  // references are still kept out of the database, so this is best-effort.
+}
+
 List<int> _buildThumbnail(Uint8List bytes) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) {

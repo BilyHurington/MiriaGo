@@ -262,6 +262,55 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePointInPlan({
+    required String planId,
+    required PilgrimagePoint point,
+  }) async {
+    await _database.transaction(() async {
+      final existing =
+          await (_database.select(_database.points)
+                ..where(
+                  (table) =>
+                      table.planId.equals(planId) & table.id.equals(point.id),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (existing == null) {
+        throw ArgumentError.value(
+          point.id,
+          'point.id',
+          'Point does not exist.',
+        );
+      }
+
+      await _upsertWork(planId: planId, work: point.work);
+      await (_database.update(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(point.id),
+          ))
+          .write(
+            PointsCompanion(
+              workId: Value(point.work.id),
+              name: Value(point.name),
+              subtitle: Value(point.subtitle),
+              latitude: Value(point.position.latitude),
+              longitude: Value(point.position.longitude),
+              episodeLabel: Value(point.episodeLabel),
+              referenceLabel: Value(point.referenceLabel),
+              source: Value(point.source.name),
+              sourceId: Value(point.sourceId),
+              referenceImageUrl: Value(point.referenceImageUrl),
+              referenceThumbnailPath: Value(point.referenceThumbnailPath),
+              referenceFullImagePath: Value(point.referenceFullImagePath),
+              sourceUrl: Value(point.sourceUrl),
+              note: Value(point.note),
+            ),
+          );
+      await _touchPlan(planId);
+    });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
   Future<PilgrimagePlan> updatePointImageCache({
     required String planId,
     required String pointId,

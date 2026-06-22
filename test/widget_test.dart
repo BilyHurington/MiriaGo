@@ -6,7 +6,9 @@ import 'package:miriago/main.dart';
 import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/anitabi_map_import_screen.dart';
+import 'package:miriago/plan/plan_group_manager_screen.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
+import 'package:miriago/widgets/constrained_menu_anchor.dart';
 import 'package:miriago/widgets/reference_image_placeholder.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
@@ -51,6 +53,59 @@ void main() {
     expect(find.text('暂无参考图'), findsOneWidget);
   });
 
+  testWidgets('constrained menu handles many long options on small screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 170,
+                child: ConstrainedMenuAnchor(
+                  builder: (context, controller, child) {
+                    return OutlinedButton(
+                      onPressed: controller.open,
+                      child: const Text('选择片区'),
+                    );
+                  },
+                  menuChildrenBuilder: (context, itemWidth) => [
+                    for (var index = 0; index < 16; index++)
+                      MenuItemButton(
+                        onPressed: () {},
+                        child: SizedBox(
+                          width: itemWidth,
+                          child: Text(
+                            '很长很长的片区名称 $index 号方向需要省略显示',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('选择片区'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('很长很长的片区名称'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows the pilgrimage plan workflow shell', (tester) async {
     await _pumpApp(tester);
 
@@ -88,6 +143,48 @@ void main() {
     expect(find.text('导航'), findsOneWidget);
     expect(find.text('拍摄参考'), findsWidgets);
     expect(find.text('标记完成'), findsWidgets);
+    expect(find.text('编辑点位'), findsOneWidget);
+  });
+
+  testWidgets('edits point details from the shared detail sheet', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.text('井用机前步行道').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('编辑点位'));
+    await tester.tap(find.text('编辑点位'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑点位'), findsOneWidget);
+    expect(find.text('备注'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '点位名称'),
+      '井用机前步行道 改',
+    );
+    await tester.scrollUntilVisible(
+      find.widgetWithText(TextFormField, '备注'),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.enterText(find.widgetWithText(TextFormField, '备注'), '测试备注');
+    await tester.scrollUntilVisible(
+      find.text('保存修改'),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -120));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存修改'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextFormField, '点位名称'), findsNothing);
+    expect(find.text('井用机前步行道 改'), findsWidgets);
+    await tester.tap(find.text('井用机前步行道 改').first);
+    await tester.pumpAndSettle();
+    expect(find.text('测试备注'), findsOneWidget);
   });
 
   testWidgets('shows group filters on the map', (tester) async {
@@ -99,6 +196,8 @@ void main() {
     expect(find.textContaining('宇治站附近'), findsWidgets);
     expect(find.byTooltip('当前目标'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
+    expect(find.text('吹响吧！上低音号 / EP 1 / 2:08'), findsOneWidget);
+    expect(find.textContaining('あじろぎの道 / 34.'), findsNothing);
   });
 
   testWidgets('plan map marker opens detail after selecting the point', (
@@ -134,6 +233,39 @@ void main() {
     expect(find.textContaining('关键点'), findsWidgets);
     expect(find.text('无序'), findsWidgets);
     expect(find.text('井用机前步行道'), findsOneWidget);
+  });
+
+  testWidgets('new plan group requires a non-empty name', (tester) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '片区测试', area: '京都');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlanGroupManagerScreen(plan: plan, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('新建片区'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('创建'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('片区名不能为空'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('新建片区'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.widgetWithText(TextField, '片区名称'), '新片区');
+    await tester.tap(find.text('创建'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('片区名不能为空'), findsNothing);
+    expect(find.text('新片区'), findsOneWidget);
   });
 
   testWidgets('hides desktop launcher status outside web builds', (
@@ -212,6 +344,8 @@ void main() {
     await tester.tap(find.text('手动添加点位'));
     await tester.pumpAndSettle();
 
+    expect(find.text('备注'), findsOneWidget);
+
     await tester.enterText(
       find.widgetWithText(TextFormField, '动画/作品名称'),
       '轻音少女',
@@ -254,9 +388,10 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('从地图选择坐标'),
-      120,
+      220,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(find.text('从地图选择坐标'));
     await tester.tap(find.text('从地图选择坐标'));
     await tester.pumpAndSettle();
 
@@ -368,17 +503,78 @@ void main() {
     expect(anitabiClient.fetchedPointPids, isEmpty);
     expect(anitabiClient.lookedUpPointIds, isEmpty);
   });
+
+  testWidgets('Anitabi map import ignores stale work load results', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '切换作品测试', area: '京都');
+    final planWithFirstWork = await repository.addWorkToPlan(
+      planId: plan.id,
+      work: const PilgrimageWork(
+        id: 'work-slow',
+        bangumiId: 1001,
+        title: '慢作品',
+        subtitle: '',
+        city: '京都',
+        source: WorkSource.bangumi,
+      ),
+    );
+    final planWithWorks = await repository.addWorkToPlan(
+      planId: planWithFirstWork.id,
+      work: const PilgrimageWork(
+        id: 'work-fast',
+        bangumiId: 1002,
+        title: '快作品',
+        subtitle: '',
+        city: '京都',
+        source: WorkSource.bangumi,
+      ),
+    );
+    final anitabiClient = _FakeAnitabiClient(
+      pointDelays: const {1001: Duration(milliseconds: 80)},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: planWithWorks,
+          repository: repository,
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(DropdownButtonFormField<PilgrimageWork>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('快作品').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('1002 点位'), findsOneWidget);
+    expect(find.text('1002 场景 / EP 1002'), findsOneWidget);
+    expect(find.text('1001 点位'), findsNothing);
+    expect(find.text('1001 场景 / EP 1001'), findsNothing);
+  });
 }
 
 class _FakeAnitabiClient extends AnitabiClient {
+  _FakeAnitabiClient({this.pointDelays = const {}});
+
   final fetchedPointPids = <int>[];
   final lookedUpPointIds = <String>[];
+  final Map<int, Duration> pointDelays;
 
   @override
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
     return AnitabiBangumiLite(
       bangumiId: bangumiId,
-      title: 'PID 作品',
+      title: switch (bangumiId) {
+        1001 => '慢作品',
+        1002 => '快作品',
+        _ => 'PID 作品',
+      },
       subtitle: 'Pid Work',
       city: '京都',
       center: const LatLng(35, 135),
@@ -392,15 +588,19 @@ class _FakeAnitabiClient extends AnitabiClient {
     int bangumiId, {
     AnitabiBangumiLite? lite,
   }) async {
+    final delay = pointDelays[bangumiId];
+    if (delay != null) {
+      await Future<void>.delayed(delay);
+    }
     fetchedPointPids.add(bangumiId);
     return [
       AnitabiPoint(
         bangumiId: bangumiId,
         id: 'point-1',
-        name: 'PID 点位',
-        subtitle: '测试地点',
+        name: '$bangumiId 点位',
+        subtitle: '$bangumiId 场景',
         position: const LatLng(35, 135),
-        episodeLabel: 'EP 1',
+        episodeLabel: 'EP $bangumiId',
         referenceImageUrl: null,
         origin: 'Anitabi',
         originUrl: 'https://anitabi.cn/',

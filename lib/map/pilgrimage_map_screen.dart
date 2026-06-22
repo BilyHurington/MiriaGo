@@ -9,6 +9,7 @@ import '../app_theme.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../plan/add_points_screen.dart';
 import '../plan/plan_group_utils.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
@@ -38,7 +39,6 @@ class PilgrimageMapScreen extends StatefulWidget {
 
 class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   final MapController _mapController = MapController();
-  final Distance _distance = const Distance();
   final MapNavigationLauncher _navigationLauncher =
       const MapNavigationLauncher();
 
@@ -190,7 +190,30 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       records: _controller.recordsForPoint(point.id),
       onOpenRecords: () => _openPointRecords(point),
       onOpenRecord: _openRecordDetail,
+      onEditPoint: () => _editPoint(point),
     );
+  }
+
+  Future<void> _editPoint(PilgrimagePoint point) async {
+    final repository = _controller.repository;
+    if (repository == null) {
+      _showSnackBar('当前环境无法编辑点位。');
+      return;
+    }
+    final updated = await EditPointScreen.open(
+      context,
+      plan: _controller.plan,
+      repository: repository,
+      point: point,
+    );
+    if (updated != true || !mounted) {
+      return;
+    }
+    final updatedPlan = await repository.loadActivePlan();
+    if (!mounted) {
+      return;
+    }
+    _controller.replacePlan(updatedPlan);
   }
 
   void _openPointRecords(PilgrimagePoint point) {
@@ -346,7 +369,6 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                     recordCount: _controller
                         .recordsForPoint(selectedPoint.id)
                         .length,
-                    distanceMeters: _distanceToSelectedPoint(selectedPoint),
                     onSetCurrent: () => _setCurrentPoint(selectedPoint),
                     onOpenDetail: () => _showPointDetail(selectedPoint),
                     onOpenNavigation: () => _openNavigation(selectedPoint),
@@ -367,15 +389,6 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     return const LatLng(34.9671, 135.7727);
   }
 
-  double? _distanceToSelectedPoint(PilgrimagePoint point) {
-    final currentLocation = _currentLocation;
-    if (currentLocation == null) {
-      return null;
-    }
-
-    return _distance(currentLocation, point.position);
-  }
-
   void _showGroupPicker(BuildContext context, List<PlanGroupBucket> groups) {
     showModalBottomSheet<void>(
       context: context,
@@ -389,31 +402,34 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
             separatorBuilder: (_, _) => const SizedBox(height: 6),
             itemBuilder: (context, index) {
               final group = groups[index];
-              return ListTile(
-                selected: index == _selectedGroupIndex,
-                selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                leading: Icon(
-                  group.isUngrouped
-                      ? Icons.inventory_2_outlined
-                      : Icons.folder_outlined,
-                ),
-                title: Text(group.name),
-                subtitle: Text(group.anchorLabel),
-                trailing: Text(
-                  '${group.completedCount} / ${group.points.length}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
+              return Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  selected: index == _selectedGroupIndex,
+                  selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  leading: Icon(
+                    group.isUngrouped
+                        ? Icons.inventory_2_outlined
+                        : Icons.folder_outlined,
+                  ),
+                  title: Text(group.name),
+                  subtitle: Text(group.anchorLabel),
+                  trailing: Text(
+                    '${group.completedCount} / ${group.points.length}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _selectGroup(index, groups);
+                  },
                 ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _selectGroup(index, groups);
-                },
               );
             },
           ),
@@ -557,7 +573,6 @@ class _PointCard extends StatelessWidget {
     required this.point,
     required this.status,
     required this.recordCount,
-    required this.distanceMeters,
     required this.onSetCurrent,
     required this.onOpenDetail,
     required this.onOpenNavigation,
@@ -569,7 +584,6 @@ class _PointCard extends StatelessWidget {
   final PilgrimagePoint point;
   final VisitStatus status;
   final int recordCount;
-  final double? distanceMeters;
   final VoidCallback onSetCurrent;
   final VoidCallback onOpenDetail;
   final VoidCallback onOpenNavigation;
@@ -629,7 +643,7 @@ class _PointCard extends StatelessWidget {
                       text: _metaText,
                       copyText: _copySummary,
                       copyLabel: '点位信息',
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
@@ -637,19 +651,6 @@ class _PointCard extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    if (point.referenceImageUrl != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        point.displayEpisodeLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -707,19 +708,11 @@ class _PointCard extends StatelessWidget {
   }
 
   String get _metaText {
-    final distance = distanceMeters;
-    final coordinate =
-        '${point.position.latitude.toStringAsFixed(4)}, ${point.position.longitude.toStringAsFixed(4)}';
-
-    if (distance == null) {
-      return '${point.work.title} / ${point.subtitle} / $coordinate';
+    final episodeLabel = point.episodeLabel.trim();
+    if (episodeLabel.isEmpty) {
+      return point.work.title;
     }
-
-    if (distance >= 1000) {
-      return '${point.work.title} / ${(distance / 1000).toStringAsFixed(1)} km';
-    }
-
-    return '${point.work.title} / ${distance.round()} m';
+    return '${point.work.title} / $episodeLabel';
   }
 
   String get _copySummary {

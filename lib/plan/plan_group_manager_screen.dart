@@ -138,31 +138,10 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   }
 
   Future<void> _createGroup() async {
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建片区'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '片区名称'),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
+      builder: (context) => const _CreatePlanGroupDialog(),
     );
-    controller.dispose();
     final trimmedName = name?.trim();
     if (trimmedName == null || trimmedName.isEmpty || !mounted) {
       return;
@@ -419,6 +398,64 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
           ),
         )
         .name;
+  }
+}
+
+class _CreatePlanGroupDialog extends StatefulWidget {
+  const _CreatePlanGroupDialog();
+
+  @override
+  State<_CreatePlanGroupDialog> createState() => _CreatePlanGroupDialogState();
+}
+
+class _CreatePlanGroupDialogState extends State<_CreatePlanGroupDialog> {
+  final _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final trimmedName = _controller.text.trim();
+    if (trimmedName.isEmpty) {
+      setState(() {
+        _errorText = '片区名不能为空';
+      });
+      return;
+    }
+    Navigator.of(context).pop(trimmedName);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('新建片区'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(labelText: '片区名称', errorText: _errorText),
+        textInputAction: TextInputAction.done,
+        onChanged: (_) {
+          if (_errorText == null) {
+            return;
+          }
+          setState(() {
+            _errorText = null;
+          });
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('创建')),
+      ],
+    );
   }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -60,8 +61,18 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   bool _isBoxSelecting = false;
   Offset? _selectionStart;
   Offset? _selectionEnd;
+  int _loadGeneration = 0;
 
   List<PilgrimageWork> get _works => _importedPlan.works;
+
+  int _nextLoadGeneration() {
+    _loadGeneration += 1;
+    return _loadGeneration;
+  }
+
+  bool _isActiveLoad(int generation) {
+    return mounted && generation == _loadGeneration;
+  }
 
   @override
   void initState() {
@@ -103,6 +114,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   Future<void> _loadPoints(PilgrimageWork work) async {
+    final generation = _nextLoadGeneration();
     final bangumiId = work.bangumiId;
     if (bangumiId == null) {
       setState(() {
@@ -127,11 +139,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     try {
       final lite = await widget.anitabiClient.fetchBangumiLite(bangumiId);
+      if (!_isActiveLoad(generation)) {
+        return;
+      }
       final points = await widget.anitabiClient.fetchPoints(
         bangumiId,
         lite: lite,
       );
-      if (!mounted) {
+      if (!_isActiveLoad(generation)) {
         return;
       }
 
@@ -142,7 +157,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       });
       _mapController.move(lite.center, lite.zoom);
     } catch (error) {
-      if (!mounted) {
+      if (!_isActiveLoad(generation)) {
         return;
       }
 
@@ -150,7 +165,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _error = error;
       });
     } finally {
-      if (mounted) {
+      if (_isActiveLoad(generation)) {
         setState(() {
           _isLoading = false;
         });
@@ -165,6 +180,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   Future<void> _loadInitialBangumiId(int bangumiId) async {
+    final generation = _nextLoadGeneration();
     setState(() {
       _isLoading = true;
       _error = null;
@@ -174,6 +190,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     try {
       final lite = await widget.anitabiClient.fetchBangumiLite(bangumiId);
+      if (!_isActiveLoad(generation)) {
+        return;
+      }
       var work = _workForBangumiId(lite.bangumiId);
       if (work == null) {
         work = _workFromLite(lite);
@@ -181,7 +200,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           planId: _importedPlan.id,
           work: work,
         );
-        if (!mounted) {
+        if (!_isActiveLoad(generation)) {
           return;
         }
         _replaceImportedPlan(updatedPlan);
@@ -192,7 +211,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         lite.bangumiId,
         lite: lite,
       );
-      if (!mounted) {
+      if (!_isActiveLoad(generation)) {
         return;
       }
 
@@ -204,7 +223,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       });
       _mapController.move(lite.center, lite.zoom);
     } catch (error) {
-      if (!mounted) {
+      if (!_isActiveLoad(generation)) {
         return;
       }
 
@@ -212,7 +231,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _error = error;
       });
     } finally {
-      if (mounted) {
+      if (_isActiveLoad(generation)) {
         setState(() {
           _isLoading = false;
         });
@@ -221,6 +240,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   Future<void> _loadInitialPointId(String pointId) async {
+    final generation = _nextLoadGeneration();
     setState(() {
       _isLoading = true;
       _error = null;
@@ -230,6 +250,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     try {
       final result = await widget.anitabiClient.findPointById(pointId);
+      if (!_isActiveLoad(generation)) {
+        return;
+      }
       if (result == null) {
         throw const AnitabiPointNotFoundException();
       }
@@ -242,14 +265,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           planId: _importedPlan.id,
           work: work,
         );
-        if (!mounted) {
+        if (!_isActiveLoad(generation)) {
           return;
         }
         _replaceImportedPlan(updatedPlan);
         _didUpdatePlan = true;
       }
 
-      if (!mounted) {
+      if (!_isActiveLoad(generation)) {
         return;
       }
 
@@ -261,7 +284,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       });
       _mapController.move(result.point.position, math.max(lite.zoom, 15));
     } catch (error) {
-      if (!mounted) {
+      if (!_isActiveLoad(generation)) {
         return;
       }
 
@@ -269,7 +292,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _error = error;
       });
     } finally {
-      if (mounted) {
+      if (_isActiveLoad(generation)) {
         setState(() {
           _isLoading = false;
         });
@@ -329,6 +352,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   void _selectPoint(AnitabiPoint point) {
+    final selectedBangumiId = _selectedWork?.bangumiId;
+    if (selectedBangumiId == null || point.bangumiId != selectedBangumiId) {
+      return;
+    }
     setState(() {
       _selectedPoint = point;
     });
@@ -349,12 +376,31 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     if (work == null) {
       return const [];
     }
-    return _points
+    return _pointsForWork(work)
         .where(
           (point) =>
               !_importedPointIds.contains(point.toPilgrimagePoint(work).id),
         )
         .toList(growable: false);
+  }
+
+  List<AnitabiPoint> _pointsForWork(PilgrimageWork? work) {
+    final bangumiId = work?.bangumiId;
+    if (bangumiId == null) {
+      return const [];
+    }
+    return _points
+        .where((point) => point.bangumiId == bangumiId)
+        .toList(growable: false);
+  }
+
+  AnitabiPoint? _selectedPointForWork(PilgrimageWork? work) {
+    final point = _selectedPoint;
+    final bangumiId = work?.bangumiId;
+    if (point == null || bangumiId == null || point.bangumiId != bangumiId) {
+      return null;
+    }
+    return point;
   }
 
   Rect? get _selectionRect {
@@ -386,7 +432,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Future<void> _importSelectedPoint() async {
     final work = _selectedWork;
     final point = _selectedPoint;
-    if (work == null || point == null || _isImporting) {
+    if (work == null ||
+        point == null ||
+        point.bangumiId != work.bangumiId ||
+        _isImporting) {
       return;
     }
 
@@ -456,6 +505,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     }
 
     final pilgrimagePoints = points
+        .where((point) => point.bangumiId == work.bangumiId)
         .map((point) => point.toPilgrimagePoint(work))
         .where((point) => !_importedPointIds.contains(point.id))
         .toList(growable: false);
@@ -714,7 +764,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   @override
   Widget build(BuildContext context) {
     final works = _works;
-    final selectedPoint = _selectedPoint;
+    final selectedWork = _selectedWork;
+    final visiblePoints = _pointsForWork(selectedWork);
+    final selectedPoint = _selectedPointForWork(selectedWork);
 
     return PopScope(
       canPop: !_isImporting,
@@ -737,6 +789,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     child: DropdownButtonFormField<PilgrimageWork>(
                       initialValue: _selectedWork,
                       decoration: const InputDecoration(labelText: '作品'),
+                      isExpanded: true,
                       items: [
                         for (final work in works)
                           DropdownMenuItem<PilgrimageWork>(
@@ -793,7 +846,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               return const _EmptyImportState();
             }
 
-            if (_selectedWork?.bangumiId == null && _points.isEmpty) {
+            if (selectedWork?.bangumiId == null && visiblePoints.isEmpty) {
               return const _ManualWorkImportState();
             }
 
@@ -819,7 +872,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         configuredMapTileLayer(_settings),
                         MarkerLayer(
                           markers: [
-                            for (final point in _points)
+                            for (final point in visiblePoints)
                               Marker(
                                 point: point.position,
                                 width: 40,
@@ -865,14 +918,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         isLoading: _isLoading,
                         isImporting: _isImporting,
                         importProgress: _importProgress,
-                        importedCount: _points
+                        importedCount: visiblePoints
                             .where(
                               (point) => _importedPointIds.contains(
-                                point.toPilgrimagePoint(_selectedWork!).id,
+                                point.toPilgrimagePoint(selectedWork!).id,
                               ),
                             )
                             .length,
-                        totalCount: _points.length,
+                        totalCount: visiblePoints.length,
                         expectedCount: _lite?.pointsLength,
                         availableCount: _availablePoints.length,
                         boxSelectionEnabled: _isBoxSelecting,
@@ -886,7 +939,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                       alignment: Alignment.bottomCenter,
                       child: selectedPoint == null
                           ? _NoPointSelectedCard(
-                              hasPoints: _points.isNotEmpty,
+                              hasPoints: visiblePoints.isNotEmpty,
                               expectedCount: _lite?.pointsLength,
                             )
                           : _AnitabiPointCard(
@@ -940,7 +993,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   String _errorDetailFor(Object? error) {
     if (error is AnitabiStaticDataUnavailableException) {
-      return '纯 Web 端需要通过同源代理读取 Anitabi 地图索引；当前预览服务未提供代理或网络请求被拦截。';
+      if (kIsWeb) {
+        return '纯 Web 端需要通过同源代理读取 Anitabi 地图索引；当前预览服务未提供代理或网络请求被拦截。';
+      }
+      return '无法读取 Anitabi 地图索引。请检查网络连接后重试，或稍后再重新加载。';
     }
 
     if (error is AnitabiPartialPointsException) {

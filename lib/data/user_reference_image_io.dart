@@ -51,6 +51,25 @@ Future<StoredUserReferenceImage?> storeUserReferenceImage({
   );
 }
 
+Future<void> deleteStoredUserReferenceImage(
+  StoredUserReferenceImage? image,
+) async {
+  if (image == null) {
+    return;
+  }
+
+  for (final path in {image.thumbnailPath, image.fullImagePath}) {
+    try {
+      final file = File(path);
+      if (file.existsSync()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Best-effort cleanup for abandoned reference selections.
+    }
+  }
+}
+
 List<int> _buildThumbnail(Uint8List bytes) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) {

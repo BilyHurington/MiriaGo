@@ -197,6 +197,30 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePointInPlan({
+    required String planId,
+    required PilgrimagePoint point,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    if (!plan.points.any((candidate) => candidate.id == point.id)) {
+      throw ArgumentError.value(point.id, 'point.id', 'Point does not exist.');
+    }
+
+    final updatedWorks = _appendWorkIfMissing(plan.works, point.work);
+    final updatedPlan = plan.copyWith(
+      works: updatedWorks,
+      points: [
+        for (final candidate in plan.points)
+          candidate.id == point.id ? point : candidate,
+      ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<PilgrimagePlan> updatePointImageCache({
     required String planId,
     required String pointId,

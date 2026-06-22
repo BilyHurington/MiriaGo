@@ -182,6 +182,19 @@ class PilgrimagePlanController extends ChangeNotifier {
     _replacePlanState(updatedPlan);
   }
 
+  Future<void> updatePoint(PilgrimagePoint point) async {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    final updatedPlan = await repository.updatePointInPlan(
+      planId: _plan.id,
+      point: point,
+    );
+    _replacePlanState(updatedPlan);
+  }
+
   Future<void> movePointToGroup(PilgrimagePoint point, String? groupId) async {
     final repository = _repository;
     if (repository == null || point.groupId == groupId) {

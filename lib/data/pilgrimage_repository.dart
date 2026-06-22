@@ -42,6 +42,11 @@ abstract interface class PilgrimageRepository {
     required List<PilgrimagePoint> points,
   });
 
+  Future<PilgrimagePlan> updatePointInPlan({
+    required String planId,
+    required PilgrimagePoint point,
+  });
+
   Future<PilgrimagePlan> updatePointImageCache({
     required String planId,
     required String pointId,

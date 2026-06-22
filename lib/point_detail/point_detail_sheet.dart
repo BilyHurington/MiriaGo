@@ -30,6 +30,7 @@ class PointDetailSheet extends StatelessWidget {
     this.records = const [],
     this.onOpenRecords,
     this.onOpenRecord,
+    this.onEditPoint,
     this.navigationLauncher = const MapNavigationLauncher(),
     super.key,
   });
@@ -51,6 +52,7 @@ class PointDetailSheet extends StatelessWidget {
   final List<PilgrimageVisitRecord> records;
   final VoidCallback? onOpenRecords;
   final ValueChanged<PilgrimageVisitRecord>? onOpenRecord;
+  final VoidCallback? onEditPoint;
   final MapNavigationLauncher navigationLauncher;
 
   static Future<void> show(
@@ -72,6 +74,7 @@ class PointDetailSheet extends StatelessWidget {
     List<PilgrimageVisitRecord> records = const [],
     VoidCallback? onOpenRecords,
     ValueChanged<PilgrimageVisitRecord>? onOpenRecord,
+    VoidCallback? onEditPoint,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -92,6 +95,7 @@ class PointDetailSheet extends StatelessWidget {
           records: records,
           onOpenRecords: onOpenRecords,
           onOpenRecord: onOpenRecord,
+          onEditPoint: onEditPoint,
         );
       },
     );
@@ -348,6 +352,12 @@ class PointDetailSheet extends StatelessWidget {
                           onSetCurrent!();
                         },
                   statusAction: onComplete == null ? null : _statusAction,
+                  onEditPoint: onEditPoint == null
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          onEditPoint!();
+                        },
                 ),
               ],
             ),
@@ -424,6 +434,7 @@ class _PointDetailActions extends StatelessWidget {
     required this.onOpenCamera,
     required this.onSetCurrent,
     required this.statusAction,
+    required this.onEditPoint,
   });
 
   final PointDetailActionScope scope;
@@ -432,6 +443,7 @@ class _PointDetailActions extends StatelessWidget {
   final VoidCallback? onOpenCamera;
   final VoidCallback? onSetCurrent;
   final _PointStatusAction? statusAction;
+  final VoidCallback? onEditPoint;
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +498,17 @@ class _PointDetailActions extends StatelessWidget {
           const SizedBox(height: 8),
           Row(children: managementActions),
         ],
+        if (onEditPoint != null) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onEditPoint,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('编辑点位'),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -516,17 +539,20 @@ class _GroupOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: selected ? AppColors.accent : AppColors.textSecondary,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          color: selected ? AppColors.accent : AppColors.textSecondary,
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0),
+        ),
+        onTap: onTap,
       ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0),
-      ),
-      onTap: onTap,
     );
   }
 }

@@ -346,30 +346,44 @@ class PilgrimagePoint {
   String get displayEpisodeLabel => formatEpisodeLabelForDisplay(episodeLabel);
 
   PilgrimagePoint copyWith({
+    String? id,
+    PilgrimageWork? work,
+    String? name,
+    String? subtitle,
+    LatLng? position,
+    String? episodeLabel,
+    String? referenceLabel,
+    PointSource? source,
+    Object? sourceId = _unset,
+    Object? referenceImageUrl = _unset,
     Object? referenceThumbnailPath = _unset,
     Object? referenceFullImagePath = _unset,
+    Object? sourceUrl = _unset,
+    Object? note = _unset,
     Object? groupId = _unset,
     Object? groupOrderIndex = _unset,
   }) {
     return PilgrimagePoint(
-      id: id,
-      work: work,
-      name: name,
-      subtitle: subtitle,
-      position: position,
-      episodeLabel: episodeLabel,
-      referenceLabel: referenceLabel,
-      source: source,
-      sourceId: sourceId,
-      referenceImageUrl: referenceImageUrl,
+      id: id ?? this.id,
+      work: work ?? this.work,
+      name: name ?? this.name,
+      subtitle: subtitle ?? this.subtitle,
+      position: position ?? this.position,
+      episodeLabel: episodeLabel ?? this.episodeLabel,
+      referenceLabel: referenceLabel ?? this.referenceLabel,
+      source: source ?? this.source,
+      sourceId: sourceId == _unset ? this.sourceId : sourceId as String?,
+      referenceImageUrl: referenceImageUrl == _unset
+          ? this.referenceImageUrl
+          : referenceImageUrl as String?,
       referenceThumbnailPath: referenceThumbnailPath == _unset
           ? this.referenceThumbnailPath
           : referenceThumbnailPath as String?,
       referenceFullImagePath: referenceFullImagePath == _unset
           ? this.referenceFullImagePath
           : referenceFullImagePath as String?,
-      sourceUrl: sourceUrl,
-      note: note,
+      sourceUrl: sourceUrl == _unset ? this.sourceUrl : sourceUrl as String?,
+      note: note == _unset ? this.note : note as String?,
       groupId: groupId == _unset ? this.groupId : groupId as String?,
       groupOrderIndex: groupOrderIndex == _unset
           ? this.groupOrderIndex
