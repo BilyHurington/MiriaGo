@@ -964,14 +964,6 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
       return;
     }
 
-    if (widget.selectedPointId != oldWidget.selectedPointId) {
-      final point = _selectedPoint;
-      if (point != null) {
-        _mapController.move(point.position, 16);
-        return;
-      }
-    }
-
     if (widget.group.id != oldWidget.group.id) {
       _mapController.move(_initialCenter, 15.2);
     }
@@ -1022,7 +1014,7 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                   initialCenter: _initialCenter,
                   initialZoom: 15.2,
                   minZoom: 4,
-                  maxZoom: 19,
+                  maxZoom: 22,
                   interactionOptions: const InteractionOptions(
                     flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                   ),
@@ -1525,7 +1517,7 @@ class _PlanPointTile extends StatelessWidget {
                 icon: const Icon(Icons.photo_camera_outlined),
               ),
               IconButton(
-                tooltip: status == VisitStatus.completed ? '重置' : '完成',
+                tooltip: status == VisitStatus.completed ? '撤回打卡' : '完成',
                 onPressed: status == VisitStatus.completed
                     ? onReopen
                     : onComplete,

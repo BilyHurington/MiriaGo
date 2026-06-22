@@ -382,15 +382,45 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     }
 
     await _database.transaction(() async {
-      for (var index = 0; index < pointIds.length; index += 1) {
-        final pointId = pointIds.elementAt(index);
+      final movingPoints =
+          await (_database.select(_database.points)
+                ..where(
+                  (table) =>
+                      table.planId.equals(planId) & table.id.isIn(pointIds),
+                )
+                ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)]))
+              .get();
+      var nextGroupOrderIndex = 0;
+      if (groupId != null) {
+        final targetGroupPoints =
+            await (_database.select(_database.points)..where(
+                  (table) =>
+                      table.planId.equals(planId) &
+                      table.groupId.equals(groupId),
+                ))
+                .get();
+        nextGroupOrderIndex =
+            targetGroupPoints
+                .where((point) => !pointIds.contains(point.id))
+                .fold<int>(
+                  -1,
+                  (maxOrder, point) => (point.groupOrderIndex ?? -1) > maxOrder
+                      ? point.groupOrderIndex!
+                      : maxOrder,
+                ) +
+            1;
+      }
+      for (final point in movingPoints) {
         await (_database.update(_database.points)..where(
-              (table) => table.planId.equals(planId) & table.id.equals(pointId),
+              (table) =>
+                  table.planId.equals(planId) & table.id.equals(point.id),
             ))
             .write(
               PointsCompanion(
                 groupId: Value(groupId),
-                groupOrderIndex: Value(groupId == null ? null : index),
+                groupOrderIndex: Value(
+                  groupId == null ? null : nextGroupOrderIndex++,
+                ),
               ),
             );
       }

@@ -124,12 +124,16 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       });
     }
     _controller.selectPoint(point);
-    _mapController.move(point.position, 16);
+  }
+
+  void _centerPoint(PilgrimagePoint point) {
+    _mapController.move(point.position, _mapController.camera.zoom);
   }
 
   void _setCurrentPoint(PilgrimagePoint point) {
     _controller.setCurrentPoint(point);
     _selectPoint(point);
+    _centerPoint(point);
   }
 
   void _selectGroup(int index, List<PlanGroupBucket> groups) {
@@ -150,7 +154,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       return;
     }
 
-    _selectPoint(currentPoint);
+    _controller.selectPoint(currentPoint);
+    _centerPoint(currentPoint);
   }
 
   void _openCamera(PilgrimagePoint point) {
@@ -251,7 +256,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               initialCenter: initialCenter,
               initialZoom: 15,
               minZoom: 4,
-              maxZoom: 19,
+              maxZoom: 22,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
@@ -675,7 +680,7 @@ class _PointCard extends StatelessWidget {
               const SizedBox(width: 4),
               if (status == VisitStatus.completed)
                 IconButton.outlined(
-                  tooltip: '重新打开并设为当前目标',
+                  tooltip: '撤回打卡',
                   onPressed: onComplete,
                   icon: const Icon(Icons.replay_outlined),
                 )

@@ -339,7 +339,22 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }) async {
     final index = _planIndex(planId);
     final plan = _plans[index];
-    var orderIndex = 0;
+    var orderIndex = groupId == null
+        ? 0
+        : plan.points
+                  .where(
+                    (point) =>
+                        point.groupId == groupId &&
+                        !pointIds.contains(point.id),
+                  )
+                  .fold<int>(
+                    -1,
+                    (maxOrder, point) =>
+                        (point.groupOrderIndex ?? -1) > maxOrder
+                        ? point.groupOrderIndex!
+                        : maxOrder,
+                  ) +
+              1;
     final updatedPlan = plan.copyWith(
       points: [
         for (final point in plan.points)

@@ -367,7 +367,7 @@ class PointDetailSheet extends StatelessWidget {
   _PointStatusAction get _statusAction {
     return switch (status) {
       VisitStatus.completed => _PointStatusAction(
-        label: '重新打开',
+        label: '撤回打卡',
         icon: Icons.replay_outlined,
         onTap: onComplete!,
       ),

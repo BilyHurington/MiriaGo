@@ -622,6 +622,63 @@ void main() {
     expect(orderedIds.map((point) => point.id), pointIds.reversed);
   });
 
+  test('moves points to the end of a non-empty plan group', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final group = PilgrimagePlanGroup(
+      id: 'group-append-target',
+      name: '追加目标片区',
+      orderIndex: 0,
+      orderMode: PlanGroupOrderMode.manual,
+      createdAt: DateTime(2026, 6),
+    );
+    final initialPointIds = [
+      plan.points.first.id,
+      plan.points[1].id,
+      plan.points[2].id,
+    ];
+    final appendedPointIds = [plan.points[3].id, plan.points[4].id];
+
+    await repository.createPlanGroup(planId: plan.id, group: group);
+    await repository.movePointsToGroup(
+      planId: plan.id,
+      pointIds: initialPointIds.toSet(),
+      groupId: group.id,
+    );
+    final reorderedInitialPointIds = initialPointIds.reversed.toList(
+      growable: false,
+    );
+    await repository.reorderGroupPoints(
+      planId: plan.id,
+      groupId: group.id,
+      pointIds: reorderedInitialPointIds,
+    );
+
+    final updatedPlan = await repository.movePointsToGroup(
+      planId: plan.id,
+      pointIds: appendedPointIds.toSet(),
+      groupId: group.id,
+    );
+    final groupPoints =
+        updatedPlan.points.where((point) => point.groupId == group.id).toList()
+          ..sort(
+            (a, b) =>
+                (a.groupOrderIndex ?? 999).compareTo(b.groupOrderIndex ?? 999),
+          );
+
+    expect(groupPoints.map((point) => point.id), [
+      ...reorderedInitialPointIds,
+      ...appendedPointIds,
+    ]);
+    expect(
+      groupPoints.map((point) => point.groupOrderIndex),
+      List<int>.generate(groupPoints.length, (index) => index),
+    );
+  });
+
   test('deleting plan group moves points back to ungrouped', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
