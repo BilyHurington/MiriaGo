@@ -810,7 +810,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                             _lite?.center ?? const LatLng(35.0, 135.0),
                         initialZoom: _lite?.zoom ?? 12,
                         minZoom: 4,
-                        maxZoom: 22,
+                        maxZoom: 24,
                         interactionOptions: const InteractionOptions(
                           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                         ),

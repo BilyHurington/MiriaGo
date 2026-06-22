@@ -55,6 +55,7 @@ class _PlanScreenState extends State<PlanScreen> {
   double _mapHeightRatio = 0.42;
   LatLng? _currentLocation;
   final _pointListController = ScrollController();
+  final _pointTileKeys = <String, GlobalKey>{};
 
   PilgrimagePlanController get controller => widget.controller;
 
@@ -86,6 +87,85 @@ class _PlanScreenState extends State<PlanScreen> {
       }
     });
     controller.selectPoint(point);
+  }
+
+  void _handleMapPointTap(
+    BuildContext context,
+    PilgrimagePoint point,
+    List<PlanGroupBucket> groups,
+  ) {
+    if (controller.selectedPoint?.id == point.id) {
+      _showPointDetail(context, point);
+      return;
+    }
+
+    _selectPoint(point, groups);
+    _scrollPointTileIntoView(point.id);
+  }
+
+  void _scrollPointTileIntoView(String pointId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final context = _pointTileKeys[pointId]?.currentContext;
+      if (context != null) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+        return;
+      }
+
+      final group = planGroupBuckets(
+        controller.plan,
+        controller.completedPointIds,
+      ).elementAtOrNull(_selectedGroupIndex);
+      if (group == null || !_pointListController.hasClients) {
+        return;
+      }
+      final displayPoints = displayPointsForGroup(
+        group,
+        sortMode: _sortMode,
+        descending: _sortDescending,
+        currentLocation: _currentLocation,
+      );
+      final index = displayPoints.indexWhere((point) => point.id == pointId);
+      if (index < 0) {
+        return;
+      }
+
+      final estimatedOffset = (index * 86.0).clamp(
+        0.0,
+        _pointListController.position.maxScrollExtent,
+      );
+      _pointListController.animateTo(
+        estimatedOffset,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final nextContext = _pointTileKeys[pointId]?.currentContext;
+        if (nextContext == null) {
+          return;
+        }
+        Scrollable.ensureVisible(
+          nextContext,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+      });
+    });
+  }
+
+  GlobalKey _pointTileKey(String pointId) {
+    return _pointTileKeys.putIfAbsent(pointId, GlobalKey.new);
   }
 
   void _resizeMap(double deltaY, double viewportHeight) {
@@ -280,7 +360,8 @@ class _PlanScreenState extends State<PlanScreen> {
               },
               onResizeMap: _resizeMap,
               onToggleVirtualLocation: _toggleCurrentLocation,
-              onSelectPoint: (point) => _selectPoint(point, groups),
+              onSelectPoint: (point) =>
+                  _handleMapPointTap(context, point, groups),
               completedPointIds: controller.completedPointIds,
             ),
             Expanded(
@@ -290,6 +371,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 children: [
                   for (final point in displayPoints) ...[
                     _PlanPointTile(
+                      key: _pointTileKey(point.id),
                       point: point,
                       status: controller.statusFor(point),
                       recordCount: controller.recordsForPoint(point.id).length,
@@ -1014,7 +1096,7 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                   initialCenter: _initialCenter,
                   initialZoom: 15.2,
                   minZoom: 4,
-                  maxZoom: 22,
+                  maxZoom: 24,
                   interactionOptions: const InteractionOptions(
                     flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                   ),
@@ -1031,6 +1113,7 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                           child: GestureDetector(
                             onTap: () => widget.onSelectPoint(point),
                             child: _MapPointMarker(
+                              key: ValueKey('plan-map-marker-${point.id}'),
                               selected: point.id == widget.selectedPointId,
                               completed: widget.completedPointIds.contains(
                                 point.id,
@@ -1055,7 +1138,9 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                 left: 10,
                 top: 10,
                 right: 56,
-                child: _MapCompactSummary(group: widget.group),
+                child: IgnorePointer(
+                  child: _MapCompactSummary(group: widget.group),
+                ),
               ),
               Positioned(
                 right: 10,
@@ -1164,7 +1249,11 @@ class _MapResizeHotZone extends StatelessWidget {
 }
 
 class _MapPointMarker extends StatelessWidget {
-  const _MapPointMarker({required this.selected, required this.completed});
+  const _MapPointMarker({
+    required this.selected,
+    required this.completed,
+    super.key,
+  });
 
   final bool selected;
   final bool completed;
@@ -1435,6 +1524,7 @@ class _PlanPointTile extends StatelessWidget {
     required this.onOpenCamera,
     required this.onComplete,
     required this.onReopen,
+    super.key,
   });
 
   final PilgrimagePoint point;

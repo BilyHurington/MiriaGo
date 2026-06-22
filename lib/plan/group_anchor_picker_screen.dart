@@ -90,7 +90,7 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
               initialCenter: selectedPosition ?? _pointsCenter,
               initialZoom: 15,
               minZoom: 4,
-              maxZoom: 22,
+              maxZoom: 24,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),

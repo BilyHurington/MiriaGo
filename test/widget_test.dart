@@ -101,6 +101,28 @@ void main() {
     expect(find.text('井用机前步行道'), findsWidgets);
   });
 
+  testWidgets('plan map marker opens detail after selecting the point', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '地图'));
+    await tester.pumpAndSettle();
+    const markerKey = ValueKey('plan-map-marker-anitabi-115908-7gs3o1mm');
+
+    await tester.tap(find.byKey(markerKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('宇治桥'), findsWidgets);
+
+    await tester.tap(find.byKey(markerKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('坐标'), findsOneWidget);
+    expect(find.text('来源'), findsOneWidget);
+    expect(find.text('导航'), findsOneWidget);
+  });
+
   testWidgets('shows plan manager', (tester) async {
     await _pumpApp(tester);
 

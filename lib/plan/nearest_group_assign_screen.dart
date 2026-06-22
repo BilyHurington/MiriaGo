@@ -101,7 +101,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                 initialCenter: _mapCenter,
                 initialZoom: 14.5,
                 minZoom: 4,
-                maxZoom: 22,
+                maxZoom: 24,
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),
@@ -482,7 +482,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                 initialCenter: _mapCenter,
                 initialZoom: 14.5,
                 minZoom: 4,
-                maxZoom: 22,
+                maxZoom: 24,
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),
