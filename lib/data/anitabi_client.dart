@@ -29,6 +29,14 @@ class AnitabiClient {
     return AnitabiBangumiLite.fromJson(decoded);
   }
 
+  Future<AnitabiBangumiLite?> fetchBangumiLiteFromStatic(int bangumiId) async {
+    final staticIndex = await _fetchStaticIndex();
+    final work = staticIndex.works
+        .where((work) => work.bangumiId == bangumiId)
+        .firstOrNull;
+    return work?.toBangumiLite();
+  }
+
   Future<List<AnitabiPoint>> fetchPoints(
     int bangumiId, {
     AnitabiBangumiLite? lite,
@@ -171,7 +179,6 @@ class AnitabiClient {
       headers: const {'content-type': 'application/json; charset=utf-8'},
     );
   }
-
 }
 
 class AnitabiStaticIndex {

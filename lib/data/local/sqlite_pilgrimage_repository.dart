@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'dart:convert';
 import 'package:latlong2/latlong.dart';
 
 import '../../plan/pilgrimage_models.dart';
@@ -50,6 +51,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     return AppSettings(
       uiScale: row.uiScale.clamp(0.5, 2.0),
+      fontScale: row.fontScale.clamp(0.7, 1.4),
+      themeMode: _themeModeFromName(row.themeMode),
       cameraCaptureAspectRatio: _cameraAspectRatioFromName(
         row.cameraCaptureAspectRatio,
       ),
@@ -65,11 +68,23 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       ),
       themePalette: _themePaletteFromName(row.themePalette),
       mapTileProvider: _mapTileProviderFromName(row.mapTileProvider),
+      navigationApp: _navigationAppFromName(row.navigationApp),
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
       saveVisitPhotoToGallery: row.saveVisitPhotoToGallery,
       comparisonShowPilgrimName: row.comparisonShowPilgrimName,
       comparisonPilgrimName: row.comparisonPilgrimName,
+      customThemeColorName: row.customThemeColorName,
+      customThemeColorValue: row.customThemeColorValue,
+      customThemeColors: _customThemeColorsFromJson(row.customThemeColorsJson),
+      customCameraAspectRatioWidth: row.customCameraAspectRatioWidth.clamp(
+        0.1,
+        99.0,
+      ),
+      customCameraAspectRatioHeight: row.customCameraAspectRatioHeight.clamp(
+        0.1,
+        99.0,
+      ),
     );
   }
 
@@ -818,6 +833,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           AppSettingsEntriesCompanion.insert(
             id: 'default',
             uiScale: Value(settings.uiScale.clamp(0.5, 2.0)),
+            fontScale: Value(settings.fontScale.clamp(0.7, 1.4)),
+            themeMode: Value(settings.themeMode.name),
             cameraAspectRatio: Value(settings.cameraFallbackAspectRatio.name),
             cameraCaptureAspectRatio: Value(
               settings.cameraCaptureAspectRatio.name,
@@ -832,6 +849,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             themePalette: Value(settings.themePalette.name),
             mapTileProvider: Value(settings.mapTileProvider.name),
+            navigationApp: Value(settings.navigationApp.name),
             customXyzTileUrl: Value(settings.customXyzTileUrl.trim()),
             customMapLibreStyleUrl: Value(
               settings.customMapLibreStyleUrl.trim(),
@@ -841,6 +859,21 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.comparisonShowPilgrimName,
             ),
             comparisonPilgrimName: Value(settings.comparisonPilgrimName.trim()),
+            customThemeColorName: Value(settings.customThemeColorName.trim()),
+            customThemeColorValue: Value(settings.customThemeColorValue),
+            customThemeColorsJson: Value(
+              jsonEncode(
+                settings.customThemeColors
+                    .map((color) => color.toJson())
+                    .toList(growable: false),
+              ),
+            ),
+            customCameraAspectRatioWidth: Value(
+              settings.customCameraAspectRatioWidth.clamp(0.1, 99.0),
+            ),
+            customCameraAspectRatioHeight: Value(
+              settings.customCameraAspectRatioHeight.clamp(0.1, 99.0),
+            ),
           ),
         );
   }
@@ -1344,10 +1377,39 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
+  AppThemeMode _themeModeFromName(String name) {
+    return AppThemeMode.values.firstWhere(
+      (mode) => mode.name == name,
+      orElse: () => AppThemeMode.light,
+    );
+  }
+
+  List<CustomThemeColor> _customThemeColorsFromJson(String source) {
+    try {
+      final decoded = jsonDecode(source);
+      if (decoded is! List) {
+        return const [];
+      }
+      return decoded
+          .map(CustomThemeColor.fromJson)
+          .whereType<CustomThemeColor>()
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   MapTileProvider _mapTileProviderFromName(String name) {
     return MapTileProvider.values.firstWhere(
       (provider) => provider.name == name,
       orElse: () => MapTileProvider.openFreeMap,
+    );
+  }
+
+  NavigationApp _navigationAppFromName(String name) {
+    return NavigationApp.values.firstWhere(
+      (app) => app.name == name,
+      orElse: () => NavigationApp.googleMaps,
     );
   }
 

@@ -410,7 +410,24 @@ double _aspectRatioValue(CameraPhotoAspectRatio ratio) {
     CameraPhotoAspectRatio.portrait3x4 => 3 / 4,
     CameraPhotoAspectRatio.portrait2x3 => 2 / 3,
     CameraPhotoAspectRatio.square1x1 => 1,
+    CameraPhotoAspectRatio.custom => 1,
   };
+}
+
+double _settingsAspectRatioValue(
+  CameraPhotoAspectRatio ratio,
+  AppSettings settings,
+) {
+  if (ratio != CameraPhotoAspectRatio.custom) {
+    return _aspectRatioValue(ratio);
+  }
+
+  final width = settings.customCameraAspectRatioWidth;
+  final height = settings.customCameraAspectRatioHeight;
+  if (width <= 0 || height <= 0) {
+    return 1;
+  }
+  return width / height;
 }
 
 @visibleForTesting
@@ -424,9 +441,10 @@ double resolveCameraCaptureAspectRatio({
       ? referenceAspectRatio ??
             _fallbackAspectRatioValue(
               settings.cameraFallbackAspectRatio,
+              settings,
               orientation,
             )
-      : _aspectRatioValue(configuredRatio);
+      : _settingsAspectRatioValue(configuredRatio, settings);
   if (baseRatio <= 0) {
     return 1;
   }
@@ -435,12 +453,13 @@ double resolveCameraCaptureAspectRatio({
 
 double _fallbackAspectRatioValue(
   CameraPhotoAspectRatio ratio,
+  AppSettings settings,
   Orientation orientation,
 ) {
   if (ratio == CameraPhotoAspectRatio.native) {
     return orientation == Orientation.landscape ? 4 / 3 : 3 / 4;
   }
-  return _aspectRatioValue(ratio);
+  return _settingsAspectRatioValue(ratio, settings);
 }
 
 bool _shouldCropNativeCapture({

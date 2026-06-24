@@ -121,62 +121,16 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
                 label: '拍摄时间',
                 value: _formatDateTime(_record.capturedAt),
               ),
-              _DetailRow(
-                icon: Icons.layers_outlined,
-                label: '参考模式',
-                value: _record.referenceMode,
-              ),
-              _DetailRow(
-                icon: Icons.photo_outlined,
-                label: _record.hasColorGrading ? '显示照片' : '照片路径',
-                value: _record.displayPhotoPath,
-              ),
-              if (_record.hasColorGrading)
-                _DetailRow(
-                  icon: Icons.photo_library_outlined,
-                  label: '原图',
-                  value: _record.sourcePhotoPath,
-                ),
-              if (referenceImagePath != null || referenceImageUrl != null)
-                _DetailRow(
-                  icon: Icons.image_outlined,
-                  label: '参考图',
-                  value: referenceImagePath ?? referenceImageUrl!,
-                ),
               if (resolvedPoint != null) ...[
-                _DetailRow(
-                  icon: Icons.flag_outlined,
-                  label: '状态',
-                  value: _statusLabel(
-                    widget.controller.statusFor(resolvedPoint),
-                  ),
-                ),
                 _DetailRow(
                   icon: Icons.grid_view_outlined,
                   label: '片区',
                   value: _groupName(resolvedPoint, group),
                 ),
                 _DetailRow(
-                  icon: Icons.adjust_outlined,
-                  label: '关键点',
-                  value: _groupAnchorLabel(group),
-                ),
-                _DetailRow(
-                  icon: Icons.movie_filter_outlined,
-                  label: '作品',
-                  value:
-                      '${resolvedPoint.work.title} / ${resolvedPoint.work.subtitle}',
-                ),
-                _DetailRow(
                   icon: Icons.local_movies_outlined,
                   label: '场景',
                   value: resolvedPoint.displayEpisodeLabel,
-                ),
-                _DetailRow(
-                  icon: Icons.location_on_outlined,
-                  label: '坐标',
-                  value:
-                      '${resolvedPoint.position.latitude.toStringAsFixed(5)}, ${resolvedPoint.position.longitude.toStringAsFixed(5)}',
                 ),
               ],
             ],
@@ -399,22 +353,6 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       return '未分组';
     }
     return group?.name ?? '未知片区';
-  }
-
-  String _groupAnchorLabel(PilgrimagePlanGroup? group) {
-    final anchorName = group?.anchorName;
-    if (anchorName == null || anchorName.trim().isEmpty) {
-      return '未设置关键点';
-    }
-    return anchorName;
-  }
-
-  String _statusLabel(VisitStatus status) {
-    return switch (status) {
-      VisitStatus.current => '当前目标',
-      VisitStatus.completed => '已完成',
-      VisitStatus.pending => '待访问',
-    };
   }
 
   String? _colorGradingSummary() {

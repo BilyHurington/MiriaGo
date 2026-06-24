@@ -44,19 +44,57 @@ enum CameraPhotoAspectRatio {
   portrait3x4,
   portrait2x3,
   square1x1,
+  custom,
+}
+
+class CustomThemeColor {
+  const CustomThemeColor({required this.name, required this.value});
+
+  final String name;
+  final int value;
+
+  Map<String, Object?> toJson() => {'name': name, 'value': value};
+
+  static CustomThemeColor? fromJson(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    final name = value['name'];
+    final colorValue = value['value'];
+    if (name is! String || colorValue is! num) {
+      return null;
+    }
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
+      return null;
+    }
+    return CustomThemeColor(name: trimmedName, value: colorValue.toInt());
+  }
 }
 
 enum AppThemePalette {
+  classicGreen,
+  deepBlue,
+  cherryPink,
+  twilightPurple,
   miriaYellow,
-  classicGreen;
+  graphite,
+  aurora;
 
   String get label {
     return switch (this) {
-      AppThemePalette.miriaYellow => '鲜黄色',
-      AppThemePalette.classicGreen => '经典绿色',
+      AppThemePalette.classicGreen => '\u7ecf\u5178\u7eff',
+      AppThemePalette.deepBlue => '\u6df1\u9083\u84dd',
+      AppThemePalette.cherryPink => '\u6a31\u82b1\u7c89',
+      AppThemePalette.twilightPurple => '\u66ae\u5149\u7d2b',
+      AppThemePalette.miriaYellow => '\u7435\u73c0\u6a59',
+      AppThemePalette.graphite => '\u77f3\u58a8\u9ed1',
+      AppThemePalette.aurora => '\u81ea\u5b9a\u4e49',
     };
   }
 }
+
+enum AppThemeMode { light, dark, system }
 
 extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {
@@ -72,6 +110,7 @@ extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
       CameraPhotoAspectRatio.portrait3x4 => '3:4',
       CameraPhotoAspectRatio.portrait2x3 => '2:3',
       CameraPhotoAspectRatio.square1x1 => '1:1',
+      CameraPhotoAspectRatio.custom => '\u81ea\u5b9a\u4e49',
     };
   }
 }
@@ -83,9 +122,31 @@ enum MapTileProvider {
   customMapLibreStyle,
 }
 
+enum NavigationApp {
+  googleMaps,
+  amap,
+  appleMaps,
+  baiduMaps,
+  tencentMaps,
+  browser;
+
+  String get label {
+    return switch (this) {
+      NavigationApp.googleMaps => 'Google Maps',
+      NavigationApp.amap => '\u9ad8\u5fb7\u5730\u56fe',
+      NavigationApp.appleMaps => 'Apple Maps',
+      NavigationApp.baiduMaps => '\u767e\u5ea6\u5730\u56fe',
+      NavigationApp.tencentMaps => '\u817e\u8baf\u5730\u56fe',
+      NavigationApp.browser => '\u6d4f\u89c8\u5668',
+    };
+  }
+}
+
 class AppSettings {
   const AppSettings({
     this.uiScale = 1,
+    this.fontScale = 1,
+    this.themeMode = AppThemeMode.light,
     this.cameraCaptureAspectRatio = CameraPhotoAspectRatio.auto,
     this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.native,
     this.cameraMinZoom = 0.6,
@@ -94,14 +155,22 @@ class AppSettings {
     this.nearestAssignDistanceMeters = 350,
     this.themePalette = AppThemePalette.classicGreen,
     this.mapTileProvider = MapTileProvider.openFreeMap,
+    this.navigationApp = NavigationApp.googleMaps,
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
     this.saveVisitPhotoToGallery = true,
     this.comparisonShowPilgrimName = false,
     this.comparisonPilgrimName = '',
+    this.customThemeColorName = '\u81ea\u5b9a\u4e49',
+    this.customThemeColorValue = 0xFF16C6A8,
+    this.customThemeColors = const [],
+    this.customCameraAspectRatioWidth = 1,
+    this.customCameraAspectRatioHeight = 1,
   });
 
   final double uiScale;
+  final double fontScale;
+  final AppThemeMode themeMode;
   final CameraPhotoAspectRatio cameraCaptureAspectRatio;
   final CameraPhotoAspectRatio cameraFallbackAspectRatio;
   final double cameraMinZoom;
@@ -110,14 +179,22 @@ class AppSettings {
   final double nearestAssignDistanceMeters;
   final AppThemePalette themePalette;
   final MapTileProvider mapTileProvider;
+  final NavigationApp navigationApp;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
   final bool comparisonShowPilgrimName;
   final String comparisonPilgrimName;
+  final String customThemeColorName;
+  final int customThemeColorValue;
+  final List<CustomThemeColor> customThemeColors;
+  final double customCameraAspectRatioWidth;
+  final double customCameraAspectRatioHeight;
 
   AppSettings copyWith({
     double? uiScale,
+    double? fontScale,
+    AppThemeMode? themeMode,
     CameraPhotoAspectRatio? cameraCaptureAspectRatio,
     CameraPhotoAspectRatio? cameraFallbackAspectRatio,
     double? cameraMinZoom,
@@ -126,14 +203,22 @@ class AppSettings {
     double? nearestAssignDistanceMeters,
     AppThemePalette? themePalette,
     MapTileProvider? mapTileProvider,
+    NavigationApp? navigationApp,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
     bool? comparisonShowPilgrimName,
     String? comparisonPilgrimName,
+    String? customThemeColorName,
+    int? customThemeColorValue,
+    List<CustomThemeColor>? customThemeColors,
+    double? customCameraAspectRatioWidth,
+    double? customCameraAspectRatioHeight,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
+      fontScale: fontScale ?? this.fontScale,
+      themeMode: themeMode ?? this.themeMode,
       cameraCaptureAspectRatio:
           cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
       cameraFallbackAspectRatio:
@@ -145,6 +230,7 @@ class AppSettings {
           nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
       mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+      navigationApp: navigationApp ?? this.navigationApp,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -154,6 +240,14 @@ class AppSettings {
           comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
       comparisonPilgrimName:
           comparisonPilgrimName ?? this.comparisonPilgrimName,
+      customThemeColorName: customThemeColorName ?? this.customThemeColorName,
+      customThemeColorValue:
+          customThemeColorValue ?? this.customThemeColorValue,
+      customThemeColors: customThemeColors ?? this.customThemeColors,
+      customCameraAspectRatioWidth:
+          customCameraAspectRatioWidth ?? this.customCameraAspectRatioWidth,
+      customCameraAspectRatioHeight:
+          customCameraAspectRatioHeight ?? this.customCameraAspectRatioHeight,
     );
   }
 }

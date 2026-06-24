@@ -99,6 +99,8 @@ class VisitRecords extends Table {
 class AppSettingsEntries extends Table {
   TextColumn get id => text()();
   RealColumn get uiScale => real().withDefault(const Constant(1.0))();
+  RealColumn get fontScale => real().withDefault(const Constant(1.0))();
+  TextColumn get themeMode => text().withDefault(const Constant('light'))();
   TextColumn get cameraAspectRatio =>
       text().withDefault(const Constant('auto'))();
   TextColumn get cameraCaptureAspectRatio =>
@@ -113,6 +115,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant('classicGreen'))();
   TextColumn get mapTileProvider =>
       text().withDefault(const Constant('openFreeMap'))();
+  TextColumn get navigationApp =>
+      text().withDefault(const Constant('googleMaps'))();
   TextColumn get customXyzTileUrl => text().withDefault(const Constant(''))();
   TextColumn get customMapLibreStyleUrl =>
       text().withDefault(const Constant(''))();
@@ -122,6 +126,16 @@ class AppSettingsEntries extends Table {
       boolean().withDefault(const Constant(false))();
   TextColumn get comparisonPilgrimName =>
       text().withDefault(const Constant(''))();
+  TextColumn get customThemeColorName =>
+      text().withDefault(const Constant('自定义'))();
+  IntColumn get customThemeColorValue =>
+      integer().withDefault(const Constant(0xFF16C6A8))();
+  TextColumn get customThemeColorsJson =>
+      text().withDefault(const Constant('[]'))();
+  RealColumn get customCameraAspectRatioWidth =>
+      real().withDefault(const Constant(1.0))();
+  RealColumn get customCameraAspectRatioHeight =>
+      real().withDefault(const Constant(1.0))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -134,7 +148,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -288,6 +302,70 @@ class AppDatabase extends _$AppDatabase {
           'comparison_pilgrim_name',
           appSettingsEntries,
           appSettingsEntries.comparisonPilgrimName,
+        );
+      }
+      if (from < 18) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'font_scale',
+          appSettingsEntries,
+          appSettingsEntries.fontScale,
+        );
+      }
+      if (from < 19) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'theme_mode',
+          appSettingsEntries,
+          appSettingsEntries.themeMode,
+        );
+      }
+      if (from < 20) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'custom_theme_color_name',
+          appSettingsEntries,
+          appSettingsEntries.customThemeColorName,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'custom_theme_color_value',
+          appSettingsEntries,
+          appSettingsEntries.customThemeColorValue,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'custom_theme_colors_json',
+          appSettingsEntries,
+          appSettingsEntries.customThemeColorsJson,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'custom_camera_aspect_ratio_width',
+          appSettingsEntries,
+          appSettingsEntries.customCameraAspectRatioWidth,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'custom_camera_aspect_ratio_height',
+          appSettingsEntries,
+          appSettingsEntries.customCameraAspectRatioHeight,
+        );
+      }
+      if (from < 21) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'navigation_app',
+          appSettingsEntries,
+          appSettingsEntries.navigationApp,
         );
       }
     },
