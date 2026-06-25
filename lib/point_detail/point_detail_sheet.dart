@@ -7,6 +7,7 @@ import '../data/user_reference_image_stub.dart'
 import '../widgets/snackbar_helper.dart';
 import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/plan_group_utils.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/copyable_text.dart';
@@ -146,6 +147,7 @@ class PointDetailSheet extends StatelessWidget {
     if (moveToGroup == null) {
       return;
     }
+    final sortedGroups = sortGroupsByPlanOrder(groups);
 
     final selectedGroupId = await showModalBottomSheet<String?>(
       context: context,
@@ -172,7 +174,7 @@ class PointDetailSheet extends StatelessWidget {
                 selected: point.groupId == null,
                 onTap: () => Navigator.of(context).pop(''),
               ),
-              for (final group in groups)
+              for (final group in sortedGroups)
                 _GroupOptionTile(
                   title: group.name,
                   selected: point.groupId == group.id,

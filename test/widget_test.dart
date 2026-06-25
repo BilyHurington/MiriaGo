@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:miriago/main.dart';
 import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/point_detail/point_detail_sheet.dart';
 import 'package:miriago/plan/anitabi_map_import_screen.dart';
 import 'package:miriago/plan/plan_group_manager_screen.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
@@ -144,6 +145,87 @@ void main() {
     expect(find.text('拍摄参考'), findsWidgets);
     expect(find.text('标记完成'), findsWidgets);
     expect(find.text('编辑点位'), findsOneWidget);
+  });
+
+  testWidgets('point detail move sheet follows plan group order', (
+    tester,
+  ) async {
+    final createdAt = DateTime.utc(2026);
+    const work = PilgrimageWork(
+      id: 'work',
+      title: '作品',
+      subtitle: '动画',
+      city: '京都',
+      source: WorkSource.manual,
+    );
+    final lateGroup = PilgrimagePlanGroup(
+      id: 'late',
+      name: '后访问',
+      orderIndex: 2,
+      createdAt: createdAt,
+    );
+    final earlyGroup = PilgrimagePlanGroup(
+      id: 'early',
+      name: '先访问',
+      orderIndex: 0,
+      createdAt: createdAt,
+    );
+    final middleGroup = PilgrimagePlanGroup(
+      id: 'middle',
+      name: '中间',
+      orderIndex: 1,
+      createdAt: createdAt,
+    );
+    const point = PilgrimagePoint(
+      id: 'point',
+      work: work,
+      name: '测试点位',
+      subtitle: '场景',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: '手动',
+      groupId: 'late',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => PointDetailSheet.show(
+                  context,
+                  point: point,
+                  status: VisitStatus.pending,
+                  onReplaceReference: (_, _) async {},
+                  groups: [lateGroup, earlyGroup, middleGroup],
+                  onMoveToGroup: (_, _) async {},
+                ),
+                child: const Text('打开详情'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开详情'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '更改'));
+    await tester.pumpAndSettle();
+
+    Finder optionText(String text) {
+      return find.descendant(
+        of: find.byType(ListTile),
+        matching: find.text(text),
+      );
+    }
+
+    final earlyTop = tester.getTopLeft(optionText('先访问')).dy;
+    final middleTop = tester.getTopLeft(optionText('中间')).dy;
+    final lateTop = tester.getTopLeft(optionText('后访问')).dy;
+
+    expect(earlyTop, lessThan(middleTop));
+    expect(middleTop, lessThan(lateTop));
   });
 
   testWidgets('edits point details from the shared detail sheet', (

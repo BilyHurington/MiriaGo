@@ -47,12 +47,11 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       .where((point) => point.groupId == null)
       .toList(growable: false);
 
-  List<PilgrimagePlanGroup> get _targetGroups => _plan.groups
-      .where(
-        (group) =>
-            group.anchorLatitude != null && group.anchorLongitude != null,
-      )
-      .toList(growable: false);
+  List<PilgrimagePlanGroup> get _targetGroups => sortGroupsByPlanOrder(
+    _plan.groups.where(
+      (group) => group.anchorLatitude != null && group.anchorLongitude != null,
+    ),
+  );
 
   Map<String, Set<String>> get _assignments {
     final assignments = <String, Set<String>>{};
@@ -407,13 +406,15 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       .where((point) => point.groupId == null)
       .toList(growable: false);
 
+  List<PilgrimagePlanGroup> get _groups => sortGroupsByPlanOrder(_plan.groups);
+
   PilgrimagePlanGroup? get _targetGroup {
     final groupId = _targetGroupId;
     if (groupId == null) {
-      return _plan.groups.firstOrNull;
+      return _groups.firstOrNull;
     }
-    return _plan.groups.where((group) => group.id == groupId).firstOrNull ??
-        _plan.groups.firstOrNull;
+    return _groups.where((group) => group.id == groupId).firstOrNull ??
+        _groups.firstOrNull;
   }
 
   Rect? get _selectionRect {
@@ -492,7 +493,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                 configuredMapTileLayer(widget.settings),
                 MarkerLayer(
                   markers: [
-                    for (final group in _plan.groups)
+                    for (final group in _groups)
                       if (group.anchorLatitude != null &&
                           group.anchorLongitude != null)
                         Marker(
@@ -549,7 +550,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
               child: SafeArea(
                 bottom: false,
                 child: _BoxAssignPanel(
-                  groups: _plan.groups,
+                  groups: _groups,
                   targetGroup: targetGroup,
                   selectedCount: selectedBoxPoints.length,
                   ungroupedCount: _ungroupedPoints.length,
@@ -576,7 +577,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
               child: _selectedPoint == null
                   ? _NearestAssignHintCard(
                       ungroupedCount: _ungroupedPoints.length,
-                      groupCount: _plan.groups.length,
+                      groupCount: _groups.length,
                     )
                   : _NearestAssignPointCard(
                       point: _selectedPoint!,
@@ -597,7 +598,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
   LatLng get _mapCenter {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
-      for (final group in _plan.groups)
+      for (final group in _groups)
         if (group.anchorLatitude != null && group.anchorLongitude != null)
           LatLng(group.anchorLatitude!, group.anchorLongitude!),
     ];
