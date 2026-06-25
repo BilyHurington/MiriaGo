@@ -26,8 +26,11 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
 }
 
 Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
+  final thumbnailUrl = anitabiThumbnailImageUrl(point.referenceImageUrl);
   final existingPath = point.referenceThumbnailPath;
-  if (existingPath != null) {
+  if (existingPath != null &&
+      thumbnailUrl != null &&
+      _cachedPathMatchesUrl(existingPath, thumbnailUrl)) {
     final file = File(existingPath);
     if (file.existsSync() && file.lengthSync() > 0) {
       return existingPath;
@@ -87,6 +90,10 @@ String _stableUrlHash(String value) {
     hash = (hash * 0x01000193) & 0xffffffff;
   }
   return hash.toRadixString(16).padLeft(8, '0');
+}
+
+bool _cachedPathMatchesUrl(String path, String url) {
+  return p.basename(path).contains('_${_stableUrlHash(url)}');
 }
 
 String _extensionFromUrl(String url) {

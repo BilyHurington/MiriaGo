@@ -54,8 +54,12 @@ class _AutoCachingReferenceThumbnailState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.point.id != widget.point.id ||
         oldWidget.point.referenceThumbnailPath !=
-            widget.point.referenceThumbnailPath) {
-      _thumbnailPath = widget.point.referenceThumbnailPath;
+            widget.point.referenceThumbnailPath ||
+        oldWidget.point.referenceImageUrl != widget.point.referenceImageUrl) {
+      _thumbnailPath =
+          oldWidget.point.referenceImageUrl == widget.point.referenceImageUrl
+          ? widget.point.referenceThumbnailPath
+          : null;
       _maybeCacheThumbnail();
     }
   }

@@ -57,4 +57,55 @@ void main() {
       source.visitRecords.map((record) => record.id),
     );
   });
+
+  test('desktop state uses unknown work fallback for missing work ids', () {
+    final source = '''
+{
+  "schemaVersion": 1,
+  "activePlanId": "desktop-plan",
+  "settings": {},
+  "plans": [
+    {
+      "id": "desktop-plan",
+      "name": "桌面计划",
+      "area": "测试地区",
+      "createdAt": "2026-06-25T00:00:00.000",
+      "updatedAt": "2026-06-25T00:00:00.000",
+      "completedPointIds": [],
+      "works": [
+        {
+          "id": "known-work",
+          "title": "不应该被绑定的作品",
+          "subtitle": "",
+          "city": "",
+          "source": "manual"
+        }
+      ],
+      "groups": [],
+      "points": [
+        {
+          "id": "orphan-point",
+          "workId": "missing-work",
+          "name": "孤立点位",
+          "subtitle": "",
+          "latitude": 35.0,
+          "longitude": 135.0,
+          "episodeLabel": "",
+          "referenceLabel": "",
+          "source": "manual"
+        }
+      ]
+    }
+  ],
+  "visitRecords": []
+}
+''';
+
+    final decoded = decodeDesktopRepositoryState(source);
+    final point = decoded!.plans.single.points.single;
+
+    expect(point.work.id, 'missing-work');
+    expect(point.work.title, '未知作品');
+    expect(point.work.title, isNot('不应该被绑定的作品'));
+  });
 }

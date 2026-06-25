@@ -63,7 +63,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Offset? _selectionEnd;
   int _loadGeneration = 0;
 
-  List<PilgrimageWork> get _works => _importedPlan.works;
+  List<PilgrimageWork> get _works {
+    final selectedWork = _selectedWork;
+    if (selectedWork == null ||
+        _importedPlan.works.any((work) => work.id == selectedWork.id)) {
+      return _importedPlan.works;
+    }
+    return [..._importedPlan.works, selectedWork];
+  }
 
   int _nextLoadGeneration() {
     _loadGeneration += 1;
@@ -155,7 +162,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _points = points;
         _selectedPoint = points.firstOrNull;
       });
-      _mapController.move(lite.center, lite.zoom);
+      _moveMapAfterBuild(lite.center, lite.zoom);
     } catch (error) {
       if (!_isActiveLoad(generation)) {
         return;
@@ -179,6 +186,20 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     );
   }
 
+  void _moveMapAfterBuild(LatLng center, double zoom) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      try {
+        _mapController.move(center, zoom);
+      } catch (_) {
+        // Direct-link loads can finish before FlutterMap attaches the
+        // controller. The map still renders from its initial options.
+      }
+    });
+  }
+
   Future<void> _loadInitialBangumiId(int bangumiId) async {
     final generation = _nextLoadGeneration();
     setState(() {
@@ -193,19 +214,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       if (!_isActiveLoad(generation)) {
         return;
       }
-      var work = _workForBangumiId(lite.bangumiId);
-      if (work == null) {
-        work = _workFromLite(lite);
-        final updatedPlan = await widget.repository.addWorkToPlan(
-          planId: _importedPlan.id,
-          work: work,
-        );
-        if (!_isActiveLoad(generation)) {
-          return;
-        }
-        _replaceImportedPlan(updatedPlan);
-        _didUpdatePlan = true;
-      }
+      final work = _workForBangumiId(lite.bangumiId) ?? _workFromLite(lite);
 
       final points = await widget.anitabiClient.fetchPoints(
         lite.bangumiId,
@@ -221,7 +230,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _points = points;
         _selectedPoint = points.firstOrNull;
       });
-      _mapController.move(lite.center, lite.zoom);
+      _moveMapAfterBuild(lite.center, lite.zoom);
     } catch (error) {
       if (!_isActiveLoad(generation)) {
         return;
@@ -258,23 +267,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       }
 
       final lite = result.work;
-      var work = _workForBangumiId(lite.bangumiId);
-      if (work == null) {
-        work = _workFromLite(lite);
-        final updatedPlan = await widget.repository.addWorkToPlan(
-          planId: _importedPlan.id,
-          work: work,
-        );
-        if (!_isActiveLoad(generation)) {
-          return;
-        }
-        _replaceImportedPlan(updatedPlan);
-        _didUpdatePlan = true;
-      }
-
-      if (!_isActiveLoad(generation)) {
-        return;
-      }
+      final work = _workForBangumiId(lite.bangumiId) ?? _workFromLite(lite);
 
       setState(() {
         _selectedWork = work;
@@ -282,7 +275,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _points = [result.point];
         _selectedPoint = result.point;
       });
-      _mapController.move(result.point.position, math.max(lite.zoom, 15));
+      _moveMapAfterBuild(result.point.position, math.max(lite.zoom, 15));
     } catch (error) {
       if (!_isActiveLoad(generation)) {
         return;

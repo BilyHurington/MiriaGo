@@ -405,33 +405,39 @@ void main() {
     expect(find.textContaining('点击地图可继续调整位置'), findsNothing);
   });
 
-  testWidgets(
-    'Anitabi point ID import adds missing work before showing point',
-    (tester) async {
-      final repository = SamplePilgrimageRepository(plans: const []);
-      final plan = await repository.createPlan(name: '点位 ID 测试', area: '京都');
-      final anitabiClient = _FakeAnitabiClient();
+  testWidgets('Anitabi point ID import adds missing work on import', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '点位 ID 测试', area: '京都');
+    final anitabiClient = _FakeAnitabiClient();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AnitabiMapImportScreen(
-            plan: plan,
-            repository: repository,
-            initialPointId: 'point-1',
-            anitabiClient: anitabiClient,
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialPointId: 'point-1',
+          anitabiClient: anitabiClient,
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      final updatedPlan = await repository.loadActivePlan();
-      expect(
-        updatedPlan.works.where((work) => work.bangumiId == 12345),
-        hasLength(1),
-      );
-      expect(anitabiClient.lookedUpPointIds, contains('point-1'));
-    },
-  );
+    var updatedPlan = await repository.loadActivePlan();
+    expect(updatedPlan.works, isEmpty);
+    expect(anitabiClient.lookedUpPointIds, contains('point-1'));
+
+    await tester.tap(find.text('加入计划'));
+    await tester.pumpAndSettle();
+
+    updatedPlan = await repository.loadActivePlan();
+    expect(
+      updatedPlan.works.where((work) => work.bangumiId == 12345),
+      hasLength(1),
+    );
+    expect(updatedPlan.points, hasLength(1));
+  });
 
   testWidgets('Anitabi point ID import reuses existing work', (tester) async {
     final repository = SamplePilgrimageRepository(plans: const []);
@@ -557,14 +563,42 @@ void main() {
     expect(find.text('1001 点位'), findsNothing);
     expect(find.text('1001 场景 / EP 1001'), findsNothing);
   });
+
+  testWidgets('Anitabi initial Bangumi load failure does not add work', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '失败导入测试', area: '京都');
+    final anitabiClient = _FakeAnitabiClient(failingPointPids: {12345});
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 12345,
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final updatedPlan = await repository.loadActivePlan();
+    expect(updatedPlan.works, isEmpty);
+    expect(anitabiClient.fetchedPointPids, contains(12345));
+  });
 }
 
 class _FakeAnitabiClient extends AnitabiClient {
-  _FakeAnitabiClient({this.pointDelays = const {}});
+  _FakeAnitabiClient({
+    this.pointDelays = const {},
+    this.failingPointPids = const {},
+  });
 
   final fetchedPointPids = <int>[];
   final lookedUpPointIds = <String>[];
   final Map<int, Duration> pointDelays;
+  final Set<int> failingPointPids;
 
   @override
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
@@ -593,6 +627,11 @@ class _FakeAnitabiClient extends AnitabiClient {
       await Future<void>.delayed(delay);
     }
     fetchedPointPids.add(bangumiId);
+    if (failingPointPids.contains(bangumiId)) {
+      throw AnitabiStaticDataUnavailableException(
+        'fixture failure for $bangumiId',
+      );
+    }
     return [
       AnitabiPoint(
         bangumiId: bangumiId,

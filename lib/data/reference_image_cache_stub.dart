@@ -24,8 +24,12 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
 }
 
 Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
+  final thumbnailUrl = anitabiThumbnailImageUrl(point.referenceImageUrl);
   final existingPath = point.referenceThumbnailPath;
-  if (existingPath != null && isDesktopAssetPath(existingPath)) {
+  if (existingPath != null &&
+      thumbnailUrl != null &&
+      isDesktopAssetPath(existingPath) &&
+      _cachedPathMatchesUrl(existingPath, thumbnailUrl)) {
     try {
       final existing = await tauri.readDesktopAsset(path: existingPath);
       if (existing.dataBase64.isNotEmpty) {
@@ -95,6 +99,10 @@ String _stableUrlHash(String value) {
     hash = (hash * 0x01000193) & 0xffffffff;
   }
   return hash.toRadixString(16).padLeft(8, '0');
+}
+
+bool _cachedPathMatchesUrl(String path, String url) {
+  return path.contains('_${_stableUrlHash(url)}');
 }
 
 String _extensionFromUrl(String url) {

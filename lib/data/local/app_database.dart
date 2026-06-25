@@ -134,7 +134,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -290,8 +290,84 @@ class AppDatabase extends _$AppDatabase {
           appSettingsEntries.comparisonPilgrimName,
         );
       }
+      if (from < 18) {
+        await normalizeScopedStorageIds();
+      }
     },
   );
+
+  Future<void> normalizeScopedStorageIds() async {
+    const separator = '::';
+    await customStatement('''
+      INSERT OR IGNORE INTO works (
+        id,
+        plan_id,
+        bangumi_id,
+        title,
+        subtitle,
+        city,
+        source
+      )
+      SELECT
+        points.plan_id || '$separator' || works.id,
+        points.plan_id,
+        works.bangumi_id,
+        works.title,
+        works.subtitle,
+        works.city,
+        works.source
+      FROM points
+      INNER JOIN works ON works.id = points.work_id
+      WHERE instr(points.work_id, points.plan_id || '$separator') != 1
+    ''');
+    await customStatement('''
+      INSERT OR IGNORE INTO works (
+        id,
+        plan_id,
+        bangumi_id,
+        title,
+        subtitle,
+        city,
+        source
+      )
+      SELECT
+        plan_id || '$separator' || id,
+        plan_id,
+        bangumi_id,
+        title,
+        subtitle,
+        city,
+        source
+      FROM works
+      WHERE instr(id, plan_id || '$separator') != 1
+    ''');
+    await customStatement('''
+      UPDATE points
+      SET work_id = plan_id || '$separator' || work_id
+      WHERE work_id IS NOT NULL
+        AND instr(work_id, plan_id || '$separator') != 1
+    ''');
+    await customStatement('''
+      UPDATE plan_groups
+      SET anchor_point_id = plan_id || '$separator' || anchor_point_id
+      WHERE anchor_point_id IS NOT NULL
+        AND instr(anchor_point_id, plan_id || '$separator') != 1
+    ''');
+    await customStatement('''
+      UPDATE points
+      SET id = plan_id || '$separator' || id
+      WHERE instr(id, plan_id || '$separator') != 1
+    ''');
+    await customStatement('''
+      DELETE FROM works
+      WHERE instr(id, plan_id || '$separator') != 1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM points
+          WHERE points.work_id = works.id
+        )
+    ''');
+  }
 
   Future<void> _addColumnIfMissing(
     Migrator migrator,
