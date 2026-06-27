@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:miriago/data/local/app_database.dart';
 import 'package:miriago/data/local/sqlite_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
+import 'package:miriago/plan_transfer/plan_export_v2.dart';
 
 void main() {
   test('persists completed point and next current target', () async {
@@ -106,6 +110,393 @@ void main() {
     expect(updatedPlan.points, hasLength(1));
     expect(updatedPlan.currentPointId, sourcePlan.points.first.id);
     expect(updatedPlan.points.single.note, '翻修后外观已有变化');
+  });
+
+  test('keeps same Bangumi work independent across plans', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: '计划 A', area: '京都');
+    final planB = await repository.createPlan(name: '计划 B', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999001',
+      bangumiId: 999001,
+      title: '测试作品',
+      subtitle: 'Fixture',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const pointA = PilgrimagePoint(
+      id: 'anitabi-999001-point-a',
+      work: work,
+      name: '点位 A',
+      subtitle: '地点 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+    );
+    const pointB = PilgrimagePoint(
+      id: 'anitabi-999001-point-b',
+      work: work,
+      name: '点位 B',
+      subtitle: '地点 B',
+      position: LatLng(36, 136),
+      episodeLabel: 'EP 2',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-b',
+    );
+
+    await repository.addPointToPlan(planId: planA.id, point: pointA);
+    await repository.addPointToPlan(planId: planB.id, point: pointB);
+
+    final plans = await repository.loadPlans();
+    final loadedA = plans.firstWhere((plan) => plan.id == planA.id);
+    final loadedB = plans.firstWhere((plan) => plan.id == planB.id);
+
+    expect(loadedA.works.map((work) => work.title), contains('测试作品'));
+    expect(loadedA.points.single.work.title, '测试作品');
+    expect(loadedA.points.single.id, pointA.id);
+    expect(loadedB.works.map((work) => work.title), contains('测试作品'));
+    expect(loadedB.points.single.id, pointB.id);
+  });
+
+  test('keeps same Anitabi point independent across plans', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: '计划 A', area: '京都');
+    final planB = await repository.createPlan(name: '计划 B', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999002',
+      bangumiId: 999002,
+      title: '同点位作品',
+      subtitle: 'Fixture',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const pointA = PilgrimagePoint(
+      id: 'anitabi-999002-point-a',
+      work: work,
+      name: '同一 Anitabi 点位',
+      subtitle: '计划 A 版本',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+      referenceImageUrl: 'https://image.example/a.jpg',
+    );
+    const pointB = PilgrimagePoint(
+      id: 'anitabi-999002-point-a',
+      work: work,
+      name: '同一 Anitabi 点位',
+      subtitle: '计划 B 版本',
+      position: LatLng(36, 136),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+      referenceImageUrl: 'https://image.example/b.jpg',
+    );
+
+    await repository.addPointToPlan(planId: planA.id, point: pointA);
+    await repository.addPointToPlan(planId: planB.id, point: pointB);
+
+    final plans = await repository.loadPlans();
+    final loadedA = plans.firstWhere((plan) => plan.id == planA.id);
+    final loadedB = plans.firstWhere((plan) => plan.id == planB.id);
+
+    expect(loadedA.points.single.id, pointA.id);
+    expect(loadedA.points.single.subtitle, '计划 A 版本');
+    expect(
+      loadedA.points.single.referenceImageUrl,
+      'https://image.example/a.jpg',
+    );
+    expect(loadedB.points.single.id, pointB.id);
+    expect(loadedB.points.single.subtitle, '计划 B 版本');
+    expect(
+      loadedB.points.single.referenceImageUrl,
+      'https://image.example/b.jpg',
+    );
+  });
+
+  test('adding work to one plan does not move it from another plan', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: '计划 A', area: '京都');
+    final planB = await repository.createPlan(name: '计划 B', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999003',
+      bangumiId: 999003,
+      title: '只添加作品测试',
+      subtitle: 'Fixture',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const point = PilgrimagePoint(
+      id: 'anitabi-999003-point-a',
+      work: work,
+      name: '点位 A',
+      subtitle: '地点 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+    );
+
+    await repository.addPointToPlan(planId: planA.id, point: point);
+    await repository.addWorkToPlan(planId: planB.id, work: work);
+
+    final plans = await repository.loadPlans();
+    final loadedA = plans.firstWhere((plan) => plan.id == planA.id);
+    final loadedB = plans.firstWhere((plan) => plan.id == planB.id);
+
+    expect(loadedA.works.single.title, '只添加作品测试');
+    expect(loadedA.points.single.work.title, '只添加作品测试');
+    expect(loadedB.works.single.title, '只添加作品测试');
+  });
+
+  test('normalizes legacy unscoped SQLite ids during upgrade', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: '旧数据计划', area: '京都');
+    final planB = await repository.createPlan(name: '新数据计划', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999004',
+      bangumiId: 999004,
+      title: '旧版作品',
+      subtitle: 'Legacy',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const point = PilgrimagePoint(
+      id: 'anitabi-999004-point-a',
+      work: work,
+      name: '旧版点位',
+      subtitle: '地点 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+      referenceImageUrl: 'https://image.example/legacy.jpg',
+    );
+
+    await database
+        .into(database.works)
+        .insert(
+          WorksCompanion.insert(
+            id: work.id,
+            planId: planA.id,
+            bangumiId: Value(work.bangumiId),
+            title: work.title,
+            subtitle: work.subtitle,
+            city: work.city,
+            source: work.source.name,
+          ),
+        );
+    await database
+        .into(database.points)
+        .insert(
+          PointsCompanion.insert(
+            id: point.id,
+            planId: planA.id,
+            workId: work.id,
+            name: point.name,
+            subtitle: point.subtitle,
+            latitude: point.position.latitude,
+            longitude: point.position.longitude,
+            episodeLabel: point.episodeLabel,
+            referenceLabel: point.referenceLabel,
+            source: point.source.name,
+            sourceId: Value(point.sourceId),
+            referenceImageUrl: Value(point.referenceImageUrl),
+            sortOrder: const Value(0),
+          ),
+        );
+
+    await database.normalizeScopedStorageIds();
+
+    final normalizedWork = await (database.select(
+      database.works,
+    )..where((table) => table.planId.equals(planA.id))).getSingle();
+    final normalizedPoint = await (database.select(
+      database.points,
+    )..where((table) => table.planId.equals(planA.id))).getSingle();
+
+    expect(normalizedWork.id, '${planA.id}::${work.id}');
+    expect(normalizedPoint.id, '${planA.id}::${point.id}');
+    expect(normalizedPoint.workId, '${planA.id}::${work.id}');
+
+    await repository.addWorkToPlan(planId: planB.id, work: work);
+    await repository.updatePointImageCache(
+      planId: planA.id,
+      pointId: point.id,
+      referenceThumbnailPath: '/tmp/legacy-thumb.jpg',
+    );
+
+    final plans = await repository.loadPlans();
+    final loadedA = plans.firstWhere((plan) => plan.id == planA.id);
+    final loadedB = plans.firstWhere((plan) => plan.id == planB.id);
+
+    expect(loadedA.works.single.id, work.id);
+    expect(loadedA.points.single.id, point.id);
+    expect(loadedA.points.single.work.title, '旧版作品');
+    expect(
+      loadedA.points.single.referenceThumbnailPath,
+      '/tmp/legacy-thumb.jpg',
+    );
+    expect(loadedB.works.single.id, work.id);
+  });
+
+  test('normalizes legacy moved work rows during upgrade', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: '旧数据计划 A', area: '京都');
+    final planB = await repository.createPlan(name: '旧数据计划 B', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999005',
+      bangumiId: 999005,
+      title: '被移动的旧版作品',
+      subtitle: 'Legacy',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const pointA = PilgrimagePoint(
+      id: 'anitabi-plan-a-point',
+      work: work,
+      name: '计划 A 点位',
+      subtitle: '计划 A 说明',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'plan-a-point',
+      referenceImageUrl: 'https://image.example/a.jpg',
+      referenceThumbnailPath: '/legacy/thumb-a.jpg',
+      referenceFullImagePath: '/legacy/full-a.jpg',
+    );
+    const pointB = PilgrimagePoint(
+      id: 'anitabi-plan-b-point',
+      work: work,
+      name: '计划 B 点位',
+      subtitle: '计划 B 说明',
+      position: LatLng(36, 136),
+      episodeLabel: 'EP 2',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'plan-b-point',
+      referenceImageUrl: 'https://image.example/b.jpg',
+      referenceThumbnailPath: '/legacy/thumb-b.jpg',
+      referenceFullImagePath: '/legacy/full-b.jpg',
+    );
+
+    await _insertLegacyWork(database, planB.id, work);
+    await _insertLegacyPoint(database, planA.id, pointA, sortOrder: 0);
+    await _insertLegacyPoint(database, planB.id, pointB, sortOrder: 0);
+
+    await database.normalizeScopedStorageIds();
+
+    final scopedWorks = await database.select(database.works).get();
+    final scopedPoints = await database.select(database.points).get();
+    expect(scopedWorks.map((work) => work.id), isNot(contains(work.id)));
+    expect(scopedPoints.map((point) => point.id), isNot(contains(pointA.id)));
+
+    final plans = await repository.loadPlans();
+    final loadedA = plans.firstWhere((plan) => plan.id == planA.id);
+    final loadedB = plans.firstWhere((plan) => plan.id == planB.id);
+
+    expect(loadedA.works.single.id, work.id);
+    expect(loadedA.points.single.id, pointA.id);
+    expect(loadedA.points.single.work.title, '被移动的旧版作品');
+    expect(loadedA.points.single.referenceThumbnailPath, '/legacy/thumb-a.jpg');
+    expect(loadedA.points.single.referenceFullImagePath, '/legacy/full-a.jpg');
+    expect(loadedB.works.single.id, work.id);
+    expect(loadedB.points.single.id, pointB.id);
+    expect(loadedB.points.single.work.title, '被移动的旧版作品');
+    expect(loadedB.points.single.referenceThumbnailPath, '/legacy/thumb-b.jpg');
+    expect(loadedB.points.single.referenceFullImagePath, '/legacy/full-b.jpg');
+  });
+
+  test('exports SQLite-loaded plans without scoped storage ids', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: '导出计划 A', area: '京都');
+    final planB = await repository.createPlan(name: '导出计划 B', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999007',
+      bangumiId: 999007,
+      title: '导出作品',
+      subtitle: 'Export',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const pointA = PilgrimagePoint(
+      id: 'anitabi-export-shared-point',
+      work: work,
+      name: '导出点位 A',
+      subtitle: '计划 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'export-shared-point',
+      referenceImageUrl: 'https://image.example/export-a.jpg',
+    );
+    const pointB = PilgrimagePoint(
+      id: 'anitabi-export-shared-point',
+      work: work,
+      name: '导出点位 B',
+      subtitle: '计划 B',
+      position: LatLng(36, 136),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'export-shared-point',
+      referenceImageUrl: 'https://image.example/export-b.jpg',
+    );
+
+    await repository.addPointToPlan(planId: planA.id, point: pointA);
+    await repository.addPointToPlan(planId: planB.id, point: pointB);
+
+    final loadedA = (await repository.loadPlans()).firstWhere(
+      (plan) => plan.id == planA.id,
+    );
+    final export = await buildPlanExportV2Package(
+      plan: loadedA,
+      visitRecords: const [],
+      options: const PlanExportV2Options(
+        mode: PlanExportV2Mode.planOnly,
+        includeFullReferenceCache: false,
+      ),
+      networkBytesReader: (_) async => null,
+    );
+    final archive = ZipDecoder().decodeBytes(export.bytes);
+    final planJsonText = utf8.decode(archive.findFile('plan.json')!.content);
+    final planJson = jsonDecode(planJsonText) as Map<String, Object?>;
+    final planRoot = planJson['plan'] as Map<String, Object?>;
+    final works = planRoot['works'] as List<Object?>;
+    final points = planRoot['points'] as List<Object?>;
+
+    expect(planJsonText, isNot(contains('${planA.id}::')));
+    expect(planJsonText, isNot(contains('${planB.id}::')));
+    expect((works.single as Map<String, Object?>)['id'], work.id);
+    expect((points.single as Map<String, Object?>)['id'], pointA.id);
+    expect((points.single as Map<String, Object?>)['workId'], work.id);
   });
 
   test(
@@ -754,4 +1145,57 @@ void main() {
     expect(updatedPlan.points.first.groupId, isNull);
     expect(updatedPlan.points.first.groupOrderIndex, isNull);
   });
+}
+
+Future<void> _insertLegacyWork(
+  AppDatabase database,
+  String planId,
+  PilgrimageWork work,
+) {
+  return database
+      .into(database.works)
+      .insert(
+        WorksCompanion.insert(
+          id: work.id,
+          planId: planId,
+          bangumiId: Value(work.bangumiId),
+          title: work.title,
+          subtitle: work.subtitle,
+          city: work.city,
+          source: work.source.name,
+        ),
+      );
+}
+
+Future<void> _insertLegacyPoint(
+  AppDatabase database,
+  String planId,
+  PilgrimagePoint point, {
+  required int sortOrder,
+}) {
+  return database
+      .into(database.points)
+      .insert(
+        PointsCompanion.insert(
+          id: point.id,
+          planId: planId,
+          workId: point.work.id,
+          name: point.name,
+          subtitle: point.subtitle,
+          latitude: point.position.latitude,
+          longitude: point.position.longitude,
+          episodeLabel: point.episodeLabel,
+          referenceLabel: point.referenceLabel,
+          source: point.source.name,
+          sourceId: Value(point.sourceId),
+          referenceImageUrl: Value(point.referenceImageUrl),
+          referenceThumbnailPath: Value(point.referenceThumbnailPath),
+          referenceFullImagePath: Value(point.referenceFullImagePath),
+          sourceUrl: Value(point.sourceUrl),
+          note: Value(point.note),
+          groupId: Value(point.groupId),
+          groupOrderIndex: Value(point.groupOrderIndex),
+          sortOrder: Value(sortOrder),
+        ),
+      );
 }

@@ -7,6 +7,7 @@ import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../plan/reference_image_status.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
@@ -197,12 +198,13 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           widget.controller.statusFor(point) == VisitStatus.completed
           ? widget.controller.reopenPoint(point)
           : widget.controller.completePoint(point),
-      onReplaceReference: (point, image) =>
-          widget.controller.updatePointImageCache(
-            point,
-            referenceThumbnailPath: image.thumbnailPath,
-            referenceFullImagePath: image.fullImagePath,
-          ),
+      onReplaceReference: (point, image) => widget.controller.updatePoint(
+        point.copyWith(
+          referenceImageUrl: null,
+          referenceThumbnailPath: image.thumbnailPath,
+          referenceFullImagePath: image.fullImagePath,
+        ),
+      ),
       actionScope: PointDetailActionScope.manage,
       groups: widget.controller.plan.groups,
       onMoveToGroup: widget.controller.movePointToGroup,
@@ -381,7 +383,13 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   }
 
   String? _resolvedReferenceImageUrl(PilgrimagePoint? resolvedPoint) {
-    return _record.referenceImageUrl ?? resolvedPoint?.referenceImageUrl;
+    if (_record.referenceImageUrl != null) {
+      return _record.referenceImageUrl;
+    }
+    if (resolvedPoint == null || !hasRemoteReferenceImage(resolvedPoint)) {
+      return null;
+    }
+    return resolvedPoint.referenceImageUrl;
   }
 
   PilgrimagePlanGroup? _groupFor(PilgrimagePoint? point) {

@@ -319,9 +319,14 @@ PilgrimagePoint _pointWithRestoredAssets(
     restoredPaths,
     warnings,
   );
+  final hasRestoredUserReference =
+      assetRefs.userReferenceAsset != null && fullReferencePath != null;
   return point.copyWith(
     referenceThumbnailPath: thumbnailPath ?? point.referenceThumbnailPath,
     referenceFullImagePath: fullReferencePath,
+    referenceImageUrl: hasRestoredUserReference
+        ? null
+        : point.referenceImageUrl,
   );
 }
 

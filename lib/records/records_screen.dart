@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../plan/plan_group_utils.dart';
 import 'visit_record_detail_screen.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
@@ -173,8 +174,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     }
 
     final groups = <_RecordGroup>[];
-    final orderedGroups = [...controller.plan.groups]
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final orderedGroups = sortGroupsByPlanOrder(controller.plan.groups);
     for (final group in orderedGroups) {
       final entries = recordsByGroupId[group.id];
       if (entries == null || entries.isEmpty) {
@@ -480,6 +480,8 @@ class _ExpandedRecordFiltersState extends State<_ExpandedRecordFilters> {
 
   @override
   Widget build(BuildContext context) {
+    final groups = sortGroupsByPlanOrder(widget.groups);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -555,7 +557,7 @@ class _ExpandedRecordFiltersState extends State<_ExpandedRecordFilters> {
                 selected: widget.selectedGroupFilterId == null,
                 onSelected: () => widget.onGroupSelected(null),
               ),
-              for (final group in widget.groups) ...[
+              for (final group in groups) ...[
                 const SizedBox(width: 8),
                 _FilterChipButton(
                   label: group.name,

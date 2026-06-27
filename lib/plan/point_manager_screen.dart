@@ -18,6 +18,7 @@ import 'pilgrimage_models.dart';
 import 'plan_group_manager_screen.dart';
 import 'plan_group_utils.dart';
 import 'reference_full_cache_runner.dart';
+import 'reference_image_status.dart';
 
 const Object _unsetGroupField = Object();
 
@@ -670,11 +671,13 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     StoredUserReferenceImage image,
   ) {
     return _savePlanChange(
-      action: () => widget.repository.updatePointImageCache(
+      action: () => widget.repository.updatePointInPlan(
         planId: _plan.id,
-        pointId: point.id,
-        referenceThumbnailPath: image.thumbnailPath,
-        referenceFullImagePath: image.fullImagePath,
+        point: point.copyWith(
+          referenceImageUrl: null,
+          referenceThumbnailPath: image.thumbnailPath,
+          referenceFullImagePath: image.fullImagePath,
+        ),
       ),
       failureMessage: '参考图保存失败',
     );
@@ -1460,8 +1463,22 @@ class _CacheStatusPill extends StatelessWidget {
       path: point.referenceFullImagePath,
       imageUrl: point.referenceImageUrl,
     );
-    final label = fullCached ? '已缓存' : '未缓存';
-    final color = fullCached ? AppColors.accent : AppColors.accentDark;
+    final status = referenceImageStatusForPoint(
+      point,
+      fullCacheIsCurrent: fullCached,
+    );
+    final label = switch (status) {
+      ReferenceImageStatus.none => '无参考图',
+      ReferenceImageStatus.localUpload => '本地上传',
+      ReferenceImageStatus.fullCached => '已缓存',
+      ReferenceImageStatus.remote => '未缓存',
+    };
+    final color = switch (status) {
+      ReferenceImageStatus.none => AppColors.textSecondary,
+      ReferenceImageStatus.localUpload => AppColors.accent,
+      ReferenceImageStatus.fullCached => AppColors.accent,
+      ReferenceImageStatus.remote => AppColors.accentDark,
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),

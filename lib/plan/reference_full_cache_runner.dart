@@ -5,6 +5,7 @@ import '../data/reference_image_cache_stub.dart'
     as reference_image_cache;
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
+import 'reference_image_status.dart';
 
 class ReferenceFullCacheProgress {
   const ReferenceFullCacheProgress({
@@ -40,7 +41,7 @@ List<PilgrimagePoint> pointsNeedingFullReferenceCache(
   return points
       .where(
         (point) =>
-            point.referenceImageUrl != null &&
+            hasRemoteReferenceImage(point) &&
             !referenceFullCacheFileIsCurrent(
               path: point.referenceFullImagePath,
               imageUrl: point.referenceImageUrl,

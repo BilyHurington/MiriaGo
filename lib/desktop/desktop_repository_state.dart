@@ -245,15 +245,13 @@ PilgrimagePoint _pointFromJson(
   Map<String, PilgrimageWork> workById,
 ) {
   final workId = json['workId'] as String?;
-  final fallbackWork =
-      workById.values.firstOrNull ??
-      const PilgrimageWork(
-        id: 'desktop-work',
-        title: '作品',
-        subtitle: '',
-        city: '',
-        source: WorkSource.manual,
-      );
+  final fallbackWork = PilgrimageWork(
+    id: workId == null || workId.isEmpty ? 'desktop-work' : workId,
+    title: '未知作品',
+    subtitle: 'Unknown Work',
+    city: '',
+    source: WorkSource.manual,
+  );
   return PilgrimagePoint(
     id: _stringValue(json['id'], fallback: 'desktop-point'),
     work: workById[workId] ?? fallbackWork,

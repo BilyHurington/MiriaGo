@@ -1,36 +1,63 @@
 import 'dart:convert';
 
-import '../data/anitabi_image_url.dart';
 import '../data/local_asset_size_stub.dart'
     if (dart.library.io) '../data/local_asset_size_io.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/reference_image_status.dart';
 import 'plan_export_v2.dart';
-
-const _estimatedThumbnailBytes = 48 * 1024;
 
 class PlanExportSizeEstimate {
   const PlanExportSizeEstimate({
     required this.knownBytes,
     required this.missingFullReferenceCount,
     required this.missingThumbnailCount,
+    required this.missingUserReferenceCount,
+    required this.missingVisitPhotoCount,
+    required this.missingGradedPhotoCount,
     required this.hasUnknownLocalAssets,
   });
 
   final int knownBytes;
   final int missingFullReferenceCount;
   final int missingThumbnailCount;
+  final int missingUserReferenceCount;
+  final int missingVisitPhotoCount;
+  final int missingGradedPhotoCount;
   final bool hasUnknownLocalAssets;
+
+  bool get hasMissingCriticalAssets =>
+      missingUserReferenceCount > 0 ||
+      missingVisitPhotoCount > 0 ||
+      missingGradedPhotoCount > 0;
+
+  List<String> get detailMessages {
+    final messages = <String>[];
+    if (missingThumbnailCount > 0) {
+      messages.add('$missingThumbnailCount 张缩略图未缓存，不会进入数据包');
+    }
+    if (missingFullReferenceCount > 0) {
+      messages.add('$missingFullReferenceCount 张完整参考图将在导出时下载');
+    }
+    if (missingUserReferenceCount > 0) {
+      messages.add('$missingUserReferenceCount 张本地上传参考图文件缺失，导出后无法恢复');
+    }
+    if (missingVisitPhotoCount > 0) {
+      messages.add('$missingVisitPhotoCount 张巡礼照片文件缺失');
+    }
+    if (missingGradedPhotoCount > 0) {
+      messages.add('$missingGradedPhotoCount 张调色照片文件缺失');
+    }
+    if (hasUnknownLocalAssets) {
+      messages.add('部分本地资源无法读取，实际包体可能变化');
+    }
+    return messages;
+  }
 
   String get label {
     final size = _formatBytes(knownBytes);
-    if (missingFullReferenceCount > 0) {
-      return '预计数据包大小：至少约 $size，另有 $missingFullReferenceCount 张完整参考图需下载';
-    }
-    if (hasUnknownLocalAssets) {
-      return '预计数据包大小：约 $size，部分本地照片或资源当前不可读取，实际包体可能略有变化';
-    }
-    if (missingThumbnailCount > 0) {
-      return '预计数据包大小：约 $size，另有 $missingThumbnailCount 张缩略图需下载';
+    final details = detailMessages;
+    if (details.isNotEmpty) {
+      return '预计数据包大小：至少约 $size，${details.join('；')}';
     }
     return '预计数据包大小：约 $size';
   }
@@ -44,6 +71,9 @@ Future<PlanExportSizeEstimate> estimatePlanExportV2Size({
   var knownBytes = 0;
   var missingFullReferenceCount = 0;
   var missingThumbnailCount = 0;
+  var missingUserReferenceCount = 0;
+  var missingVisitPhotoCount = 0;
+  var missingGradedPhotoCount = 0;
   var hasUnknownLocalAssets = false;
 
   knownBytes += _utf8Length(_roughJsonForPlan(plan, options));
@@ -57,37 +87,43 @@ Future<PlanExportSizeEstimate> estimatePlanExportV2Size({
   );
   knownBytes += 4096;
 
-  Future<void> addLocalAsset(String? path) async {
+  Future<bool> addLocalAsset(String? path, {bool markUnknown = true}) async {
     final size = await localAssetSize(path);
     if (size == null) {
-      if (path != null && path.isNotEmpty) {
+      if (markUnknown && path != null && path.isNotEmpty) {
         hasUnknownLocalAssets = true;
       }
-      return;
+      return false;
     }
     knownBytes += size;
+    return true;
   }
 
   for (final point in plan.points) {
+    final isLocalUpload = isLocalUploadedReference(point);
     final thumbnailSize = await localAssetSize(point.referenceThumbnailPath);
     if (thumbnailSize == null) {
-      if (point.referenceImageUrl != null) {
+      if (isLocalUpload ||
+          hasRemoteReferenceImage(point) ||
+          _hasPath(point.referenceThumbnailPath)) {
         missingThumbnailCount += 1;
-        knownBytes += _estimatedThumbnailBytes;
-      } else if (point.referenceThumbnailPath != null) {
-        hasUnknownLocalAssets = true;
       }
     } else {
       knownBytes += thumbnailSize;
     }
 
-    if (_isUserReference(point)) {
-      await addLocalAsset(point.referenceFullImagePath);
+    if (isLocalUpload) {
+      final hasFullReference = await addLocalAsset(
+        point.referenceFullImagePath,
+        markUnknown: false,
+      );
+      if (!hasFullReference) {
+        missingUserReferenceCount += 1;
+      }
     } else if (options.includeFullReferenceCache) {
       final fullSize = await localAssetSize(point.referenceFullImagePath);
       if (fullSize == null) {
-        final fullUrl = anitabiFullResolutionImageUrl(point.referenceImageUrl);
-        if (fullUrl != null && fullUrl.isNotEmpty) {
+        if (hasRemoteReferenceImage(point)) {
           missingFullReferenceCount += 1;
         } else if (point.referenceFullImagePath != null) {
           hasUnknownLocalAssets = true;
@@ -100,8 +136,13 @@ Future<PlanExportSizeEstimate> estimatePlanExportV2Size({
 
   if (options.includeRecords) {
     for (final record in visitRecords) {
-      await addLocalAsset(record.photoPath);
-      await addLocalAsset(record.gradedPhotoPath);
+      if (!await addLocalAsset(record.photoPath, markUnknown: false)) {
+        missingVisitPhotoCount += 1;
+      }
+      if (_hasPath(record.gradedPhotoPath) &&
+          !await addLocalAsset(record.gradedPhotoPath, markUnknown: false)) {
+        missingGradedPhotoCount += 1;
+      }
     }
   }
 
@@ -109,6 +150,9 @@ Future<PlanExportSizeEstimate> estimatePlanExportV2Size({
     knownBytes: knownBytes,
     missingFullReferenceCount: missingFullReferenceCount,
     missingThumbnailCount: missingThumbnailCount,
+    missingUserReferenceCount: missingUserReferenceCount,
+    missingVisitPhotoCount: missingVisitPhotoCount,
+    missingGradedPhotoCount: missingGradedPhotoCount,
     hasUnknownLocalAssets: hasUnknownLocalAssets,
   );
 }
@@ -157,11 +201,6 @@ int _roughCsvSize(
   return _utf8Length('$pointText\n$recordText');
 }
 
-bool _isUserReference(PilgrimagePoint point) {
-  return point.source == PointSource.manual ||
-      (point.referenceFullImagePath != null && point.referenceImageUrl == null);
-}
-
 String _formatBytes(int bytes) {
   if (bytes < 1024) {
     return '$bytes B';
@@ -179,3 +218,5 @@ String _formatBytes(int bytes) {
 }
 
 int _utf8Length(String value) => utf8.encode(value).length;
+
+bool _hasPath(String? path) => path != null && path.trim().isNotEmpty;

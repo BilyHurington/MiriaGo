@@ -13,6 +13,7 @@ import '../plan/add_points_screen.dart';
 import '../plan/plan_group_utils.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../plan/reference_image_status.dart';
 import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../widgets/copyable_text.dart';
@@ -180,10 +181,12 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       onComplete: () => _controller.statusFor(point) == VisitStatus.completed
           ? _controller.reopenPoint(point)
           : _controller.completePoint(point),
-      onReplaceReference: (point, image) => _controller.updatePointImageCache(
-        point,
-        referenceThumbnailPath: image.thumbnailPath,
-        referenceFullImagePath: image.fullImagePath,
+      onReplaceReference: (point, image) => _controller.updatePoint(
+        point.copyWith(
+          referenceImageUrl: null,
+          referenceThumbnailPath: image.thumbnailPath,
+          referenceFullImagePath: image.fullImagePath,
+        ),
       ),
       groups: _controller.plan.groups,
       onMoveToGroup: _controller.movePointToGroup,
@@ -735,11 +738,14 @@ class _PointThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repository = controller.repository;
+    final remoteImageUrl = hasRemoteReferenceImage(point)
+        ? point.referenceImageUrl
+        : null;
     return GestureDetector(
       onTap: () => ImageViewerScreen.show(
         context,
         filePath: point.referenceFullImagePath,
-        imageUrl: point.referenceImageUrl,
+        imageUrl: remoteImageUrl,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -750,7 +756,7 @@ class _PointThumbnail extends StatelessWidget {
           child: repository == null
               ? ReferenceThumbnail(
                   localPath: point.referenceThumbnailPath,
-                  imageUrl: point.referenceImageUrl,
+                  imageUrl: remoteImageUrl,
                   placeholder: Icon(
                     Icons.image_outlined,
                     color: AppColors.accentDark,

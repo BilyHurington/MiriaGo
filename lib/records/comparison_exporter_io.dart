@@ -7,7 +7,28 @@ import 'package:path_provider/path_provider.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_renderer.dart';
 
-Future<String?> exportComparisonImage({
+enum ComparisonExportFailureReason {
+  referenceUnavailable,
+  capturedPhotoUnavailable,
+  renderFailed,
+}
+
+class ComparisonExportImageResult {
+  const ComparisonExportImageResult._({this.path, this.failureReason});
+
+  const ComparisonExportImageResult.success(String path) : this._(path: path);
+
+  const ComparisonExportImageResult.failure(
+    ComparisonExportFailureReason reason,
+  ) : this._(failureReason: reason);
+
+  final String? path;
+  final ComparisonExportFailureReason? failureReason;
+
+  bool get isSuccess => path != null;
+}
+
+Future<ComparisonExportImageResult> exportComparisonImage({
   required String? referenceImagePath,
   required String? referenceImageUrl,
   required String capturedPath,
@@ -31,8 +52,18 @@ Future<String?> exportComparisonImage({
     } catch (_) {}
   }
 
+  if (refBytes == null) {
+    return const ComparisonExportImageResult.failure(
+      ComparisonExportFailureReason.referenceUnavailable,
+    );
+  }
+
   final capFile = File(capturedPath);
-  if (!capFile.existsSync()) return null;
+  if (!capFile.existsSync()) {
+    return const ComparisonExportImageResult.failure(
+      ComparisonExportFailureReason.capturedPhotoUnavailable,
+    );
+  }
   final capBytes = capFile.readAsBytesSync();
 
   const renderer = ComparisonExportRenderer();
@@ -44,7 +75,11 @@ Future<String?> exportComparisonImage({
     colorGradingSummary: colorGradingSummary,
   );
 
-  if (outputBytes == null) return null;
+  if (outputBytes == null) {
+    return const ComparisonExportImageResult.failure(
+      ComparisonExportFailureReason.renderFailed,
+    );
+  }
 
   final directory = await getApplicationDocumentsDirectory();
   final recordsDirectory = Directory('${directory.path}/visit_record_images');
@@ -55,5 +90,5 @@ Future<String?> exportComparisonImage({
   final timestamp = DateTime.now().millisecondsSinceEpoch;
   final path = '${recordsDirectory.path}/comparison_$timestamp.png';
   await File(path).writeAsBytes(outputBytes, flush: true);
-  return path;
+  return ComparisonExportImageResult.success(path);
 }

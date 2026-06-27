@@ -19,6 +19,7 @@ import '../widgets/image_viewer_screen.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pilgrimage_models.dart';
+import 'reference_image_status.dart';
 import 'work_manager_screen.dart';
 
 InputDecoration stableInputDecoration({
@@ -930,6 +931,9 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               referenceFullImagePath:
                   storedReference?.fullImagePath ??
                   editingPoint.referenceFullImagePath,
+              referenceImageUrl: storedReference == null
+                  ? editingPoint.referenceImageUrl
+                  : null,
               note: noteText.isEmpty ? null : noteText,
             );
 
@@ -1106,6 +1110,10 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     final workOptions = _workOptions;
     final hasPlanWorks = workOptions.isNotEmpty;
     final editingPoint = _editingPoint;
+    final existingReferenceImageUrl =
+        editingPoint != null && hasRemoteReferenceImage(editingPoint)
+        ? editingPoint.referenceImageUrl
+        : null;
 
     return PopScope(
       canPop: true,
@@ -1305,13 +1313,13 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     _pendingReferenceImage?.fullImagePath ??
                     editingPoint?.referenceFullImagePath,
                 imageUrl: _pendingReferenceImage == null
-                    ? editingPoint?.referenceImageUrl
+                    ? existingReferenceImageUrl
                     : null,
                 hasPendingSelection: _pendingReferenceImage != null,
                 hasExistingImage:
                     editingPoint?.referenceThumbnailPath != null ||
                     editingPoint?.referenceFullImagePath != null ||
-                    editingPoint?.referenceImageUrl != null,
+                    existingReferenceImageUrl != null,
                 onPick: _isSaving ? null : _pickReferenceImage,
                 onRemove: _isSaving || _pendingReferenceImage == null
                     ? null

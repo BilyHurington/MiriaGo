@@ -52,8 +52,7 @@ List<PlanGroupBucket> planGroupBuckets(
   PilgrimagePlan plan,
   Set<String> completedPointIds,
 ) {
-  final sortedGroups = [...plan.groups]
-    ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+  final sortedGroups = sortGroupsByPlanOrder(plan.groups);
   final buckets = [
     for (final group in sortedGroups)
       PlanGroupBucket(
@@ -87,6 +86,20 @@ List<PlanGroupBucket> planGroupBuckets(
     ),
   );
   return buckets;
+}
+
+List<PilgrimagePlanGroup> sortGroupsByPlanOrder(
+  Iterable<PilgrimagePlanGroup> groups,
+) {
+  final sorted = groups.toList();
+  sorted.sort((a, b) {
+    final orderCompare = a.orderIndex.compareTo(b.orderIndex);
+    if (orderCompare != 0) {
+      return orderCompare;
+    }
+    return a.name.compareTo(b.name);
+  });
+  return sorted;
 }
 
 List<PilgrimagePoint> sortPointsByPlanOrder(Iterable<PilgrimagePoint> points) {

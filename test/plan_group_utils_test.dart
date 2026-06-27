@@ -5,6 +5,34 @@ import 'package:miriago/plan/pilgrimage_plan_controller.dart';
 import 'package:miriago/plan/plan_group_utils.dart';
 
 void main() {
+  test('sorts groups by plan order without mutating the source list', () {
+    final createdAt = DateTime.utc(2026);
+    final lateGroup = PilgrimagePlanGroup(
+      id: 'late',
+      name: '后访问',
+      orderIndex: 2,
+      createdAt: createdAt,
+    );
+    final earlyGroup = PilgrimagePlanGroup(
+      id: 'early',
+      name: '先访问',
+      orderIndex: 0,
+      createdAt: createdAt,
+    );
+    final middleGroup = PilgrimagePlanGroup(
+      id: 'middle',
+      name: '中间',
+      orderIndex: 1,
+      createdAt: createdAt,
+    );
+    final groups = [lateGroup, earlyGroup, middleGroup];
+
+    final sortedGroups = sortGroupsByPlanOrder(groups);
+
+    expect(sortedGroups.map((group) => group.id), ['early', 'middle', 'late']);
+    expect(groups.map((group) => group.id), ['late', 'early', 'middle']);
+  });
+
   test('next pending point stays in the same group first', () {
     final fixture = _buildGroupedPlanFixture();
     final nextPoint = nextPendingPointAfterCompletion(

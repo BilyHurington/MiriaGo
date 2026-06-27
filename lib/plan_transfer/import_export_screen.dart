@@ -249,6 +249,20 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         mode: _mode,
         includeFullReferenceCache: _includeFullReferenceCache,
       );
+      final records = await widget.repository.loadVisitRecords(widget.plan.id);
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
+      final shouldContinue = await _confirmExportResourceRisks(
+        records: records,
+        options: options,
+      );
+      if (!_isCurrentExport(generation)) {
+        throw const _ExportAbortedException();
+      }
+      if (!shouldContinue) {
+        throw const PlanExportCanceledException();
+      }
       final fileName = suggestPlanExportV2FileName(
         plan: widget.plan,
         exportedAt: exportedAt,
@@ -258,10 +272,6 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         mimeType: miriagoExportPackageMimeType,
         extension: seichiPlanFileExtension,
       );
-      if (!_isCurrentExport(generation)) {
-        throw const _ExportAbortedException();
-      }
-      final records = await widget.repository.loadVisitRecords(widget.plan.id);
       if (!_isCurrentExport(generation)) {
         throw const _ExportAbortedException();
       }
@@ -283,8 +293,56 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         extension: seichiPlanFileExtension,
         destination: destination,
       );
-      return _PlanExportRunResult(result, package.warnings);
+      return _PlanExportRunResult(
+        result,
+        package.warnings,
+        package.warningCounts,
+      );
     }, successMessage: '数据包已导出');
+  }
+
+  Future<bool> _confirmExportResourceRisks({
+    required List<PilgrimageVisitRecord> records,
+    required PlanExportV2Options options,
+  }) async {
+    final estimate = await estimatePlanExportV2Size(
+      plan: widget.plan,
+      visitRecords: records,
+      options: options,
+    );
+    if (mounted) {
+      setState(() => _sizeEstimate = estimate);
+    }
+    if (!estimate.hasMissingCriticalAssets || !mounted) {
+      return true;
+    }
+
+    final messages = estimate.detailMessages
+        .where(
+          (message) =>
+              message.contains('本地上传参考图') ||
+              message.contains('巡礼照片') ||
+              message.contains('调色照片'),
+        )
+        .toList(growable: false);
+    final shouldExport = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('部分本地资源缺失'),
+        content: Text([...messages, '这些资源不会进入数据包，导入后对应图片可能无法显示。'].join('\n')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('继续导出'),
+          ),
+        ],
+      ),
+    );
+    return shouldExport == true;
   }
 
   Future<void> _refreshSizeEstimate() async {
@@ -400,17 +458,46 @@ class _ExportAbortedException implements Exception {
 }
 
 class _PlanExportRunResult {
-  const _PlanExportRunResult(this.delivery, [this.warnings = const <String>[]]);
+  const _PlanExportRunResult(
+    this.delivery, [
+    this.warnings = const <String>[],
+    this.warningCounts = const <String, int>{},
+  ]);
 
   final PlanExportDeliveryResult delivery;
   final List<String> warnings;
+  final Map<String, int> warningCounts;
 
   String successMessage(String fallback) {
     if (warnings.isEmpty) {
       return fallback;
     }
-    return '$fallback，部分资源未能加入';
+    final summary = _warningSummary(warningCounts);
+    if (summary.isEmpty) {
+      return '$fallback，部分资源未能加入';
+    }
+    return '$fallback，$summary';
   }
+}
+
+String _warningSummary(Map<String, int> counts) {
+  final parts = <String>[];
+
+  void add(PlanExportWarningType type, String label) {
+    final count = counts[type.key] ?? 0;
+    if (count > 0) {
+      parts.add('$count $label');
+    }
+  }
+
+  add(PlanExportWarningType.userReferenceMissing, '张本地上传参考图缺失');
+  add(PlanExportWarningType.thumbnailMissing, '张缩略图未加入');
+  add(PlanExportWarningType.fullReferenceDownloadFailed, '张完整参考图下载失败');
+  add(PlanExportWarningType.fullReferenceMissing, '张完整参考图缺失');
+  add(PlanExportWarningType.visitPhotoMissing, '张巡礼照片缺失');
+  add(PlanExportWarningType.gradedPhotoMissing, '张调色照片缺失');
+
+  return parts.isEmpty ? '' : parts.join('，');
 }
 
 class _PlanExportSummary extends StatelessWidget {

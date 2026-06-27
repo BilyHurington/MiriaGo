@@ -5,6 +5,7 @@ import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
     as reference_image_cache;
 import '../plan/pilgrimage_models.dart';
+import '../plan/reference_image_status.dart';
 import 'reference_thumbnail_stub.dart'
     if (dart.library.io) 'reference_thumbnail_io.dart';
 
@@ -54,8 +55,12 @@ class _AutoCachingReferenceThumbnailState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.point.id != widget.point.id ||
         oldWidget.point.referenceThumbnailPath !=
-            widget.point.referenceThumbnailPath) {
-      _thumbnailPath = widget.point.referenceThumbnailPath;
+            widget.point.referenceThumbnailPath ||
+        oldWidget.point.referenceImageUrl != widget.point.referenceImageUrl) {
+      _thumbnailPath =
+          oldWidget.point.referenceImageUrl == widget.point.referenceImageUrl
+          ? widget.point.referenceThumbnailPath
+          : null;
       _maybeCacheThumbnail();
     }
   }
@@ -64,7 +69,9 @@ class _AutoCachingReferenceThumbnailState
   Widget build(BuildContext context) {
     return ReferenceThumbnail(
       localPath: _thumbnailPath,
-      imageUrl: widget.point.referenceImageUrl,
+      imageUrl: hasRemoteReferenceImage(widget.point)
+          ? widget.point.referenceImageUrl
+          : null,
       placeholder: widget.placeholder,
       fit: widget.fit,
       width: widget.width,
@@ -73,8 +80,7 @@ class _AutoCachingReferenceThumbnailState
   }
 
   void _maybeCacheThumbnail() {
-    final imageUrl = widget.point.referenceImageUrl;
-    if (imageUrl == null || imageUrl.isEmpty) {
+    if (!hasRemoteReferenceImage(widget.point)) {
       return;
     }
 

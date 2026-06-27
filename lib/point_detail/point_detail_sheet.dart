@@ -7,10 +7,12 @@ import '../data/user_reference_image_stub.dart'
 import '../widgets/snackbar_helper.dart';
 import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/plan_group_utils.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../plan/reference_image_status.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
@@ -146,6 +148,7 @@ class PointDetailSheet extends StatelessWidget {
     if (moveToGroup == null) {
       return;
     }
+    final sortedGroups = sortGroupsByPlanOrder(groups);
 
     final selectedGroupId = await showModalBottomSheet<String?>(
       context: context,
@@ -172,7 +175,7 @@ class PointDetailSheet extends StatelessWidget {
                 selected: point.groupId == null,
                 onTap: () => Navigator.of(context).pop(''),
               ),
-              for (final group in groups)
+              for (final group in sortedGroups)
                 _GroupOptionTile(
                   title: group.name,
                   selected: point.groupId == group.id,
@@ -570,6 +573,9 @@ class _ReferenceColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final remoteImageUrl = hasRemoteReferenceImage(point)
+        ? point.referenceImageUrl
+        : null;
     final color = switch (status) {
       VisitStatus.current => AppColors.accent,
       VisitStatus.completed => AppColors.textSecondary,
@@ -585,7 +591,7 @@ class _ReferenceColumn extends StatelessWidget {
             onTap: () => ImageViewerScreen.show(
               context,
               filePath: point.referenceFullImagePath,
-              imageUrl: point.referenceImageUrl,
+              imageUrl: remoteImageUrl,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -598,7 +604,7 @@ class _ReferenceColumn extends StatelessWidget {
                 ),
                 child: ReferenceThumbnail(
                   localPath: point.referenceThumbnailPath,
-                  imageUrl: point.referenceImageUrl,
+                  imageUrl: remoteImageUrl,
                   fit: BoxFit.cover,
                   placeholder: Icon(
                     Icons.image_outlined,

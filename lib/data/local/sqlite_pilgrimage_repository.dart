@@ -266,12 +266,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required PilgrimagePoint point,
   }) async {
+    final storagePointId = _storageId(planId, point.id);
     await _database.transaction(() async {
       final existing =
           await (_database.select(_database.points)
                 ..where(
                   (table) =>
-                      table.planId.equals(planId) & table.id.equals(point.id),
+                      table.planId.equals(planId) &
+                      table.id.equals(storagePointId),
                 )
                 ..limit(1))
               .getSingleOrNull();
@@ -285,11 +287,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
       await _upsertWork(planId: planId, work: point.work);
       await (_database.update(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.equals(point.id),
+            (table) =>
+                table.planId.equals(planId) & table.id.equals(storagePointId),
           ))
           .write(
             PointsCompanion(
-              workId: Value(point.work.id),
+              workId: Value(_storageId(planId, point.work.id)),
               name: Value(point.name),
               subtitle: Value(point.subtitle),
               latitude: Value(point.position.latitude),
@@ -317,8 +320,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     String? referenceThumbnailPath,
     String? referenceFullImagePath,
   }) async {
+    final storagePointId = _storageId(planId, pointId);
     await (_database.update(_database.points)..where(
-          (table) => table.planId.equals(planId) & table.id.equals(pointId),
+          (table) =>
+              table.planId.equals(planId) & table.id.equals(storagePointId),
         ))
         .write(
           PointsCompanion(
@@ -382,7 +387,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             anchorName: Value(group.anchorName),
             anchorLatitude: Value(group.anchorLatitude),
             anchorLongitude: Value(group.anchorLongitude),
-            anchorPointId: Value(group.anchorPointId),
+            anchorPointId: Value(
+              group.anchorPointId == null
+                  ? null
+                  : _storageId(planId, group.anchorPointId!),
+            ),
             note: Value(group.note),
           ),
         );
@@ -430,12 +439,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return _planFromRow(await _planRowById(planId));
     }
 
+    final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
       final movingPoints =
           await (_database.select(_database.points)
                 ..where(
                   (table) =>
-                      table.planId.equals(planId) & table.id.isIn(pointIds),
+                      table.planId.equals(planId) &
+                      table.id.isIn(storagePointIds),
                 )
                 ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)]))
               .get();
@@ -450,7 +461,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
                 .get();
         nextGroupOrderIndex =
             targetGroupPoints
-                .where((point) => !pointIds.contains(point.id))
+                .where((point) => !storagePointIds.contains(point.id))
                 .fold<int>(
                   -1,
                   (maxOrder, point) => (point.groupOrderIndex ?? -1) > maxOrder
@@ -483,11 +494,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String workId,
   }) async {
+    final storageWorkId = _storageId(planId, workId);
     await _database.transaction(() async {
       final pointRows =
           await (_database.select(_database.points)..where(
                 (table) =>
-                    table.planId.equals(planId) & table.workId.equals(workId),
+                    table.planId.equals(planId) &
+                    table.workId.equals(storageWorkId),
               ))
               .get();
       final pointIds = pointRows.map((point) => point.id).toSet();
@@ -496,13 +509,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       if (pointIds.isNotEmpty) {
         await (_database.delete(_database.points)..where(
               (table) =>
-                  table.planId.equals(planId) & table.workId.equals(workId),
+                  table.planId.equals(planId) &
+                  table.workId.equals(storageWorkId),
             ))
             .go();
       }
 
       await (_database.delete(_database.works)..where(
-            (table) => table.planId.equals(planId) & table.id.equals(workId),
+            (table) =>
+                table.planId.equals(planId) & table.id.equals(storageWorkId),
           ))
           .go();
 
@@ -520,10 +535,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required String pointId,
   }) async {
+    final storagePointId = _storageId(planId, pointId);
     await _database.transaction(() async {
       await _clearCurrentPoint(planId);
       await (_database.update(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.equals(pointId),
+            (table) =>
+                table.planId.equals(planId) & table.id.equals(storagePointId),
           ))
           .write(
             const PointsCompanion(
@@ -541,10 +558,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String pointId,
     required String? nextCurrentPointId,
   }) async {
+    final storagePointId = _storageId(planId, pointId);
+    final storageNextCurrentPointId = nextCurrentPointId == null
+        ? null
+        : _storageId(planId, nextCurrentPointId);
     await _database.transaction(() async {
       await _clearCurrentPoint(planId);
       await (_database.update(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.equals(pointId),
+            (table) =>
+                table.planId.equals(planId) & table.id.equals(storagePointId),
           ))
           .write(
             PointsCompanion(
@@ -553,11 +575,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
           );
 
-      if (nextCurrentPointId != null) {
+      if (storageNextCurrentPointId != null) {
         await (_database.update(_database.points)..where(
               (table) =>
                   table.planId.equals(planId) &
-                  table.id.equals(nextCurrentPointId),
+                  table.id.equals(storageNextCurrentPointId),
             ))
             .write(const PointsCompanion(isCurrent: Value(true)));
       }
@@ -575,13 +597,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return;
     }
 
+    final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
       final completedCurrentPoint =
           await (_database.select(_database.points)
                 ..where(
                   (table) =>
                       table.planId.equals(planId) &
-                      table.id.isIn(pointIds) &
+                      table.id.isIn(storagePointIds) &
                       table.isCurrent.equals(true),
                 )
                 ..limit(1))
@@ -589,7 +612,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           null;
 
       await (_database.update(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
+            (table) =>
+                table.planId.equals(planId) & table.id.isIn(storagePointIds),
           ))
           .write(
             PointsCompanion(
@@ -620,10 +644,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return;
     }
 
+    final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
       await _clearCurrentPoint(planId);
       await (_database.update(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
+            (table) =>
+                table.planId.equals(planId) & table.id.isIn(storagePointIds),
           ))
           .write(
             const PointsCompanion(
@@ -636,14 +662,18 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           await (_database.select(_database.points)
                 ..where(
                   (table) =>
-                      table.planId.equals(planId) & table.id.isIn(pointIds),
+                      table.planId.equals(planId) &
+                      table.id.isIn(storagePointIds),
                 )
                 ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)])
                 ..limit(1))
               .getSingleOrNull();
       if (firstSelectedPoint != null) {
-        await (_database.update(_database.points)
-              ..where((table) => table.id.equals(firstSelectedPoint.id)))
+        await (_database.update(_database.points)..where(
+              (table) =>
+                  table.planId.equals(planId) &
+                  table.id.equals(firstSelectedPoint.id),
+            ))
             .write(const PointsCompanion(isCurrent: Value(true)));
       }
 
@@ -885,13 +915,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return _planFromRow(await _planRowById(planId));
     }
 
+    final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
       final deletedCurrentPoint =
           await (_database.select(_database.points)
                 ..where(
                   (table) =>
                       table.planId.equals(planId) &
-                      table.id.isIn(pointIds) &
+                      table.id.isIn(storagePointIds) &
                       table.isCurrent.equals(true),
                 )
                 ..limit(1))
@@ -899,7 +930,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           null;
 
       await (_database.delete(_database.points)..where(
-            (table) => table.planId.equals(planId) & table.id.isIn(pointIds),
+            (table) =>
+                table.planId.equals(planId) & table.id.isIn(storagePointIds),
           ))
           .go();
 
@@ -920,10 +952,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     await _database.transaction(() async {
       for (var index = 0; index < pointIds.length; index += 1) {
+        final storagePointId = _storageId(planId, pointIds[index]);
         await (_database.update(_database.points)..where(
               (table) =>
-                  table.planId.equals(planId) &
-                  table.id.equals(pointIds[index]),
+                  table.planId.equals(planId) & table.id.equals(storagePointId),
             ))
             .write(PointsCompanion(sortOrder: Value(index)));
       }
@@ -942,11 +974,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     await _database.transaction(() async {
       for (var index = 0; index < pointIds.length; index += 1) {
+        final storagePointId = _storageId(planId, pointIds[index]);
         await (_database.update(_database.points)..where(
               (table) =>
                   table.planId.equals(planId) &
                   table.groupId.equals(groupId) &
-                  table.id.equals(pointIds[index]),
+                  table.id.equals(storagePointId),
             ))
             .write(PointsCompanion(groupOrderIndex: Value(index)));
       }
@@ -1022,7 +1055,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         .into(_database.works)
         .insertOnConflictUpdate(
           WorksCompanion.insert(
-            id: work.id,
+            id: _storageId(planId, work.id),
             planId: planId,
             bangumiId: Value(work.bangumiId),
             title: work.title,
@@ -1049,7 +1082,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             anchorName: Value(group.anchorName),
             anchorLatitude: Value(group.anchorLatitude),
             anchorLongitude: Value(group.anchorLongitude),
-            anchorPointId: Value(group.anchorPointId),
+            anchorPointId: Value(
+              group.anchorPointId == null
+                  ? null
+                  : _storageId(planId, group.anchorPointId!),
+            ),
             note: Value(group.note),
             createdAt: group.createdAt,
           ),
@@ -1064,9 +1101,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     DateTime? completedAt,
   }) {
     return PointsCompanion.insert(
-      id: point.id,
+      id: _storageId(planId, point.id),
       planId: planId,
-      workId: point.work.id,
+      workId: _storageId(planId, point.work.id),
       name: point.name,
       subtitle: point.subtitle,
       latitude: point.position.latitude,
@@ -1188,7 +1225,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     final works = await (_database.select(
       _database.works,
     )..where((table) => table.planId.equals(row.id))).get();
-    final workById = {for (final work in works) work.id: _workFromRow(work)};
+    final workById = {
+      for (final work in works) work.id: _workFromRow(work, row.id),
+    };
     final groups =
         await (_database.select(_database.planGroups)
               ..where((table) => table.planId.equals(row.id))
@@ -1202,7 +1241,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     final completedPointIds = {
       for (final point in points)
-        if (point.completedAt != null) point.id,
+        if (point.completedAt != null) _modelId(row.id, point.id),
     };
     final currentPointId = points
         .where((point) => point.isCurrent && point.completedAt == null)
@@ -1214,13 +1253,17 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       name: row.name,
       area: row.area,
       works: workById.values.toList(growable: false),
-      groups: groups.map(_groupFromRow).toList(growable: false),
+      groups: groups
+          .map((group) => _groupFromRow(group, row.id))
+          .toList(growable: false),
       points: points
-          .map((point) => _pointFromRow(point, workById[point.workId]))
+          .map((point) => _pointFromRow(point, workById[point.workId], row.id))
           .toList(growable: false),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      currentPointId: currentPointId,
+      currentPointId: currentPointId == null
+          ? null
+          : _modelId(row.id, currentPointId),
       currentGroupId: row.currentGroupId,
       completedPointIds: completedPointIds,
     );
@@ -1244,9 +1287,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return plan;
   }
 
-  PilgrimageWork _workFromRow(Work row) {
+  PilgrimageWork _workFromRow(Work row, String planId) {
     return PilgrimageWork(
-      id: row.id,
+      id: _modelId(planId, row.id),
       bangumiId: row.bangumiId,
       title: row.title,
       subtitle: row.subtitle,
@@ -1255,7 +1298,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
-  PilgrimagePlanGroup _groupFromRow(PlanGroup row) {
+  PilgrimagePlanGroup _groupFromRow(PlanGroup row, String planId) {
     return PilgrimagePlanGroup(
       id: row.id,
       name: row.name,
@@ -1264,17 +1307,23 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       anchorName: row.anchorName,
       anchorLatitude: row.anchorLatitude,
       anchorLongitude: row.anchorLongitude,
-      anchorPointId: row.anchorPointId,
+      anchorPointId: row.anchorPointId == null
+          ? null
+          : _modelId(planId, row.anchorPointId!),
       note: row.note,
       createdAt: row.createdAt,
     );
   }
 
-  PilgrimagePoint _pointFromRow(Point row, PilgrimageWork? work) {
+  PilgrimagePoint _pointFromRow(
+    Point row,
+    PilgrimageWork? work,
+    String planId,
+  ) {
     final resolvedWork =
         work ??
         PilgrimageWork(
-          id: row.workId,
+          id: _modelId(planId, row.workId),
           title: '未知作品',
           subtitle: 'Unknown Work',
           city: '未设置地区',
@@ -1282,7 +1331,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         );
 
     return PilgrimagePoint(
-      id: row.id,
+      id: _modelId(planId, row.id),
       work: resolvedWork,
       name: row.name,
       subtitle: row.subtitle,
@@ -1351,6 +1400,30 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
+  static const _storageIdSeparator = '::';
+
+  String _storageId(String planId, String modelId) {
+    final prefix = '$planId$_storageIdSeparator';
+    if (modelId.startsWith(prefix)) {
+      return modelId;
+    }
+    return '$prefix$modelId';
+  }
+
+  List<String> _storageIds(String planId, Iterable<String> modelIds) {
+    return modelIds
+        .map((modelId) => _storageId(planId, modelId))
+        .toList(growable: false);
+  }
+
+  String _modelId(String planId, String storageId) {
+    final prefix = '$planId$_storageIdSeparator';
+    if (storageId.startsWith(prefix)) {
+      return storageId.substring(prefix.length);
+    }
+    return storageId;
+  }
+
   Future<Plan> _planRowById(String planId) {
     return (_database.select(
       _database.plans,
@@ -1406,8 +1479,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return;
     }
 
-    await (_database.update(_database.points)
-          ..where((table) => table.id.equals(nextPoint.id)))
+    await (_database.update(_database.points)..where(
+          (table) =>
+              table.planId.equals(planId) & table.id.equals(nextPoint.id),
+        ))
         .write(const PointsCompanion(isCurrent: Value(true)));
   }
 }
