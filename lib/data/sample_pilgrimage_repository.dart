@@ -703,6 +703,8 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   Future<void> saveAppSettings(AppSettings settings) async {
     _settings = settings.copyWith(
       uiScale: settings.uiScale.clamp(0.5, 2.0),
+      fontScale: settings.fontScale.clamp(0.7, 1.4),
+      themeMode: settings.themeMode,
       cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: settings.cameraMaxZoom.clamp(1.0, 20.0),
       referenceImageScale: settings.referenceImageScale.clamp(0.8, 1.0),
@@ -714,8 +716,20 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
           ? CameraPhotoAspectRatio.native
           : settings.cameraFallbackAspectRatio,
+      navigationApp: settings.navigationApp,
       customXyzTileUrl: settings.customXyzTileUrl.trim(),
       customMapLibreStyleUrl: settings.customMapLibreStyleUrl.trim(),
+      customThemeColorName: settings.customThemeColorName.trim().isEmpty
+          ? '\u81ea\u5b9a\u4e49'
+          : settings.customThemeColorName.trim(),
+      customThemeColorValue: settings.customThemeColorValue,
+      customThemeColors: settings.customThemeColors,
+      customCameraAspectRatioWidth: settings.customCameraAspectRatioWidth.clamp(
+        0.1,
+        99.0,
+      ),
+      customCameraAspectRatioHeight: settings.customCameraAspectRatioHeight
+          .clamp(0.1, 99.0),
     );
   }
 

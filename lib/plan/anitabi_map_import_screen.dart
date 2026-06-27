@@ -145,7 +145,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
 
     try {
-      final lite = await widget.anitabiClient.fetchBangumiLite(bangumiId);
+      final lite = await _fetchBangumiLite(work);
       if (!_isActiveLoad(generation)) {
         return;
       }
@@ -210,7 +210,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
 
     try {
-      final lite = await widget.anitabiClient.fetchBangumiLite(bangumiId);
+      final lite = await _fetchBangumiLiteForBangumiId(bangumiId);
       if (!_isActiveLoad(generation)) {
         return;
       }
@@ -291,6 +291,51 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         });
       }
     }
+  }
+
+  Future<AnitabiBangumiLite> _fetchBangumiLite(PilgrimageWork work) async {
+    final bangumiId = work.bangumiId;
+    if (bangumiId == null) {
+      throw const AnitabiStaticDataUnavailableException('Missing Bangumi ID');
+    }
+
+    final staticLite = await _fetchStaticBangumiLiteIfSupported(bangumiId);
+    if (staticLite != null) {
+      return staticLite;
+    }
+
+    try {
+      return await widget.anitabiClient.fetchBangumiLite(bangumiId);
+    } catch (_) {
+      return AnitabiBangumiLite(
+        bangumiId: bangumiId,
+        title: work.title,
+        subtitle: work.subtitle,
+        city: work.city,
+        center: const LatLng(35.0, 135.0),
+        zoom: 12,
+        pointsLength: 0,
+      );
+    }
+  }
+
+  Future<AnitabiBangumiLite> _fetchBangumiLiteForBangumiId(
+    int bangumiId,
+  ) async {
+    final staticLite = await _fetchStaticBangumiLiteIfSupported(bangumiId);
+    if (staticLite != null) {
+      return staticLite;
+    }
+    return widget.anitabiClient.fetchBangumiLite(bangumiId);
+  }
+
+  Future<AnitabiBangumiLite?> _fetchStaticBangumiLiteIfSupported(
+    int bangumiId,
+  ) {
+    if (widget.anitabiClient.runtimeType != AnitabiClient) {
+      return Future.value();
+    }
+    return widget.anitabiClient.fetchBangumiLiteFromStatic(bangumiId);
   }
 
   PilgrimageWork? _workForBangumiId(int bangumiId) {

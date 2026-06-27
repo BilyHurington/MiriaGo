@@ -65,6 +65,8 @@ SamplePilgrimageRepositorySnapshot? decodeDesktopRepositoryState(
 Map<String, Object?> _settingsJson(AppSettings settings) {
   return {
     'uiScale': settings.uiScale,
+    'fontScale': settings.fontScale,
+    'themeMode': settings.themeMode.name,
     'cameraCaptureAspectRatio': settings.cameraCaptureAspectRatio.name,
     'cameraFallbackAspectRatio': settings.cameraFallbackAspectRatio.name,
     'cameraMinZoom': settings.cameraMinZoom,
@@ -73,17 +75,29 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'nearestAssignDistanceMeters': settings.nearestAssignDistanceMeters,
     'themePalette': settings.themePalette.name,
     'mapTileProvider': settings.mapTileProvider.name,
+    'navigationApp': settings.navigationApp.name,
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
     'saveVisitPhotoToGallery': settings.saveVisitPhotoToGallery,
     'comparisonShowPilgrimName': settings.comparisonShowPilgrimName,
     'comparisonPilgrimName': settings.comparisonPilgrimName,
+    'customThemeColorName': settings.customThemeColorName,
+    'customThemeColorValue': settings.customThemeColorValue,
+    'customThemeColors': settings.customThemeColors
+        .map((color) => color.toJson())
+        .toList(growable: false),
+    'customCameraAspectRatioWidth': settings.customCameraAspectRatioWidth,
+    'customCameraAspectRatioHeight': settings.customCameraAspectRatioHeight,
   };
 }
 
 AppSettings _settingsFromJson(Map<String, Object?> json) {
   return AppSettings(
     uiScale: _doubleValue(json['uiScale']) ?? 1,
+    fontScale: _doubleValue(json['fontScale']) ?? 1,
+    themeMode:
+        _enumByName(AppThemeMode.values, json['themeMode']) ??
+        AppThemeMode.light,
     cameraCaptureAspectRatio:
         _enumByName(
           CameraPhotoAspectRatio.values,
@@ -107,6 +121,9 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     mapTileProvider:
         _enumByName(MapTileProvider.values, json['mapTileProvider']) ??
         MapTileProvider.openFreeMap,
+    navigationApp:
+        _enumByName(NavigationApp.values, json['navigationApp']) ??
+        NavigationApp.googleMaps,
     customXyzTileUrl: _stringValue(json['customXyzTileUrl'], fallback: ''),
     customMapLibreStyleUrl: _stringValue(
       json['customMapLibreStyleUrl'],
@@ -120,6 +137,17 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
       json['comparisonPilgrimName'],
       fallback: '',
     ),
+    customThemeColorName: _stringValue(
+      json['customThemeColorName'],
+      fallback: '\u81ea\u5b9a\u4e49',
+    ),
+    customThemeColorValue:
+        _intValue(json['customThemeColorValue']) ?? 0xFF16C6A8,
+    customThemeColors: _customThemeColorsValue(json['customThemeColors']),
+    customCameraAspectRatioWidth:
+        _doubleValue(json['customCameraAspectRatioWidth']) ?? 1,
+    customCameraAspectRatioHeight:
+        _doubleValue(json['customCameraAspectRatioHeight']) ?? 1,
   );
 }
 
@@ -355,6 +383,16 @@ Set<String> _stringSet(Object? value) {
   return value.whereType<String>().toSet();
 }
 
+List<CustomThemeColor> _customThemeColorsValue(Object? value) {
+  if (value is! List) {
+    return const [];
+  }
+  return value
+      .map(CustomThemeColor.fromJson)
+      .whereType<CustomThemeColor>()
+      .toList(growable: false);
+}
+
 String _stringValue(Object? value, {required String fallback}) {
   return value is String ? value : fallback;
 }
@@ -363,6 +401,14 @@ double? _doubleValue(Object? value) {
   return switch (value) {
     num number => number.toDouble(),
     String text => double.tryParse(text),
+    _ => null,
+  };
+}
+
+int? _intValue(Object? value) {
+  return switch (value) {
+    num number => number.toInt(),
+    String text => int.tryParse(text),
     _ => null,
   };
 }

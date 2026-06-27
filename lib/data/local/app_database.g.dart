@@ -3918,6 +3918,30 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(1.0),
   );
+  static const VerificationMeta _fontScaleMeta = const VerificationMeta(
+    'fontScale',
+  );
+  @override
+  late final GeneratedColumn<double> fontScale = GeneratedColumn<double>(
+    'font_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _themeModeMeta = const VerificationMeta(
+    'themeMode',
+  );
+  @override
+  late final GeneratedColumn<String> themeMode = GeneratedColumn<String>(
+    'theme_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('light'),
+  );
   static const VerificationMeta _cameraAspectRatioMeta = const VerificationMeta(
     'cameraAspectRatio',
   );
@@ -4015,6 +4039,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant('openFreeMap'),
   );
+  static const VerificationMeta _navigationAppMeta = const VerificationMeta(
+    'navigationApp',
+  );
+  @override
+  late final GeneratedColumn<String> navigationApp = GeneratedColumn<String>(
+    'navigation_app',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('googleMaps'),
+  );
   static const VerificationMeta _customXyzTileUrlMeta = const VerificationMeta(
     'customXyzTileUrl',
   );
@@ -4081,10 +4117,71 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant(''),
       );
+  static const VerificationMeta _customThemeColorNameMeta =
+      const VerificationMeta('customThemeColorName');
+  @override
+  late final GeneratedColumn<String> customThemeColorName =
+      GeneratedColumn<String>(
+        'custom_theme_color_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('自定义'),
+      );
+  static const VerificationMeta _customThemeColorValueMeta =
+      const VerificationMeta('customThemeColorValue');
+  @override
+  late final GeneratedColumn<int> customThemeColorValue = GeneratedColumn<int>(
+    'custom_theme_color_value',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0xFF16C6A8),
+  );
+  static const VerificationMeta _customThemeColorsJsonMeta =
+      const VerificationMeta('customThemeColorsJson');
+  @override
+  late final GeneratedColumn<String> customThemeColorsJson =
+      GeneratedColumn<String>(
+        'custom_theme_colors_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      );
+  static const VerificationMeta _customCameraAspectRatioWidthMeta =
+      const VerificationMeta('customCameraAspectRatioWidth');
+  @override
+  late final GeneratedColumn<double> customCameraAspectRatioWidth =
+      GeneratedColumn<double>(
+        'custom_camera_aspect_ratio_width',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(1.0),
+      );
+  static const VerificationMeta _customCameraAspectRatioHeightMeta =
+      const VerificationMeta('customCameraAspectRatioHeight');
+  @override
+  late final GeneratedColumn<double> customCameraAspectRatioHeight =
+      GeneratedColumn<double>(
+        'custom_camera_aspect_ratio_height',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(1.0),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     uiScale,
+    fontScale,
+    themeMode,
     cameraAspectRatio,
     cameraCaptureAspectRatio,
     cameraMinZoom,
@@ -4093,11 +4190,17 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     nearestAssignDistanceMeters,
     themePalette,
     mapTileProvider,
+    navigationApp,
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
     comparisonShowPilgrimName,
     comparisonPilgrimName,
+    customThemeColorName,
+    customThemeColorValue,
+    customThemeColorsJson,
+    customCameraAspectRatioWidth,
+    customCameraAspectRatioHeight,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4120,6 +4223,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
       context.handle(
         _uiScaleMeta,
         uiScale.isAcceptableOrUnknown(data['ui_scale']!, _uiScaleMeta),
+      );
+    }
+    if (data.containsKey('font_scale')) {
+      context.handle(
+        _fontScaleMeta,
+        fontScale.isAcceptableOrUnknown(data['font_scale']!, _fontScaleMeta),
+      );
+    }
+    if (data.containsKey('theme_mode')) {
+      context.handle(
+        _themeModeMeta,
+        themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
       );
     }
     if (data.containsKey('camera_aspect_ratio')) {
@@ -4194,6 +4309,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('navigation_app')) {
+      context.handle(
+        _navigationAppMeta,
+        navigationApp.isAcceptableOrUnknown(
+          data['navigation_app']!,
+          _navigationAppMeta,
+        ),
+      );
+    }
     if (data.containsKey('custom_xyz_tile_url')) {
       context.handle(
         _customXyzTileUrlMeta,
@@ -4239,6 +4363,51 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('custom_theme_color_name')) {
+      context.handle(
+        _customThemeColorNameMeta,
+        customThemeColorName.isAcceptableOrUnknown(
+          data['custom_theme_color_name']!,
+          _customThemeColorNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_theme_color_value')) {
+      context.handle(
+        _customThemeColorValueMeta,
+        customThemeColorValue.isAcceptableOrUnknown(
+          data['custom_theme_color_value']!,
+          _customThemeColorValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_theme_colors_json')) {
+      context.handle(
+        _customThemeColorsJsonMeta,
+        customThemeColorsJson.isAcceptableOrUnknown(
+          data['custom_theme_colors_json']!,
+          _customThemeColorsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_camera_aspect_ratio_width')) {
+      context.handle(
+        _customCameraAspectRatioWidthMeta,
+        customCameraAspectRatioWidth.isAcceptableOrUnknown(
+          data['custom_camera_aspect_ratio_width']!,
+          _customCameraAspectRatioWidthMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_camera_aspect_ratio_height')) {
+      context.handle(
+        _customCameraAspectRatioHeightMeta,
+        customCameraAspectRatioHeight.isAcceptableOrUnknown(
+          data['custom_camera_aspect_ratio_height']!,
+          _customCameraAspectRatioHeightMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4255,6 +4424,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
       uiScale: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}ui_scale'],
+      )!,
+      fontScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}font_scale'],
+      )!,
+      themeMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme_mode'],
       )!,
       cameraAspectRatio: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -4288,6 +4465,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}map_tile_provider'],
       )!,
+      navigationApp: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}navigation_app'],
+      )!,
       customXyzTileUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}custom_xyz_tile_url'],
@@ -4308,6 +4489,26 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}comparison_pilgrim_name'],
       )!,
+      customThemeColorName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_theme_color_name'],
+      )!,
+      customThemeColorValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}custom_theme_color_value'],
+      )!,
+      customThemeColorsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_theme_colors_json'],
+      )!,
+      customCameraAspectRatioWidth: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}custom_camera_aspect_ratio_width'],
+      )!,
+      customCameraAspectRatioHeight: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}custom_camera_aspect_ratio_height'],
+      )!,
     );
   }
 
@@ -4321,6 +4522,8 @@ class AppSettingsEntry extends DataClass
     implements Insertable<AppSettingsEntry> {
   final String id;
   final double uiScale;
+  final double fontScale;
+  final String themeMode;
   final String cameraAspectRatio;
   final String cameraCaptureAspectRatio;
   final double cameraMinZoom;
@@ -4329,14 +4532,22 @@ class AppSettingsEntry extends DataClass
   final double nearestAssignDistanceMeters;
   final String themePalette;
   final String mapTileProvider;
+  final String navigationApp;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
   final bool comparisonShowPilgrimName;
   final String comparisonPilgrimName;
+  final String customThemeColorName;
+  final int customThemeColorValue;
+  final String customThemeColorsJson;
+  final double customCameraAspectRatioWidth;
+  final double customCameraAspectRatioHeight;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
+    required this.fontScale,
+    required this.themeMode,
     required this.cameraAspectRatio,
     required this.cameraCaptureAspectRatio,
     required this.cameraMinZoom,
@@ -4345,17 +4556,25 @@ class AppSettingsEntry extends DataClass
     required this.nearestAssignDistanceMeters,
     required this.themePalette,
     required this.mapTileProvider,
+    required this.navigationApp,
     required this.customXyzTileUrl,
     required this.customMapLibreStyleUrl,
     required this.saveVisitPhotoToGallery,
     required this.comparisonShowPilgrimName,
     required this.comparisonPilgrimName,
+    required this.customThemeColorName,
+    required this.customThemeColorValue,
+    required this.customThemeColorsJson,
+    required this.customCameraAspectRatioWidth,
+    required this.customCameraAspectRatioHeight,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['ui_scale'] = Variable<double>(uiScale);
+    map['font_scale'] = Variable<double>(fontScale);
+    map['theme_mode'] = Variable<String>(themeMode);
     map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio);
     map['camera_capture_aspect_ratio'] = Variable<String>(
       cameraCaptureAspectRatio,
@@ -4368,6 +4587,7 @@ class AppSettingsEntry extends DataClass
     );
     map['theme_palette'] = Variable<String>(themePalette);
     map['map_tile_provider'] = Variable<String>(mapTileProvider);
+    map['navigation_app'] = Variable<String>(navigationApp);
     map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl);
     map['custom_map_libre_style_url'] = Variable<String>(
       customMapLibreStyleUrl,
@@ -4379,6 +4599,15 @@ class AppSettingsEntry extends DataClass
       comparisonShowPilgrimName,
     );
     map['comparison_pilgrim_name'] = Variable<String>(comparisonPilgrimName);
+    map['custom_theme_color_name'] = Variable<String>(customThemeColorName);
+    map['custom_theme_color_value'] = Variable<int>(customThemeColorValue);
+    map['custom_theme_colors_json'] = Variable<String>(customThemeColorsJson);
+    map['custom_camera_aspect_ratio_width'] = Variable<double>(
+      customCameraAspectRatioWidth,
+    );
+    map['custom_camera_aspect_ratio_height'] = Variable<double>(
+      customCameraAspectRatioHeight,
+    );
     return map;
   }
 
@@ -4386,6 +4615,8 @@ class AppSettingsEntry extends DataClass
     return AppSettingsEntriesCompanion(
       id: Value(id),
       uiScale: Value(uiScale),
+      fontScale: Value(fontScale),
+      themeMode: Value(themeMode),
       cameraAspectRatio: Value(cameraAspectRatio),
       cameraCaptureAspectRatio: Value(cameraCaptureAspectRatio),
       cameraMinZoom: Value(cameraMinZoom),
@@ -4394,11 +4625,17 @@ class AppSettingsEntry extends DataClass
       nearestAssignDistanceMeters: Value(nearestAssignDistanceMeters),
       themePalette: Value(themePalette),
       mapTileProvider: Value(mapTileProvider),
+      navigationApp: Value(navigationApp),
       customXyzTileUrl: Value(customXyzTileUrl),
       customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
       saveVisitPhotoToGallery: Value(saveVisitPhotoToGallery),
       comparisonShowPilgrimName: Value(comparisonShowPilgrimName),
       comparisonPilgrimName: Value(comparisonPilgrimName),
+      customThemeColorName: Value(customThemeColorName),
+      customThemeColorValue: Value(customThemeColorValue),
+      customThemeColorsJson: Value(customThemeColorsJson),
+      customCameraAspectRatioWidth: Value(customCameraAspectRatioWidth),
+      customCameraAspectRatioHeight: Value(customCameraAspectRatioHeight),
     );
   }
 
@@ -4410,6 +4647,8 @@ class AppSettingsEntry extends DataClass
     return AppSettingsEntry(
       id: serializer.fromJson<String>(json['id']),
       uiScale: serializer.fromJson<double>(json['uiScale']),
+      fontScale: serializer.fromJson<double>(json['fontScale']),
+      themeMode: serializer.fromJson<String>(json['themeMode']),
       cameraAspectRatio: serializer.fromJson<String>(json['cameraAspectRatio']),
       cameraCaptureAspectRatio: serializer.fromJson<String>(
         json['cameraCaptureAspectRatio'],
@@ -4424,6 +4663,7 @@ class AppSettingsEntry extends DataClass
       ),
       themePalette: serializer.fromJson<String>(json['themePalette']),
       mapTileProvider: serializer.fromJson<String>(json['mapTileProvider']),
+      navigationApp: serializer.fromJson<String>(json['navigationApp']),
       customXyzTileUrl: serializer.fromJson<String>(json['customXyzTileUrl']),
       customMapLibreStyleUrl: serializer.fromJson<String>(
         json['customMapLibreStyleUrl'],
@@ -4437,6 +4677,21 @@ class AppSettingsEntry extends DataClass
       comparisonPilgrimName: serializer.fromJson<String>(
         json['comparisonPilgrimName'],
       ),
+      customThemeColorName: serializer.fromJson<String>(
+        json['customThemeColorName'],
+      ),
+      customThemeColorValue: serializer.fromJson<int>(
+        json['customThemeColorValue'],
+      ),
+      customThemeColorsJson: serializer.fromJson<String>(
+        json['customThemeColorsJson'],
+      ),
+      customCameraAspectRatioWidth: serializer.fromJson<double>(
+        json['customCameraAspectRatioWidth'],
+      ),
+      customCameraAspectRatioHeight: serializer.fromJson<double>(
+        json['customCameraAspectRatioHeight'],
+      ),
     );
   }
   @override
@@ -4445,6 +4700,8 @@ class AppSettingsEntry extends DataClass
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'uiScale': serializer.toJson<double>(uiScale),
+      'fontScale': serializer.toJson<double>(fontScale),
+      'themeMode': serializer.toJson<String>(themeMode),
       'cameraAspectRatio': serializer.toJson<String>(cameraAspectRatio),
       'cameraCaptureAspectRatio': serializer.toJson<String>(
         cameraCaptureAspectRatio,
@@ -4457,6 +4714,7 @@ class AppSettingsEntry extends DataClass
       ),
       'themePalette': serializer.toJson<String>(themePalette),
       'mapTileProvider': serializer.toJson<String>(mapTileProvider),
+      'navigationApp': serializer.toJson<String>(navigationApp),
       'customXyzTileUrl': serializer.toJson<String>(customXyzTileUrl),
       'customMapLibreStyleUrl': serializer.toJson<String>(
         customMapLibreStyleUrl,
@@ -4468,12 +4726,23 @@ class AppSettingsEntry extends DataClass
         comparisonShowPilgrimName,
       ),
       'comparisonPilgrimName': serializer.toJson<String>(comparisonPilgrimName),
+      'customThemeColorName': serializer.toJson<String>(customThemeColorName),
+      'customThemeColorValue': serializer.toJson<int>(customThemeColorValue),
+      'customThemeColorsJson': serializer.toJson<String>(customThemeColorsJson),
+      'customCameraAspectRatioWidth': serializer.toJson<double>(
+        customCameraAspectRatioWidth,
+      ),
+      'customCameraAspectRatioHeight': serializer.toJson<double>(
+        customCameraAspectRatioHeight,
+      ),
     };
   }
 
   AppSettingsEntry copyWith({
     String? id,
     double? uiScale,
+    double? fontScale,
+    String? themeMode,
     String? cameraAspectRatio,
     String? cameraCaptureAspectRatio,
     double? cameraMinZoom,
@@ -4482,14 +4751,22 @@ class AppSettingsEntry extends DataClass
     double? nearestAssignDistanceMeters,
     String? themePalette,
     String? mapTileProvider,
+    String? navigationApp,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
     bool? comparisonShowPilgrimName,
     String? comparisonPilgrimName,
+    String? customThemeColorName,
+    int? customThemeColorValue,
+    String? customThemeColorsJson,
+    double? customCameraAspectRatioWidth,
+    double? customCameraAspectRatioHeight,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
+    fontScale: fontScale ?? this.fontScale,
+    themeMode: themeMode ?? this.themeMode,
     cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
     cameraCaptureAspectRatio:
         cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
@@ -4500,6 +4777,7 @@ class AppSettingsEntry extends DataClass
         nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
     themePalette: themePalette ?? this.themePalette,
     mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+    navigationApp: navigationApp ?? this.navigationApp,
     customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
     customMapLibreStyleUrl:
         customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -4508,11 +4786,20 @@ class AppSettingsEntry extends DataClass
     comparisonShowPilgrimName:
         comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
     comparisonPilgrimName: comparisonPilgrimName ?? this.comparisonPilgrimName,
+    customThemeColorName: customThemeColorName ?? this.customThemeColorName,
+    customThemeColorValue: customThemeColorValue ?? this.customThemeColorValue,
+    customThemeColorsJson: customThemeColorsJson ?? this.customThemeColorsJson,
+    customCameraAspectRatioWidth:
+        customCameraAspectRatioWidth ?? this.customCameraAspectRatioWidth,
+    customCameraAspectRatioHeight:
+        customCameraAspectRatioHeight ?? this.customCameraAspectRatioHeight,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
       id: data.id.present ? data.id.value : this.id,
       uiScale: data.uiScale.present ? data.uiScale.value : this.uiScale,
+      fontScale: data.fontScale.present ? data.fontScale.value : this.fontScale,
+      themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
       cameraAspectRatio: data.cameraAspectRatio.present
           ? data.cameraAspectRatio.value
           : this.cameraAspectRatio,
@@ -4537,6 +4824,9 @@ class AppSettingsEntry extends DataClass
       mapTileProvider: data.mapTileProvider.present
           ? data.mapTileProvider.value
           : this.mapTileProvider,
+      navigationApp: data.navigationApp.present
+          ? data.navigationApp.value
+          : this.navigationApp,
       customXyzTileUrl: data.customXyzTileUrl.present
           ? data.customXyzTileUrl.value
           : this.customXyzTileUrl,
@@ -4552,6 +4842,21 @@ class AppSettingsEntry extends DataClass
       comparisonPilgrimName: data.comparisonPilgrimName.present
           ? data.comparisonPilgrimName.value
           : this.comparisonPilgrimName,
+      customThemeColorName: data.customThemeColorName.present
+          ? data.customThemeColorName.value
+          : this.customThemeColorName,
+      customThemeColorValue: data.customThemeColorValue.present
+          ? data.customThemeColorValue.value
+          : this.customThemeColorValue,
+      customThemeColorsJson: data.customThemeColorsJson.present
+          ? data.customThemeColorsJson.value
+          : this.customThemeColorsJson,
+      customCameraAspectRatioWidth: data.customCameraAspectRatioWidth.present
+          ? data.customCameraAspectRatioWidth.value
+          : this.customCameraAspectRatioWidth,
+      customCameraAspectRatioHeight: data.customCameraAspectRatioHeight.present
+          ? data.customCameraAspectRatioHeight.value
+          : this.customCameraAspectRatioHeight,
     );
   }
 
@@ -4560,6 +4865,8 @@ class AppSettingsEntry extends DataClass
     return (StringBuffer('AppSettingsEntry(')
           ..write('id: $id, ')
           ..write('uiScale: $uiScale, ')
+          ..write('fontScale: $fontScale, ')
+          ..write('themeMode: $themeMode, ')
           ..write('cameraAspectRatio: $cameraAspectRatio, ')
           ..write('cameraCaptureAspectRatio: $cameraCaptureAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
@@ -4568,19 +4875,31 @@ class AppSettingsEntry extends DataClass
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette, ')
           ..write('mapTileProvider: $mapTileProvider, ')
+          ..write('navigationApp: $navigationApp, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
           ..write('comparisonShowPilgrimName: $comparisonShowPilgrimName, ')
-          ..write('comparisonPilgrimName: $comparisonPilgrimName')
+          ..write('comparisonPilgrimName: $comparisonPilgrimName, ')
+          ..write('customThemeColorName: $customThemeColorName, ')
+          ..write('customThemeColorValue: $customThemeColorValue, ')
+          ..write('customThemeColorsJson: $customThemeColorsJson, ')
+          ..write(
+            'customCameraAspectRatioWidth: $customCameraAspectRatioWidth, ',
+          )
+          ..write(
+            'customCameraAspectRatioHeight: $customCameraAspectRatioHeight',
+          )
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     uiScale,
+    fontScale,
+    themeMode,
     cameraAspectRatio,
     cameraCaptureAspectRatio,
     cameraMinZoom,
@@ -4589,18 +4908,26 @@ class AppSettingsEntry extends DataClass
     nearestAssignDistanceMeters,
     themePalette,
     mapTileProvider,
+    navigationApp,
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
     comparisonShowPilgrimName,
     comparisonPilgrimName,
-  );
+    customThemeColorName,
+    customThemeColorValue,
+    customThemeColorsJson,
+    customCameraAspectRatioWidth,
+    customCameraAspectRatioHeight,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppSettingsEntry &&
           other.id == this.id &&
           other.uiScale == this.uiScale &&
+          other.fontScale == this.fontScale &&
+          other.themeMode == this.themeMode &&
           other.cameraAspectRatio == this.cameraAspectRatio &&
           other.cameraCaptureAspectRatio == this.cameraCaptureAspectRatio &&
           other.cameraMinZoom == this.cameraMinZoom &&
@@ -4610,16 +4937,26 @@ class AppSettingsEntry extends DataClass
               this.nearestAssignDistanceMeters &&
           other.themePalette == this.themePalette &&
           other.mapTileProvider == this.mapTileProvider &&
+          other.navigationApp == this.navigationApp &&
           other.customXyzTileUrl == this.customXyzTileUrl &&
           other.customMapLibreStyleUrl == this.customMapLibreStyleUrl &&
           other.saveVisitPhotoToGallery == this.saveVisitPhotoToGallery &&
           other.comparisonShowPilgrimName == this.comparisonShowPilgrimName &&
-          other.comparisonPilgrimName == this.comparisonPilgrimName);
+          other.comparisonPilgrimName == this.comparisonPilgrimName &&
+          other.customThemeColorName == this.customThemeColorName &&
+          other.customThemeColorValue == this.customThemeColorValue &&
+          other.customThemeColorsJson == this.customThemeColorsJson &&
+          other.customCameraAspectRatioWidth ==
+              this.customCameraAspectRatioWidth &&
+          other.customCameraAspectRatioHeight ==
+              this.customCameraAspectRatioHeight);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> id;
   final Value<double> uiScale;
+  final Value<double> fontScale;
+  final Value<String> themeMode;
   final Value<String> cameraAspectRatio;
   final Value<String> cameraCaptureAspectRatio;
   final Value<double> cameraMinZoom;
@@ -4628,15 +4965,23 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<double> nearestAssignDistanceMeters;
   final Value<String> themePalette;
   final Value<String> mapTileProvider;
+  final Value<String> navigationApp;
   final Value<String> customXyzTileUrl;
   final Value<String> customMapLibreStyleUrl;
   final Value<bool> saveVisitPhotoToGallery;
   final Value<bool> comparisonShowPilgrimName;
   final Value<String> comparisonPilgrimName;
+  final Value<String> customThemeColorName;
+  final Value<int> customThemeColorValue;
+  final Value<String> customThemeColorsJson;
+  final Value<double> customCameraAspectRatioWidth;
+  final Value<double> customCameraAspectRatioHeight;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
     this.uiScale = const Value.absent(),
+    this.fontScale = const Value.absent(),
+    this.themeMode = const Value.absent(),
     this.cameraAspectRatio = const Value.absent(),
     this.cameraCaptureAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
@@ -4645,16 +4990,24 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.mapTileProvider = const Value.absent(),
+    this.navigationApp = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
     this.comparisonShowPilgrimName = const Value.absent(),
     this.comparisonPilgrimName = const Value.absent(),
+    this.customThemeColorName = const Value.absent(),
+    this.customThemeColorValue = const Value.absent(),
+    this.customThemeColorsJson = const Value.absent(),
+    this.customCameraAspectRatioWidth = const Value.absent(),
+    this.customCameraAspectRatioHeight = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
     required String id,
     this.uiScale = const Value.absent(),
+    this.fontScale = const Value.absent(),
+    this.themeMode = const Value.absent(),
     this.cameraAspectRatio = const Value.absent(),
     this.cameraCaptureAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
@@ -4663,16 +5016,24 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.mapTileProvider = const Value.absent(),
+    this.navigationApp = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
     this.comparisonShowPilgrimName = const Value.absent(),
     this.comparisonPilgrimName = const Value.absent(),
+    this.customThemeColorName = const Value.absent(),
+    this.customThemeColorValue = const Value.absent(),
+    this.customThemeColorsJson = const Value.absent(),
+    this.customCameraAspectRatioWidth = const Value.absent(),
+    this.customCameraAspectRatioHeight = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
     Expression<String>? id,
     Expression<double>? uiScale,
+    Expression<double>? fontScale,
+    Expression<String>? themeMode,
     Expression<String>? cameraAspectRatio,
     Expression<String>? cameraCaptureAspectRatio,
     Expression<double>? cameraMinZoom,
@@ -4681,16 +5042,24 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<double>? nearestAssignDistanceMeters,
     Expression<String>? themePalette,
     Expression<String>? mapTileProvider,
+    Expression<String>? navigationApp,
     Expression<String>? customXyzTileUrl,
     Expression<String>? customMapLibreStyleUrl,
     Expression<bool>? saveVisitPhotoToGallery,
     Expression<bool>? comparisonShowPilgrimName,
     Expression<String>? comparisonPilgrimName,
+    Expression<String>? customThemeColorName,
+    Expression<int>? customThemeColorValue,
+    Expression<String>? customThemeColorsJson,
+    Expression<double>? customCameraAspectRatioWidth,
+    Expression<double>? customCameraAspectRatioHeight,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (uiScale != null) 'ui_scale': uiScale,
+      if (fontScale != null) 'font_scale': fontScale,
+      if (themeMode != null) 'theme_mode': themeMode,
       if (cameraAspectRatio != null) 'camera_aspect_ratio': cameraAspectRatio,
       if (cameraCaptureAspectRatio != null)
         'camera_capture_aspect_ratio': cameraCaptureAspectRatio,
@@ -4702,6 +5071,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'nearest_assign_distance_meters': nearestAssignDistanceMeters,
       if (themePalette != null) 'theme_palette': themePalette,
       if (mapTileProvider != null) 'map_tile_provider': mapTileProvider,
+      if (navigationApp != null) 'navigation_app': navigationApp,
       if (customXyzTileUrl != null) 'custom_xyz_tile_url': customXyzTileUrl,
       if (customMapLibreStyleUrl != null)
         'custom_map_libre_style_url': customMapLibreStyleUrl,
@@ -4711,6 +5081,16 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'comparison_show_pilgrim_name': comparisonShowPilgrimName,
       if (comparisonPilgrimName != null)
         'comparison_pilgrim_name': comparisonPilgrimName,
+      if (customThemeColorName != null)
+        'custom_theme_color_name': customThemeColorName,
+      if (customThemeColorValue != null)
+        'custom_theme_color_value': customThemeColorValue,
+      if (customThemeColorsJson != null)
+        'custom_theme_colors_json': customThemeColorsJson,
+      if (customCameraAspectRatioWidth != null)
+        'custom_camera_aspect_ratio_width': customCameraAspectRatioWidth,
+      if (customCameraAspectRatioHeight != null)
+        'custom_camera_aspect_ratio_height': customCameraAspectRatioHeight,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4718,6 +5098,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   AppSettingsEntriesCompanion copyWith({
     Value<String>? id,
     Value<double>? uiScale,
+    Value<double>? fontScale,
+    Value<String>? themeMode,
     Value<String>? cameraAspectRatio,
     Value<String>? cameraCaptureAspectRatio,
     Value<double>? cameraMinZoom,
@@ -4726,16 +5108,24 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<double>? nearestAssignDistanceMeters,
     Value<String>? themePalette,
     Value<String>? mapTileProvider,
+    Value<String>? navigationApp,
     Value<String>? customXyzTileUrl,
     Value<String>? customMapLibreStyleUrl,
     Value<bool>? saveVisitPhotoToGallery,
     Value<bool>? comparisonShowPilgrimName,
     Value<String>? comparisonPilgrimName,
+    Value<String>? customThemeColorName,
+    Value<int>? customThemeColorValue,
+    Value<String>? customThemeColorsJson,
+    Value<double>? customCameraAspectRatioWidth,
+    Value<double>? customCameraAspectRatioHeight,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
       id: id ?? this.id,
       uiScale: uiScale ?? this.uiScale,
+      fontScale: fontScale ?? this.fontScale,
+      themeMode: themeMode ?? this.themeMode,
       cameraAspectRatio: cameraAspectRatio ?? this.cameraAspectRatio,
       cameraCaptureAspectRatio:
           cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
@@ -4746,6 +5136,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
       mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+      navigationApp: navigationApp ?? this.navigationApp,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -4755,6 +5146,15 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
       comparisonPilgrimName:
           comparisonPilgrimName ?? this.comparisonPilgrimName,
+      customThemeColorName: customThemeColorName ?? this.customThemeColorName,
+      customThemeColorValue:
+          customThemeColorValue ?? this.customThemeColorValue,
+      customThemeColorsJson:
+          customThemeColorsJson ?? this.customThemeColorsJson,
+      customCameraAspectRatioWidth:
+          customCameraAspectRatioWidth ?? this.customCameraAspectRatioWidth,
+      customCameraAspectRatioHeight:
+          customCameraAspectRatioHeight ?? this.customCameraAspectRatioHeight,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4767,6 +5167,12 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     }
     if (uiScale.present) {
       map['ui_scale'] = Variable<double>(uiScale.value);
+    }
+    if (fontScale.present) {
+      map['font_scale'] = Variable<double>(fontScale.value);
+    }
+    if (themeMode.present) {
+      map['theme_mode'] = Variable<String>(themeMode.value);
     }
     if (cameraAspectRatio.present) {
       map['camera_aspect_ratio'] = Variable<String>(cameraAspectRatio.value);
@@ -4798,6 +5204,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     if (mapTileProvider.present) {
       map['map_tile_provider'] = Variable<String>(mapTileProvider.value);
     }
+    if (navigationApp.present) {
+      map['navigation_app'] = Variable<String>(navigationApp.value);
+    }
     if (customXyzTileUrl.present) {
       map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl.value);
     }
@@ -4821,6 +5230,31 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         comparisonPilgrimName.value,
       );
     }
+    if (customThemeColorName.present) {
+      map['custom_theme_color_name'] = Variable<String>(
+        customThemeColorName.value,
+      );
+    }
+    if (customThemeColorValue.present) {
+      map['custom_theme_color_value'] = Variable<int>(
+        customThemeColorValue.value,
+      );
+    }
+    if (customThemeColorsJson.present) {
+      map['custom_theme_colors_json'] = Variable<String>(
+        customThemeColorsJson.value,
+      );
+    }
+    if (customCameraAspectRatioWidth.present) {
+      map['custom_camera_aspect_ratio_width'] = Variable<double>(
+        customCameraAspectRatioWidth.value,
+      );
+    }
+    if (customCameraAspectRatioHeight.present) {
+      map['custom_camera_aspect_ratio_height'] = Variable<double>(
+        customCameraAspectRatioHeight.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4832,6 +5266,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     return (StringBuffer('AppSettingsEntriesCompanion(')
           ..write('id: $id, ')
           ..write('uiScale: $uiScale, ')
+          ..write('fontScale: $fontScale, ')
+          ..write('themeMode: $themeMode, ')
           ..write('cameraAspectRatio: $cameraAspectRatio, ')
           ..write('cameraCaptureAspectRatio: $cameraCaptureAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
@@ -4840,11 +5276,21 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette, ')
           ..write('mapTileProvider: $mapTileProvider, ')
+          ..write('navigationApp: $navigationApp, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
           ..write('comparisonShowPilgrimName: $comparisonShowPilgrimName, ')
           ..write('comparisonPilgrimName: $comparisonPilgrimName, ')
+          ..write('customThemeColorName: $customThemeColorName, ')
+          ..write('customThemeColorValue: $customThemeColorValue, ')
+          ..write('customThemeColorsJson: $customThemeColorsJson, ')
+          ..write(
+            'customCameraAspectRatioWidth: $customCameraAspectRatioWidth, ',
+          )
+          ..write(
+            'customCameraAspectRatioHeight: $customCameraAspectRatioHeight, ',
+          )
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7632,6 +8078,8 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
     AppSettingsEntriesCompanion Function({
       required String id,
       Value<double> uiScale,
+      Value<double> fontScale,
+      Value<String> themeMode,
       Value<String> cameraAspectRatio,
       Value<String> cameraCaptureAspectRatio,
       Value<double> cameraMinZoom,
@@ -7640,17 +8088,25 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
       Value<String> mapTileProvider,
+      Value<String> navigationApp,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
       Value<bool> comparisonShowPilgrimName,
       Value<String> comparisonPilgrimName,
+      Value<String> customThemeColorName,
+      Value<int> customThemeColorValue,
+      Value<String> customThemeColorsJson,
+      Value<double> customCameraAspectRatioWidth,
+      Value<double> customCameraAspectRatioHeight,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
     AppSettingsEntriesCompanion Function({
       Value<String> id,
       Value<double> uiScale,
+      Value<double> fontScale,
+      Value<String> themeMode,
       Value<String> cameraAspectRatio,
       Value<String> cameraCaptureAspectRatio,
       Value<double> cameraMinZoom,
@@ -7659,11 +8115,17 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
       Value<String> mapTileProvider,
+      Value<String> navigationApp,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
       Value<bool> comparisonShowPilgrimName,
       Value<String> comparisonPilgrimName,
+      Value<String> customThemeColorName,
+      Value<int> customThemeColorValue,
+      Value<String> customThemeColorsJson,
+      Value<double> customCameraAspectRatioWidth,
+      Value<double> customCameraAspectRatioHeight,
       Value<int> rowid,
     });
 
@@ -7683,6 +8145,16 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<double> get uiScale => $composableBuilder(
     column: $table.uiScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fontScale => $composableBuilder(
+    column: $table.fontScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themeMode => $composableBuilder(
+    column: $table.themeMode,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7726,6 +8198,11 @@ class $$AppSettingsEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get navigationApp => $composableBuilder(
+    column: $table.navigationApp,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => ColumnFilters(column),
@@ -7750,6 +8227,31 @@ class $$AppSettingsEntriesTableFilterComposer
     column: $table.comparisonPilgrimName,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get customThemeColorName => $composableBuilder(
+    column: $table.customThemeColorName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get customThemeColorValue => $composableBuilder(
+    column: $table.customThemeColorValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customThemeColorsJson => $composableBuilder(
+    column: $table.customThemeColorsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get customCameraAspectRatioWidth => $composableBuilder(
+    column: $table.customCameraAspectRatioWidth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get customCameraAspectRatioHeight => $composableBuilder(
+    column: $table.customCameraAspectRatioHeight,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$AppSettingsEntriesTableOrderingComposer
@@ -7768,6 +8270,16 @@ class $$AppSettingsEntriesTableOrderingComposer
 
   ColumnOrderings<double> get uiScale => $composableBuilder(
     column: $table.uiScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fontScale => $composableBuilder(
+    column: $table.fontScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get themeMode => $composableBuilder(
+    column: $table.themeMode,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -7811,6 +8323,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get navigationApp => $composableBuilder(
+    column: $table.navigationApp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => ColumnOrderings(column),
@@ -7835,6 +8352,33 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.comparisonPilgrimName,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get customThemeColorName => $composableBuilder(
+    column: $table.customThemeColorName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get customThemeColorValue => $composableBuilder(
+    column: $table.customThemeColorValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customThemeColorsJson => $composableBuilder(
+    column: $table.customThemeColorsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get customCameraAspectRatioWidth =>
+      $composableBuilder(
+        column: $table.customCameraAspectRatioWidth,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<double> get customCameraAspectRatioHeight =>
+      $composableBuilder(
+        column: $table.customCameraAspectRatioHeight,
+        builder: (column) => ColumnOrderings(column),
+      );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -7851,6 +8395,12 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get uiScale =>
       $composableBuilder(column: $table.uiScale, builder: (column) => column);
+
+  GeneratedColumn<double> get fontScale =>
+      $composableBuilder(column: $table.fontScale, builder: (column) => column);
+
+  GeneratedColumn<String> get themeMode =>
+      $composableBuilder(column: $table.themeMode, builder: (column) => column);
 
   GeneratedColumn<String> get cameraAspectRatio => $composableBuilder(
     column: $table.cameraAspectRatio,
@@ -7892,6 +8442,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get navigationApp => $composableBuilder(
+    column: $table.navigationApp,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => column,
@@ -7916,6 +8471,33 @@ class $$AppSettingsEntriesTableAnnotationComposer
     column: $table.comparisonPilgrimName,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get customThemeColorName => $composableBuilder(
+    column: $table.customThemeColorName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get customThemeColorValue => $composableBuilder(
+    column: $table.customThemeColorValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customThemeColorsJson => $composableBuilder(
+    column: $table.customThemeColorsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get customCameraAspectRatioWidth =>
+      $composableBuilder(
+        column: $table.customCameraAspectRatioWidth,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<double> get customCameraAspectRatioHeight =>
+      $composableBuilder(
+        column: $table.customCameraAspectRatioHeight,
+        builder: (column) => column,
+      );
 }
 
 class $$AppSettingsEntriesTableTableManager
@@ -7960,6 +8542,8 @@ class $$AppSettingsEntriesTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<double> uiScale = const Value.absent(),
+                Value<double> fontScale = const Value.absent(),
+                Value<String> themeMode = const Value.absent(),
                 Value<String> cameraAspectRatio = const Value.absent(),
                 Value<String> cameraCaptureAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
@@ -7969,15 +8553,25 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<String> mapTileProvider = const Value.absent(),
+                Value<String> navigationApp = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
                 Value<bool> comparisonShowPilgrimName = const Value.absent(),
                 Value<String> comparisonPilgrimName = const Value.absent(),
+                Value<String> customThemeColorName = const Value.absent(),
+                Value<int> customThemeColorValue = const Value.absent(),
+                Value<String> customThemeColorsJson = const Value.absent(),
+                Value<double> customCameraAspectRatioWidth =
+                    const Value.absent(),
+                Value<double> customCameraAspectRatioHeight =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
                 uiScale: uiScale,
+                fontScale: fontScale,
+                themeMode: themeMode,
                 cameraAspectRatio: cameraAspectRatio,
                 cameraCaptureAspectRatio: cameraCaptureAspectRatio,
                 cameraMinZoom: cameraMinZoom,
@@ -7986,17 +8580,25 @@ class $$AppSettingsEntriesTableTableManager
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
                 mapTileProvider: mapTileProvider,
+                navigationApp: navigationApp,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
                 comparisonShowPilgrimName: comparisonShowPilgrimName,
                 comparisonPilgrimName: comparisonPilgrimName,
+                customThemeColorName: customThemeColorName,
+                customThemeColorValue: customThemeColorValue,
+                customThemeColorsJson: customThemeColorsJson,
+                customCameraAspectRatioWidth: customCameraAspectRatioWidth,
+                customCameraAspectRatioHeight: customCameraAspectRatioHeight,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
                 Value<double> uiScale = const Value.absent(),
+                Value<double> fontScale = const Value.absent(),
+                Value<String> themeMode = const Value.absent(),
                 Value<String> cameraAspectRatio = const Value.absent(),
                 Value<String> cameraCaptureAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
@@ -8006,15 +8608,25 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<String> mapTileProvider = const Value.absent(),
+                Value<String> navigationApp = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
                 Value<bool> comparisonShowPilgrimName = const Value.absent(),
                 Value<String> comparisonPilgrimName = const Value.absent(),
+                Value<String> customThemeColorName = const Value.absent(),
+                Value<int> customThemeColorValue = const Value.absent(),
+                Value<String> customThemeColorsJson = const Value.absent(),
+                Value<double> customCameraAspectRatioWidth =
+                    const Value.absent(),
+                Value<double> customCameraAspectRatioHeight =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
                 uiScale: uiScale,
+                fontScale: fontScale,
+                themeMode: themeMode,
                 cameraAspectRatio: cameraAspectRatio,
                 cameraCaptureAspectRatio: cameraCaptureAspectRatio,
                 cameraMinZoom: cameraMinZoom,
@@ -8023,11 +8635,17 @@ class $$AppSettingsEntriesTableTableManager
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
                 mapTileProvider: mapTileProvider,
+                navigationApp: navigationApp,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
                 comparisonShowPilgrimName: comparisonShowPilgrimName,
                 comparisonPilgrimName: comparisonPilgrimName,
+                customThemeColorName: customThemeColorName,
+                customThemeColorValue: customThemeColorValue,
+                customThemeColorsJson: customThemeColorsJson,
+                customCameraAspectRatioWidth: customCameraAspectRatioWidth,
+                customCameraAspectRatioHeight: customCameraAspectRatioHeight,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
