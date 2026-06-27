@@ -10,6 +10,10 @@ import '../map/map_tile_config.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/copyable_text.dart';
 
+bool get _showFutureThemeModeSettings => false;
+bool get _showFutureNavigationAppSettings => false;
+bool get _showFutureCacheCleanupSettings => false;
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.settings,
@@ -204,9 +208,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(
             header: _SettingsCardHeader(
               icon: Icons.map_outlined,
-              title: '\u5730\u56fe\u4e0e\u5bfc\u822a\u8bbe\u7f6e',
-              subtitle:
-                  '\u5730\u56fe\u6e90\u3001\u6837\u5f0f\u3001\u5bfc\u822a\u8f6f\u4ef6\u7b49',
+              title: '地图设置',
+              subtitle: '地图源、样式等',
               onTap: () => _pushDetail(
                 _MapSettingsPage(
                   settings: settings,
@@ -216,17 +219,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          _SettingsCard(
-            header: _SettingsCardHeader(
-              icon: Icons.cleaning_services_outlined,
-              title: '清除缓存',
-              subtitle: '完整参考图缓存',
-              onTap: () => _pushDetail(
-                _CacheCleanupSettingsPage(repository: widget.repository),
+          if (_showFutureCacheCleanupSettings) ...[
+            const SizedBox(height: 12),
+            _SettingsCard(
+              header: _SettingsCardHeader(
+                icon: Icons.cleaning_services_outlined,
+                title: '清除缓存',
+                subtitle: '完整参考图缓存',
+                onTap: () => _pushDetail(
+                  _CacheCleanupSettingsPage(repository: widget.repository),
+                ),
               ),
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           if (_shouldShowDesktopSection) ...[
             _SettingsCard(
@@ -502,51 +507,56 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 22),
-                const Text('\u4e3b\u9898\u6a21\u5f0f', style: _titleTextStyle),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ModeButton(
-                        icon: Icons.wb_sunny_outlined,
-                        label: '\u6d45\u8272\u6a21\u5f0f',
-                        selected: settings.themeMode == AppThemeMode.light,
-                        onTap: () {
-                          _update(
-                            settings.copyWith(themeMode: AppThemeMode.light),
-                          );
-                        },
+                if (_showFutureThemeModeSettings) ...[
+                  const SizedBox(height: 22),
+                  const Text(
+                    '\u4e3b\u9898\u6a21\u5f0f',
+                    style: _titleTextStyle,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ModeButton(
+                          icon: Icons.wb_sunny_outlined,
+                          label: '\u6d45\u8272\u6a21\u5f0f',
+                          selected: settings.themeMode == AppThemeMode.light,
+                          onTap: () {
+                            _update(
+                              settings.copyWith(themeMode: AppThemeMode.light),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _ModeButton(
-                        icon: Icons.dark_mode_outlined,
-                        label: '\u6df1\u8272\u6a21\u5f0f',
-                        selected: settings.themeMode == AppThemeMode.dark,
-                        onTap: () {
-                          _update(
-                            settings.copyWith(themeMode: AppThemeMode.dark),
-                          );
-                        },
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ModeButton(
+                          icon: Icons.dark_mode_outlined,
+                          label: '\u6df1\u8272\u6a21\u5f0f',
+                          selected: settings.themeMode == AppThemeMode.dark,
+                          onTap: () {
+                            _update(
+                              settings.copyWith(themeMode: AppThemeMode.dark),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _ModeButton(
-                        icon: Icons.phone_iphone_outlined,
-                        label: '\u8ddf\u968f\u7cfb\u7edf',
-                        selected: settings.themeMode == AppThemeMode.system,
-                        onTap: () {
-                          _update(
-                            settings.copyWith(themeMode: AppThemeMode.system),
-                          );
-                        },
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ModeButton(
+                          icon: Icons.phone_iphone_outlined,
+                          label: '\u8ddf\u968f\u7cfb\u7edf',
+                          selected: settings.themeMode == AppThemeMode.system,
+                          onTap: () {
+                            _update(
+                              settings.copyWith(themeMode: AppThemeMode.system),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -939,7 +949,7 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
     final settings = _settings;
 
     return _ScaledDetailScaffold(
-      title: '\u5730\u56fe\u4e0e\u5bfc\u822a\u8bbe\u7f6e',
+      title: '地图设置',
       uiScale: settings.uiScale,
       fontScale: settings.fontScale,
       children: [
@@ -1012,23 +1022,25 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
             ],
           ],
         ),
-        const SizedBox(height: 12),
-        _SettingsSection(
-          title: '\u5bfc\u822a\u8f6f\u4ef6 ${settings.navigationApp.label}',
-          children: [
-            _NavigationAppGrid(
-              selectedApp: settings.navigationApp,
-              onSelected: (app) {
-                _update(settings.copyWith(navigationApp: app));
-              },
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              '\u4ec5\u4fdd\u7559\u754c\u9762\u9009\u9879\uff0c\u6682\u4e0d\u63a5\u5165\u5b9e\u9645\u5bfc\u822a\u8df3\u8f6c\u3002',
-              style: _secondaryTextStyle,
-            ),
-          ],
-        ),
+        if (_showFutureNavigationAppSettings) ...[
+          const SizedBox(height: 12),
+          _SettingsSection(
+            title: '\u5bfc\u822a\u8f6f\u4ef6 ${settings.navigationApp.label}',
+            children: [
+              _NavigationAppGrid(
+                selectedApp: settings.navigationApp,
+                onSelected: (app) {
+                  _update(settings.copyWith(navigationApp: app));
+                },
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '\u4ec5\u4fdd\u7559\u754c\u9762\u9009\u9879\uff0c\u6682\u4e0d\u63a5\u5165\u5b9e\u9645\u5bfc\u822a\u8df3\u8f6c\u3002',
+                style: _secondaryTextStyle,
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
