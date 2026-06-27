@@ -17,6 +17,8 @@ docs/memory/
 .svn/
 .swiftpm/
 migrate_working_dir/
+.devtools/
+tool/install_devtools.ps1
 
 # IntelliJ related
 *.iml

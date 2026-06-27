@@ -207,6 +207,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final controller = _planController;
     AppColors.palette = _settings.themePalette;
+    AppColors.customAccentValue = _settings.customThemeColorValue;
 
     if (controller == null) {
       return _PlanLoadState(error: _loadError, onRetry: _loadActivePlan);
@@ -218,89 +219,99 @@ class _AppShellState extends State<AppShell> {
         return MediaQuery(
           data: MediaQuery.of(
             context,
-          ).copyWith(textScaler: TextScaler.linear(_settings.uiScale)),
-          child: Theme(
-            data: AppTheme.light(palette: _settings.themePalette),
-            child: Scaffold(
-              body: IndexedStack(
-                index: _selectedIndex,
-                children: [
-                  PlanScreen(
-                    controller: controller,
-                    settings: _settings,
-                    repository: widget.repository,
-                    onOpenMap: _openMap,
-                    onOpenPlanManager: _openPlanManager,
-                    onOpenAddPoints: _openAddPoints,
-                    onOpenPointManager: _openPointManager,
-                    onOpenImportExport: _openImportExport,
-                  ),
-                  PilgrimageMapScreen(
-                    controller: controller,
-                    settings: _settings,
-                  ),
-                  RecordsScreen(controller: controller),
-                  SettingsScreen(settings: _settings, onChanged: _saveSettings),
-                ],
+          ).copyWith(textScaler: appTextScaler(_settings.fontScale)),
+          child: AppUiScaleView(
+            scale: _settings.uiScale,
+            child: Theme(
+              data: AppTheme.light(
+                palette: _settings.themePalette,
+                customAccentValue: _settings.customThemeColorValue,
               ),
-              bottomNavigationBar: NavigationBarTheme(
-                data: NavigationBarThemeData(
-                  indicatorColor: AppColors.accent,
-                  iconTheme: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return IconThemeData(color: AppColors.onAccent);
-                    }
+              child: Scaffold(
+                body: IndexedStack(
+                  index: _selectedIndex,
+                  children: [
+                    PlanScreen(
+                      controller: controller,
+                      settings: _settings,
+                      repository: widget.repository,
+                      onOpenMap: _openMap,
+                      onOpenPlanManager: _openPlanManager,
+                      onOpenAddPoints: _openAddPoints,
+                      onOpenPointManager: _openPointManager,
+                      onOpenImportExport: _openImportExport,
+                    ),
+                    PilgrimageMapScreen(
+                      controller: controller,
+                      settings: _settings,
+                    ),
+                    RecordsScreen(controller: controller),
+                    SettingsScreen(
+                      settings: _settings,
+                      repository: widget.repository,
+                      onChanged: _saveSettings,
+                    ),
+                  ],
+                ),
+                bottomNavigationBar: NavigationBarTheme(
+                  data: NavigationBarThemeData(
+                    indicatorColor: AppColors.accent,
+                    iconTheme: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return IconThemeData(color: AppColors.onAccent);
+                      }
 
-                    return const IconThemeData(color: AppColors.textPrimary);
-                  }),
-                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
+                      return const IconThemeData(color: AppColors.textPrimary);
+                    }),
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        );
+                      }
+
                       return const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w500,
                         letterSpacing: 0,
                       );
-                    }
-
-                    return const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0,
-                    );
-                  }),
-                ),
-                child: NavigationBar(
-                  selectedIndex: _selectedIndex,
-                  backgroundColor: AppColors.surface,
-                  onDestinationSelected: (index) {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                  },
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.checklist_outlined),
-                      selectedIcon: Icon(Icons.checklist),
-                      label: '计划',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.map_outlined),
-                      selectedIcon: Icon(Icons.map),
-                      label: '地图',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.collections_bookmark_outlined),
-                      selectedIcon: Icon(Icons.collections_bookmark),
-                      label: '记录',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: '设置',
-                    ),
-                  ],
+                    }),
+                  ),
+                  child: NavigationBar(
+                    selectedIndex: _selectedIndex,
+                    backgroundColor: AppColors.surface,
+                    onDestinationSelected: (index) {
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                    },
+                    destinations: const [
+                      NavigationDestination(
+                        icon: Icon(Icons.checklist_outlined),
+                        selectedIcon: Icon(Icons.checklist),
+                        label: '计划',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.map_outlined),
+                        selectedIcon: Icon(Icons.map),
+                        label: '地图',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.collections_bookmark_outlined),
+                        selectedIcon: Icon(Icons.collections_bookmark),
+                        label: '记录',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings),
+                        label: '设置',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

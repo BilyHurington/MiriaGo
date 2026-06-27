@@ -17,22 +17,22 @@ class AnitabiStaticDataReader {
       return fetchDesktopAnitabiStaticJson(fileName: fileName);
     }
 
+    if (kIsWeb) {
+      final proxyUri = Uri.base.resolve('/__anitabi_static__/$fileName');
+      try {
+        return (await _checkedGet(proxyUri)).body;
+      } catch (error) {
+        throw AnitabiStaticDataUnavailableException(error);
+      }
+    }
+
     final primaryUri = Uri.parse('https://www.anitabi.cn/d/$fileName');
     try {
       return (await _checkedGet(primaryUri)).body;
     } catch (error) {
-      if (!kIsWeb) {
-        final fallbackUri = Uri.parse('https://anitabi.cn/d/$fileName');
-        try {
-          return (await _checkedGet(fallbackUri)).body;
-        } catch (_) {
-          rethrow;
-        }
-      }
-
-      final proxyUri = Uri.base.resolve('/__anitabi_static__/$fileName');
+      final fallbackUri = Uri.parse('https://anitabi.cn/d/$fileName');
       try {
-        return (await _checkedGet(proxyUri)).body;
+        return (await _checkedGet(fallbackUri)).body;
       } catch (_) {
         throw AnitabiStaticDataUnavailableException(error);
       }

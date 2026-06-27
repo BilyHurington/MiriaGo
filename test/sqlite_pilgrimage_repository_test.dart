@@ -430,6 +430,88 @@ void main() {
     expect(loadedB.points.single.referenceFullImagePath, '/legacy/full-b.jpg');
   });
 
+  test('schema 22 migration normalizes schema 21 storage ids', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final planA = await repository.createPlan(name: 'Schema 21 A', area: '京都');
+    final planB = await repository.createPlan(name: 'Schema 21 B', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999006',
+      bangumiId: 999006,
+      title: 'Schema 21 作品',
+      subtitle: 'Legacy',
+      city: '测试市',
+      source: WorkSource.bangumi,
+    );
+    const pointA = PilgrimagePoint(
+      id: 'anitabi-schema21-shared-point',
+      work: work,
+      name: 'Schema 21 点位 A',
+      subtitle: '计划 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'schema21-shared-point',
+      referenceImageUrl: 'https://image.example/schema21-a.jpg',
+    );
+    const pointB = PilgrimagePoint(
+      id: 'anitabi-schema21-plan-b-point',
+      work: work,
+      name: 'Schema 21 点位 B',
+      subtitle: '计划 B',
+      position: LatLng(36, 136),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'schema21-plan-b-point',
+      referenceImageUrl: 'https://image.example/schema21-b.jpg',
+    );
+
+    await _insertLegacyWork(database, planB.id, work);
+    await _insertLegacyPoint(database, planA.id, pointA, sortOrder: 0);
+    await _insertLegacyPoint(database, planB.id, pointB, sortOrder: 0);
+
+    await database.migration.onUpgrade(
+      database.createMigrator(),
+      21,
+      database.schemaVersion,
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.fontScale, 1);
+    expect(settings.themeMode, AppThemeMode.light);
+    expect(settings.navigationApp, NavigationApp.googleMaps);
+    expect(settings.customCameraAspectRatioWidth, 1);
+    expect(settings.customCameraAspectRatioHeight, 1);
+
+    final scopedWorks = await database.select(database.works).get();
+    final scopedPoints = await database.select(database.points).get();
+    expect(scopedWorks.map((work) => work.id), isNot(contains(work.id)));
+    expect(scopedPoints.map((point) => point.id), isNot(contains(pointA.id)));
+
+    final plans = await repository.loadPlans();
+    final loadedA = plans.firstWhere((plan) => plan.id == planA.id);
+    final loadedB = plans.firstWhere((plan) => plan.id == planB.id);
+
+    expect(loadedA.works.single.id, work.id);
+    expect(loadedA.points.single.id, pointA.id);
+    expect(loadedA.points.single.work.title, 'Schema 21 作品');
+    expect(
+      loadedA.points.single.referenceImageUrl,
+      'https://image.example/schema21-a.jpg',
+    );
+    expect(loadedB.works.single.id, work.id);
+    expect(loadedB.points.single.id, pointB.id);
+    expect(loadedB.points.single.work.title, 'Schema 21 作品');
+    expect(
+      loadedB.points.single.referenceImageUrl,
+      'https://image.example/schema21-b.jpg',
+    );
+  });
+
   test('exports SQLite-loaded plans without scoped storage ids', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -608,9 +690,20 @@ void main() {
         mapTileProvider: MapTileProvider.customXyz,
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
+        fontScale: 1.2,
+        themeMode: AppThemeMode.system,
+        navigationApp: NavigationApp.amap,
         saveVisitPhotoToGallery: false,
         comparisonShowPilgrimName: true,
         comparisonPilgrimName: 'BilyHurington',
+        customThemeColorName: '薄荷',
+        customThemeColorValue: 0xFF00AA99,
+        customThemeColors: [
+          CustomThemeColor(name: '薄荷', value: 0xFF00AA99),
+          CustomThemeColor(name: '夜樱', value: 0xFFCC6699),
+        ],
+        customCameraAspectRatioWidth: 21,
+        customCameraAspectRatioHeight: 9,
       ),
     );
 
@@ -628,9 +721,19 @@ void main() {
     expect(settings.mapTileProvider, MapTileProvider.customXyz);
     expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
     expect(settings.customMapLibreStyleUrl, 'https://example.com/style.json');
+    expect(settings.fontScale, 1.2);
+    expect(settings.themeMode, AppThemeMode.system);
+    expect(settings.navigationApp, NavigationApp.amap);
     expect(settings.saveVisitPhotoToGallery, isFalse);
     expect(settings.comparisonShowPilgrimName, isTrue);
     expect(settings.comparisonPilgrimName, 'BilyHurington');
+    expect(settings.customThemeColorName, '薄荷');
+    expect(settings.customThemeColorValue, 0xFF00AA99);
+    expect(settings.customThemeColors, hasLength(2));
+    expect(settings.customThemeColors.first.name, '薄荷');
+    expect(settings.customThemeColors.first.value, 0xFF00AA99);
+    expect(settings.customCameraAspectRatioWidth, 21);
+    expect(settings.customCameraAspectRatioHeight, 9);
   });
 
   test(
