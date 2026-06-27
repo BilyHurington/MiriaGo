@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import '../app_version.dart';
 import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/reference_image_status.dart';
 import 'plan_export_asset_stub.dart'
     if (dart.library.io) 'plan_export_asset_io.dart';
 import 'plan_package.dart';
@@ -33,11 +34,13 @@ class PlanExportV2Result {
     required this.bytes,
     required this.fileName,
     required this.warnings,
+    required this.warningCounts,
   });
 
   final List<int> bytes;
   final String fileName;
   final List<String> warnings;
+  final Map<String, int> warningCounts;
 }
 
 typedef ExportNetworkBytesReader = Future<List<int>?> Function(String url);
@@ -45,6 +48,19 @@ typedef ExportNetworkBytesReader = Future<List<int>?> Function(String url);
 const miriagoExportPackageFormat = 'miriago_export_package';
 const miriagoExportPackageMimeType = 'application/vnd.miriago.plan+zip';
 const miriagoExportSchemaVersion = 2;
+
+enum PlanExportWarningType {
+  thumbnailMissing('thumbnailMissing'),
+  fullReferenceDownloadFailed('fullReferenceDownloadFailed'),
+  fullReferenceMissing('fullReferenceMissing'),
+  userReferenceMissing('userReferenceMissing'),
+  visitPhotoMissing('visitPhotoMissing'),
+  gradedPhotoMissing('gradedPhotoMissing');
+
+  const PlanExportWarningType(this.key);
+
+  final String key;
+}
 
 Future<PlanExportV2Result> buildPlanExportV2Package({
   required PilgrimagePlan plan,
@@ -60,6 +76,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       ? visitRecords
       : const <PilgrimageVisitRecord>[];
   final warnings = <String>[];
+  final warningCounts = <String, int>{};
   final assetCounts = <String, int>{
     'thumbnails': 0,
     'userReferenceImages': 0,
@@ -74,29 +91,25 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     archive.addFile(ArchiveFile.string(name, content));
   }
 
+  void addWarning(PlanExportWarningType type, String message) {
+    warnings.add(message);
+    warningCounts[type.key] = (warningCounts[type.key] ?? 0) + 1;
+  }
+
+  void addBytesAsset({
+    required List<int> bytes,
+    required String targetPath,
+    required String countKey,
+  }) {
+    archive.addFile(ArchiveFile.bytes(targetPath, bytes));
+    assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
+  }
+
   Future<String?> addFileAsset({
     required String? sourcePath,
     required String targetPath,
     required String warningLabel,
-    required String countKey,
-  }) async {
-    if (sourcePath == null || sourcePath.trim().isEmpty) {
-      return null;
-    }
-    final bytes = await readExportAssetBytes(sourcePath);
-    if (bytes == null) {
-      warnings.add('$warningLabel missing: $sourcePath');
-      return null;
-    }
-    archive.addFile(ArchiveFile.bytes(targetPath, bytes));
-    assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
-    return targetPath;
-  }
-
-  Future<String?> addLocalAsset({
-    required String? sourcePath,
-    required String targetPath,
-    required String warningLabel,
+    required PlanExportWarningType warningType,
     required String countKey,
     String? missingSourceDescription,
   }) async {
@@ -104,17 +117,47 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     if (normalizedPath == null || normalizedPath.isEmpty) {
       final description = missingSourceDescription?.trim();
       if (description != null && description.isNotEmpty) {
-        warnings.add('$warningLabel missing local cache: $description');
+        addWarning(
+          warningType,
+          '$warningLabel missing local cache: $description',
+        );
       }
       return null;
     }
     final bytes = await readExportAssetBytes(normalizedPath);
     if (bytes == null) {
-      warnings.add('$warningLabel missing: $normalizedPath');
+      addWarning(warningType, '$warningLabel missing: $normalizedPath');
       return null;
     }
-    archive.addFile(ArchiveFile.bytes(targetPath, bytes));
-    assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
+    addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+    return targetPath;
+  }
+
+  Future<String?> addLocalAsset({
+    required String? sourcePath,
+    required String targetPath,
+    required String warningLabel,
+    required PlanExportWarningType warningType,
+    required String countKey,
+    String? missingSourceDescription,
+  }) async {
+    final normalizedPath = sourcePath?.trim();
+    if (normalizedPath == null || normalizedPath.isEmpty) {
+      final description = missingSourceDescription?.trim();
+      if (description != null && description.isNotEmpty) {
+        addWarning(
+          warningType,
+          '$warningLabel missing local cache: $description',
+        );
+      }
+      return null;
+    }
+    final bytes = await readExportAssetBytes(normalizedPath);
+    if (bytes == null) {
+      addWarning(warningType, '$warningLabel missing: $normalizedPath');
+      return null;
+    }
+    addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
     return targetPath;
   }
 
@@ -123,56 +166,87 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     required String? sourceUrl,
     required String targetPath,
     required String warningLabel,
+    required PlanExportWarningType missingWarningType,
+    required PlanExportWarningType downloadFailedWarningType,
     required String countKey,
+    String? missingSourceDescription,
   }) async {
-    final localAsset = await addLocalAsset(
-      sourcePath: sourcePath,
-      targetPath: targetPath,
-      warningLabel: warningLabel,
-      countKey: countKey,
-    );
-    if (localAsset != null) {
-      return localAsset;
+    final normalizedPath = sourcePath?.trim();
+    if (normalizedPath != null && normalizedPath.isNotEmpty) {
+      final localBytes = await readExportAssetBytes(normalizedPath);
+      if (localBytes != null) {
+        addBytesAsset(
+          bytes: localBytes,
+          targetPath: targetPath,
+          countKey: countKey,
+        );
+        return targetPath;
+      }
     }
 
     final normalizedUrl = sourceUrl?.trim();
-    if (normalizedUrl == null || normalizedUrl.isEmpty) {
+    if (normalizedUrl != null && normalizedUrl.isNotEmpty) {
+      final bytes = await readNetworkBytes(normalizedUrl);
+      if (bytes == null) {
+        addWarning(
+          downloadFailedWarningType,
+          '$warningLabel download failed: $normalizedUrl',
+        );
+        return null;
+      }
+      addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+      return targetPath;
+    }
+
+    if (normalizedPath != null && normalizedPath.isNotEmpty) {
+      addWarning(missingWarningType, '$warningLabel missing: $normalizedPath');
       return null;
     }
-    final bytes = await readNetworkBytes(normalizedUrl);
-    if (bytes == null) {
-      warnings.add('$warningLabel download failed: $normalizedUrl');
+
+    final description = missingSourceDescription?.trim();
+    if (description != null && description.isNotEmpty) {
+      addWarning(
+        missingWarningType,
+        '$warningLabel missing local cache: $description',
+      );
       return null;
     }
-    archive.addFile(ArchiveFile.bytes(targetPath, bytes));
-    assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
-    return targetPath;
+
+    return null;
   }
 
   for (final point in plan.points) {
+    final isLocalUpload = isLocalUploadedReference(point);
     final pointAssetRefs = _PointAssetRefs();
-    pointAssetRefs.referenceThumbnailAsset = await addLocalOrNetworkAsset(
+    pointAssetRefs.referenceThumbnailAsset = await addLocalAsset(
       sourcePath: point.referenceThumbnailPath,
-      sourceUrl: anitabiThumbnailImageUrl(point.referenceImageUrl),
       targetPath: 'assets/thumbnails/${_assetName(point.id, 'thumbnail.jpg')}',
       warningLabel: 'thumbnail',
+      warningType: PlanExportWarningType.thumbnailMissing,
       countKey: 'thumbnails',
+      missingSourceDescription: _missingThumbnailDescription(point),
     );
-    if (_isUserReference(point)) {
+    if (isLocalUpload) {
       pointAssetRefs.userReferenceAsset = await addFileAsset(
         sourcePath: point.referenceFullImagePath,
         targetPath:
             'assets/user_references/${_assetName(point.id, 'reference.jpg')}',
         warningLabel: 'user reference',
+        warningType: PlanExportWarningType.userReferenceMissing,
         countKey: 'userReferenceImages',
+        missingSourceDescription: point.name,
       );
-    } else if (options.includeFullReferenceCache) {
+    } else if (options.includeFullReferenceCache &&
+        hasRemoteReferenceImage(point)) {
       pointAssetRefs.referenceFullReferenceAsset = await addLocalOrNetworkAsset(
         sourcePath: point.referenceFullImagePath,
         sourceUrl: anitabiFullResolutionImageUrl(point.referenceImageUrl),
         targetPath:
             'assets/full_references/${_assetName(point.id, 'reference.jpg')}',
         warningLabel: 'full reference',
+        missingWarningType: PlanExportWarningType.fullReferenceMissing,
+        downloadFailedWarningType:
+            PlanExportWarningType.fullReferenceDownloadFailed,
         countKey: 'fullReferences',
       );
     }
@@ -188,6 +262,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
         sourcePath: record.photoPath,
         targetPath: 'assets/visit_photos/${_assetName(record.id, 'photo.jpg')}',
         warningLabel: 'visit photo',
+        warningType: PlanExportWarningType.visitPhotoMissing,
         countKey: 'visitPhotos',
       );
       recordAssetRefs.gradedPhotoAsset = await addFileAsset(
@@ -195,6 +270,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
         targetPath:
             'assets/graded_photos/${_assetName(record.id, 'graded.jpg')}',
         warningLabel: 'graded photo',
+        warningType: PlanExportWarningType.gradedPhotoMissing,
         countKey: 'gradedPhotos',
       );
       if (recordAssetRefs.hasAny) {
@@ -212,6 +288,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
         options: options,
         exportedAt: exportTime,
         warnings: warnings,
+        warningCounts: warningCounts,
         assetCounts: assetCounts,
       ),
     ),
@@ -239,6 +316,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     bytes: bytes,
     fileName: suggestPlanExportV2FileName(plan: plan, exportedAt: exportTime),
     warnings: List.unmodifiable(warnings),
+    warningCounts: Map.unmodifiable(warningCounts),
   );
 }
 
@@ -255,6 +333,7 @@ Map<String, Object?> _manifestJson({
   required PlanExportV2Options options,
   required DateTime exportedAt,
   required List<String> warnings,
+  required Map<String, int> warningCounts,
   required Map<String, int> assetCounts,
 }) {
   return {
@@ -289,8 +368,23 @@ Map<String, Object?> _manifestJson({
       'visitRecords': records.length,
     },
     'assetCounts': assetCounts,
+    'warningCounts': warningCounts,
     'warnings': warnings,
   };
+}
+
+String? _missingThumbnailDescription(PilgrimagePoint point) {
+  final localThumbnailPath = point.referenceThumbnailPath?.trim();
+  if (localThumbnailPath != null && localThumbnailPath.isNotEmpty) {
+    return localThumbnailPath;
+  }
+  if (hasRemoteReferenceImage(point)) {
+    return anitabiThumbnailImageUrl(point.referenceImageUrl);
+  }
+  if (isLocalUploadedReference(point)) {
+    return point.name;
+  }
+  return null;
 }
 
 Map<String, Object?> _planJson({
@@ -370,7 +464,9 @@ Map<String, Object?> _pointJson(
     'referenceLabel': point.referenceLabel,
     'source': point.source.name,
     'sourceId': point.sourceId,
-    'referenceImageUrl': point.referenceImageUrl,
+    'referenceImageUrl': isLocalUploadedReference(point)
+        ? null
+        : point.referenceImageUrl,
     'referenceThumbnailPath': point.referenceThumbnailPath,
     'referenceFullImagePath': point.referenceFullImagePath,
     'referenceThumbnailAsset': assetRefs?.referenceThumbnailAsset,
@@ -463,7 +559,7 @@ String _pointsCsv(
         point.displayEpisodeLabel,
         point.source.name,
         point.sourceId,
-        point.referenceImageUrl,
+        isLocalUploadedReference(point) ? null : point.referenceImageUrl,
         plan.completedPointIds.contains(point.id) ? '是' : '否',
         recordCounts[point.id] ?? 0,
       ],
@@ -500,11 +596,6 @@ String _groupName(PilgrimagePlan plan, String? groupId) {
   }
   return plan.groups.where((group) => group.id == groupId).firstOrNull?.name ??
       '未知片区';
-}
-
-bool _isUserReference(PilgrimagePoint point) {
-  return point.source == PointSource.manual ||
-      (point.referenceFullImagePath != null && point.referenceImageUrl == null);
 }
 
 String _prettyJson(Object? value) {

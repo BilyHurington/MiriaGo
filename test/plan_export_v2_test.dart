@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/app_version.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
+import 'package:miriago/plan/reference_full_cache_runner.dart';
 import 'package:miriago/plan_transfer/plan_export_v2.dart';
+import 'package:miriago/plan_transfer/plan_export_size_estimator.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -91,81 +94,86 @@ void main() {
     expect(recordJson['pointName'], recordWithGrading.pointName);
   });
 
-  test('plan export fetches remote thumbnail fallback', () async {
-    final repository = SamplePilgrimageRepository();
-    final plan = await repository.loadActivePlan();
-    final firstPoint = plan.points.first;
-    const referenceUrl =
-        'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=w300';
-    final exportPlan = plan.copyWith(
-      points: [
-        PilgrimagePoint(
-          id: firstPoint.id,
-          work: firstPoint.work,
-          name: firstPoint.name,
-          subtitle: firstPoint.subtitle,
-          position: firstPoint.position,
-          episodeLabel: firstPoint.episodeLabel,
-          referenceLabel: firstPoint.referenceLabel,
-          source: firstPoint.source,
-          sourceId: firstPoint.sourceId,
-          referenceImageUrl: referenceUrl,
-          sourceUrl: firstPoint.sourceUrl,
-          groupId: firstPoint.groupId,
-          groupOrderIndex: firstPoint.groupOrderIndex,
+  test(
+    'plan export keeps thumbnails local but downloads requested full refs',
+    () async {
+      final repository = SamplePilgrimageRepository();
+      final plan = await repository.loadActivePlan();
+      final firstPoint = plan.points.first;
+      const referenceUrl =
+          'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=w300';
+      final exportPlan = plan.copyWith(
+        points: [
+          PilgrimagePoint(
+            id: firstPoint.id,
+            work: firstPoint.work,
+            name: firstPoint.name,
+            subtitle: firstPoint.subtitle,
+            position: firstPoint.position,
+            episodeLabel: firstPoint.episodeLabel,
+            referenceLabel: firstPoint.referenceLabel,
+            source: firstPoint.source,
+            sourceId: firstPoint.sourceId,
+            referenceImageUrl: referenceUrl,
+            sourceUrl: firstPoint.sourceUrl,
+            groupId: firstPoint.groupId,
+            groupOrderIndex: firstPoint.groupOrderIndex,
+          ),
+        ],
+      );
+      final requestedUrls = <String>[];
+
+      final package = await buildPlanExportV2Package(
+        plan: exportPlan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
         ),
-      ],
-    );
-    final requestedUrls = <String>[];
+        networkBytesReader: (url) async {
+          requestedUrls.add(url);
+          return utf8.encode('network bytes for $url');
+        },
+      );
 
-    final package = await buildPlanExportV2Package(
-      plan: exportPlan,
-      visitRecords: const [],
-      options: const PlanExportV2Options(
-        mode: PlanExportV2Mode.planOnly,
-        includeFullReferenceCache: true,
-      ),
-      networkBytesReader: (url) async {
-        requestedUrls.add(url);
-        return utf8.encode('network bytes for $url');
-      },
-    );
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      final manifest =
+          jsonDecode(
+                utf8.decode(archive.findFile('manifest.json')!.readBytes()!),
+              )
+              as Map<String, Object?>;
+      final planJson =
+          jsonDecode(utf8.decode(archive.findFile('plan.json')!.readBytes()!))
+              as Map<String, Object?>;
+      final planRoot = planJson['plan'] as Map<String, Object?>;
+      final points = planRoot['points'] as List<Object?>;
+      final pointJson = points.single as Map<String, Object?>;
+      final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
 
-    final archive = ZipDecoder().decodeBytes(package.bytes);
-    final manifest =
-        jsonDecode(utf8.decode(archive.findFile('manifest.json')!.readBytes()!))
-            as Map<String, Object?>;
-    final planJson =
-        jsonDecode(utf8.decode(archive.findFile('plan.json')!.readBytes()!))
-            as Map<String, Object?>;
-    final planRoot = planJson['plan'] as Map<String, Object?>;
-    final points = planRoot['points'] as List<Object?>;
-    final pointJson = points.single as Map<String, Object?>;
-    final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
-
-    expect(requestedUrls, [
-      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=h160',
-      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg',
-    ]);
-    expect(
-      archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'),
-      isNotNull,
-    );
-    expect(
-      archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
-      isNotNull,
-    );
-    expect(assetCounts['thumbnails'], 1);
-    expect(assetCounts['fullReferences'], 1);
-    expect(
-      pointJson['referenceThumbnailAsset'],
-      'assets/thumbnails/${firstPoint.id}.jpg',
-    );
-    expect(
-      pointJson['referenceFullReferenceAsset'],
-      'assets/full_references/${firstPoint.id}.jpg',
-    );
-  });
+      expect(requestedUrls, [
+        'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg',
+      ]);
+      expect(
+        archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'),
+        isNull,
+      );
+      expect(
+        archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
+        isNotNull,
+      );
+      expect(assetCounts['thumbnails'], 0);
+      expect(assetCounts['fullReferences'], 1);
+      expect(pointJson['referenceThumbnailAsset'], isNull);
+      expect(
+        pointJson['referenceFullReferenceAsset'],
+        'assets/full_references/${firstPoint.id}.jpg',
+      );
+      expect(
+        package.warningCounts[PlanExportWarningType.thumbnailMissing.key],
+        1,
+      );
+    },
+  );
 
   test('plan export skips full reference downloads unless requested', () async {
     final repository = SamplePilgrimageRepository();
@@ -213,20 +221,232 @@ void main() {
             as Map<String, Object?>;
     final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
 
-    expect(requestedUrls, [
-      'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=h160',
-    ]);
-    expect(
-      archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'),
-      isNotNull,
-    );
+    expect(requestedUrls, isEmpty);
+    expect(archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'), isNull);
     expect(
       archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
       isNull,
     );
-    expect(assetCounts['thumbnails'], 1);
+    expect(assetCounts['thumbnails'], 0);
     expect(assetCounts['fullReferences'], 0);
+    expect(
+      package.warningCounts[PlanExportWarningType.thumbnailMissing.key],
+      1,
+    );
+    expect(
+      package.warningCounts[PlanExportWarningType
+          .fullReferenceDownloadFailed
+          .key],
+      isNull,
+    );
   });
+
+  test(
+    'plan export warns when requested full reference download fails',
+    () async {
+      final repository = SamplePilgrimageRepository();
+      final plan = await repository.loadActivePlan();
+      final firstPoint = plan.points.first;
+      const referenceUrl =
+          'https://image.anitabi.cn/user/1144/bangumi/484761/points/id.jpg?plan=w300';
+      final exportPlan = plan.copyWith(
+        points: [
+          firstPoint.copyWith(
+            referenceImageUrl: referenceUrl,
+            referenceThumbnailPath: null,
+            referenceFullImagePath: null,
+          ),
+        ],
+      );
+
+      final package = await buildPlanExportV2Package(
+        plan: exportPlan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
+        ),
+        networkBytesReader: (_) async => null,
+      );
+
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      final manifest =
+          jsonDecode(
+                utf8.decode(archive.findFile('manifest.json')!.readBytes()!),
+              )
+              as Map<String, Object?>;
+      final warningCounts = manifest['warningCounts'] as Map<String, Object?>;
+      final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
+
+      expect(assetCounts['thumbnails'], 0);
+      expect(assetCounts['fullReferences'], 0);
+      expect(warningCounts[PlanExportWarningType.thumbnailMissing.key], 1);
+      expect(
+        warningCounts[PlanExportWarningType.fullReferenceDownloadFailed.key],
+        1,
+      );
+      expect(
+        package.warnings,
+        contains(contains('full reference download failed')),
+      );
+    },
+  );
+
+  test(
+    'local uploaded references with stale remote url do not download fallback assets',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_user_reference_',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final fullDirectory = Directory(
+        '${tempDirectory.path}/user_reference_images/full',
+      )..createSync(recursive: true);
+      final thumbDirectory = Directory(
+        '${tempDirectory.path}/user_reference_images/thumb',
+      )..createSync(recursive: true);
+      final fullFile = File('${fullDirectory.path}/point-1.jpg')
+        ..writeAsBytesSync(utf8.encode('local full'));
+      final thumbFile = File('${thumbDirectory.path}/point-1.jpg')
+        ..writeAsBytesSync(utf8.encode('local thumb'));
+
+      final repository = SamplePilgrimageRepository();
+      final plan = await repository.loadActivePlan();
+      final firstPoint = plan.points.first;
+      const staleReferenceUrl =
+          'https://image.anitabi.cn/user/1144/bangumi/484761/points/stale.jpg?plan=w300';
+      final mixedPoint = firstPoint.copyWith(
+        source: PointSource.anitabi,
+        referenceImageUrl: staleReferenceUrl,
+        referenceThumbnailPath: thumbFile.path,
+        referenceFullImagePath: fullFile.path,
+      );
+      final exportPlan = plan.copyWith(points: [mixedPoint]);
+      final requestedUrls = <String>[];
+
+      final package = await buildPlanExportV2Package(
+        plan: exportPlan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
+        ),
+        networkBytesReader: (url) async {
+          requestedUrls.add(url);
+          return utf8.encode('unexpected network bytes');
+        },
+      );
+
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      final manifest =
+          jsonDecode(
+                utf8.decode(archive.findFile('manifest.json')!.readBytes()!),
+              )
+              as Map<String, Object?>;
+      final planJson =
+          jsonDecode(utf8.decode(archive.findFile('plan.json')!.readBytes()!))
+              as Map<String, Object?>;
+      final planRoot = planJson['plan'] as Map<String, Object?>;
+      final points = planRoot['points'] as List<Object?>;
+      final pointJson = points.single as Map<String, Object?>;
+      final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
+
+      expect(requestedUrls, isEmpty);
+      expect(pointsNeedingFullReferenceCache([mixedPoint]), isEmpty);
+      expect(assetCounts['thumbnails'], 1);
+      expect(assetCounts['userReferenceImages'], 1);
+      expect(assetCounts['fullReferences'], 0);
+      expect(
+        archive.findFile('assets/thumbnails/${firstPoint.id}.jpg'),
+        isNotNull,
+      );
+      expect(
+        archive.findFile('assets/user_references/${firstPoint.id}.jpg'),
+        isNotNull,
+      );
+      expect(
+        archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
+        isNull,
+      );
+      expect(pointJson['referenceImageUrl'], isNull);
+      expect(
+        pointJson['referenceThumbnailAsset'],
+        'assets/thumbnails/${firstPoint.id}.jpg',
+      );
+      expect(
+        pointJson['userReferenceAsset'],
+        'assets/user_references/${firstPoint.id}.jpg',
+      );
+      expect(pointJson['referenceFullReferenceAsset'], isNull);
+
+      final estimate = await estimatePlanExportV2Size(
+        plan: exportPlan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
+        ),
+      );
+      expect(estimate.missingThumbnailCount, 0);
+      expect(estimate.missingFullReferenceCount, 0);
+      expect(estimate.missingUserReferenceCount, 0);
+      expect(estimate.hasUnknownLocalAssets, isFalse);
+    },
+  );
+
+  test(
+    'plan export warns when local uploaded reference file is missing',
+    () async {
+      final repository = SamplePilgrimageRepository();
+      final plan = await repository.loadActivePlan();
+      final firstPoint = plan.points.first.copyWith(
+        source: PointSource.manual,
+        referenceImageUrl: null,
+        referenceThumbnailPath: '/missing/user_reference_images/thumb.jpg',
+        referenceFullImagePath: '/missing/user_reference_images/full.jpg',
+      );
+      final exportPlan = plan.copyWith(points: [firstPoint]);
+
+      final package = await buildPlanExportV2Package(
+        plan: exportPlan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
+        ),
+      );
+
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      final manifest =
+          jsonDecode(
+                utf8.decode(archive.findFile('manifest.json')!.readBytes()!),
+              )
+              as Map<String, Object?>;
+      final warningCounts = manifest['warningCounts'] as Map<String, Object?>;
+      final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
+
+      expect(assetCounts['thumbnails'], 0);
+      expect(assetCounts['userReferenceImages'], 0);
+      expect(warningCounts[PlanExportWarningType.thumbnailMissing.key], 1);
+      expect(warningCounts[PlanExportWarningType.userReferenceMissing.key], 1);
+
+      final estimate = await estimatePlanExportV2Size(
+        plan: exportPlan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
+        ),
+      );
+      expect(estimate.missingThumbnailCount, 1);
+      expect(estimate.missingUserReferenceCount, 1);
+      expect(estimate.hasMissingCriticalAssets, isTrue);
+    },
+  );
 
   test('exports works with Bangumi subject types', () async {
     final now = DateTime(2026, 6, 18, 12);

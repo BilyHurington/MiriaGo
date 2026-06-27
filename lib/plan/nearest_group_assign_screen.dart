@@ -342,11 +342,13 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     PilgrimagePoint point,
     StoredUserReferenceImage image,
   ) async {
-    final updatedPlan = await widget.repository.updatePointImageCache(
+    final updatedPlan = await widget.repository.updatePointInPlan(
       planId: _plan.id,
-      pointId: point.id,
-      referenceThumbnailPath: image.thumbnailPath,
-      referenceFullImagePath: image.fullImagePath,
+      point: point.copyWith(
+        referenceImageUrl: null,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
     );
     if (!mounted) {
       return;
@@ -711,11 +713,13 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
     PilgrimagePoint point,
     StoredUserReferenceImage image,
   ) async {
-    final updatedPlan = await widget.repository.updatePointImageCache(
+    final updatedPlan = await widget.repository.updatePointInPlan(
       planId: _plan.id,
-      pointId: point.id,
-      referenceThumbnailPath: image.thumbnailPath,
-      referenceFullImagePath: image.fullImagePath,
+      point: point.copyWith(
+        referenceImageUrl: null,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
     );
     if (!mounted) {
       return;

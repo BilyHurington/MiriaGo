@@ -154,6 +154,40 @@ void main() {
     expect(restored.warnings, isEmpty);
   });
 
+  test('restored user reference assets clear stale remote reference url', () {
+    final bytes = _zipPackageBytes(
+      pointReferenceImageUrl: 'https://image.anitabi.cn/points/old.jpg',
+      pointUserReferenceAsset: 'assets/user_references/point-1.jpg',
+      pointFullReferenceAsset: null,
+      assetFiles: {
+        'assets/thumbnails/point-1.jpg': utf8.encode('thumb'),
+        'assets/user_references/point-1.jpg': utf8.encode('user full'),
+      },
+    );
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'restore-user-reference.sjhplan',
+    );
+
+    final restored = applyRestoredAssetPaths(
+      importPackage: importPackage,
+      restoredPaths: const {
+        'assets/thumbnails/point-1.jpg': '/local/thumb.jpg',
+        'assets/user_references/point-1.jpg':
+            '/local/user_reference_images/full/point-1.jpg',
+      },
+      includeRecords: false,
+    );
+
+    final point = restored.plan.points.single;
+    expect(point.referenceImageUrl, isNull);
+    expect(
+      point.referenceFullImagePath,
+      '/local/user_reference_images/full/point-1.jpg',
+    );
+    expect(restored.warnings, isEmpty);
+  });
+
   test('clears stale full reference path when asset is not restored', () {
     final bytes = _zipPackageBytes(
       assetFiles: {'assets/thumbnails/point-1.jpg': utf8.encode('thumb')},
@@ -179,10 +213,24 @@ void main() {
   });
 }
 
-List<int> _zipPackageBytes({required Map<String, List<int>> assetFiles}) {
+List<int> _zipPackageBytes({
+  required Map<String, List<int>> assetFiles,
+  String? pointReferenceImageUrl,
+  String? pointFullReferenceAsset = 'assets/full_references/point-1.jpg',
+  String? pointUserReferenceAsset,
+}) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('manifest.json', _manifestJson()))
-    ..addFile(ArchiveFile.string('plan.json', _planJson()));
+    ..addFile(
+      ArchiveFile.string(
+        'plan.json',
+        _planJson(
+          pointReferenceImageUrl: pointReferenceImageUrl,
+          pointFullReferenceAsset: pointFullReferenceAsset,
+          pointUserReferenceAsset: pointUserReferenceAsset,
+        ),
+      ),
+    );
   for (final entry in assetFiles.entries) {
     archive.addFile(ArchiveFile.bytes(entry.key, entry.value));
   }
@@ -212,7 +260,11 @@ String _manifestJson() {
   });
 }
 
-String _planJson() {
+String _planJson({
+  String? pointReferenceImageUrl,
+  String? pointFullReferenceAsset = 'assets/full_references/point-1.jpg',
+  String? pointUserReferenceAsset,
+}) {
   return jsonEncode({
     'schemaVersion': miriagoExportSchemaVersion,
     'exportMode': 'plan_with_records',
@@ -249,11 +301,12 @@ String _planJson() {
           'referenceLabel': '',
           'source': 'manual',
           'sourceId': null,
-          'referenceImageUrl': null,
+          'referenceImageUrl': pointReferenceImageUrl,
           'referenceThumbnailPath': '/old/thumb.jpg',
           'referenceFullImagePath': '/old/full.jpg',
           'referenceThumbnailAsset': 'assets/thumbnails/point-1.jpg',
-          'referenceFullReferenceAsset': 'assets/full_references/point-1.jpg',
+          'referenceFullReferenceAsset': pointFullReferenceAsset,
+          'userReferenceAsset': pointUserReferenceAsset,
           'sourceUrl': null,
           'groupId': null,
           'groupOrderIndex': null,

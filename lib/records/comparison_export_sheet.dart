@@ -183,7 +183,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       widget.repository.saveAppSettings(settings),
     ]);
 
-    final path = await exportComparisonImage(
+    final result = await exportComparisonImage(
       referenceImagePath: widget.referenceImagePath,
       referenceImageUrl: widget.referenceImageUrl,
       capturedPath: widget.capturedPath,
@@ -194,15 +194,24 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
 
     if (!mounted) return;
 
-    if (path != null) {
+    if (result.isSuccess) {
       Navigator.of(context).pop();
-      ImageViewerScreen.show(context, filePath: path);
+      ImageViewerScreen.show(context, filePath: result.path);
     } else {
       setState(() => _exporting = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('导出失败，请稍后重试。')));
+      ).showSnackBar(SnackBar(content: Text(_failureMessage(result))));
     }
+  }
+
+  String _failureMessage(ComparisonExportImageResult result) {
+    return switch (result.failureReason) {
+      ComparisonExportFailureReason.referenceUnavailable => '参考图不可用，无法导出对比图片。',
+      ComparisonExportFailureReason.capturedPhotoUnavailable =>
+        '巡礼图不可用，无法导出对比图片。',
+      ComparisonExportFailureReason.renderFailed || null => '导出失败，请稍后重试。',
+    };
   }
 }
 

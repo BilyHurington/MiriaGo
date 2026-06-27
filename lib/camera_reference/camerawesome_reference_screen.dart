@@ -13,6 +13,7 @@ import '../app_theme.dart';
 import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../plan/reference_image_status.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/reference_image_source_stub.dart'
@@ -72,6 +73,10 @@ class _CamerawesomeReferenceScreenState
   double? _referenceAspectRatio;
   bool _referenceAspectRatioLoading = false;
   int _referenceAspectRatioRequest = 0;
+
+  String? get _remoteReferenceImageUrl => hasRemoteReferenceImage(widget.point)
+      ? anitabiFullResolutionImageUrl(widget.point.referenceImageUrl)
+      : null;
 
   @override
   void initState() {
@@ -137,7 +142,7 @@ class _CamerawesomeReferenceScreenState
     final ratio = await _resolveReferenceAspectRatio(
       bytes: _localReferenceBytes,
       localPath: widget.point.referenceFullImagePath,
-      url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
+      url: _remoteReferenceImageUrl,
     );
     if (!mounted || requestId != _referenceAspectRatioRequest) {
       return;
@@ -235,7 +240,7 @@ class _CamerawesomeReferenceScreenState
           referenceImagePath: widget.point.referenceFullImagePath,
           referenceImageUrl: _localReferenceBytes != null
               ? null
-              : anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
+              : _remoteReferenceImageUrl,
           capturedAtOverride: capturedAtOverride,
           saveVisitPhotoToGallery: shouldAutoSaveVisitPhotoToGallery(
             widget.settings,
@@ -278,7 +283,7 @@ class _CamerawesomeReferenceScreenState
       localPath: referenceImageLocalPathCanDisplay(referenceFullImagePath)
           ? referenceFullImagePath
           : null,
-      url: anitabiFullResolutionImageUrl(widget.point.referenceImageUrl),
+      url: _remoteReferenceImageUrl,
     );
     final captureAspectRatio = resolveCameraCaptureAspectRatio(
       referenceAspectRatio: _referenceAspectRatio,

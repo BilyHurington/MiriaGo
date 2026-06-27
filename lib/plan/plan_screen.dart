@@ -417,10 +417,12 @@ class _PlanScreenState extends State<PlanScreen> {
       onComplete: () => controller.statusFor(point) == VisitStatus.completed
           ? controller.reopenPoint(point)
           : controller.completePoint(point),
-      onReplaceReference: (point, image) => controller.updatePointImageCache(
-        point,
-        referenceThumbnailPath: image.thumbnailPath,
-        referenceFullImagePath: image.fullImagePath,
+      onReplaceReference: (point, image) => controller.updatePoint(
+        point.copyWith(
+          referenceImageUrl: null,
+          referenceThumbnailPath: image.thumbnailPath,
+          referenceFullImagePath: image.fullImagePath,
+        ),
       ),
       groups: controller.plan.groups,
       onMoveToGroup: controller.movePointToGroup,
