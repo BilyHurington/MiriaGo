@@ -122,6 +122,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(''))();
   BoolColumn get saveVisitPhotoToGallery =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get autoSaveComparisonToGallery =>
+      boolean().withDefault(const Constant(false))();
   BoolColumn get comparisonShowPilgrimName =>
       boolean().withDefault(const Constant(false))();
   TextColumn get comparisonPilgrimName =>
@@ -148,7 +150,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -362,6 +364,15 @@ class AppDatabase extends _$AppDatabase {
           appSettingsEntries.navigationApp,
         );
         await normalizeScopedStorageIds();
+      }
+      if (from < 23) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'auto_save_comparison_to_gallery',
+          appSettingsEntries,
+          appSettingsEntries.autoSaveComparisonToGallery,
+        );
       }
     },
   );

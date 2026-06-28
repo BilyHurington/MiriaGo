@@ -856,6 +856,7 @@ class _PointRecordsPreview extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemBuilder: (context, index) {
               final record = recentRecords[index];
+              final photoPath = resolveVisitRecordDisplayPhotoPath(record);
               return SizedBox(
                 width: 92,
                 child: Material(
@@ -869,11 +870,7 @@ class _PointRecordsPreview extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: VisitRecordPhoto(
-                            path: record.displayPhotoPath,
-                          ),
-                        ),
+                        Expanded(child: VisitRecordPhoto(path: photoPath)),
                         const SizedBox(height: 4),
                         Text(
                           _formatRecordTime(record.capturedAt),

@@ -159,6 +159,7 @@ class AppSettings {
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
     this.saveVisitPhotoToGallery = true,
+    this.autoSaveComparisonToGallery = false,
     this.comparisonShowPilgrimName = false,
     this.comparisonPilgrimName = '',
     this.customThemeColorName = '\u81ea\u5b9a\u4e49',
@@ -183,6 +184,7 @@ class AppSettings {
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
+  final bool autoSaveComparisonToGallery;
   final bool comparisonShowPilgrimName;
   final String comparisonPilgrimName;
   final String customThemeColorName;
@@ -207,6 +209,7 @@ class AppSettings {
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
+    bool? autoSaveComparisonToGallery,
     bool? comparisonShowPilgrimName,
     String? comparisonPilgrimName,
     String? customThemeColorName,
@@ -236,6 +239,8 @@ class AppSettings {
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
       saveVisitPhotoToGallery:
           saveVisitPhotoToGallery ?? this.saveVisitPhotoToGallery,
+      autoSaveComparisonToGallery:
+          autoSaveComparisonToGallery ?? this.autoSaveComparisonToGallery,
       comparisonShowPilgrimName:
           comparisonShowPilgrimName ?? this.comparisonShowPilgrimName,
       comparisonPilgrimName:

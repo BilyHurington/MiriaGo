@@ -79,6 +79,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
     'saveVisitPhotoToGallery': settings.saveVisitPhotoToGallery,
+    'autoSaveComparisonToGallery': settings.autoSaveComparisonToGallery,
     'comparisonShowPilgrimName': settings.comparisonShowPilgrimName,
     'comparisonPilgrimName': settings.comparisonPilgrimName,
     'customThemeColorName': settings.customThemeColorName,
@@ -131,6 +132,8 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     ),
     saveVisitPhotoToGallery:
         _boolValue(json['saveVisitPhotoToGallery']) ?? true,
+    autoSaveComparisonToGallery:
+        _boolValue(json['autoSaveComparisonToGallery']) ?? false,
     comparisonShowPilgrimName:
         _boolValue(json['comparisonShowPilgrimName']) ?? false,
     comparisonPilgrimName: _stringValue(

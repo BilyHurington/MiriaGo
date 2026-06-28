@@ -8,11 +8,22 @@ import '../data/pilgrimage_repository.dart';
 import '../desktop/tauri_bridge.dart';
 import '../map/map_tile_config.dart';
 import '../plan/pilgrimage_models.dart';
+import '../records/comparison_export_config.dart';
+import '../records/comparison_export_config_editor.dart';
+import '../records/comparison_export_config_storage_stub.dart'
+    if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
 import '../widgets/copyable_text.dart';
 
 bool get _showFutureThemeModeSettings => false;
 bool get _showFutureNavigationAppSettings => false;
 bool get _showFutureCacheCleanupSettings => false;
+bool get _shouldShowMobileGallerySettings {
+  if (kIsWeb) {
+    return false;
+  }
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+}
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -190,18 +201,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              const _SettingsDivider(),
-              _SummarySwitchTile(
-                icon: Icons.cloud_upload_outlined,
-                title: '照片备份',
-                subtitle: '保存巡礼照片到相册',
-                value: settings.saveVisitPhotoToGallery,
-                onChanged: (value) {
-                  widget.onChanged(
-                    settings.copyWith(saveVisitPhotoToGallery: value),
-                  );
-                },
-              ),
+              if (_shouldShowMobileGallerySettings) ...[
+                const _SettingsDivider(),
+                _SummarySwitchTile(
+                  icon: Icons.cloud_upload_outlined,
+                  title: '照片备份',
+                  subtitle: '保存巡礼照片到相册',
+                  value: settings.saveVisitPhotoToGallery,
+                  onChanged: (value) {
+                    widget.onChanged(
+                      settings.copyWith(saveVisitPhotoToGallery: value),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            header: _SettingsCardHeader(
+              icon: Icons.compare_arrows_outlined,
+              title: '对比图设置',
+              subtitle: '导出样式、自动保存到相册',
+              onTap: () => _openComparisonStyleSettings(settings),
+            ),
+            children: [
+              if (_shouldShowMobileGallerySettings) ...[
+                _SummarySwitchTile(
+                  icon: Icons.photo_library_outlined,
+                  title: '自动保存对比图',
+                  subtitle: '保存记录时保存到相册',
+                  value: settings.autoSaveComparisonToGallery,
+                  onChanged: (value) {
+                    widget.onChanged(
+                      settings.copyWith(autoSaveComparisonToGallery: value),
+                    );
+                  },
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -268,6 +305,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  Future<void> _openComparisonStyleSettings(AppSettings settings) {
+    return _pushDetail(
+      _ComparisonStyleSettingsPage(
+        repository: widget.repository,
+        settings: settings,
+        onChanged: widget.onChanged,
+      ),
+    );
   }
 
   Future<void> _confirmResetSettings() async {
@@ -879,25 +926,140 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        if (_shouldShowMobileGallerySettings) ...[
+          const SizedBox(height: 12),
+          _SettingsSection(
+            title: '照片备份',
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(
+                  Icons.cloud_upload_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: const Text('保存巡礼照片到相册', style: _titleTextStyle),
+                subtitle: const Text(
+                  '保存记录时同时备份一张巡礼照片。',
+                  style: _secondaryTextStyle,
+                ),
+                value: settings.saveVisitPhotoToGallery,
+                onChanged: (value) {
+                  _update(settings.copyWith(saveVisitPhotoToGallery: value));
+                },
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ComparisonStyleSettingsPage extends StatefulWidget {
+  const _ComparisonStyleSettingsPage({
+    required this.repository,
+    required this.settings,
+    required this.onChanged,
+  });
+
+  final PilgrimageRepository repository;
+  final AppSettings settings;
+  final ValueChanged<AppSettings> onChanged;
+
+  @override
+  State<_ComparisonStyleSettingsPage> createState() =>
+      _ComparisonStyleSettingsPageState();
+}
+
+class _ComparisonStyleSettingsPageState
+    extends State<_ComparisonStyleSettingsPage> {
+  var _settings = const AppSettings();
+  var _config = ComparisonExportConfig.lastUsed;
+  late final TextEditingController _pilgrimNameController;
+  var _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+    _config = ComparisonExportConfig.lastUsed.withSettings(_settings);
+    _pilgrimNameController = TextEditingController(text: _config.pilgrimName);
+    _loadSavedConfig();
+  }
+
+  @override
+  void dispose() {
+    _pilgrimNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedConfig() async {
+    final settings = await widget.repository.loadAppSettings();
+    final saved = await loadComparisonExportConfig();
+    if (!mounted) {
+      return;
+    }
+
+    final migratedConfig = (saved ?? _config).copyWith(
+      showPilgrimName: settings.comparisonShowPilgrimName,
+      pilgrimName: settings.comparisonPilgrimName.isEmpty
+          ? saved?.pilgrimName
+          : settings.comparisonPilgrimName,
+    );
+    final migratedSettings = migratedConfig.applyToSettings(settings);
+    setState(() {
+      _settings = migratedSettings;
+      _config = migratedConfig;
+      ComparisonExportConfig.lastUsed = migratedConfig;
+      _pilgrimNameController.text = migratedConfig.pilgrimName;
+      _loading = false;
+    });
+    if (migratedSettings.comparisonPilgrimName !=
+            settings.comparisonPilgrimName ||
+        migratedSettings.comparisonShowPilgrimName !=
+            settings.comparisonShowPilgrimName) {
+      await widget.repository.saveAppSettings(migratedSettings);
+      widget.onChanged(migratedSettings);
+    }
+  }
+
+  Future<void> _updateConfig(ComparisonExportConfig config) async {
+    final settings = config.applyToSettings(_settings);
+    setState(() {
+      _config = config;
+      _settings = settings;
+    });
+    ComparisonExportConfig.lastUsed = config;
+    widget.onChanged(settings);
+    await Future.wait([
+      saveComparisonExportConfig(config),
+      widget.repository.saveAppSettings(settings),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ScaledDetailScaffold(
+      title: '对比图设置',
+      uiScale: _settings.uiScale,
+      fontScale: _settings.fontScale,
+      children: [
         _SettingsSection(
-          title: '照片备份',
+          title: '默认配置',
           children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              secondary: const Icon(
-                Icons.cloud_upload_outlined,
-                color: AppColors.textSecondary,
-              ),
-              title: const Text('保存巡礼照片到相册', style: _titleTextStyle),
-              subtitle: const Text(
-                '保存记录时同时备份一张巡礼照片。',
-                style: _secondaryTextStyle,
-              ),
-              value: settings.saveVisitPhotoToGallery,
-              onChanged: (value) {
-                _update(settings.copyWith(saveVisitPhotoToGallery: value));
-              },
+            Text(
+              comparisonExportConfigSummary(_config),
+              style: _secondaryTextStyle,
+            ),
+            if (_loading) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(minHeight: 2),
+            ],
+            const SizedBox(height: 14),
+            ComparisonExportConfigEditor(
+              config: _config,
+              pilgrimNameController: _pilgrimNameController,
+              onChanged: _updateConfig,
             ),
           ],
         ),

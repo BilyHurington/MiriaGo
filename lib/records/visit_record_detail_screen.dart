@@ -283,6 +283,14 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   }
 
   void _exportComparison(BuildContext context, PilgrimagePoint? resolvedPoint) {
+    final capturedPath = resolveVisitRecordDisplayPhotoPath(_record);
+    if (capturedPath == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('巡礼图不可用，无法导出对比图片。')));
+      return;
+    }
+
     final meta = <ComparisonMetadataField, String>{
       ComparisonMetadataField.capturedAt: _formatDateTime(_record.capturedAt),
     };
@@ -317,7 +325,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       context,
       referenceImagePath: _resolvedReferenceImagePath(resolvedPoint),
       referenceImageUrl: _resolvedReferenceImageUrl(resolvedPoint),
-      capturedPath: _record.displayPhotoPath,
+      capturedPath: capturedPath,
       metadata: meta,
       colorGradingSummary: _colorGradingSummary(),
       repository: repository,
@@ -451,6 +459,7 @@ class _RecordComparisonPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final photoPath = resolveVisitRecordDisplayPhotoPath(record);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -469,14 +478,8 @@ class _RecordComparisonPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _RecordImageTile(
           label: '巡礼图',
-          child: VisitRecordPhoto(
-            path: record.displayPhotoPath,
-            fit: BoxFit.contain,
-          ),
-          onTap: () => ImageViewerScreen.show(
-            context,
-            filePath: record.displayPhotoPath,
-          ),
+          child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
+          onTap: () => ImageViewerScreen.show(context, filePath: photoPath),
         ),
       ],
     );

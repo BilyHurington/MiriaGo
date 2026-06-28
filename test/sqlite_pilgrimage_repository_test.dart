@@ -694,6 +694,7 @@ void main() {
         themeMode: AppThemeMode.system,
         navigationApp: NavigationApp.amap,
         saveVisitPhotoToGallery: false,
+        autoSaveComparisonToGallery: true,
         comparisonShowPilgrimName: true,
         comparisonPilgrimName: 'BilyHurington',
         customThemeColorName: '薄荷',
@@ -725,6 +726,7 @@ void main() {
     expect(settings.themeMode, AppThemeMode.system);
     expect(settings.navigationApp, NavigationApp.amap);
     expect(settings.saveVisitPhotoToGallery, isFalse);
+    expect(settings.autoSaveComparisonToGallery, isTrue);
     expect(settings.comparisonShowPilgrimName, isTrue);
     expect(settings.comparisonPilgrimName, 'BilyHurington');
     expect(settings.customThemeColorName, '薄荷');

@@ -15,6 +15,7 @@ void main() {
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
         saveVisitPhotoToGallery: false,
+        autoSaveComparisonToGallery: true,
         comparisonShowPilgrimName: true,
         comparisonPilgrimName: 'BilyHurington',
       ),
@@ -45,6 +46,7 @@ void main() {
       'https://example.com/style.json',
     );
     expect(decoded.settings.saveVisitPhotoToGallery, isFalse);
+    expect(decoded.settings.autoSaveComparisonToGallery, isTrue);
     expect(decoded.settings.comparisonShowPilgrimName, isTrue);
     expect(decoded.settings.comparisonPilgrimName, 'BilyHurington');
     expect(decoded.plans.single.id, source.plans.single.id);

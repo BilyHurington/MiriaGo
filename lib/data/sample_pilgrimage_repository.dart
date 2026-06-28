@@ -716,6 +716,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
           settings.cameraFallbackAspectRatio == CameraPhotoAspectRatio.auto
           ? CameraPhotoAspectRatio.native
           : settings.cameraFallbackAspectRatio,
+      saveVisitPhotoToGallery: settings.saveVisitPhotoToGallery,
+      autoSaveComparisonToGallery: settings.autoSaveComparisonToGallery,
+      comparisonShowPilgrimName: settings.comparisonShowPilgrimName,
+      comparisonPilgrimName: settings.comparisonPilgrimName.trim(),
       navigationApp: settings.navigationApp,
       customXyzTileUrl: settings.customXyzTileUrl.trim(),
       customMapLibreStyleUrl: settings.customMapLibreStyleUrl.trim(),

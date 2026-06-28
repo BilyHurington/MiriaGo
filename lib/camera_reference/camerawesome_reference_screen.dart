@@ -21,6 +21,7 @@ import '../widgets/reference_image_source_stub.dart'
 import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
+import 'auto_comparison_gallery_backup.dart';
 import 'camera_zoom_capabilities.dart';
 import 'gallery_capture_time_stub.dart'
     if (dart.library.io) 'gallery_capture_time_io.dart';
@@ -242,7 +243,11 @@ class _CamerawesomeReferenceScreenState
               ? null
               : _remoteReferenceImageUrl,
           capturedAtOverride: capturedAtOverride,
+          settings: widget.settings,
           saveVisitPhotoToGallery: shouldAutoSaveVisitPhotoToGallery(
+            widget.settings,
+          ),
+          autoSaveComparisonToGallery: shouldAutoSaveComparisonToGallery(
             widget.settings,
           ),
         ),

@@ -143,4 +143,23 @@ void main() {
 
     expect(find.byType(Image), findsOneWidget);
   });
+
+  test('visit record display resolver skips missing graded photo', () {
+    final record = PilgrimageVisitRecord(
+      id: 'record-1',
+      planId: 'plan-1',
+      pointId: 'point-1',
+      workId: 'work-1',
+      photoPath: 'docs/sample_images/铃音-记录详情页面-调色前.jpg',
+      originalPhotoPath: 'docs/sample_images/铃音-记录详情页面-调色前.jpg',
+      gradedPhotoPath: '/missing/graded.jpg',
+      referenceMode: '上下',
+      capturedAt: DateTime(2026, 6, 28),
+    );
+
+    expect(
+      resolveVisitRecordDisplayPhotoPath(record),
+      'docs/sample_images/铃音-记录详情页面-调色前.jpg',
+    );
+  });
 }

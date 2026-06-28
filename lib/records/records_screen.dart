@@ -907,6 +907,7 @@ class _VisitRecordCard extends StatelessWidget {
     final subtitle = resolvedPoint == null
         ? _recordSnapshotSubtitle(record)
         : '${resolvedPoint.work.title} / ${resolvedPoint.displayEpisodeLabel}';
+    final photoPath = resolveVisitRecordDisplayPhotoPath(record);
     return Material(
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
@@ -921,7 +922,7 @@ class _VisitRecordCard extends StatelessWidget {
             SizedBox(
               width: 104,
               height: 104,
-              child: VisitRecordPhoto(path: record.displayPhotoPath),
+              child: VisitRecordPhoto(path: photoPath),
             ),
             Expanded(
               child: Padding(

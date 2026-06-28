@@ -154,6 +154,40 @@ void main() {
     expect(restored.warnings, isEmpty);
   });
 
+  test(
+    'clears stale graded photo path when declared asset is not restored',
+    () {
+      final bytes = _zipPackageBytes(
+        assetFiles: {
+          'assets/thumbnails/point-1.jpg': utf8.encode('thumb'),
+          'assets/full_references/point-1.jpg': utf8.encode('full'),
+          'assets/visit_photos/record-1.jpg': utf8.encode('photo'),
+        },
+      );
+      final importPackage = readPlanImportPackageFromBytes(
+        bytes,
+        sourceName: 'missing-graded.sjhplan',
+      );
+
+      final restored = applyRestoredAssetPaths(
+        importPackage: importPackage,
+        restoredPaths: const {
+          'assets/thumbnails/point-1.jpg': '/local/thumb.jpg',
+          'assets/full_references/point-1.jpg': '/local/full.jpg',
+          'assets/visit_photos/record-1.jpg': '/local/photo.jpg',
+        },
+        includeRecords: true,
+      );
+
+      expect(restored.visitRecords.single.photoPath, '/local/photo.jpg');
+      expect(restored.visitRecords.single.gradedPhotoPath, isNull);
+      expect(
+        restored.warnings,
+        contains('asset not restored: assets/graded_photos/record-1.jpg'),
+      );
+    },
+  );
+
   test('restored user reference assets clear stale remote reference url', () {
     final bytes = _zipPackageBytes(
       pointReferenceImageUrl: 'https://image.anitabi.cn/points/old.jpg',

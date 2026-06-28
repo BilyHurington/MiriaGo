@@ -184,6 +184,7 @@ class _PointVisitRecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final photoPath = resolveVisitRecordDisplayPhotoPath(record);
     return Material(
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
@@ -198,7 +199,7 @@ class _PointVisitRecordCard extends StatelessWidget {
             SizedBox(
               width: 104,
               height: 104,
-              child: VisitRecordPhoto(path: record.displayPhotoPath),
+              child: VisitRecordPhoto(path: photoPath),
             ),
             Expanded(
               child: Padding(

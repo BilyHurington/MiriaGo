@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../records/visit_record_photo_stub.dart'
+    if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/snackbar_helper.dart';
 import 'color_adjustment.dart';
 import 'color_grading_params.dart';
@@ -98,7 +100,11 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
 
   Future<void> _loadImages() async {
     try {
-      final capturedBytes = await File(_record.sourcePhotoPath).readAsBytes();
+      final sourcePhotoPath = resolveVisitRecordSourcePhotoPath(_record);
+      if (sourcePhotoPath == null) {
+        throw const FileSystemException('Visit record photo is unavailable');
+      }
+      final capturedBytes = await File(sourcePhotoPath).readAsBytes();
       final referenceBytes = await _loadReferenceBytes();
       if (!mounted) {
         return;
@@ -234,7 +240,8 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
 
     final updated = await widget.controller.updateVisitRecordColorGrading(
       record: _record,
-      originalPhotoPath: _record.sourcePhotoPath,
+      originalPhotoPath:
+          resolveVisitRecordSourcePhotoPath(_record) ?? _record.sourcePhotoPath,
       gradedPhotoPath: path,
       colorGradingMode: _selectedMode.name,
       colorGradingParamsJson: jsonEncode(targetParams.toJson()),

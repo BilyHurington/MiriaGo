@@ -72,6 +72,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
       saveVisitPhotoToGallery: row.saveVisitPhotoToGallery,
+      autoSaveComparisonToGallery: row.autoSaveComparisonToGallery,
       comparisonShowPilgrimName: row.comparisonShowPilgrimName,
       comparisonPilgrimName: row.comparisonPilgrimName,
       customThemeColorName: row.customThemeColorName,
@@ -885,6 +886,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.customMapLibreStyleUrl.trim(),
             ),
             saveVisitPhotoToGallery: Value(settings.saveVisitPhotoToGallery),
+            autoSaveComparisonToGallery: Value(
+              settings.autoSaveComparisonToGallery,
+            ),
             comparisonShowPilgrimName: Value(
               settings.comparisonShowPilgrimName,
             ),

@@ -351,7 +351,9 @@ PilgrimageVisitRecord _recordWithRestoredAssets(
   );
   return record.copyWith(
     photoPath: photoPath ?? record.photoPath,
-    gradedPhotoPath: gradedPhotoPath ?? record.gradedPhotoPath,
+    gradedPhotoPath: assetRefs.gradedPhotoAsset == null
+        ? record.gradedPhotoPath
+        : gradedPhotoPath,
   );
 }
 
