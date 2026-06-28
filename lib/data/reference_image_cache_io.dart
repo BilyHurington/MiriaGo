@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_url.dart';
+import 'image_bytes.dart';
 
 Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
   final url = point.referenceImageUrl;
@@ -67,11 +68,18 @@ Future<String?> _cacheImage({
   final path = p.join(cacheDirectory.path, filename);
   final file = File(path);
   if (file.existsSync() && file.lengthSync() > 0) {
-    return path;
+    final bytes = await file.readAsBytes();
+    if (isSupportedImageBytes(bytes)) {
+      return path;
+    }
+    await file.delete();
   }
 
   final response = await http.get(Uri.parse(url));
   if (response.statusCode < 200 || response.statusCode >= 300) {
+    return null;
+  }
+  if (!isSupportedImageBytes(response.bodyBytes)) {
     return null;
   }
 

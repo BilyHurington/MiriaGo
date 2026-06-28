@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../data/image_bytes.dart';
+import '../data/reference_asset_paths.dart';
 import '../plan/pilgrimage_models.dart';
 import 'plan_export_v2.dart';
 import 'plan_package.dart';
@@ -230,24 +232,22 @@ Map<String, List<int>> _archiveAssetEntries(Archive archive) {
     if (!_isSafeAssetPath(name)) {
       continue;
     }
+    final normalizedName = normalizeAssetPathSeparators(name);
     final bytes = file.readBytes();
     if (bytes == null || bytes.isEmpty) {
       continue;
     }
-    entries[name] = List<int>.from(bytes);
+    if (isImagePackageAssetPath(normalizedName) &&
+        !isSupportedImageBytes(bytes)) {
+      continue;
+    }
+    entries[normalizedName] = List<int>.from(bytes);
   }
   return entries;
 }
 
 bool _isSafeAssetPath(String path) {
-  if (!path.startsWith('assets/') || path.endsWith('/')) {
-    return false;
-  }
-  if (path.startsWith('/') || path.contains(r'\')) {
-    return false;
-  }
-  final segments = path.split('/');
-  return segments.every((segment) => segment.isNotEmpty && segment != '..');
+  return isSafeRelativeAssetPath(path);
 }
 
 Map<String, PlanImportPointAssetRefs> _pointAssetRefsById(Object? source) {
@@ -297,7 +297,10 @@ String? _safeAssetValue(Object? value) {
   if (value is! String || value.isEmpty) {
     return null;
   }
-  return _isSafeAssetPath(value) ? value : null;
+  if (!_isSafeAssetPath(value)) {
+    return null;
+  }
+  return normalizeAssetPathSeparators(value);
 }
 
 PilgrimagePoint _pointWithRestoredAssets(
@@ -365,11 +368,15 @@ String? _restoredPath(
   if (assetPath == null) {
     return null;
   }
-  final restoredPath = restoredPaths[assetPath];
+  final normalizedAssetPath = normalizeAssetPathSeparators(assetPath);
+  final restoredPath =
+      restoredPaths[normalizedAssetPath] ?? restoredPaths[assetPath];
   if (restoredPath == null) {
-    warnings.add('asset not restored: $assetPath');
+    warnings.add('asset not restored: $normalizedAssetPath');
   }
-  return restoredPath;
+  return restoredPath == null
+      ? null
+      : normalizeAssetPathSeparators(restoredPath);
 }
 
 PilgrimagePlan _planFromV2Json(Map<String, Object?> json) {

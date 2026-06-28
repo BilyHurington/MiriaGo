@@ -346,7 +346,10 @@ pub fn restore_import_assets(
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
         fs::write(&local_full_path, bytes).map_err(|error| error.to_string())?;
-        restored_paths.insert(package_path, local_relative_path.display().to_string());
+        restored_paths.insert(
+            package_path.replace('\\', "/"),
+            relative_path_string(&local_relative_path),
+        );
     }
 
     Ok(RestoreImportAssetsResult { restored_paths })
@@ -494,6 +497,13 @@ fn mime_type_for_path(path: &std::path::Path) -> String {
         _ => "application/octet-stream",
     }
     .to_string()
+}
+
+fn relative_path_string(path: &std::path::Path) -> String {
+    path.components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn safe_directory_name(value: &str) -> String {

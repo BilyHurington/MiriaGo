@@ -4,27 +4,37 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../data/image_bytes.dart';
+import '../data/reference_asset_paths.dart';
 import '../desktop/desktop_asset_image.dart';
 import '../desktop/tauri_bridge.dart' as tauri;
 
 const _exportNetworkTimeout = Duration(seconds: 8);
 
 Future<List<int>?> readExportAssetBytes(String path) async {
-  final normalizedPath = path.trim();
+  final normalizedPath = normalizeAssetPathSeparators(path.trim());
   if (normalizedPath.isEmpty || _isNetworkUrl(normalizedPath)) {
     return null;
   }
   if (tauri.isTauriLauncherAvailable && isDesktopAssetPath(normalizedPath)) {
     try {
       final asset = await tauri.readDesktopAsset(path: normalizedPath);
-      return base64Decode(asset.dataBase64);
+      final bytes = base64Decode(asset.dataBase64);
+      return isSupportedImageBytes(bytes) ? bytes : null;
     } on Object {
       return null;
     }
   }
+  if (isRuntimeManagedAssetPath(normalizedPath)) {
+    return null;
+  }
   try {
     final data = await rootBundle.load(normalizedPath);
-    return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    final bytes = data.buffer.asUint8List(
+      data.offsetInBytes,
+      data.lengthInBytes,
+    );
+    return isSupportedImageBytes(bytes) ? bytes : null;
   } on FlutterError {
     return null;
   }
@@ -42,7 +52,9 @@ Future<List<int>?> readExportNetworkBytes(String url) async {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;
     }
-    return response.bodyBytes;
+    return isSupportedImageBytes(response.bodyBytes)
+        ? response.bodyBytes
+        : null;
   } on Object {
     return null;
   }

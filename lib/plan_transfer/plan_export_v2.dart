@@ -4,6 +4,7 @@ import 'package:archive/archive.dart';
 
 import '../app_version.dart';
 import '../data/anitabi_image_url.dart';
+import '../data/image_bytes.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/reference_image_status.dart';
 import 'plan_export_asset_stub.dart'
@@ -187,7 +188,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     final normalizedUrl = sourceUrl?.trim();
     if (normalizedUrl != null && normalizedUrl.isNotEmpty) {
       final bytes = await readNetworkBytes(normalizedUrl);
-      if (bytes == null) {
+      if (bytes == null || !isSupportedImageBytes(bytes)) {
         addWarning(
           downloadFailedWarningType,
           '$warningLabel download failed: $normalizedUrl',

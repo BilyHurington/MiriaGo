@@ -6,6 +6,7 @@ import '../desktop/tauri_bridge.dart' as tauri;
 import '../desktop/desktop_asset_image.dart';
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_url.dart';
+import 'image_bytes.dart';
 
 Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
   if (!tauri.isTauriLauncherAvailable) {
@@ -66,7 +67,7 @@ Future<String?> _cacheTauriReferenceImage({
   final path = 'assets/$namespace/$filename';
   try {
     final existing = await tauri.readDesktopAsset(path: path);
-    if (existing.dataBase64.isNotEmpty) {
+    if (isSupportedImageBytes(base64Decode(existing.dataBase64))) {
       return path;
     }
   } on Object {
@@ -78,6 +79,9 @@ Future<String?> _cacheTauriReferenceImage({
     return null;
   }
   if (response.bodyBytes.isEmpty) {
+    return null;
+  }
+  if (!isSupportedImageBytes(response.bodyBytes)) {
     return null;
   }
 

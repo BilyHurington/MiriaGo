@@ -132,7 +132,7 @@ void main() {
         ),
         networkBytesReader: (url) async {
           requestedUrls.add(url);
-          return utf8.encode('network bytes for $url');
+          return _jpegBytes;
         },
       );
 
@@ -310,9 +310,9 @@ void main() {
         '${tempDirectory.path}/user_reference_images/thumb',
       )..createSync(recursive: true);
       final fullFile = File('${fullDirectory.path}/point-1.jpg')
-        ..writeAsBytesSync(utf8.encode('local full'));
+        ..writeAsBytesSync(_jpegBytes);
       final thumbFile = File('${thumbDirectory.path}/point-1.jpg')
-        ..writeAsBytesSync(utf8.encode('local thumb'));
+        ..writeAsBytesSync(_jpegBytes);
 
       final repository = SamplePilgrimageRepository();
       final plan = await repository.loadActivePlan();
@@ -337,7 +337,7 @@ void main() {
         ),
         networkBytesReader: (url) async {
           requestedUrls.add(url);
-          return utf8.encode('unexpected network bytes');
+          return _jpegBytes;
         },
       );
 
@@ -511,4 +511,95 @@ void main() {
       'book',
     ]);
   });
+
+  test(
+    'plan export rejects non-image local cache and retries remote reference',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_bad_reference_',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final badFullFile = File('${tempDirectory.path}/bad-full.jpg')
+        ..writeAsBytesSync(_htmlBytes);
+
+      final repository = SamplePilgrimageRepository();
+      final plan = await repository.loadActivePlan();
+      final firstPoint = plan.points.first.copyWith(
+        referenceImageUrl: 'https://image.anitabi.cn/points/1/full.jpg',
+        referenceThumbnailPath: null,
+        referenceFullImagePath: badFullFile.path,
+      );
+      final requestedUrls = <String>[];
+
+      final package = await buildPlanExportV2Package(
+        plan: plan.copyWith(points: [firstPoint]),
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: true,
+        ),
+        networkBytesReader: (url) async {
+          requestedUrls.add(url);
+          return _jpegBytes;
+        },
+      );
+
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      final fullAsset = archive.findFile(
+        'assets/full_references/${firstPoint.id}.jpg',
+      );
+
+      expect(requestedUrls, ['https://image.anitabi.cn/points/1/full.jpg']);
+      expect(fullAsset, isNotNull);
+      expect(fullAsset!.readBytes(), _jpegBytes);
+    },
+  );
+
+  test('plan export rejects non-image remote reference response', () async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    final firstPoint = plan.points.first.copyWith(
+      referenceImageUrl: 'https://image.anitabi.cn/points/1/full.jpg',
+      referenceThumbnailPath: null,
+      referenceFullImagePath: null,
+      source: PointSource.anitabi,
+    );
+
+    final package = await buildPlanExportV2Package(
+      plan: plan.copyWith(points: [firstPoint]),
+      visitRecords: const [],
+      options: const PlanExportV2Options(
+        mode: PlanExportV2Mode.planOnly,
+        includeFullReferenceCache: true,
+      ),
+      networkBytesReader: (_) async => _htmlBytes,
+    );
+
+    final archive = ZipDecoder().decodeBytes(package.bytes);
+    final manifest =
+        jsonDecode(utf8.decode(archive.findFile('manifest.json')!.readBytes()!))
+            as Map<String, Object?>;
+    final assetCounts = manifest['assetCounts'] as Map<String, Object?>;
+
+    expect(
+      archive.findFile('assets/full_references/${firstPoint.id}.jpg'),
+      isNull,
+    );
+    expect(assetCounts['fullReferences'], 0);
+    expect(
+      package.warningCounts[PlanExportWarningType
+          .fullReferenceDownloadFailed
+          .key],
+      1,
+    );
+  });
 }
+
+const _jpegBytes = <int>[0xFF, 0xD8, 0xFF, 0xD9];
+final _htmlBytes = utf8.encode(
+  '<!DOCTYPE html><html><body>MiriaGo</body></html>',
+);

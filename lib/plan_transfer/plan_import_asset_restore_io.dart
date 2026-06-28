@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../data/reference_asset_paths.dart';
 import 'plan_import_package.dart';
 
 const supportsPlanImportAssetRestore = true;
@@ -26,7 +27,7 @@ Future<Map<String, String>> restorePlanImportAssets(
 
   final restoredPaths = <String, String>{};
   for (final entry in importPackage.assetEntries.entries) {
-    final relativePath = entry.key;
+    final relativePath = normalizeAssetPathSeparators(entry.key);
     final segments = relativePath.split('/');
     if (segments.isEmpty || segments.first != 'assets') {
       continue;

@@ -57,10 +57,10 @@ void main() {
   test('ignores unsafe asset paths from v2 zip packages', () {
     final bytes = _zipPackageBytes(
       assetFiles: {
-        'assets/thumbnails/safe.jpg': utf8.encode('safe'),
+        'assets/thumbnails/safe.jpg': _jpegBytes,
         'assets/../escape.jpg': utf8.encode('bad'),
         '/assets/absolute.jpg': utf8.encode('bad'),
-        r'assets\windows.jpg': utf8.encode('bad'),
+        r'assets\windows.jpg': _jpegBytes,
       },
     );
 
@@ -69,7 +69,10 @@ void main() {
       sourceName: 'unsafe.sjhplan',
     );
 
-    expect(importPackage.assetEntries.keys, ['assets/thumbnails/safe.jpg']);
+    expect(importPackage.assetEntries.keys, [
+      'assets/thumbnails/safe.jpg',
+      'assets/windows.jpg',
+    ]);
   });
 
   test(
@@ -119,10 +122,10 @@ void main() {
   test('applies restored asset paths to plan points and records', () {
     final bytes = _zipPackageBytes(
       assetFiles: {
-        'assets/thumbnails/point-1.jpg': utf8.encode('thumb'),
-        'assets/full_references/point-1.jpg': utf8.encode('full'),
-        'assets/visit_photos/record-1.jpg': utf8.encode('photo'),
-        'assets/graded_photos/record-1.jpg': utf8.encode('graded'),
+        'assets/thumbnails/point-1.jpg': _jpegBytes,
+        'assets/full_references/point-1.jpg': _jpegBytes,
+        'assets/visit_photos/record-1.jpg': _jpegBytes,
+        'assets/graded_photos/record-1.jpg': _jpegBytes,
       },
     );
     final importPackage = readPlanImportPackageFromBytes(
@@ -159,9 +162,9 @@ void main() {
     () {
       final bytes = _zipPackageBytes(
         assetFiles: {
-          'assets/thumbnails/point-1.jpg': utf8.encode('thumb'),
-          'assets/full_references/point-1.jpg': utf8.encode('full'),
-          'assets/visit_photos/record-1.jpg': utf8.encode('photo'),
+          'assets/thumbnails/point-1.jpg': _jpegBytes,
+          'assets/full_references/point-1.jpg': _jpegBytes,
+          'assets/visit_photos/record-1.jpg': _jpegBytes,
         },
       );
       final importPackage = readPlanImportPackageFromBytes(
@@ -194,8 +197,8 @@ void main() {
       pointUserReferenceAsset: 'assets/user_references/point-1.jpg',
       pointFullReferenceAsset: null,
       assetFiles: {
-        'assets/thumbnails/point-1.jpg': utf8.encode('thumb'),
-        'assets/user_references/point-1.jpg': utf8.encode('user full'),
+        'assets/thumbnails/point-1.jpg': _jpegBytes,
+        'assets/user_references/point-1.jpg': _jpegBytes,
       },
     );
     final importPackage = readPlanImportPackageFromBytes(
@@ -224,7 +227,7 @@ void main() {
 
   test('clears stale full reference path when asset is not restored', () {
     final bytes = _zipPackageBytes(
-      assetFiles: {'assets/thumbnails/point-1.jpg': utf8.encode('thumb')},
+      assetFiles: {'assets/thumbnails/point-1.jpg': _jpegBytes},
     );
     final importPackage = readPlanImportPackageFromBytes(
       bytes,
@@ -244,6 +247,87 @@ void main() {
       '/local/thumb.jpg',
     );
     expect(restored.plan.points.single.referenceFullImagePath, isNull);
+  });
+
+  test('ignores image package assets that contain html bytes', () {
+    final bytes = _zipPackageBytes(
+      assetFiles: {
+        'assets/thumbnails/point-1.jpg': _htmlBytes,
+        'assets/full_references/point-1.jpg': _htmlBytes,
+        'assets/visit_photos/record-1.jpg': _jpegBytes,
+      },
+    );
+
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'bad-assets.sjhplan',
+    );
+
+    expect(importPackage.assetEntries.keys, [
+      'assets/visit_photos/record-1.jpg',
+    ]);
+
+    final restored = applyRestoredAssetPaths(
+      importPackage: importPackage,
+      restoredPaths: const {
+        'assets/visit_photos/record-1.jpg': '/local/photo.jpg',
+      },
+      includeRecords: true,
+    );
+
+    final point = restored.plan.points.single;
+    expect(point.referenceThumbnailPath, '/old/thumb.jpg');
+    expect(point.referenceFullImagePath, isNull);
+    expect(
+      restored.warnings,
+      contains('asset not restored: assets/thumbnails/point-1.jpg'),
+    );
+    expect(
+      restored.warnings,
+      contains('asset not restored: assets/full_references/point-1.jpg'),
+    );
+  });
+
+  test('normalizes windows-style restored asset paths', () {
+    final bytes = _zipPackageBytes(
+      assetFiles: {
+        r'assets\thumbnails\point-1.jpg': _jpegBytes,
+        r'assets\full_references\point-1.jpg': _jpegBytes,
+      },
+    );
+
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'windows-paths.sjhplan',
+    );
+
+    expect(
+      importPackage.assetEntries.keys,
+      containsAll([
+        'assets/thumbnails/point-1.jpg',
+        'assets/full_references/point-1.jpg',
+      ]),
+    );
+
+    final restored = applyRestoredAssetPaths(
+      importPackage: importPackage,
+      restoredPaths: const {
+        'assets/thumbnails/point-1.jpg':
+            r'assets\imported_plan_assets\pkg\assets\thumbnails\point-1.jpg',
+        'assets/full_references/point-1.jpg':
+            r'assets\imported_plan_assets\pkg\assets\full_references\point-1.jpg',
+      },
+      includeRecords: false,
+    );
+
+    expect(
+      restored.plan.points.single.referenceThumbnailPath,
+      'assets/imported_plan_assets/pkg/assets/thumbnails/point-1.jpg',
+    );
+    expect(
+      restored.plan.points.single.referenceFullImagePath,
+      'assets/imported_plan_assets/pkg/assets/full_references/point-1.jpg',
+    );
   });
 }
 
@@ -270,6 +354,11 @@ List<int> _zipPackageBytes({
   }
   return ZipEncoder().encode(archive);
 }
+
+const _jpegBytes = <int>[0xFF, 0xD8, 0xFF, 0xD9];
+final _htmlBytes = utf8.encode(
+  '<!DOCTYPE html><html><body>MiriaGo</body></html>',
+);
 
 String _manifestJson() {
   return jsonEncode({

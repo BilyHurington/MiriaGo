@@ -1,27 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../data/reference_asset_paths.dart';
 import 'tauri_bridge.dart' as tauri;
 
 final Map<String, Future<String?>> _assetDataUrlCache = {};
 
+String normalizeDesktopAssetPath(String path) {
+  return normalizeAssetPathSeparators(path.trim());
+}
+
 bool isDesktopAssetPath(String? path) {
-  if (path == null || path.isEmpty || !path.startsWith('assets/')) {
-    return false;
-  }
-  if (path.contains('\\')) {
-    return false;
-  }
-  return !path
-      .split('/')
-      .any((segment) => segment.isEmpty || segment == '.' || segment == '..');
+  return isSafeRelativeAssetPath(path);
 }
 
 Future<String?> loadDesktopAssetDataUrl(String path) {
-  return _assetDataUrlCache.putIfAbsent(path, () async {
-    if (!tauri.isTauriLauncherAvailable || !isDesktopAssetPath(path)) {
+  final normalizedPath = normalizeDesktopAssetPath(path);
+  return _assetDataUrlCache.putIfAbsent(normalizedPath, () async {
+    if (!tauri.isTauriLauncherAvailable ||
+        !isDesktopAssetPath(normalizedPath)) {
       return null;
     }
-    final asset = await tauri.readDesktopAsset(path: path);
+    final asset = await tauri.readDesktopAsset(path: normalizedPath);
     if (asset.dataBase64.isEmpty) {
       return null;
     }

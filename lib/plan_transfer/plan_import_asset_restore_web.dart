@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../data/reference_asset_paths.dart';
 import '../desktop/tauri_bridge.dart';
 import 'plan_import_package.dart';
 
@@ -16,10 +17,15 @@ Future<Map<String, String>> restorePlanImportAssets(
     sourceName: importPackage.sourceName,
     assetsBase64: {
       for (final entry in importPackage.assetEntries.entries)
-        entry.key: base64Encode(entry.value),
+        normalizeAssetPathSeparators(entry.key): base64Encode(entry.value),
     },
   );
-  return result.restoredPaths;
+  return {
+    for (final entry in result.restoredPaths.entries)
+      normalizeAssetPathSeparators(entry.key): normalizeAssetPathSeparators(
+        entry.value,
+      ),
+  };
 }
 
 String? _packageId(PlanImportPackage importPackage) {
