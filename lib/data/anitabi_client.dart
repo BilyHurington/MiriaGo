@@ -66,54 +66,29 @@ class AnitabiClient {
     return staticPoints;
   }
 
-  Future<AnitabiPointLookupResult?> findPointById(String pointId) async {
+  Future<AnitabiPointLookupResult?> findPointInBangumi({
+    required int bangumiId,
+    required String pointId,
+  }) async {
     final normalizedPointId = pointId.trim();
     if (normalizedPointId.isEmpty) {
       return null;
     }
 
-    final staticIndex = await _fetchStaticIndex();
-    final works = staticIndex.works;
-    final workById = {for (final work in works) work.bangumiId: work};
-    final pageCount = (works.length / staticIndex.pageSize).ceil();
-
-    for (var pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-      final pageResponse = await _getAnitabiStaticJson(
-        'g$pageIndex.json',
-        version: staticIndex.version,
-      );
-
-      final page = (jsonDecode(pageResponse.body) as List<Object?>)
-          .whereType<List<Object?>>();
-      for (final entry in page) {
-        final bangumiId = (entry[0] as num).toInt();
-        final pointRows = (entry[2] as List<Object?>)
-            .whereType<List<Object?>>();
-        for (final pointRow in pointRows) {
-          final id = _stringValue(pointRow[0]);
-          if (id != normalizedPointId) {
-            continue;
-          }
-
-          final work = workById[bangumiId];
-          final litePoint = work?.pointById(normalizedPointId);
-          if (work == null || litePoint == null) {
-            return null;
-          }
-
-          return AnitabiPointLookupResult(
-            work: work.toBangumiLite(),
-            point: AnitabiPoint.fromCompactJson(
-              pointRow,
-              bangumiId: bangumiId,
-              position: litePoint.position,
-            ),
-          );
-        }
-      }
+    final work = await _fetchStaticWork(bangumiId);
+    final points = await fetchPoints(bangumiId, lite: work?.toBangumiLite());
+    final point = points
+        .where((point) => point.id == normalizedPointId)
+        .firstOrNull;
+    if (point == null || work == null) {
+      return null;
     }
 
-    return null;
+    return AnitabiPointLookupResult(
+      work: work.toBangumiLite(),
+      point: point,
+      points: points,
+    );
   }
 
   Future<List<AnitabiPoint>?> _fetchStaticPointsForBangumi(
@@ -166,6 +141,13 @@ class AnitabiClient {
     }
 
     return null;
+  }
+
+  Future<AnitabiMapWorkLite?> _fetchStaticWork(int bangumiId) async {
+    final staticIndex = await _fetchStaticIndex();
+    return staticIndex.works
+        .where((work) => work.bangumiId == bangumiId)
+        .firstOrNull;
   }
 
   Future<AnitabiStaticIndex> _fetchStaticIndex() async {
@@ -254,10 +236,15 @@ class AnitabiBangumiLite {
 }
 
 class AnitabiPointLookupResult {
-  const AnitabiPointLookupResult({required this.work, required this.point});
+  const AnitabiPointLookupResult({
+    required this.work,
+    required this.point,
+    required this.points,
+  });
 
   final AnitabiBangumiLite work;
   final AnitabiPoint point;
+  final List<AnitabiPoint> points;
 }
 
 class AnitabiMapWorkLite {

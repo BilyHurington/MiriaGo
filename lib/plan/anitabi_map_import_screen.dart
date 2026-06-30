@@ -86,13 +86,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     super.initState();
     _importedPointIds = widget.plan.points.map((point) => point.id).toSet();
     _loadSettings();
+    final initialBangumiId = widget.initialBangumiId;
     final initialPointId = widget.initialPointId;
-    if (initialPointId != null) {
-      _loadInitialPointId(initialPointId);
+    if (initialBangumiId != null && initialPointId != null) {
+      _loadInitialPointLink(initialBangumiId, initialPointId);
       return;
     }
 
-    final initialBangumiId = widget.initialBangumiId;
     if (initialBangumiId != null) {
       _loadInitialBangumiId(initialBangumiId);
     } else {
@@ -126,13 +126,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       const SnackBar(content: Text('正在清除缓存并重新加载 Anitabi 点位...')),
     );
 
+    final initialBangumiId = widget.initialBangumiId;
     final initialPointId = widget.initialPointId;
-    if (initialPointId != null) {
-      await _loadInitialPointId(initialPointId);
+    if (initialBangumiId != null && initialPointId != null) {
+      await _loadInitialPointLink(initialBangumiId, initialPointId);
       return;
     }
 
-    final initialBangumiId = widget.initialBangumiId;
     if (initialBangumiId != null && _selectedWork == null) {
       await _loadInitialBangumiId(initialBangumiId);
       return;
@@ -281,7 +281,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     }
   }
 
-  Future<void> _loadInitialPointId(String pointId) async {
+  Future<void> _loadInitialPointLink(int bangumiId, String pointId) async {
     final generation = _nextLoadGeneration();
     setState(() {
       _isLoading = true;
@@ -291,7 +291,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
 
     try {
-      final result = await widget.anitabiClient.findPointById(pointId);
+      final result = await widget.anitabiClient.findPointInBangumi(
+        bangumiId: bangumiId,
+        pointId: pointId,
+      );
       if (!_isActiveLoad(generation)) {
         return;
       }
@@ -305,7 +308,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       setState(() {
         _selectedWork = work;
         _lite = lite;
-        _points = [result.point];
+        _points = result.points;
         _selectedPoint = result.point;
       });
       _moveMapAfterBuild(result.point.position, math.max(lite.zoom, 15));
@@ -562,6 +565,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       points,
       successMessage: '已添加框选点位。',
       failureMessage: '框选点位导入失败，请稍后重试。',
+      exitBoxSelectionOnSuccess: true,
     );
   }
 
@@ -569,6 +573,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     List<AnitabiPoint> points, {
     required String successMessage,
     required String failureMessage,
+    bool exitBoxSelectionOnSuccess = false,
   }) async {
     final work = _selectedWork;
     if (work == null || points.isEmpty || _isImporting) {
@@ -614,6 +619,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _didUpdatePlan = true;
         _selectionStart = null;
         _selectionEnd = null;
+        if (exitBoxSelectionOnSuccess) {
+          _isBoxSelecting = false;
+        }
         _importProgress = _ImportProgress.caching(
           total: pilgrimagePoints.length,
         );
@@ -686,6 +694,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _didUpdatePlan = true;
         _selectionStart = null;
         _selectionEnd = null;
+        if (exitBoxSelectionOnSuccess) {
+          _isBoxSelecting = false;
+        }
       });
       messenger.showReplacingSnackBar(
         SnackBar(

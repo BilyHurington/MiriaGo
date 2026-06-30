@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../data/bangumi_api_client.dart';
+import '../data/anitabi_link_parser.dart';
 import '../data/pilgrimage_repository.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
@@ -112,13 +113,13 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
             const SizedBox(height: 8),
             _AddSourceCard(
               icon: Icons.travel_explore_outlined,
-              title: '从 Anitabi 点位 ID 导入',
-              body: '输入 Anitabi 地图里的点位 ID，自动补齐对应作品并显示点位。',
+              title: '从 Anitabi 链接导入',
+              body: '粘贴 Anitabi 作品或点位链接，快速打开对应作品地图。',
               enabled: currentPlan != null,
               actionLabel: currentPlan == null ? '不可用' : '输入',
               onTap: currentPlan == null
                   ? null
-                  : () => _openAnitabiPointIdImport(context, currentPlan),
+                  : () => _openAnitabiLinkImport(context, currentPlan),
             ),
             const SizedBox(height: 8),
             _AddSourceCard(
@@ -178,16 +179,14 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     Navigator.of(context).pop(true);
   }
 
-  Future<void> _openAnitabiPointIdImport(
+  Future<void> _openAnitabiLinkImport(
     BuildContext context,
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => _AnitabiPointIdImportScreen(
-          plan: plan,
-          repository: widget.repository,
-        ),
+        builder: (_) =>
+            _AnitabiLinkImportScreen(plan: plan, repository: widget.repository),
       ),
     );
     if (!context.mounted) {
@@ -487,8 +486,8 @@ class _BangumiTypeFilter extends StatelessWidget {
   }
 }
 
-class _AnitabiPointIdImportScreen extends StatefulWidget {
-  const _AnitabiPointIdImportScreen({
+class _AnitabiLinkImportScreen extends StatefulWidget {
+  const _AnitabiLinkImportScreen({
     required this.plan,
     required this.repository,
   });
@@ -497,18 +496,17 @@ class _AnitabiPointIdImportScreen extends StatefulWidget {
   final PilgrimageRepository repository;
 
   @override
-  State<_AnitabiPointIdImportScreen> createState() =>
-      _AnitabiPointIdImportScreenState();
+  State<_AnitabiLinkImportScreen> createState() =>
+      _AnitabiLinkImportScreenState();
 }
 
-class _AnitabiPointIdImportScreenState
-    extends State<_AnitabiPointIdImportScreen> {
+class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _pointIdController = TextEditingController();
+  final _linkController = TextEditingController();
 
   @override
   void dispose() {
-    _pointIdController.dispose();
+    _linkController.dispose();
     super.dispose();
   }
 
@@ -518,14 +516,18 @@ class _AnitabiPointIdImportScreenState
       return;
     }
 
-    final pointId = _pointIdController.text.trim();
+    final link = parseAnitabiImportLink(_linkController.text);
+    if (link == null || link.bangumiId == null) {
+      return;
+    }
     final oldPointCount = widget.plan.points.length;
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => AnitabiMapImportScreen(
           plan: widget.plan,
           repository: widget.repository,
-          initialPointId: pointId,
+          initialBangumiId: link.bangumiId,
+          initialPointId: link.pointId,
         ),
       ),
     );
@@ -547,7 +549,7 @@ class _AnitabiPointIdImportScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Anitabi 点位 ID 导入')),
+      appBar: AppBar(title: const Text('Anitabi 链接导入')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -565,19 +567,20 @@ class _AnitabiPointIdImportScreenState
             _FormSection(
               children: [
                 TextFormField(
-                  controller: _pointIdController,
+                  controller: _linkController,
                   decoration: stableInputDecoration(
-                    labelText: 'Anitabi 点位 ID',
-                    hintText: '例如 qdmnf6iqj',
+                    labelText: 'Anitabi 链接',
+                    hintText:
+                        '例如 https://www.anitabi.cn/map?bangumiId=8290&pid=qdmnf6iqj',
                   ),
-                  keyboardType: TextInputType.text,
+                  keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.done,
-                  validator: _validatePointId,
+                  validator: _validateLink,
                   onFieldSubmitted: (_) => _openImport(),
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  '会按点位 ID 查找所属作品；如果当前计划还没有该作品，会先自动导入作品，再显示这个点位供你加入计划。',
+                  '如果链接里包含作品 ID，会只加载对应作品；如果还包含点位 ID，会自动选中该点位。没有作品 ID 的链接需要先在 Anitabi 中进入对应作品后重新复制。',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
@@ -590,7 +593,7 @@ class _AnitabiPointIdImportScreenState
             FilledButton.icon(
               onPressed: _openImport,
               icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-              label: const Text('查找点位'),
+              label: const Text('打开 Anitabi 点位'),
             ),
           ],
         ),
@@ -598,13 +601,17 @@ class _AnitabiPointIdImportScreenState
     );
   }
 
-  String? _validatePointId(String? value) {
+  String? _validateLink(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) {
-      return '请输入点位 ID';
+      return '请输入 Anitabi 链接';
     }
-    if (!RegExp(r'^[a-zA-Z0-9_-]{3,32}$').hasMatch(text)) {
-      return '请输入有效点位 ID';
+    final link = parseAnitabiImportLink(text);
+    if (link == null) {
+      return '请输入有效的 Anitabi 地图链接';
+    }
+    if (link.bangumiId == null) {
+      return '链接缺少作品 ID，请先在 Anitabi 进入对应作品后复制链接';
     }
     return null;
   }

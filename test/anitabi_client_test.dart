@@ -54,17 +54,22 @@ void main() {
     expect(point.referenceImageUrl, endsWith('/2ehwpjt.jpg'));
   });
 
-  test('finds a point by compact Anitabi map point ID', () async {
+  test('finds a compact Anitabi point inside a specific bangumi', () async {
     final client = AnitabiClient(
       httpClient: _FixtureHttpClient({
         'https://www.anitabi.cn/d/g.json':
-            '[[[8290,"头文字D",0,"頭文字D","日本","#d8101b","/images/bangumi/8290.jpg",7.7,"TV",36.098525,139.518473,7.1,["qdmnf6iqj",36.335315,138.738551,15644]]],250,1780488405409]',
+            '[[[8290,"头文字D",0,"頭文字D","日本","#d8101b","/images/bangumi/8290.jpg",7.7,"TV",36.098525,139.518473,7.1,["qdmnf6iqj",36.335315,138.738551,15644]],[999001,"其他作品",0,"Other","日本","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["other",34.1,134.1,1]]],1,1780488405409]',
         'https://www.anitabi.cn/d/g0.json':
             '[[8290,0,[["qdmnf6iqj","峠の釜めしや看板",0,0,0,1073,"/images/points/8290/qdmnf6iqj_1732560149766.jpg",0,null,"",0,0,0,"碓氷峠",3134]],1771771832628]]',
+        'https://www.anitabi.cn/d/g1.json':
+            '[[999001,0,[["other","其他地点",0,0,0,0,"/images/points/999001/other.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1771771832628]]',
       }),
     );
 
-    final result = await client.findPointById('qdmnf6iqj');
+    final result = await client.findPointInBangumi(
+      bangumiId: 8290,
+      pointId: 'qdmnf6iqj',
+    );
 
     expect(result, isNotNull);
     expect(result!.work.bangumiId, 8290);

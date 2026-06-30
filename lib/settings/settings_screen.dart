@@ -245,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(
             header: _SettingsCardHeader(
               icon: Icons.map_outlined,
-              title: '数据源',
+              title: '数据源设置',
               subtitle: '地图源、图片源等',
               onTap: () => _pushDetail(
                 _MapSettingsPage(
@@ -1111,7 +1111,7 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
     final settings = _settings;
 
     return _ScaledDetailScaffold(
-      title: '数据源',
+      title: '数据源设置',
       uiScale: settings.uiScale,
       fontScale: settings.fontScale,
       children: [

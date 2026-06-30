@@ -57,4 +57,22 @@ void main() {
     expect(mapLibreStyleUrl(valid), 'https://example.com/style.json');
     expect(mapLibreStyleUrl(invalid), openFreeMapStyleUrl);
   });
+
+  test('map tile signature changes when active style changes', () {
+    const liberty = AppSettings();
+    const positron = AppSettings(openFreeMapStyle: OpenFreeMapStyle.positron);
+    const custom = AppSettings(
+      mapTileProvider: MapTileProvider.customXyz,
+      customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
+    );
+
+    expect(
+      mapTileConfigSignature(liberty),
+      isNot(mapTileConfigSignature(positron)),
+    );
+    expect(
+      mapTileConfigSignature(liberty),
+      isNot(mapTileConfigSignature(custom)),
+    );
+  });
 }

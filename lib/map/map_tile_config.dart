@@ -131,18 +131,29 @@ String xyzTileUrl(AppSettings settings) {
 }
 
 Widget configuredMapTileLayer(AppSettings settings) {
+  final layerKey = ValueKey(mapTileConfigSignature(settings));
   if (mapProviderUsesMapLibre(settings.mapTileProvider) &&
       !_isFlutterWidgetTest) {
-    return MapLibreLayer(initStyle: mapLibreStyleUrl(settings));
+    return MapLibreLayer(key: layerKey, initStyle: mapLibreStyleUrl(settings));
   }
-  return configuredRasterTileLayer(settings);
+  return configuredRasterTileLayer(settings, key: layerKey);
 }
 
-TileLayer configuredRasterTileLayer(AppSettings settings) {
+TileLayer configuredRasterTileLayer(AppSettings settings, {Key? key}) {
   return TileLayer(
+    key: key,
     urlTemplate: xyzTileUrl(settings),
     userAgentPackageName: mapUserAgentPackageName,
   );
+}
+
+String mapTileConfigSignature(AppSettings settings) {
+  return [
+    settings.mapTileProvider.name,
+    settings.openFreeMapStyle.name,
+    settings.customXyzTileUrl.trim(),
+    settings.customMapLibreStyleUrl.trim(),
+  ].join('|');
 }
 
 RichAttributionWidget configuredMapAttribution(AppSettings settings) {
