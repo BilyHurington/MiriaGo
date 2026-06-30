@@ -43,11 +43,13 @@ class PointManagerScreen extends StatefulWidget {
   const PointManagerScreen({
     required this.plan,
     required this.repository,
+    required this.settings,
     super.key,
   });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final AppSettings settings;
 
   @override
   State<PointManagerScreen> createState() => _PointManagerScreenState();
@@ -1020,6 +1022,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       await cacheFullReferenceImages(
         plan: _plan,
         repository: widget.repository,
+        imageSource: widget.settings.anitabiImageSource,
         onPlanUpdated: (plan) {
           if (!mounted) {
             return;

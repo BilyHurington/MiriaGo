@@ -7,9 +7,23 @@ void main() {
     const settings = AppSettings();
 
     expect(settings.mapTileProvider, MapTileProvider.openFreeMap);
+    expect(settings.openFreeMapStyle, OpenFreeMapStyle.liberty);
     expect(mapProviderUsesMapLibre(settings.mapTileProvider), isTrue);
     expect(mapLibreStyleUrl(settings), openFreeMapStyleUrl);
     expect(validateMapTileSettings(settings), isNull);
+  });
+
+  test('selects OpenFreeMap style URLs', () {
+    const settings = AppSettings(openFreeMapStyle: OpenFreeMapStyle.positron);
+
+    expect(
+      mapLibreStyleUrl(settings),
+      'https://tiles.openfreemap.org/styles/positron',
+    );
+    expect(
+      openFreeMapStyleOption(OpenFreeMapStyle.dark).styleUrl,
+      'https://tiles.openfreemap.org/styles/dark',
+    );
   });
 
   test('validates custom XYZ tile URLs', () {

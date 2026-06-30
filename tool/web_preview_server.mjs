@@ -73,9 +73,17 @@ async function serveStatic(request, response) {
   createReadStream(filePath).pipe(response);
 }
 
-async function fetchAnitabiStatic(fileName) {
+function safeAnitabiVersion(version) {
+  if (!version) {
+    return '';
+  }
+  return /^[A-Za-z0-9_-]+$/.test(version) ? version : '';
+}
+
+async function fetchAnitabiStatic(fileName, version) {
+  const query = version ? `?v=${encodeURIComponent(version)}` : '';
   for (const baseUrl of ['https://www.anitabi.cn/d', 'https://anitabi.cn/d']) {
-    const response = await fetch(`${baseUrl}/${fileName}`, {
+    const response = await fetch(`${baseUrl}/${fileName}${query}`, {
       headers: {'user-agent': 'MiriaGo local web preview'},
     });
     if (response.ok) {
@@ -87,13 +95,14 @@ async function fetchAnitabiStatic(fileName) {
 
 async function serveAnitabiStatic(url, response) {
   const fileName = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+  const version = safeAnitabiVersion(url.searchParams.get('v') ?? '');
   if (!anitabiFilePattern.test(fileName)) {
     text(response, 400, 'Invalid Anitabi static file name.');
     return;
   }
 
   try {
-    const upstream = await fetchAnitabiStatic(fileName);
+    const upstream = await fetchAnitabiStatic(fileName, version);
     if (upstream == null) {
       text(response, 502, `Unable to fetch Anitabi static file: ${fileName}`);
       return;

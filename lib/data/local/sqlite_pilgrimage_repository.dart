@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:latlong2/latlong.dart';
 
 import '../../plan/pilgrimage_models.dart';
+import '../anitabi_image_url.dart';
 import '../pilgrimage_repository.dart';
 import '../sample_pilgrimage_repository.dart';
 import 'app_database.dart';
@@ -68,6 +69,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       ),
       themePalette: _themePaletteFromName(row.themePalette),
       mapTileProvider: _mapTileProviderFromName(row.mapTileProvider),
+      openFreeMapStyle: _openFreeMapStyleFromName(row.openFreeMapStyle),
+      anitabiImageSource: _anitabiImageSourceFromName(row.anitabiImageSource),
       navigationApp: _navigationAppFromName(row.navigationApp),
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
@@ -202,7 +205,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
                 colorGradingParamsJson: Value(record.colorGradingParamsJson),
                 colorGradingIntensity: Value(record.colorGradingIntensity),
                 referenceImagePath: Value(record.referenceImagePath),
-                referenceImageUrl: Value(record.referenceImageUrl),
+                referenceImageUrl: Value(
+                  _canonicalReferenceUrl(record.referenceImageUrl),
+                ),
                 referenceMode: record.referenceMode,
                 capturedAt: record.capturedAt,
               ),
@@ -317,7 +322,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               referenceLabel: Value(point.referenceLabel),
               source: Value(point.source.name),
               sourceId: Value(point.sourceId),
-              referenceImageUrl: Value(point.referenceImageUrl),
+              referenceImageUrl: Value(
+                _canonicalReferenceUrl(point.referenceImageUrl),
+              ),
               referenceThumbnailPath: Value(point.referenceThumbnailPath),
               referenceFullImagePath: Value(point.referenceFullImagePath),
               sourceUrl: Value(point.sourceUrl),
@@ -725,7 +732,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       pointSubtitle: pointSubtitle,
       photoPath: photoPath,
       referenceImagePath: referenceImagePath,
-      referenceImageUrl: referenceImageUrl,
+      referenceImageUrl: _canonicalReferenceUrl(referenceImageUrl),
       referenceMode: referenceMode,
       capturedAt: recordCapturedAt,
     );
@@ -748,7 +755,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             colorGradingParamsJson: Value(record.colorGradingParamsJson),
             colorGradingIntensity: Value(record.colorGradingIntensity),
             referenceImagePath: Value(record.referenceImagePath),
-            referenceImageUrl: Value(record.referenceImageUrl),
+            referenceImageUrl: Value(
+              _canonicalReferenceUrl(record.referenceImageUrl),
+            ),
             referenceMode: record.referenceMode,
             capturedAt: record.capturedAt,
           ),
@@ -880,6 +889,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             themePalette: Value(settings.themePalette.name),
             mapTileProvider: Value(settings.mapTileProvider.name),
+            openFreeMapStyle: Value(settings.openFreeMapStyle.name),
+            anitabiImageSource: Value(settings.anitabiImageSource.name),
             navigationApp: Value(settings.navigationApp.name),
             customXyzTileUrl: Value(settings.customXyzTileUrl.trim()),
             customMapLibreStyleUrl: Value(
@@ -929,7 +940,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       colorGradingParamsJson: row.colorGradingParamsJson,
       colorGradingIntensity: row.colorGradingIntensity,
       referenceImagePath: row.referenceImagePath,
-      referenceImageUrl: row.referenceImageUrl,
+      referenceImageUrl: _canonicalReferenceUrl(row.referenceImageUrl),
       referenceMode: row.referenceMode,
       capturedAt: row.capturedAt,
     );
@@ -1149,7 +1160,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceLabel: point.referenceLabel,
       source: point.source.name,
       sourceId: Value(point.sourceId),
-      referenceImageUrl: Value(point.referenceImageUrl),
+      referenceImageUrl: Value(_canonicalReferenceUrl(point.referenceImageUrl)),
       referenceThumbnailPath: Value(point.referenceThumbnailPath),
       referenceFullImagePath: Value(point.referenceFullImagePath),
       sourceUrl: Value(point.sourceUrl),
@@ -1245,7 +1256,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           referenceLabel: point.referenceLabel,
           source: point.source,
           sourceId: point.sourceId,
-          referenceImageUrl: point.referenceImageUrl,
+          referenceImageUrl: _canonicalReferenceUrl(point.referenceImageUrl),
           referenceThumbnailPath: point.referenceThumbnailPath,
           referenceFullImagePath: point.referenceFullImagePath,
           sourceUrl: point.sourceUrl,
@@ -1377,7 +1388,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceLabel: row.referenceLabel,
       source: _pointSourceFromName(row.source),
       sourceId: row.sourceId,
-      referenceImageUrl: row.referenceImageUrl,
+      referenceImageUrl: _canonicalReferenceUrl(row.referenceImageUrl),
       referenceThumbnailPath: row.referenceThumbnailPath,
       referenceFullImagePath: row.referenceFullImagePath,
       sourceUrl: row.sourceUrl,
@@ -1456,6 +1467,20 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return MapTileProvider.values.firstWhere(
       (provider) => provider.name == name,
       orElse: () => MapTileProvider.openFreeMap,
+    );
+  }
+
+  OpenFreeMapStyle _openFreeMapStyleFromName(String name) {
+    return OpenFreeMapStyle.values.firstWhere(
+      (style) => style.name == name,
+      orElse: () => OpenFreeMapStyle.liberty,
+    );
+  }
+
+  AnitabiImageSource _anitabiImageSourceFromName(String name) {
+    return AnitabiImageSource.values.firstWhere(
+      (source) => source.name == name,
+      orElse: () => AnitabiImageSource.auto,
     );
   }
 
@@ -1551,4 +1576,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         ))
         .write(const PointsCompanion(isCurrent: Value(true)));
   }
+}
+
+String? _canonicalReferenceUrl(String? url) {
+  final normalized = canonicalAnitabiImageUrl(url);
+  if (normalized == null || normalized.trim().isEmpty) {
+    return null;
+  }
+  return normalized;
 }

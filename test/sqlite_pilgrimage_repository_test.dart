@@ -225,6 +225,93 @@ void main() {
     );
   });
 
+  test('canonicalizes Anitabi mirror URLs before saving point data', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.createPlan(name: '图片源计划', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999020',
+      bangumiId: 999020,
+      title: '图片源作品',
+      subtitle: 'Fixture',
+      city: '东京',
+      source: WorkSource.bangumi,
+    );
+    const point = PilgrimagePoint(
+      id: 'anitabi-999020-point-a',
+      work: work,
+      name: '图片源点位',
+      subtitle: '地点 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+      referenceImageUrl: 'https://img-tc.anitabi.cn/points/999020/a.jpg',
+    );
+
+    await repository.addPointToPlan(planId: plan.id, point: point);
+    final loaded = await repository.loadActivePlan();
+
+    expect(
+      loaded.points.single.referenceImageUrl,
+      'https://image.anitabi.cn/points/999020/a.jpg',
+    );
+  });
+
+  test('normalizes Anitabi mirror URLs during schema 25 migration', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.createPlan(name: '旧图片源计划', area: '东京');
+    const work = PilgrimageWork(
+      id: 'bangumi-999021',
+      bangumiId: 999021,
+      title: '旧图片源作品',
+      subtitle: 'Fixture',
+      city: '东京',
+      source: WorkSource.bangumi,
+    );
+    const point = PilgrimagePoint(
+      id: 'anitabi-999021-point-a',
+      work: work,
+      name: '旧图片源点位',
+      subtitle: '地点 A',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: 'Anitabi',
+      source: PointSource.anitabi,
+      sourceId: 'point-a',
+      referenceImageUrl: 'https://image.anitabi.cn/points/999021/a.jpg',
+    );
+
+    await repository.addPointToPlan(planId: plan.id, point: point);
+    await (database.update(
+      database.points,
+    )..where((table) => table.planId.equals(plan.id))).write(
+      const PointsCompanion(
+        referenceImageUrl: Value(
+          'https://img-tc.anitabi.cn/points/999021/a.jpg',
+        ),
+      ),
+    );
+
+    await database.migration.onUpgrade(
+      database.createMigrator(),
+      24,
+      database.schemaVersion,
+    );
+    final loaded = await repository.loadActivePlan();
+
+    expect(
+      loaded.points.single.referenceImageUrl,
+      'https://image.anitabi.cn/points/999021/a.jpg',
+    );
+  });
+
   test('adding work to one plan does not move it from another plan', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -688,6 +775,8 @@ void main() {
         cameraCaptureAspectRatio: CameraPhotoAspectRatio.photo3x2,
         cameraFallbackAspectRatio: CameraPhotoAspectRatio.standard4x3,
         mapTileProvider: MapTileProvider.customXyz,
+        openFreeMapStyle: OpenFreeMapStyle.dark,
+        anitabiImageSource: AnitabiImageSource.mirror,
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
         fontScale: 1.2,
@@ -720,6 +809,8 @@ void main() {
       CameraPhotoAspectRatio.standard4x3,
     );
     expect(settings.mapTileProvider, MapTileProvider.customXyz);
+    expect(settings.openFreeMapStyle, OpenFreeMapStyle.dark);
+    expect(settings.anitabiImageSource, AnitabiImageSource.mirror);
     expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
     expect(settings.customMapLibreStyleUrl, 'https://example.com/style.json');
     expect(settings.fontScale, 1.2);

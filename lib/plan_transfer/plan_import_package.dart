@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../data/anitabi_image_url.dart';
 import '../data/image_bytes.dart';
 import '../data/reference_asset_paths.dart';
 import '../plan/pilgrimage_models.dart';
@@ -329,7 +330,7 @@ PilgrimagePoint _pointWithRestoredAssets(
     referenceFullImagePath: fullReferencePath,
     referenceImageUrl: hasRestoredUserReference
         ? null
-        : point.referenceImageUrl,
+        : _canonicalReferenceUrl(point.referenceImageUrl),
   );
 }
 
@@ -466,7 +467,7 @@ PilgrimagePoint _pointFromV2Json(
     source:
         _enumValue(PointSource.values, json['source']) ?? PointSource.manual,
     sourceId: json['sourceId'] as String?,
-    referenceImageUrl: json['referenceImageUrl'] as String?,
+    referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceThumbnailPath: json['referenceThumbnailPath'] as String?,
     referenceFullImagePath: json['referenceFullImagePath'] as String?,
     sourceUrl: json['sourceUrl'] as String?,
@@ -493,7 +494,7 @@ PilgrimageVisitRecord _visitRecordFromV2Json(Map<String, Object?> json) {
     colorGradingParamsJson: json['colorGradingParamsJson'] as String?,
     colorGradingIntensity: (json['colorGradingIntensity'] as num?)?.toDouble(),
     referenceImagePath: json['referenceImagePath'] as String?,
-    referenceImageUrl: json['referenceImageUrl'] as String?,
+    referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceMode: _stringValue(json['referenceMode'], fallback: '未知'),
     capturedAt: _dateValue(json['capturedAt']),
   );
@@ -566,4 +567,11 @@ DateTime? _nullableDateValue(Object? value) {
     return DateTime.tryParse(value);
   }
   return null;
+}
+
+String? _canonicalReferenceUrl(Object? value) {
+  if (value is! String || value.trim().isEmpty) {
+    return null;
+  }
+  return canonicalAnitabiImageUrl(value);
 }

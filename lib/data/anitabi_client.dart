@@ -17,6 +17,11 @@ class AnitabiClient {
 
   final http.Client _httpClient;
   final AnitabiStaticDataReader _staticDataReader;
+  AnitabiStaticIndex? _cachedStaticIndex;
+
+  void clearStaticCache() {
+    _cachedStaticIndex = null;
+  }
 
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
     final uri = Uri.parse('https://api.anitabi.cn/bangumi/$bangumiId/lite');
@@ -73,7 +78,10 @@ class AnitabiClient {
     final pageCount = (works.length / staticIndex.pageSize).ceil();
 
     for (var pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-      final pageResponse = await _getAnitabiStaticJson('g$pageIndex.json');
+      final pageResponse = await _getAnitabiStaticJson(
+        'g$pageIndex.json',
+        version: staticIndex.version,
+      );
 
       final page = (jsonDecode(pageResponse.body) as List<Object?>)
           .whereType<List<Object?>>();
@@ -122,7 +130,10 @@ class AnitabiClient {
 
       final work = staticIndex.works[workIndex];
       final pageIndex = workIndex ~/ staticIndex.pageSize;
-      final pageResponse = await _getAnitabiStaticJson('g$pageIndex.json');
+      final pageResponse = await _getAnitabiStaticJson(
+        'g$pageIndex.json',
+        version: staticIndex.version,
+      );
       final page = (jsonDecode(pageResponse.body) as List<Object?>)
           .whereType<List<Object?>>();
       for (final entry in page) {
@@ -158,21 +169,35 @@ class AnitabiClient {
   }
 
   Future<AnitabiStaticIndex> _fetchStaticIndex() async {
-    final indexResponse = await _getAnitabiStaticJson('g.json');
+    final cached = _cachedStaticIndex;
+    if (cached != null) {
+      return cached;
+    }
+
+    final indexResponse = await _getAnitabiStaticJson(
+      'g.json',
+      version: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
     final index = jsonDecode(indexResponse.body) as List<Object?>;
     final rawWorks = (index[0] as List<Object?>).whereType<List<Object?>>();
     final works = rawWorks
         .map(AnitabiMapWorkLite.fromCompactJson)
         .toList(growable: false);
 
-    return AnitabiStaticIndex(
+    final staticIndex = AnitabiStaticIndex(
       works: works,
       pageSize: (index[1] as num).toInt(),
+      version: _stringValue(index.length > 2 ? index[2] : null),
     );
+    _cachedStaticIndex = staticIndex;
+    return staticIndex;
   }
 
-  Future<http.Response> _getAnitabiStaticJson(String fileName) async {
-    final body = await _staticDataReader.read(fileName);
+  Future<http.Response> _getAnitabiStaticJson(
+    String fileName, {
+    String? version,
+  }) async {
+    final body = await _staticDataReader.read(fileName, version: version);
     return http.Response.bytes(
       utf8.encode(body),
       200,
@@ -182,10 +207,15 @@ class AnitabiClient {
 }
 
 class AnitabiStaticIndex {
-  const AnitabiStaticIndex({required this.works, required this.pageSize});
+  const AnitabiStaticIndex({
+    required this.works,
+    required this.pageSize,
+    required this.version,
+  });
 
   final List<AnitabiMapWorkLite> works;
   final int pageSize;
+  final String? version;
 }
 
 class AnitabiBangumiLite {
@@ -338,8 +368,8 @@ class AnitabiPoint {
       subtitle: name,
       position: LatLng((geo[0] as num).toDouble(), (geo[1] as num).toDouble()),
       episodeLabel: _episodeLabel(ep, second),
-      referenceImageUrl: anitabiFullResolutionImageUrl(
-        _stringValue(json['image']),
+      referenceImageUrl: canonicalAnitabiImageUrl(
+        anitabiFullResolutionImageUrl(_stringValue(json['image'])),
       ),
       origin: _stringValue(json['origin']) ?? 'Anitabi',
       originUrl: _stringValue(json['originURL']),
@@ -364,8 +394,10 @@ class AnitabiPoint {
       subtitle: name,
       position: position,
       episodeLabel: _episodeLabel(ep, second),
-      referenceImageUrl: anitabiFullResolutionImageUrl(
-        _anitabiImageUrl(_compactStringValue(json[6])),
+      referenceImageUrl: canonicalAnitabiImageUrl(
+        anitabiFullResolutionImageUrl(
+          _anitabiImageUrl(_compactStringValue(json[6])),
+        ),
       ),
       origin: _compactStringValue(json[11]) ?? 'Anitabi',
       originUrl: _compactStringValue(json[12]),
@@ -435,7 +467,7 @@ String? _anitabiImageUrl(String? url) {
   if (url.startsWith('/images/')) {
     return 'https://image.anitabi.cn${url.substring('/images'.length)}';
   }
-  return url;
+  return canonicalAnitabiImageUrl(url);
 }
 
 String? formatAnitabiSceneTime(Object? second) {

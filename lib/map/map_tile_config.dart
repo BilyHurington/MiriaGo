@@ -9,6 +9,20 @@ const openFreeMapStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
 const openStreetMapTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const mapUserAgentPackageName = 'app.miriago.miriago';
 
+class OpenFreeMapStyleOption {
+  const OpenFreeMapStyleOption({
+    required this.style,
+    required this.label,
+    required this.description,
+    required this.styleUrl,
+  });
+
+  final OpenFreeMapStyle style;
+  final String label;
+  final String description;
+  final String styleUrl;
+}
+
 class MapTileProviderOption {
   const MapTileProviderOption({
     required this.provider,
@@ -20,6 +34,39 @@ class MapTileProviderOption {
   final String label;
   final String description;
 }
+
+const openFreeMapStyleOptions = [
+  OpenFreeMapStyleOption(
+    style: OpenFreeMapStyle.liberty,
+    label: 'Liberty',
+    description: '默认样式，信息密度较高。',
+    styleUrl: 'https://tiles.openfreemap.org/styles/liberty',
+  ),
+  OpenFreeMapStyleOption(
+    style: OpenFreeMapStyle.bright,
+    label: 'Bright',
+    description: '明亮标准样式。',
+    styleUrl: 'https://tiles.openfreemap.org/styles/bright',
+  ),
+  OpenFreeMapStyleOption(
+    style: OpenFreeMapStyle.positron,
+    label: 'Positron',
+    description: '浅色低干扰样式。',
+    styleUrl: 'https://tiles.openfreemap.org/styles/positron',
+  ),
+  OpenFreeMapStyleOption(
+    style: OpenFreeMapStyle.dark,
+    label: 'Dark',
+    description: '深色地图样式。',
+    styleUrl: 'https://tiles.openfreemap.org/styles/dark',
+  ),
+  OpenFreeMapStyleOption(
+    style: OpenFreeMapStyle.fiord,
+    label: 'Fiord',
+    description: '柔和地形风格。',
+    styleUrl: 'https://tiles.openfreemap.org/styles/fiord',
+  ),
+];
 
 const mapTileProviderOptions = [
   MapTileProviderOption(
@@ -44,6 +91,13 @@ const mapTileProviderOptions = [
   ),
 ];
 
+OpenFreeMapStyleOption openFreeMapStyleOption(OpenFreeMapStyle style) {
+  return openFreeMapStyleOptions.firstWhere(
+    (option) => option.style == style,
+    orElse: () => openFreeMapStyleOptions.first,
+  );
+}
+
 MapTileProviderOption mapTileProviderOption(MapTileProvider provider) {
   return mapTileProviderOptions.firstWhere(
     (option) => option.provider == provider,
@@ -63,7 +117,7 @@ String mapLibreStyleUrl(AppSettings settings) {
       return custom;
     }
   }
-  return openFreeMapStyleUrl;
+  return openFreeMapStyleOption(settings.openFreeMapStyle).styleUrl;
 }
 
 String xyzTileUrl(AppSettings settings) {

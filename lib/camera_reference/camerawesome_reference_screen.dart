@@ -10,10 +10,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../app_theme.dart';
+import '../data/anitabi_image_fetcher.dart';
 import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/reference_image_status.dart';
+import '../widgets/anitabi_network_image.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/reference_image_source_stub.dart'
@@ -144,6 +146,7 @@ class _CamerawesomeReferenceScreenState
       bytes: _localReferenceBytes,
       localPath: widget.point.referenceFullImagePath,
       url: _remoteReferenceImageUrl,
+      imageSource: widget.settings.anitabiImageSource,
     );
     if (!mounted || requestId != _referenceAspectRatioRequest) {
       return;
@@ -289,6 +292,7 @@ class _CamerawesomeReferenceScreenState
           ? referenceFullImagePath
           : null,
       url: _remoteReferenceImageUrl,
+      imageSource: widget.settings.anitabiImageSource,
     );
     final captureAspectRatio = resolveCameraCaptureAspectRatio(
       referenceAspectRatio: _referenceAspectRatio,
@@ -489,6 +493,7 @@ Future<double?> _resolveReferenceAspectRatio({
   required Uint8List? bytes,
   required String? localPath,
   required String? url,
+  required AnitabiImageSource imageSource,
 }) async {
   final localBytes =
       bytes ??
@@ -504,34 +509,15 @@ Future<double?> _resolveReferenceAspectRatio({
   }
 
   try {
-    final provider = NetworkImage(url);
-    final completer = Completer<ImageInfo>();
-    final stream = provider.resolve(ImageConfiguration.empty);
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (image, synchronousCall) {
-        if (!completer.isCompleted) {
-          completer.complete(image);
-        }
-        stream.removeListener(listener);
-      },
-      onError: (error, stackTrace) {
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-        stream.removeListener(listener);
-      },
+    final remoteBytes = await fetchAnitabiImageBytes(
+      url,
+      source: imageSource,
+      timeout: const Duration(seconds: 5),
     );
-    stream.addListener(listener);
-    final imageInfo = await completer.future.timeout(
-      const Duration(seconds: 5),
-    );
-    final width = imageInfo.image.width;
-    final height = imageInfo.image.height;
-    if (width <= 0 || height <= 0) {
+    if (remoteBytes == null) {
       return null;
     }
-    return width / height;
+    return _decodeImageAspectRatio(Uint8List.fromList(remoteBytes));
   } catch (_) {
     return null;
   }
@@ -3661,11 +3647,13 @@ class _ReferenceImageSource {
     required this.bytes,
     required this.localPath,
     required this.url,
+    required this.imageSource,
   });
 
   final Uint8List? bytes;
   final String? localPath;
   final String? url;
+  final AnitabiImageSource imageSource;
 
   bool get hasImage => bytes != null || localPath != null || url != null;
 }
@@ -3704,15 +3692,13 @@ class _ReferenceImageView extends StatelessWidget {
         fit: fit,
       );
     } else if (source.url != null) {
-      image = Image.network(
-        cameraReferenceFullResolutionDisplayUrl(source.url!),
+      image = AnitabiNetworkImage(
+        url: cameraReferenceFullResolutionDisplayUrl(source.url!),
+        imageSource: source.imageSource,
         width: double.infinity,
         height: double.infinity,
         fit: fit,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            return child;
-          }
+        loadingBuilder: (_) {
           return const ColoredBox(
             color: Colors.black,
             child: Center(
@@ -3723,7 +3709,7 @@ class _ReferenceImageView extends StatelessWidget {
             ),
           );
         },
-        errorBuilder: (context, error, stackTrace) {
+        errorBuilder: (_) {
           return const _ReferenceError();
         },
       );

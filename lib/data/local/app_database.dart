@@ -115,6 +115,10 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant('classicGreen'))();
   TextColumn get mapTileProvider =>
       text().withDefault(const Constant('openFreeMap'))();
+  TextColumn get openFreeMapStyle =>
+      text().withDefault(const Constant('liberty'))();
+  TextColumn get anitabiImageSource =>
+      text().withDefault(const Constant('auto'))();
   TextColumn get navigationApp =>
       text().withDefault(const Constant('googleMaps'))();
   TextColumn get customXyzTileUrl => text().withDefault(const Constant(''))();
@@ -150,7 +154,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -374,8 +378,42 @@ class AppDatabase extends _$AppDatabase {
           appSettingsEntries.autoSaveComparisonToGallery,
         );
       }
+      if (from < 24) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'open_free_map_style',
+          appSettingsEntries,
+          appSettingsEntries.openFreeMapStyle,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'anitabi_image_source',
+          appSettingsEntries,
+          appSettingsEntries.anitabiImageSource,
+        );
+      }
+      if (from < 25) {
+        await normalizeAnitabiImageUrls();
+      }
     },
   );
+
+  Future<void> normalizeAnitabiImageUrls() async {
+    await customStatement('''
+      UPDATE points
+      SET reference_image_url =
+        replace(reference_image_url, '://img-tc.anitabi.cn/', '://image.anitabi.cn/')
+      WHERE reference_image_url LIKE '%://img-tc.anitabi.cn/%'
+    ''');
+    await customStatement('''
+      UPDATE visit_records
+      SET reference_image_url =
+        replace(reference_image_url, '://img-tc.anitabi.cn/', '://image.anitabi.cn/')
+      WHERE reference_image_url LIKE '%://img-tc.anitabi.cn/%'
+    ''');
+  }
 
   Future<void> normalizeScopedStorageIds() async {
     const separator = '::';

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:latlong2/latlong.dart';
 
+import '../data/anitabi_image_url.dart';
 import '../data/sample_pilgrimage_repository.dart';
 import '../plan/pilgrimage_models.dart';
 
@@ -75,6 +76,8 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'nearestAssignDistanceMeters': settings.nearestAssignDistanceMeters,
     'themePalette': settings.themePalette.name,
     'mapTileProvider': settings.mapTileProvider.name,
+    'openFreeMapStyle': settings.openFreeMapStyle.name,
+    'anitabiImageSource': settings.anitabiImageSource.name,
     'navigationApp': settings.navigationApp.name,
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
@@ -122,6 +125,12 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     mapTileProvider:
         _enumByName(MapTileProvider.values, json['mapTileProvider']) ??
         MapTileProvider.openFreeMap,
+    openFreeMapStyle:
+        _enumByName(OpenFreeMapStyle.values, json['openFreeMapStyle']) ??
+        OpenFreeMapStyle.liberty,
+    anitabiImageSource:
+        _enumByName(AnitabiImageSource.values, json['anitabiImageSource']) ??
+        AnitabiImageSource.auto,
     navigationApp:
         _enumByName(NavigationApp.values, json['navigationApp']) ??
         NavigationApp.googleMaps,
@@ -261,7 +270,7 @@ Map<String, Object?> _pointJson(PilgrimagePoint point) {
     'referenceLabel': point.referenceLabel,
     'source': point.source.name,
     'sourceId': point.sourceId,
-    'referenceImageUrl': point.referenceImageUrl,
+    'referenceImageUrl': _canonicalReferenceUrl(point.referenceImageUrl),
     'referenceThumbnailPath': point.referenceThumbnailPath,
     'referenceFullImagePath': point.referenceFullImagePath,
     'sourceUrl': point.sourceUrl,
@@ -297,7 +306,7 @@ PilgrimagePoint _pointFromJson(
     source:
         _enumByName(PointSource.values, json['source']) ?? PointSource.manual,
     sourceId: json['sourceId'] as String?,
-    referenceImageUrl: json['referenceImageUrl'] as String?,
+    referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceThumbnailPath: json['referenceThumbnailPath'] as String?,
     referenceFullImagePath: json['referenceFullImagePath'] as String?,
     sourceUrl: json['sourceUrl'] as String?,
@@ -324,7 +333,7 @@ Map<String, Object?> _visitRecordJson(PilgrimageVisitRecord record) {
     'colorGradingParamsJson': record.colorGradingParamsJson,
     'colorGradingIntensity': record.colorGradingIntensity,
     'referenceImagePath': record.referenceImagePath,
-    'referenceImageUrl': record.referenceImageUrl,
+    'referenceImageUrl': _canonicalReferenceUrl(record.referenceImageUrl),
     'referenceMode': record.referenceMode,
     'capturedAt': record.capturedAt.toIso8601String(),
   };
@@ -347,7 +356,7 @@ PilgrimageVisitRecord _visitRecordFromJson(Map<String, Object?> json) {
     colorGradingParamsJson: json['colorGradingParamsJson'] as String?,
     colorGradingIntensity: _doubleValue(json['colorGradingIntensity']),
     referenceImagePath: json['referenceImagePath'] as String?,
-    referenceImageUrl: json['referenceImageUrl'] as String?,
+    referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceMode: _stringValue(json['referenceMode'], fallback: 'none'),
     capturedAt: _dateValue(json['capturedAt']) ?? DateTime.now(),
   );
@@ -427,4 +436,11 @@ bool? _boolValue(Object? value) {
 
 DateTime? _dateValue(Object? value) {
   return value is String ? DateTime.tryParse(value) : null;
+}
+
+String? _canonicalReferenceUrl(Object? value) {
+  if (value is! String || value.trim().isEmpty) {
+    return null;
+  }
+  return canonicalAnitabiImageUrl(value);
 }

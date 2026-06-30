@@ -132,6 +132,47 @@ void main() {
     expect(points.map((point) => point.id), ['p1', 'p2']);
   });
 
+  test('uses static index timestamp when fetching point pages', () async {
+    final reader = _FixtureStaticDataReader({
+      'g.json':
+          '[[[999001,"测试作品",0,"Fixture Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["p1",34.1,134.1,1]]],250,1782816540092]',
+      'g0.json?v=1782816540092':
+          '[[999001,0,[["p1","地点一",0,0,0,0,"/images/points/999001/p1.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1782816540092]]',
+    });
+    final client = AnitabiClient(staticDataReader: reader);
+
+    final points = await client.fetchPoints(999001);
+
+    expect(points.single.id, 'p1');
+    expect(reader.requests[0], startsWith('g.json?v='));
+    expect(reader.requests[1], 'g0.json?v=1782816540092');
+  });
+
+  test('clearStaticCache refreshes the static index timestamp', () async {
+    final reader = _FixtureStaticDataReader({
+      'g.json':
+          '[[[999001,"测试作品",0,"Fixture Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["p1",34.1,134.1,1]]],250,111]',
+      'g0.json?v=111':
+          '[[999001,0,[["p1","旧地点",0,0,0,0,"/images/points/999001/p1-old.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],111]]',
+      'g.json#2':
+          '[[[999001,"测试作品",0,"Fixture Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["p1",34.1,134.1,1]]],250,222]',
+      'g0.json?v=222':
+          '[[999001,0,[["p1","新地点",0,0,0,0,"/images/points/999001/p1-new.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],222]]',
+    });
+    final client = AnitabiClient(staticDataReader: reader);
+
+    final oldPoints = await client.fetchPoints(999001);
+    client.clearStaticCache();
+    final newPoints = await client.fetchPoints(999001);
+
+    expect(oldPoints.single.name, '旧地点');
+    expect(newPoints.single.name, '新地点');
+    expect(reader.requests[0], startsWith('g.json?v='));
+    expect(reader.requests[1], 'g0.json?v=111');
+    expect(reader.requests[2], startsWith('g.json?v='));
+    expect(reader.requests[3], 'g0.json?v=222');
+  });
+
   test('throws when static Anitabi map data is unavailable', () async {
     final client = AnitabiClient(
       httpClient: _FixtureHttpClient({
@@ -179,7 +220,10 @@ class _FixtureHttpClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final body = responses[request.url.toString()];
+    var body = responses[request.url.toString()];
+    if (body == null && request.url.hasQuery) {
+      body = responses[request.url.toString().split('?').first];
+    }
     if (body == null) {
       return http.StreamedResponse(Stream.value(const <int>[]), 404);
     }
@@ -196,13 +240,27 @@ class _FixtureStaticDataReader extends AnitabiStaticDataReader {
   _FixtureStaticDataReader(this.responses);
 
   final Map<String, String> responses;
+  final List<String> requests = [];
+  int _indexReads = 0;
 
   @override
-  Future<String> read(String fileName) async {
-    final body = responses[fileName];
+  Future<String> read(String fileName, {String? version}) async {
+    final request = version == null ? fileName : '$fileName?v=$version';
+    requests.add(request);
+    final key = fileName == 'g.json' && responses.containsKey('g.json#2')
+        ? _nextIndexKey()
+        : fileName == 'g.json'
+        ? 'g.json'
+        : request;
+    final body = responses[key] ?? responses[fileName];
     if (body == null) {
-      throw AnitabiStaticDataUnavailableException(fileName);
+      throw AnitabiStaticDataUnavailableException(request);
     }
     return body;
+  }
+
+  String _nextIndexKey() {
+    _indexReads += 1;
+    return _indexReads == 1 ? 'g.json' : 'g.json#$_indexReads';
   }
 }

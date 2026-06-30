@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/anitabi_image_source_scope.dart';
 import '../data/pilgrimage_repository.dart';
 import '../data/reference_image_cache_stub.dart'
     if (dart.library.io) '../data/reference_image_cache_io.dart'
@@ -42,12 +43,22 @@ class _AutoCachingReferenceThumbnailState
 
   String? _thumbnailPath;
   bool _isAttempting = false;
+  AnitabiImageSource? _imageSource;
 
   @override
   void initState() {
     super.initState();
     _thumbnailPath = widget.point.referenceThumbnailPath;
-    _maybeCacheThumbnail();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final imageSource = AnitabiImageSourceScope.of(context);
+    if (_imageSource != imageSource) {
+      _imageSource = imageSource;
+      _maybeCacheThumbnail();
+    }
   }
 
   @override
@@ -67,11 +78,13 @@ class _AutoCachingReferenceThumbnailState
 
   @override
   Widget build(BuildContext context) {
+    final imageSource = AnitabiImageSourceScope.of(context);
     return ReferenceThumbnail(
       localPath: _thumbnailPath,
       imageUrl: hasRemoteReferenceImage(widget.point)
           ? widget.point.referenceImageUrl
           : null,
+      imageSource: imageSource,
       placeholder: widget.placeholder,
       fit: widget.fit,
       width: widget.width,
@@ -89,11 +102,13 @@ class _AutoCachingReferenceThumbnailState
       return;
     }
     _isAttempting = true;
+    final imageSource = _imageSource ?? AnitabiImageSource.auto;
 
     Future<void>(() async {
       try {
         final path = await reference_image_cache.ensureReferenceThumbnailCached(
           widget.point,
+          imageSource: imageSource,
         );
         if (path == null || path.isEmpty) {
           return;

@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import '../data/anitabi_image_fetcher.dart';
+import '../data/anitabi_image_url.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_renderer.dart';
 
@@ -45,9 +47,17 @@ Future<ComparisonExportImageResult> exportComparisonImage({
   }
   if (refBytes == null && referenceImageUrl != null) {
     try {
-      final response = await http.get(Uri.parse(referenceImageUrl));
-      if (response.statusCode == 200) {
-        refBytes = response.bodyBytes;
+      final uri = Uri.parse(referenceImageUrl);
+      if (anitabiImageHosts.contains(uri.host)) {
+        final bytes = await fetchAnitabiImageBytes(referenceImageUrl);
+        if (bytes != null) {
+          refBytes = Uint8List.fromList(bytes);
+        }
+      } else {
+        final response = await http.get(uri);
+        if (response.statusCode == 200) {
+          refBytes = response.bodyBytes;
+        }
       }
     } catch (_) {}
   }

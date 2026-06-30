@@ -122,6 +122,10 @@ enum MapTileProvider {
   customMapLibreStyle,
 }
 
+enum OpenFreeMapStyle { liberty, bright, positron, dark, fiord }
+
+enum AnitabiImageSource { auto, official, mirror }
+
 enum NavigationApp {
   googleMaps,
   amap,
@@ -155,6 +159,8 @@ class AppSettings {
     this.nearestAssignDistanceMeters = 350,
     this.themePalette = AppThemePalette.classicGreen,
     this.mapTileProvider = MapTileProvider.openFreeMap,
+    this.openFreeMapStyle = OpenFreeMapStyle.liberty,
+    this.anitabiImageSource = AnitabiImageSource.auto,
     this.navigationApp = NavigationApp.googleMaps,
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
@@ -180,6 +186,8 @@ class AppSettings {
   final double nearestAssignDistanceMeters;
   final AppThemePalette themePalette;
   final MapTileProvider mapTileProvider;
+  final OpenFreeMapStyle openFreeMapStyle;
+  final AnitabiImageSource anitabiImageSource;
   final NavigationApp navigationApp;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
@@ -205,6 +213,8 @@ class AppSettings {
     double? nearestAssignDistanceMeters,
     AppThemePalette? themePalette,
     MapTileProvider? mapTileProvider,
+    OpenFreeMapStyle? openFreeMapStyle,
+    AnitabiImageSource? anitabiImageSource,
     NavigationApp? navigationApp,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
@@ -233,6 +243,8 @@ class AppSettings {
           nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
       mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+      openFreeMapStyle: openFreeMapStyle ?? this.openFreeMapStyle,
+      anitabiImageSource: anitabiImageSource ?? this.anitabiImageSource,
       navigationApp: navigationApp ?? this.navigationApp,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:

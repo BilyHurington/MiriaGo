@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../data/anitabi_image_source_scope.dart';
 import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
@@ -10,6 +11,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/reference_image_status.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
+import '../widgets/anitabi_network_image.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_image_placeholder.dart';
 import '../widgets/reference_image_source_stub.dart'
@@ -544,18 +546,16 @@ class _RecordReferencePhoto extends StatelessWidget {
 
     final imageUrl = url;
     if (imageUrl != null) {
-      return Image.network(
-        imageUrl,
+      return AnitabiNetworkImage(
+        url: imageUrl,
+        imageSource: AnitabiImageSourceScope.of(context),
         fit: BoxFit.contain,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            return child;
-          }
+        loadingBuilder: (_) {
           return const _RecordReferencePlaceholder(
             state: ReferenceImagePlaceholderState.loading,
           );
         },
-        errorBuilder: (context, error, stackTrace) {
+        errorBuilder: (_) {
           return const _RecordReferencePlaceholder();
         },
       );

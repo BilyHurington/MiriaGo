@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../data/anitabi_image_url.dart';
 import '../desktop/desktop_asset_image.dart';
+import '../plan/pilgrimage_models.dart';
+import 'anitabi_network_image.dart';
 
 class ReferenceThumbnail extends StatelessWidget {
   const ReferenceThumbnail({
     required this.localPath,
     required this.imageUrl,
     required this.placeholder,
+    this.imageSource = AnitabiImageSource.auto,
     this.fit = BoxFit.cover,
     this.width,
     this.height,
@@ -17,6 +20,7 @@ class ReferenceThumbnail extends StatelessWidget {
   final String? localPath;
   final String? imageUrl;
   final Widget placeholder;
+  final AnitabiImageSource imageSource;
   final BoxFit fit;
   final double? width;
   final double? height;
@@ -36,12 +40,14 @@ class ReferenceThumbnail extends StatelessWidget {
 
     final url = imageUrl;
     if (url != null) {
-      return Image.network(
-        anitabiThumbnailImageUrl(url) ?? url,
+      final thumbnailUrl = anitabiThumbnailImageUrl(url) ?? url;
+      return AnitabiNetworkImage(
+        url: thumbnailUrl,
+        imageSource: imageSource,
         width: width,
         height: height,
         fit: fit,
-        errorBuilder: (_, _, _) => placeholder,
+        errorBuilder: (_) => placeholder,
       );
     }
     return placeholder;

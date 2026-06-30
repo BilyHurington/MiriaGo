@@ -241,6 +241,8 @@ impl DesktopDatabase {
                   nearest_assign_distance_meters REAL NOT NULL DEFAULT 350.0,
                   theme_palette TEXT NOT NULL DEFAULT 'classicGreen',
                   map_tile_provider TEXT NOT NULL DEFAULT 'openFreeMap',
+                  open_free_map_style TEXT NOT NULL DEFAULT 'liberty',
+                  anitabi_image_source TEXT NOT NULL DEFAULT 'auto',
                   custom_xyz_tile_url TEXT NOT NULL DEFAULT '',
                   custom_maplibre_style_url TEXT NOT NULL DEFAULT ''
                 );
@@ -258,6 +260,7 @@ impl DesktopDatabase {
             .map_err(|error| error.to_string())?;
         self.ensure_app_settings_columns()?;
         self.ensure_points_columns()?;
+        self.normalize_anitabi_image_urls()?;
 
         if self.plan_count()? == 0 {
             if let Some(snapshot) = self.load_legacy_state_json()? {
@@ -272,6 +275,28 @@ impl DesktopDatabase {
                     .map_err(|error| error.to_string())?;
             }
         }
+        Ok(())
+    }
+
+    fn normalize_anitabi_image_urls(&self) -> Result<(), String> {
+        self.connection
+            .execute(
+                "UPDATE points
+                 SET reference_image_url =
+                   replace(reference_image_url, '://img-tc.anitabi.cn/', '://image.anitabi.cn/')
+                 WHERE reference_image_url LIKE '%://img-tc.anitabi.cn/%'",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+        self.connection
+            .execute(
+                "UPDATE visit_records
+                 SET reference_image_url =
+                   replace(reference_image_url, '://img-tc.anitabi.cn/', '://image.anitabi.cn/')
+                 WHERE reference_image_url LIKE '%://img-tc.anitabi.cn/%'",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
         Ok(())
     }
 
@@ -290,6 +315,8 @@ impl DesktopDatabase {
 
         for (name, definition) in [
             ("map_tile_provider", "TEXT NOT NULL DEFAULT 'openFreeMap'"),
+            ("open_free_map_style", "TEXT NOT NULL DEFAULT 'liberty'"),
+            ("anitabi_image_source", "TEXT NOT NULL DEFAULT 'auto'"),
             ("custom_xyz_tile_url", "TEXT NOT NULL DEFAULT ''"),
             ("custom_maplibre_style_url", "TEXT NOT NULL DEFAULT ''"),
         ] {
@@ -373,7 +400,8 @@ impl DesktopDatabase {
                 "SELECT ui_scale, camera_capture_aspect_ratio, camera_fallback_aspect_ratio,
                         camera_min_zoom, camera_max_zoom, reference_image_scale,
                         nearest_assign_distance_meters, theme_palette,
-                        map_tile_provider, custom_xyz_tile_url, custom_maplibre_style_url
+                        map_tile_provider, open_free_map_style, anitabi_image_source,
+                        custom_xyz_tile_url, custom_maplibre_style_url
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -387,8 +415,10 @@ impl DesktopDatabase {
                         "nearestAssignDistanceMeters": row.get::<_, f64>(6)?,
                         "themePalette": row.get::<_, String>(7)?,
                         "mapTileProvider": row.get::<_, String>(8)?,
-                        "customXyzTileUrl": row.get::<_, String>(9)?,
-                        "customMapLibreStyleUrl": row.get::<_, String>(10)?,
+                        "openFreeMapStyle": row.get::<_, String>(9)?,
+                        "anitabiImageSource": row.get::<_, String>(10)?,
+                        "customXyzTileUrl": row.get::<_, String>(11)?,
+                        "customMapLibreStyleUrl": row.get::<_, String>(12)?,
                     }))
                 },
             )
@@ -546,7 +576,7 @@ impl DesktopDatabase {
                     "referenceLabel": row.get::<_, String>(7)?,
                     "source": row.get::<_, String>(8)?,
                     "sourceId": row.get::<_, Option<String>>(9)?,
-                    "referenceImageUrl": row.get::<_, Option<String>>(10)?,
+                    "referenceImageUrl": canonical_reference_url(row.get::<_, Option<String>>(10)?),
                     "referenceThumbnailPath": row.get::<_, Option<String>>(11)?,
                     "referenceFullImagePath": row.get::<_, Option<String>>(12)?,
                     "sourceUrl": row.get::<_, Option<String>>(13)?,
@@ -586,7 +616,7 @@ impl DesktopDatabase {
                     "colorGradingParamsJson": row.get::<_, Option<String>>(8)?,
                     "colorGradingIntensity": row.get::<_, Option<f64>>(9)?,
                     "referenceImagePath": row.get::<_, Option<String>>(10)?,
-                    "referenceImageUrl": row.get::<_, Option<String>>(11)?,
+                    "referenceImageUrl": canonical_reference_url(row.get::<_, Option<String>>(11)?),
                     "referenceMode": row.get::<_, String>(12)?,
                     "capturedAt": row.get::<_, String>(13)?,
                 }))
@@ -709,8 +739,9 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            id, ui_scale, camera_capture_aspect_ratio, camera_fallback_aspect_ratio,
            camera_min_zoom, camera_max_zoom, reference_image_scale,
            nearest_assign_distance_meters, theme_palette, map_tile_provider,
-           custom_xyz_tile_url, custom_maplibre_style_url
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+           open_free_map_style, anitabi_image_source, custom_xyz_tile_url,
+           custom_maplibre_style_url
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -721,6 +752,8 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             f64_value(settings, "nearestAssignDistanceMeters", 350.0),
             string_value(settings, "themePalette", "classicGreen"),
             string_value(settings, "mapTileProvider", "openFreeMap"),
+            string_value(settings, "openFreeMapStyle", "liberty"),
+            string_value(settings, "anitabiImageSource", "auto"),
             string_value(settings, "customXyzTileUrl", ""),
             string_value(settings, "customMapLibreStyleUrl", ""),
         ],
@@ -848,7 +881,7 @@ fn insert_point(
             string_value(point, "referenceLabel", ""),
             string_value(point, "source", "manual"),
             optional_string(point, "sourceId"),
-            optional_string(point, "referenceImageUrl"),
+            optional_reference_url(point, "referenceImageUrl"),
             optional_string(point, "referenceThumbnailPath"),
             optional_string(point, "referenceFullImagePath"),
             optional_string(point, "sourceUrl"),
@@ -884,7 +917,7 @@ fn insert_visit_record(tx: &Transaction<'_>, record: &Value) -> Result<(), Strin
             optional_string(record, "colorGradingParamsJson"),
             optional_f64(record, "colorGradingIntensity"),
             optional_string(record, "referenceImagePath"),
-            optional_string(record, "referenceImageUrl"),
+            optional_reference_url(record, "referenceImageUrl"),
             string_value(record, "referenceMode", "none"),
             string_value(record, "capturedAt", "1970-01-01T00:00:00.000"),
         ],
@@ -904,6 +937,8 @@ fn default_settings_json() -> Value {
         "nearestAssignDistanceMeters": 350.0,
         "themePalette": "classicGreen",
         "mapTileProvider": "openFreeMap",
+        "openFreeMapStyle": "liberty",
+        "anitabiImageSource": "auto",
         "customXyzTileUrl": "",
         "customMapLibreStyleUrl": "",
     })
@@ -933,6 +968,19 @@ fn string_value(value: &Value, key: &str, fallback: &str) -> String {
 
 fn optional_string(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).map(str::to_string)
+}
+
+fn optional_reference_url(value: &Value, key: &str) -> Option<String> {
+    canonical_reference_url(optional_string(value, key))
+}
+
+fn canonical_reference_url(url: Option<String>) -> Option<String> {
+    let url = url?;
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.replace("://img-tc.anitabi.cn/", "://image.anitabi.cn/"))
 }
 
 fn i64_value(value: &Value, key: &str, fallback: i64) -> i64 {

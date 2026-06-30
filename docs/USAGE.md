@@ -133,18 +133,19 @@
 5. 打开记录详情确认参考图可以离线显示。
 6. 导出一份 `.sjhplan` 数据包作为备份。
 
-地图底图来自当前设置中的地图源。默认地图源是 OpenFreeMap + MapLibre，也可以在设置中切换为 OpenStreetMap、自定义 XYZ 瓦片 URL 或自定义 MapLibre style URL。离线时未缓存的网络地图底图可能无法加载，但已缓存的参考图和本地记录仍可使用。
+地图底图来自当前设置中的数据源。默认地图源是 OpenFreeMap + MapLibre，也可以在设置中切换 OpenFreeMap 样式、OpenStreetMap、自定义 XYZ 瓦片 URL 或自定义 MapLibre style URL。离线时未缓存的网络地图底图可能无法加载，但已缓存的参考图和本地记录仍可使用。
 
 ## 10. 巡礼时：地图、导航与拍摄参考
 
 地图页面会显示当前计划中的点位。应用本身负责显示地图、坐标和点位信息；实际导航会跳转到外部地图应用，例如 Google 地图或系统地图。
 
-地图源可以在“设置”中调整：
+数据源可以在“设置”中调整：
 
-- OpenFreeMap：默认选项，使用 MapLibre style。
+- OpenFreeMap：默认选项，使用 MapLibre style；可选择 Liberty、Bright、Positron、Dark、Fiord 等样式。
 - OpenStreetMap：使用标准 raster XYZ 瓦片。
 - 自定义 XYZ：URL 需要包含 `{z}`、`{x}`、`{y}`。
 - 自定义 MapLibre：URL 需要指向可公开读取的 MapLibre style JSON。
+- Anitabi 图片源：默认自动选择。应用会优先使用 Anitabi 默认图片源；如果下载到错误页或被拦截，会尝试备用图片源。这个设置只影响运行时访问域名，计划数据和导出包里的远端参考图链接仍保留 Anitabi 默认格式。
 
 如果配置自定义地图服务，请确认服务允许客户端应用访问，并根据服务要求保留署名或版权信息。
 

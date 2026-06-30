@@ -105,6 +105,7 @@ pub struct WriteAssetRequest {
 #[serde(rename_all = "camelCase")]
 pub struct FetchAnitabiStaticJsonRequest {
     pub file_name: String,
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -397,8 +398,14 @@ pub fn fetch_anitabi_static_json(
     request: FetchAnitabiStaticJsonRequest,
 ) -> Result<AnitabiStaticJsonResult, String> {
     let file_name = safe_anitabi_static_file_name(&request.file_name)?;
-    let primary_url = format!("https://www.anitabi.cn/d/{file_name}");
-    let fallback_url = format!("https://anitabi.cn/d/{file_name}");
+    let query = request
+        .version
+        .as_deref()
+        .and_then(safe_anitabi_static_version)
+        .map(|version| format!("?v={version}"))
+        .unwrap_or_default();
+    let primary_url = format!("https://www.anitabi.cn/d/{file_name}{query}");
+    let fallback_url = format!("https://anitabi.cn/d/{file_name}{query}");
 
     let body = fetch_text(&primary_url).or_else(|_| fetch_text(&fallback_url))?;
     Ok(AnitabiStaticJsonResult { body })
@@ -466,6 +473,20 @@ fn safe_anitabi_static_file_name(file_name: &str) -> Result<String, String> {
         return Err(format!("invalid Anitabi static file name: {file_name}"));
     }
     Ok(file_name.to_string())
+}
+
+fn safe_anitabi_static_version(version: &str) -> Option<String> {
+    let trimmed = version.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
 }
 
 fn fetch_text(url: &str) -> Result<String, String> {

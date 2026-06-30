@@ -41,4 +41,29 @@ void main() {
     expect(decoded.visitRecords.single.workTitle, point.work.title);
     expect(decoded.visitRecords.single.pointName, point.name);
   });
+
+  test('keeps exported Anitabi URLs in canonical image host', () async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    final sourcePoint = plan.points.first;
+    final point = sourcePoint.copyWith(
+      referenceImageUrl: 'https://img-tc.anitabi.cn/points/115908/demo.jpg',
+    );
+
+    final encoded = PlanPackage(
+      plan: plan.copyWith(points: [point]),
+      visitRecords: const [],
+    ).toJsonString();
+    final decoded = PlanPackage.fromJsonString(encoded);
+
+    expect(
+      decoded.plan.points.single.referenceImageUrl,
+      'https://image.anitabi.cn/points/115908/demo.jpg',
+    );
+    expect(
+      encoded,
+      contains('https://image.anitabi.cn/points/115908/demo.jpg'),
+    );
+    expect(encoded, isNot(contains('img-tc.anitabi.cn')));
+  });
 }

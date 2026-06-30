@@ -218,9 +218,12 @@ Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
   );
 }
 
-Future<String> fetchDesktopAnitabiStaticJson({required String fileName}) async {
+Future<String> fetchDesktopAnitabiStaticJson({
+  required String fileName,
+  String? version,
+}) async {
   final result = await _invokeObject('fetch_anitabi_static_json', {
-    'request': {'fileName': fileName},
+    'request': {'fileName': fileName, 'version': version},
   });
   if (result == null) {
     throw StateError('Tauri fetch_anitabi_static_json returned no result.');

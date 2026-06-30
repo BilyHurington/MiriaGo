@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../data/anitabi_image_source_scope.dart';
 import '../widgets/snackbar_helper.dart';
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
@@ -10,6 +11,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/anitabi_network_image.dart';
 import '../widgets/reference_image_placeholder.dart';
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
@@ -419,18 +421,16 @@ class _ReferencePreview extends StatelessWidget {
 
     final url = imageUrl;
     if (url != null) {
-      return Image.network(
-        url,
+      return AnitabiNetworkImage(
+        url: url,
+        imageSource: AnitabiImageSourceScope.of(context),
         fit: BoxFit.contain,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            return child;
-          }
+        loadingBuilder: (_) {
           return const _ReferencePlaceholder(
             state: ReferenceImagePlaceholderState.loading,
           );
         },
-        errorBuilder: (context, error, stackTrace) {
+        errorBuilder: (_) {
           return const _ReferencePlaceholder();
         },
       );

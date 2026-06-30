@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/anitabi_image_url.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
   test('removes Anitabi thumbnail plan from image URL', () {
@@ -42,5 +43,41 @@ void main() {
     const imageUrl = 'https://example.com/reference.jpg?plan=h160';
 
     expect(anitabiThumbnailImageUrl(imageUrl), imageUrl);
+  });
+
+  test('recognizes mirror host when building full and thumbnail URLs', () {
+    const mirrorThumbnail =
+        'https://img-tc.anitabi.cn/points/115908/id.jpg?plan=w300';
+
+    expect(
+      anitabiFullResolutionImageUrl(mirrorThumbnail),
+      'https://img-tc.anitabi.cn/points/115908/id.jpg',
+    );
+    expect(
+      anitabiThumbnailImageUrl(mirrorThumbnail),
+      'https://img-tc.anitabi.cn/points/115908/id.jpg?plan=h160',
+    );
+  });
+
+  test('canonicalizes mirror URLs to official image host for storage', () {
+    const mirrorUrl = 'https://img-tc.anitabi.cn/points/115908/id.jpg';
+
+    expect(
+      canonicalAnitabiImageUrl(mirrorUrl),
+      'https://image.anitabi.cn/points/115908/id.jpg',
+    );
+  });
+
+  test('resolves Anitabi image source only at runtime', () {
+    const canonicalUrl = 'https://image.anitabi.cn/points/115908/id.jpg';
+
+    expect(
+      resolveAnitabiImageUrl(canonicalUrl, source: AnitabiImageSource.mirror),
+      'https://img-tc.anitabi.cn/points/115908/id.jpg',
+    );
+    expect(candidateAnitabiImageUrls(canonicalUrl), [
+      'https://image.anitabi.cn/points/115908/id.jpg',
+      'https://img-tc.anitabi.cn/points/115908/id.jpg',
+    ]);
   });
 }

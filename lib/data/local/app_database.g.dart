@@ -4039,6 +4039,30 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant('openFreeMap'),
   );
+  static const VerificationMeta _openFreeMapStyleMeta = const VerificationMeta(
+    'openFreeMapStyle',
+  );
+  @override
+  late final GeneratedColumn<String> openFreeMapStyle = GeneratedColumn<String>(
+    'open_free_map_style',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('liberty'),
+  );
+  static const VerificationMeta _anitabiImageSourceMeta =
+      const VerificationMeta('anitabiImageSource');
+  @override
+  late final GeneratedColumn<String> anitabiImageSource =
+      GeneratedColumn<String>(
+        'anitabi_image_source',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('auto'),
+      );
   static const VerificationMeta _navigationAppMeta = const VerificationMeta(
     'navigationApp',
   );
@@ -4205,6 +4229,8 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     nearestAssignDistanceMeters,
     themePalette,
     mapTileProvider,
+    openFreeMapStyle,
+    anitabiImageSource,
     navigationApp,
     customXyzTileUrl,
     customMapLibreStyleUrl,
@@ -4322,6 +4348,24 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         mapTileProvider.isAcceptableOrUnknown(
           data['map_tile_provider']!,
           _mapTileProviderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('open_free_map_style')) {
+      context.handle(
+        _openFreeMapStyleMeta,
+        openFreeMapStyle.isAcceptableOrUnknown(
+          data['open_free_map_style']!,
+          _openFreeMapStyleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('anitabi_image_source')) {
+      context.handle(
+        _anitabiImageSourceMeta,
+        anitabiImageSource.isAcceptableOrUnknown(
+          data['anitabi_image_source']!,
+          _anitabiImageSourceMeta,
         ),
       );
     }
@@ -4490,6 +4534,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}map_tile_provider'],
       )!,
+      openFreeMapStyle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}open_free_map_style'],
+      )!,
+      anitabiImageSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}anitabi_image_source'],
+      )!,
       navigationApp: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}navigation_app'],
@@ -4561,6 +4613,8 @@ class AppSettingsEntry extends DataClass
   final double nearestAssignDistanceMeters;
   final String themePalette;
   final String mapTileProvider;
+  final String openFreeMapStyle;
+  final String anitabiImageSource;
   final String navigationApp;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
@@ -4586,6 +4640,8 @@ class AppSettingsEntry extends DataClass
     required this.nearestAssignDistanceMeters,
     required this.themePalette,
     required this.mapTileProvider,
+    required this.openFreeMapStyle,
+    required this.anitabiImageSource,
     required this.navigationApp,
     required this.customXyzTileUrl,
     required this.customMapLibreStyleUrl,
@@ -4618,6 +4674,8 @@ class AppSettingsEntry extends DataClass
     );
     map['theme_palette'] = Variable<String>(themePalette);
     map['map_tile_provider'] = Variable<String>(mapTileProvider);
+    map['open_free_map_style'] = Variable<String>(openFreeMapStyle);
+    map['anitabi_image_source'] = Variable<String>(anitabiImageSource);
     map['navigation_app'] = Variable<String>(navigationApp);
     map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl);
     map['custom_map_libre_style_url'] = Variable<String>(
@@ -4659,6 +4717,8 @@ class AppSettingsEntry extends DataClass
       nearestAssignDistanceMeters: Value(nearestAssignDistanceMeters),
       themePalette: Value(themePalette),
       mapTileProvider: Value(mapTileProvider),
+      openFreeMapStyle: Value(openFreeMapStyle),
+      anitabiImageSource: Value(anitabiImageSource),
       navigationApp: Value(navigationApp),
       customXyzTileUrl: Value(customXyzTileUrl),
       customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
@@ -4698,6 +4758,10 @@ class AppSettingsEntry extends DataClass
       ),
       themePalette: serializer.fromJson<String>(json['themePalette']),
       mapTileProvider: serializer.fromJson<String>(json['mapTileProvider']),
+      openFreeMapStyle: serializer.fromJson<String>(json['openFreeMapStyle']),
+      anitabiImageSource: serializer.fromJson<String>(
+        json['anitabiImageSource'],
+      ),
       navigationApp: serializer.fromJson<String>(json['navigationApp']),
       customXyzTileUrl: serializer.fromJson<String>(json['customXyzTileUrl']),
       customMapLibreStyleUrl: serializer.fromJson<String>(
@@ -4752,6 +4816,8 @@ class AppSettingsEntry extends DataClass
       ),
       'themePalette': serializer.toJson<String>(themePalette),
       'mapTileProvider': serializer.toJson<String>(mapTileProvider),
+      'openFreeMapStyle': serializer.toJson<String>(openFreeMapStyle),
+      'anitabiImageSource': serializer.toJson<String>(anitabiImageSource),
       'navigationApp': serializer.toJson<String>(navigationApp),
       'customXyzTileUrl': serializer.toJson<String>(customXyzTileUrl),
       'customMapLibreStyleUrl': serializer.toJson<String>(
@@ -4792,6 +4858,8 @@ class AppSettingsEntry extends DataClass
     double? nearestAssignDistanceMeters,
     String? themePalette,
     String? mapTileProvider,
+    String? openFreeMapStyle,
+    String? anitabiImageSource,
     String? navigationApp,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
@@ -4819,6 +4887,8 @@ class AppSettingsEntry extends DataClass
         nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
     themePalette: themePalette ?? this.themePalette,
     mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+    openFreeMapStyle: openFreeMapStyle ?? this.openFreeMapStyle,
+    anitabiImageSource: anitabiImageSource ?? this.anitabiImageSource,
     navigationApp: navigationApp ?? this.navigationApp,
     customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
     customMapLibreStyleUrl:
@@ -4868,6 +4938,12 @@ class AppSettingsEntry extends DataClass
       mapTileProvider: data.mapTileProvider.present
           ? data.mapTileProvider.value
           : this.mapTileProvider,
+      openFreeMapStyle: data.openFreeMapStyle.present
+          ? data.openFreeMapStyle.value
+          : this.openFreeMapStyle,
+      anitabiImageSource: data.anitabiImageSource.present
+          ? data.anitabiImageSource.value
+          : this.anitabiImageSource,
       navigationApp: data.navigationApp.present
           ? data.navigationApp.value
           : this.navigationApp,
@@ -4922,6 +4998,8 @@ class AppSettingsEntry extends DataClass
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette, ')
           ..write('mapTileProvider: $mapTileProvider, ')
+          ..write('openFreeMapStyle: $openFreeMapStyle, ')
+          ..write('anitabiImageSource: $anitabiImageSource, ')
           ..write('navigationApp: $navigationApp, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
@@ -4956,6 +5034,8 @@ class AppSettingsEntry extends DataClass
     nearestAssignDistanceMeters,
     themePalette,
     mapTileProvider,
+    openFreeMapStyle,
+    anitabiImageSource,
     navigationApp,
     customXyzTileUrl,
     customMapLibreStyleUrl,
@@ -4986,6 +5066,8 @@ class AppSettingsEntry extends DataClass
               this.nearestAssignDistanceMeters &&
           other.themePalette == this.themePalette &&
           other.mapTileProvider == this.mapTileProvider &&
+          other.openFreeMapStyle == this.openFreeMapStyle &&
+          other.anitabiImageSource == this.anitabiImageSource &&
           other.navigationApp == this.navigationApp &&
           other.customXyzTileUrl == this.customXyzTileUrl &&
           other.customMapLibreStyleUrl == this.customMapLibreStyleUrl &&
@@ -5016,6 +5098,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<double> nearestAssignDistanceMeters;
   final Value<String> themePalette;
   final Value<String> mapTileProvider;
+  final Value<String> openFreeMapStyle;
+  final Value<String> anitabiImageSource;
   final Value<String> navigationApp;
   final Value<String> customXyzTileUrl;
   final Value<String> customMapLibreStyleUrl;
@@ -5042,6 +5126,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.mapTileProvider = const Value.absent(),
+    this.openFreeMapStyle = const Value.absent(),
+    this.anitabiImageSource = const Value.absent(),
     this.navigationApp = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
@@ -5069,6 +5155,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.nearestAssignDistanceMeters = const Value.absent(),
     this.themePalette = const Value.absent(),
     this.mapTileProvider = const Value.absent(),
+    this.openFreeMapStyle = const Value.absent(),
+    this.anitabiImageSource = const Value.absent(),
     this.navigationApp = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
@@ -5096,6 +5184,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<double>? nearestAssignDistanceMeters,
     Expression<String>? themePalette,
     Expression<String>? mapTileProvider,
+    Expression<String>? openFreeMapStyle,
+    Expression<String>? anitabiImageSource,
     Expression<String>? navigationApp,
     Expression<String>? customXyzTileUrl,
     Expression<String>? customMapLibreStyleUrl,
@@ -5126,6 +5216,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'nearest_assign_distance_meters': nearestAssignDistanceMeters,
       if (themePalette != null) 'theme_palette': themePalette,
       if (mapTileProvider != null) 'map_tile_provider': mapTileProvider,
+      if (openFreeMapStyle != null) 'open_free_map_style': openFreeMapStyle,
+      if (anitabiImageSource != null)
+        'anitabi_image_source': anitabiImageSource,
       if (navigationApp != null) 'navigation_app': navigationApp,
       if (customXyzTileUrl != null) 'custom_xyz_tile_url': customXyzTileUrl,
       if (customMapLibreStyleUrl != null)
@@ -5165,6 +5258,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<double>? nearestAssignDistanceMeters,
     Value<String>? themePalette,
     Value<String>? mapTileProvider,
+    Value<String>? openFreeMapStyle,
+    Value<String>? anitabiImageSource,
     Value<String>? navigationApp,
     Value<String>? customXyzTileUrl,
     Value<String>? customMapLibreStyleUrl,
@@ -5194,6 +5289,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           nearestAssignDistanceMeters ?? this.nearestAssignDistanceMeters,
       themePalette: themePalette ?? this.themePalette,
       mapTileProvider: mapTileProvider ?? this.mapTileProvider,
+      openFreeMapStyle: openFreeMapStyle ?? this.openFreeMapStyle,
+      anitabiImageSource: anitabiImageSource ?? this.anitabiImageSource,
       navigationApp: navigationApp ?? this.navigationApp,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
@@ -5263,6 +5360,12 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     }
     if (mapTileProvider.present) {
       map['map_tile_provider'] = Variable<String>(mapTileProvider.value);
+    }
+    if (openFreeMapStyle.present) {
+      map['open_free_map_style'] = Variable<String>(openFreeMapStyle.value);
+    }
+    if (anitabiImageSource.present) {
+      map['anitabi_image_source'] = Variable<String>(anitabiImageSource.value);
     }
     if (navigationApp.present) {
       map['navigation_app'] = Variable<String>(navigationApp.value);
@@ -5341,6 +5444,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
           ..write('themePalette: $themePalette, ')
           ..write('mapTileProvider: $mapTileProvider, ')
+          ..write('openFreeMapStyle: $openFreeMapStyle, ')
+          ..write('anitabiImageSource: $anitabiImageSource, ')
           ..write('navigationApp: $navigationApp, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
@@ -8154,6 +8259,8 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
       Value<String> mapTileProvider,
+      Value<String> openFreeMapStyle,
+      Value<String> anitabiImageSource,
       Value<String> navigationApp,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
@@ -8182,6 +8289,8 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<double> nearestAssignDistanceMeters,
       Value<String> themePalette,
       Value<String> mapTileProvider,
+      Value<String> openFreeMapStyle,
+      Value<String> anitabiImageSource,
       Value<String> navigationApp,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
@@ -8263,6 +8372,16 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<String> get mapTileProvider => $composableBuilder(
     column: $table.mapTileProvider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get openFreeMapStyle => $composableBuilder(
+    column: $table.openFreeMapStyle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get anitabiImageSource => $composableBuilder(
+    column: $table.anitabiImageSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8396,6 +8515,16 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get openFreeMapStyle => $composableBuilder(
+    column: $table.openFreeMapStyle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get anitabiImageSource => $composableBuilder(
+    column: $table.anitabiImageSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get navigationApp => $composableBuilder(
     column: $table.navigationApp,
     builder: (column) => ColumnOrderings(column),
@@ -8520,6 +8649,16 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get openFreeMapStyle => $composableBuilder(
+    column: $table.openFreeMapStyle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get anitabiImageSource => $composableBuilder(
+    column: $table.anitabiImageSource,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get navigationApp => $composableBuilder(
     column: $table.navigationApp,
     builder: (column) => column,
@@ -8636,6 +8775,8 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<String> mapTileProvider = const Value.absent(),
+                Value<String> openFreeMapStyle = const Value.absent(),
+                Value<String> anitabiImageSource = const Value.absent(),
                 Value<String> navigationApp = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
@@ -8664,6 +8805,8 @@ class $$AppSettingsEntriesTableTableManager
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
                 mapTileProvider: mapTileProvider,
+                openFreeMapStyle: openFreeMapStyle,
+                anitabiImageSource: anitabiImageSource,
                 navigationApp: navigationApp,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
@@ -8693,6 +8836,8 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> themePalette = const Value.absent(),
                 Value<String> mapTileProvider = const Value.absent(),
+                Value<String> openFreeMapStyle = const Value.absent(),
+                Value<String> anitabiImageSource = const Value.absent(),
                 Value<String> navigationApp = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
@@ -8721,6 +8866,8 @@ class $$AppSettingsEntriesTableTableManager
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
                 themePalette: themePalette,
                 mapTileProvider: mapTileProvider,
+                openFreeMapStyle: openFreeMapStyle,
+                anitabiImageSource: anitabiImageSource,
                 navigationApp: navigationApp,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,

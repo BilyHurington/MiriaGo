@@ -225,6 +225,23 @@ void main() {
     expect(restored.warnings, isEmpty);
   });
 
+  test('canonicalizes Anitabi mirror URLs from imported v2 packages', () {
+    final bytes = _zipPackageBytes(
+      assetFiles: const {},
+      pointReferenceImageUrl: 'https://img-tc.anitabi.cn/points/old.jpg',
+    );
+
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'mirror-url.sjhplan',
+    );
+
+    expect(
+      importPackage.package.plan.points.single.referenceImageUrl,
+      'https://image.anitabi.cn/points/old.jpg',
+    );
+  });
+
   test('clears stale full reference path when asset is not restored', () {
     final bytes = _zipPackageBytes(
       assetFiles: {'assets/thumbnails/point-1.jpg': _jpegBytes},

@@ -524,6 +524,7 @@ class _PlanScreenState extends State<PlanScreen> {
         plan: controller.plan,
         repository: widget.repository,
         onPlanUpdated: controller.replacePlan,
+        imageSource: settings.anitabiImageSource,
         onProgress: (progress) {
           if (!mounted) {
             return;

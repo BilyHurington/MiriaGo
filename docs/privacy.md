@@ -42,6 +42,7 @@ You can manage these permissions in your device settings.
 MiriaGo may access third-party services or public data sources when you use related features:
 
 - Map tiles, map styles, and map attribution may be loaded from OpenFreeMap, OpenStreetMap, or a custom map service URL that you configure.
+- Reference images may be loaded from Anitabi image hosts, including the default image host or an alternate image host selected in settings.
 - Anime pilgrimage point/reference data may be imported from user-selected or supported sources such as Anitabi.
 - Work metadata may be searched or imported from Bangumi-related APIs when you choose to use those features.
 - External navigation may open Google Maps or another map/navigation app if you choose to start navigation.
@@ -124,11 +125,12 @@ MiriaGo 可能请求以下系统权限：
 当你使用相关功能时，MiriaGo 可能会访问第三方服务或公共数据来源：
 
 - 地图瓦片、地图样式和地图署名信息可能来自 OpenFreeMap、OpenStreetMap，或你自行配置的自定义地图服务 URL。
+- 参考图可能来自 Anitabi 图片服务，包括默认图片源或你在设置中选择的备用图片源。
 - 动漫巡礼点位和参考图数据可能来自你选择或应用支持的数据源，例如 Anitabi。
 - 作品元数据可能在你使用相关功能时通过 Bangumi 相关 API 搜索或导入。
 - 当你选择开始导航时，应用可能会打开 Google Maps 或其他地图/导航应用。
 
-使用这些服务时，你的设备可能会直接连接到第三方服务。地图请求可能会让所选地图服务获得常规网络信息，例如你的 IP 地址、设备网络信息、请求的地图瓦片或地图样式 URL。相关服务自身的隐私政策和使用条款适用。
+使用这些服务时，你的设备可能会直接连接到第三方服务。地图请求和图片请求可能会让所选服务获得常规网络信息，例如你的 IP 地址、设备网络信息、请求的地图瓦片、地图样式 URL 或图片 URL。相关服务自身的隐私政策和使用条款适用。
 
 ## 导入、导出和分享
 

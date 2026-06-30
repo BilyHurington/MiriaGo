@@ -143,6 +143,9 @@ Future<DesktopAssetResult> writeDesktopAsset({
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
 
-Future<String> fetchDesktopAnitabiStaticJson({required String fileName}) async {
+Future<String> fetchDesktopAnitabiStaticJson({
+  required String fileName,
+  String? version,
+}) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }

@@ -8,23 +8,29 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../data/anitabi_image_fetcher.dart';
+import '../data/anitabi_image_source_scope.dart';
 import '../desktop/desktop_asset_image.dart';
+import '../plan/pilgrimage_models.dart';
 import '../plan_transfer/plan_export_delivery.dart';
 import '../plan_transfer/plan_export_delivery_result.dart';
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
+import 'anitabi_network_image.dart';
 
 class ImageViewerScreen extends StatelessWidget {
   const ImageViewerScreen({
     this.filePath,
     this.imageUrl,
     this.bytes,
+    this.imageSource = AnitabiImageSource.auto,
     super.key,
   });
 
   final String? filePath;
   final String? imageUrl;
   final Uint8List? bytes;
+  final AnitabiImageSource imageSource;
 
   static Future<void> show(
     BuildContext context, {
@@ -32,12 +38,14 @@ class ImageViewerScreen extends StatelessWidget {
     String? imageUrl,
     Uint8List? bytes,
   }) {
+    final imageSource = AnitabiImageSourceScope.of(context);
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ImageViewerScreen(
           filePath: filePath,
           imageUrl: imageUrl,
           bytes: bytes,
+          imageSource: imageSource,
         ),
       ),
     );
@@ -56,7 +64,7 @@ class ImageViewerScreen extends StatelessWidget {
               child: Center(
                 child: GestureDetector(
                   onLongPress: () => _showSaveSheet(context),
-                  child: _buildImage(),
+                  child: _buildImage(context),
                 ),
               ),
             ),
@@ -91,7 +99,7 @@ class ImageViewerScreen extends StatelessWidget {
           : _MobileSaveSheet(
               onShare: () async {
                 Navigator.of(ctx).pop();
-                final savePath = await _resolveLocalImagePath();
+                final savePath = await _resolveLocalImagePath(context);
                 if (savePath == null) {
                   _showSnackBar(messenger, '图片读取失败');
                   return;
@@ -100,7 +108,7 @@ class ImageViewerScreen extends StatelessWidget {
               },
               onSaveToGallery: () async {
                 Navigator.of(ctx).pop();
-                final savePath = await _resolveLocalImagePath();
+                final savePath = await _resolveLocalImagePath(context);
                 if (savePath == null) {
                   _showSnackBar(messenger, '图片读取失败');
                   return;
@@ -119,7 +127,7 @@ class ImageViewerScreen extends StatelessWidget {
   ) async {
     Navigator.of(sheetContext).pop();
     try {
-      final imageBytes = await _resolveImageBytes();
+      final imageBytes = await _resolveImageBytes(sheetContext);
       if (imageBytes == null || imageBytes.isEmpty) {
         _showSnackBar(messenger, '图片读取失败');
         return;
@@ -144,7 +152,7 @@ class ImageViewerScreen extends StatelessWidget {
     }
   }
 
-  Future<Uint8List?> _resolveImageBytes() async {
+  Future<Uint8List?> _resolveImageBytes(BuildContext context) async {
     final imageBytes = bytes;
     if (imageBytes != null) {
       return imageBytes;
@@ -175,6 +183,11 @@ class ImageViewerScreen extends StatelessWidget {
       return null;
     }
 
+    final anitabiBytes = await fetchAnitabiImageBytes(url, source: imageSource);
+    if (anitabiBytes != null) {
+      return Uint8List.fromList(anitabiBytes);
+    }
+
     final response = await http.get(Uri.parse(url));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;
@@ -182,7 +195,7 @@ class ImageViewerScreen extends StatelessWidget {
     return response.bodyBytes;
   }
 
-  Future<String?> _resolveLocalImagePath() async {
+  Future<String?> _resolveLocalImagePath(BuildContext context) async {
     final path = filePath;
     if (path != null) {
       final file = File(path);
@@ -209,6 +222,16 @@ class ImageViewerScreen extends StatelessWidget {
     }
 
     try {
+      final anitabiBytes = await fetchAnitabiImageBytes(
+        url,
+        source: imageSource,
+      );
+      if (anitabiBytes != null) {
+        return _writeTemporaryImage(
+          Uint8List.fromList(anitabiBytes),
+          extension: _extensionFromUrl(url),
+        );
+      }
       final response = await http.get(Uri.parse(url));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
@@ -283,7 +306,7 @@ class ImageViewerScreen extends StatelessWidget {
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Widget _buildImage() {
+  Widget _buildImage(BuildContext context) {
     final imageBytes = bytes;
     if (imageBytes != null) {
       return Image.memory(imageBytes, fit: BoxFit.contain);
@@ -330,16 +353,16 @@ class ImageViewerScreen extends StatelessWidget {
 
     final url = imageUrl;
     if (url != null) {
-      return Image.network(
-        url,
+      return AnitabiNetworkImage(
+        url: url,
+        imageSource: imageSource,
         fit: BoxFit.contain,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
+        loadingBuilder: (_) {
           return const _ImageViewerPlaceholder(
             state: _ImageViewerPlaceholderState.loading,
           );
         },
-        errorBuilder: (context, error, stackTrace) {
+        errorBuilder: (_) {
           return const _ImageViewerPlaceholder();
         },
       );

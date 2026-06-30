@@ -245,8 +245,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(
             header: _SettingsCardHeader(
               icon: Icons.map_outlined,
-              title: '地图设置',
-              subtitle: '地图源、样式等',
+              title: '数据源',
+              subtitle: '地图源、图片源等',
               onTap: () => _pushDetail(
                 _MapSettingsPage(
                   settings: settings,
@@ -1111,7 +1111,7 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
     final settings = _settings;
 
     return _ScaledDetailScaffold(
-      title: '地图设置',
+      title: '数据源',
       uiScale: settings.uiScale,
       fontScale: settings.fontScale,
       children: [
@@ -1130,6 +1130,26 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
               mapTileProviderOption(settings.mapTileProvider).description,
               style: _secondaryTextStyle,
             ),
+            if (settings.mapTileProvider == MapTileProvider.openFreeMap) ...[
+              const SizedBox(height: 12),
+              _SettingsSubheading(
+                icon: Icons.layers_outlined,
+                title:
+                    'OpenFreeMap 样式 ${openFreeMapStyleOption(settings.openFreeMapStyle).label}',
+              ),
+              const SizedBox(height: 8),
+              _OpenFreeMapStyleGrid(
+                selectedStyle: settings.openFreeMapStyle,
+                onSelected: (style) {
+                  _update(settings.copyWith(openFreeMapStyle: style));
+                },
+              ),
+              const SizedBox(height: 10),
+              Text(
+                openFreeMapStyleOption(settings.openFreeMapStyle).description,
+                style: _secondaryTextStyle,
+              ),
+            ],
             if (settings.mapTileProvider == MapTileProvider.customXyz) ...[
               const SizedBox(height: 12),
               _MapUrlRow(
@@ -1182,6 +1202,24 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
                 text: validateMapTileSettings(settings)!,
               ),
             ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
+          title:
+              'Anitabi 图片源 ${_anitabiImageSourceLabel(settings.anitabiImageSource)}',
+          children: [
+            _AnitabiImageSourceGrid(
+              selectedSource: settings.anitabiImageSource,
+              onSelected: (source) {
+                _update(settings.copyWith(anitabiImageSource: source));
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _anitabiImageSourceDescription(settings.anitabiImageSource),
+              style: _secondaryTextStyle,
+            ),
           ],
         ),
         if (_showFutureNavigationAppSettings) ...[
@@ -1475,7 +1513,7 @@ class _AboutSettingsPage extends StatelessWidget {
           title: '数据与版权',
           children: [
             Text(
-              '地图可使用 OpenFreeMap、OpenStreetMap 或自定义服务；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
+              '地图可使用 OpenFreeMap、OpenStreetMap 或自定义服务；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。图片源设置只影响访问域名，远端链接会统一保留 Anitabi 默认格式。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
               style: _secondaryParagraphTextStyle,
             ),
           ],
@@ -1800,6 +1838,34 @@ class _SettingsSection extends StatelessWidget {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+class _SettingsSubheading extends StatelessWidget {
+  const _SettingsSubheading({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.textSecondary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2859,6 +2925,120 @@ class _MapSourceGrid extends StatelessWidget {
   }
 }
 
+class _OpenFreeMapStyleGrid extends StatelessWidget {
+  const _OpenFreeMapStyleGrid({
+    required this.selectedStyle,
+    required this.onSelected,
+  });
+
+  final OpenFreeMapStyle selectedStyle;
+  final ValueChanged<OpenFreeMapStyle> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CompactOptionWrap(
+      children: [
+        for (final option in openFreeMapStyleOptions)
+          _CompactOptionChip(
+            label: option.label,
+            selected: selectedStyle == option.style,
+            icon: Icons.layers_outlined,
+            onTap: () => onSelected(option.style),
+          ),
+      ],
+    );
+  }
+}
+
+class _AnitabiImageSourceGrid extends StatelessWidget {
+  const _AnitabiImageSourceGrid({
+    required this.selectedSource,
+    required this.onSelected,
+  });
+
+  final AnitabiImageSource selectedSource;
+  final ValueChanged<AnitabiImageSource> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CompactOptionWrap(
+      children: [
+        for (final source in AnitabiImageSource.values)
+          _CompactOptionChip(
+            label: _anitabiImageSourceLabel(source),
+            selected: selectedSource == source,
+            icon: _anitabiImageSourceIcon(source),
+            onTap: () => onSelected(source),
+          ),
+      ],
+    );
+  }
+}
+
+class _CompactOptionWrap extends StatelessWidget {
+  const _CompactOptionWrap({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(spacing: 8, runSpacing: 8, children: children);
+  }
+}
+
+class _CompactOptionChip extends StatelessWidget {
+  const _CompactOptionChip({
+    required this.label,
+    required this.selected,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accent : AppColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.check : icon,
+              color: selected ? AppColors.onAccent : AppColors.textSecondary,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? AppColors.onAccent : AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MapSourceOptionCard extends StatelessWidget {
   const _MapSourceOptionCard({
     required this.option,
@@ -3085,6 +3265,31 @@ String _mapProviderHint(MapTileProvider provider) {
     MapTileProvider.openStreetMap => '\u6807\u51c6\u74e6\u7247',
     MapTileProvider.customXyz => '\u74e6\u7247\u6a21\u677f',
     MapTileProvider.customMapLibreStyle => '\u6837\u5f0f URL',
+  };
+}
+
+String _anitabiImageSourceLabel(AnitabiImageSource source) {
+  return switch (source) {
+    AnitabiImageSource.auto => '自动选择',
+    AnitabiImageSource.official => '官方默认',
+    AnitabiImageSource.mirror => '备用源',
+  };
+}
+
+String _anitabiImageSourceDescription(AnitabiImageSource source) {
+  return switch (source) {
+    AnitabiImageSource.auto =>
+      '优先使用 image.anitabi.cn；如果下载到错误页或被拦截，会尝试 img-tc.anitabi.cn。',
+    AnitabiImageSource.official => '固定使用 image.anitabi.cn，保留 Anitabi 官方默认图片源。',
+    AnitabiImageSource.mirror => '固定使用 img-tc.anitabi.cn，适合官方默认源经常被拦截时使用。',
+  };
+}
+
+IconData _anitabiImageSourceIcon(AnitabiImageSource source) {
+  return switch (source) {
+    AnitabiImageSource.auto => Icons.auto_awesome_outlined,
+    AnitabiImageSource.official => Icons.image_outlined,
+    AnitabiImageSource.mirror => Icons.swap_horiz_outlined,
   };
 }
 

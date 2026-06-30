@@ -10,15 +10,21 @@ class AnitabiStaticDataReader {
 
   final http.Client _httpClient;
 
-  Future<String> read(String fileName) async {
+  Future<String> read(String fileName, {String? version}) async {
     _validateFileName(fileName);
 
     if (isTauriLauncherAvailable) {
-      return fetchDesktopAnitabiStaticJson(fileName: fileName);
+      return fetchDesktopAnitabiStaticJson(
+        fileName: fileName,
+        version: version,
+      );
     }
 
     if (kIsWeb) {
-      final proxyUri = Uri.base.resolve('/__anitabi_static__/$fileName');
+      final proxyUri = _withVersion(
+        Uri.base.resolve('/__anitabi_static__/$fileName'),
+        version,
+      );
       try {
         return (await _checkedGet(proxyUri)).body;
       } catch (error) {
@@ -26,17 +32,30 @@ class AnitabiStaticDataReader {
       }
     }
 
-    final primaryUri = Uri.parse('https://www.anitabi.cn/d/$fileName');
+    final primaryUri = _withVersion(
+      Uri.parse('https://www.anitabi.cn/d/$fileName'),
+      version,
+    );
     try {
       return (await _checkedGet(primaryUri)).body;
     } catch (error) {
-      final fallbackUri = Uri.parse('https://anitabi.cn/d/$fileName');
+      final fallbackUri = _withVersion(
+        Uri.parse('https://anitabi.cn/d/$fileName'),
+        version,
+      );
       try {
         return (await _checkedGet(fallbackUri)).body;
       } catch (_) {
         throw AnitabiStaticDataUnavailableException(error);
       }
     }
+  }
+
+  Uri _withVersion(Uri uri, String? version) {
+    if (version == null || version.isEmpty) {
+      return uri;
+    }
+    return uri.replace(queryParameters: {'v': version});
   }
 
   Future<http.Response> _checkedGet(Uri uri) async {

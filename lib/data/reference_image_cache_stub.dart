@@ -1,14 +1,16 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
-
 import '../desktop/tauri_bridge.dart' as tauri;
 import '../desktop/desktop_asset_image.dart';
 import '../plan/pilgrimage_models.dart';
+import 'anitabi_image_fetcher.dart';
 import 'anitabi_image_url.dart';
 import 'image_bytes.dart';
 
-Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
+Future<String?> cacheReferenceThumbnail(
+  PilgrimagePoint point, {
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
+}) async {
   if (!tauri.isTauriLauncherAvailable) {
     return null;
   }
@@ -18,13 +20,17 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
   }
   return _cacheTauriReferenceImage(
     url: url,
+    imageSource: imageSource,
     namespace: 'reference_thumbnails',
     filename:
         '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
   );
 }
 
-Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
+Future<String?> ensureReferenceThumbnailCached(
+  PilgrimagePoint point, {
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
+}) async {
   final thumbnailUrl = anitabiThumbnailImageUrl(point.referenceImageUrl);
   final existingPath = point.referenceThumbnailPath;
   if (existingPath != null &&
@@ -40,10 +46,13 @@ Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
       // Missing files are expected when data was restored without assets.
     }
   }
-  return cacheReferenceThumbnail(point);
+  return cacheReferenceThumbnail(point, imageSource: imageSource);
 }
 
-Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
+Future<String?> cacheReferenceFullImage(
+  PilgrimagePoint point, {
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
+}) async {
   if (!tauri.isTauriLauncherAvailable) {
     return null;
   }
@@ -53,6 +62,7 @@ Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
   }
   return _cacheTauriReferenceImage(
     url: url,
+    imageSource: imageSource,
     namespace: 'reference_full',
     filename:
         '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
@@ -61,6 +71,7 @@ Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
 
 Future<String?> _cacheTauriReferenceImage({
   required String url,
+  required AnitabiImageSource imageSource,
   required String namespace,
   required String filename,
 }) async {
@@ -74,21 +85,12 @@ Future<String?> _cacheTauriReferenceImage({
     // Missing files are expected before the first cache attempt.
   }
 
-  final response = await http.get(Uri.parse(url));
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    return null;
-  }
-  if (response.bodyBytes.isEmpty) {
-    return null;
-  }
-  if (!isSupportedImageBytes(response.bodyBytes)) {
+  final bytes = await fetchAnitabiImageBytes(url, source: imageSource);
+  if (bytes == null || !isSupportedImageBytes(bytes)) {
     return null;
   }
 
-  await tauri.writeDesktopAsset(
-    path: path,
-    dataBase64: base64Encode(response.bodyBytes),
-  );
+  await tauri.writeDesktopAsset(path: path, dataBase64: base64Encode(bytes));
   return path;
 }
 

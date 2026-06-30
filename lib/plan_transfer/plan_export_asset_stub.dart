@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../data/anitabi_image_fetcher.dart';
+import '../data/anitabi_image_url.dart';
 import '../data/image_bytes.dart';
 import '../data/reference_asset_paths.dart';
 import '../desktop/desktop_asset_image.dart';
@@ -46,9 +48,15 @@ Future<List<int>?> readExportNetworkBytes(String url) async {
     return null;
   }
   try {
-    final response = await http
-        .get(Uri.parse(normalizedUrl))
-        .timeout(_exportNetworkTimeout);
+    final uri = Uri.parse(normalizedUrl);
+    if (anitabiImageHosts.contains(uri.host)) {
+      final bytes = await fetchAnitabiImageBytes(
+        normalizedUrl,
+        timeout: _exportNetworkTimeout,
+      );
+      return bytes == null || !isSupportedImageBytes(bytes) ? null : bytes;
+    }
+    final response = await http.get(uri).timeout(_exportNetworkTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;
     }

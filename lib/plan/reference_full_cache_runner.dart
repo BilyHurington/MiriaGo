@@ -55,6 +55,7 @@ Future<PilgrimagePlan> cacheFullReferenceImages({
   required PilgrimageRepository repository,
   required ValueChangedPlan onPlanUpdated,
   required ValueChangedProgress onProgress,
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
 }) async {
   final points = pointsNeedingFullReferenceCache(plan.points);
   if (points.isEmpty) {
@@ -70,7 +71,10 @@ Future<PilgrimagePlan> cacheFullReferenceImages({
 
   for (final point in points) {
     try {
-      final path = await reference_image_cache.cacheReferenceFullImage(point);
+      final path = await reference_image_cache.cacheReferenceFullImage(
+        point,
+        imageSource: imageSource,
+      );
       if (path == null) {
         failed += 1;
       } else {

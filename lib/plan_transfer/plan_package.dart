@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:latlong2/latlong.dart';
 
+import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 
 const seichiPlanFileExtension = 'sjhplan';
@@ -130,7 +131,7 @@ Map<String, Object?> _pointToJson(PilgrimagePoint point) {
     'referenceLabel': point.referenceLabel,
     'source': point.source.name,
     'sourceId': point.sourceId,
-    'referenceImageUrl': point.referenceImageUrl,
+    'referenceImageUrl': _canonicalReferenceUrl(point.referenceImageUrl),
     'referenceThumbnailPath': point.referenceThumbnailPath,
     'referenceFullImagePath': point.referenceFullImagePath,
     'sourceUrl': point.sourceUrl,
@@ -169,7 +170,7 @@ PilgrimagePoint _pointFromJson(
       orElse: () => PointSource.manual,
     ),
     sourceId: json['sourceId'] as String?,
-    referenceImageUrl: json['referenceImageUrl'] as String?,
+    referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceThumbnailPath: json['referenceThumbnailPath'] as String?,
     referenceFullImagePath: json['referenceFullImagePath'] as String?,
     sourceUrl: json['sourceUrl'] as String?,
@@ -194,7 +195,7 @@ Map<String, Object?> _visitRecordToJson(PilgrimageVisitRecord record) {
     'colorGradingParamsJson': record.colorGradingParamsJson,
     'colorGradingIntensity': record.colorGradingIntensity,
     'referenceImagePath': record.referenceImagePath,
-    'referenceImageUrl': record.referenceImageUrl,
+    'referenceImageUrl': _canonicalReferenceUrl(record.referenceImageUrl),
     'referenceMode': record.referenceMode,
     'capturedAt': record.capturedAt.toIso8601String(),
   };
@@ -217,7 +218,7 @@ PilgrimageVisitRecord _visitRecordFromJson(Map<String, Object?> json) {
     colorGradingParamsJson: json['colorGradingParamsJson'] as String?,
     colorGradingIntensity: (json['colorGradingIntensity'] as num?)?.toDouble(),
     referenceImagePath: json['referenceImagePath'] as String?,
-    referenceImageUrl: json['referenceImageUrl'] as String?,
+    referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceMode: _stringValue(json['referenceMode'], fallback: '未知'),
     capturedAt: _dateValue(json['capturedAt']),
   );
@@ -249,4 +250,11 @@ DateTime _dateValue(Object? value) {
     return DateTime.tryParse(value) ?? DateTime.now();
   }
   return DateTime.now();
+}
+
+String? _canonicalReferenceUrl(Object? value) {
+  if (value is! String || value.trim().isEmpty) {
+    return null;
+  }
+  return canonicalAnitabiImageUrl(value);
 }

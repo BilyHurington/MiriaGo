@@ -1,14 +1,17 @@
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../plan/pilgrimage_models.dart';
+import 'anitabi_image_fetcher.dart';
 import 'anitabi_image_url.dart';
 import 'image_bytes.dart';
 
-Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
+Future<String?> cacheReferenceThumbnail(
+  PilgrimagePoint point, {
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
+}) async {
   final url = point.referenceImageUrl;
   if (url == null || url.isEmpty) {
     return null;
@@ -20,13 +23,17 @@ Future<String?> cacheReferenceThumbnail(PilgrimagePoint point) async {
   }
   return _cacheImage(
     url: thumbnailUrl,
+    imageSource: imageSource,
     namespace: 'reference_thumbnails',
     filename:
         '${_safeFileName(point.id)}_${_stableUrlHash(thumbnailUrl)}${_extensionFromUrl(thumbnailUrl)}',
   );
 }
 
-Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
+Future<String?> ensureReferenceThumbnailCached(
+  PilgrimagePoint point, {
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
+}) async {
   final thumbnailUrl = anitabiThumbnailImageUrl(point.referenceImageUrl);
   final existingPath = point.referenceThumbnailPath;
   if (existingPath != null &&
@@ -37,10 +44,13 @@ Future<String?> ensureReferenceThumbnailCached(PilgrimagePoint point) async {
       return existingPath;
     }
   }
-  return cacheReferenceThumbnail(point);
+  return cacheReferenceThumbnail(point, imageSource: imageSource);
 }
 
-Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
+Future<String?> cacheReferenceFullImage(
+  PilgrimagePoint point, {
+  AnitabiImageSource imageSource = AnitabiImageSource.auto,
+}) async {
   final url = anitabiFullResolutionImageUrl(point.referenceImageUrl);
   if (url == null || url.isEmpty) {
     return null;
@@ -48,6 +58,7 @@ Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
 
   return _cacheImage(
     url: url,
+    imageSource: imageSource,
     namespace: 'reference_full',
     filename:
         '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
@@ -56,6 +67,7 @@ Future<String?> cacheReferenceFullImage(PilgrimagePoint point) async {
 
 Future<String?> _cacheImage({
   required String url,
+  required AnitabiImageSource imageSource,
   required String namespace,
   required String filename,
 }) async {
@@ -75,15 +87,12 @@ Future<String?> _cacheImage({
     await file.delete();
   }
 
-  final response = await http.get(Uri.parse(url));
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    return null;
-  }
-  if (!isSupportedImageBytes(response.bodyBytes)) {
+  final bytes = await fetchAnitabiImageBytes(url, source: imageSource);
+  if (bytes == null || !isSupportedImageBytes(bytes)) {
     return null;
   }
 
-  await file.writeAsBytes(response.bodyBytes, flush: true);
+  await file.writeAsBytes(bytes, flush: true);
   return path;
 }
 

@@ -120,6 +120,39 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
   }
 
+  Future<void> _refreshAnitabiData() async {
+    widget.anitabiClient.clearStaticCache();
+    ScaffoldMessenger.of(context).showReplacingSnackBar(
+      const SnackBar(content: Text('正在清除缓存并重新加载 Anitabi 点位...')),
+    );
+
+    final initialPointId = widget.initialPointId;
+    if (initialPointId != null) {
+      await _loadInitialPointId(initialPointId);
+      return;
+    }
+
+    final initialBangumiId = widget.initialBangumiId;
+    if (initialBangumiId != null && _selectedWork == null) {
+      await _loadInitialBangumiId(initialBangumiId);
+      return;
+    }
+
+    final works = _works;
+    final work =
+        _selectedWork ??
+        works.where((work) => work.bangumiId != null).firstOrNull ??
+        works.firstOrNull;
+    if (work?.bangumiId != null) {
+      await _loadPoints(work!);
+      return;
+    }
+
+    setState(() {
+      _error = null;
+    });
+  }
+
   Future<void> _loadPoints(PilgrimageWork work) async {
     final generation = _nextLoadGeneration();
     final bangumiId = work.bangumiId;
@@ -818,6 +851,17 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('从作品地图导入'),
+          actions: [
+            Tooltip(
+              message: '清除缓存并重新加载 Anitabi 点位',
+              child: IconButton(
+                onPressed: _isLoading || _isImporting
+                    ? null
+                    : _refreshAnitabiData,
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          ],
           bottom: works.isEmpty
               ? null
               : PreferredSize(
@@ -855,25 +899,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               return _ImportErrorState(
                 message: _errorMessageFor(_error),
                 detail: _errorDetailFor(_error),
-                onRetry: () {
-                  final initialPointId = widget.initialPointId;
-                  if (initialPointId != null) {
-                    _loadInitialPointId(initialPointId);
-                    return;
-                  }
-
-                  final initialBangumiId = widget.initialBangumiId;
-                  if (initialBangumiId != null && _selectedWork == null) {
-                    _loadInitialBangumiId(initialBangumiId);
-                  } else if (_selectedWork?.bangumiId != null ||
-                      works.any((work) => work.bangumiId != null)) {
-                    _loadPoints(_selectedWork ?? works.first);
-                  } else {
-                    setState(() {
-                      _error = null;
-                    });
-                  }
-                },
+                onRetry: _refreshAnitabiData,
               );
             }
 
@@ -1032,9 +1058,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   String _errorDetailFor(Object? error) {
     if (error is AnitabiStaticDataUnavailableException) {
       if (kIsWeb) {
-        return '纯 Web 端需要通过同源代理读取 Anitabi 地图索引；当前预览服务未提供代理或网络请求被拦截。';
+        return '可能是 Anitabi 地图数据缓存版本不一致，或当前预览服务网络请求被拦截。请清除缓存并重新加载 Anitabi 点位。';
       }
-      return '无法读取 Anitabi 地图索引。请检查网络连接后重试，或稍后再重新加载。';
+      return '无法读取 Anitabi 地图索引。请检查网络连接，或清除缓存并重新加载 Anitabi 点位。';
     }
 
     if (error is AnitabiPartialPointsException) {
@@ -1754,7 +1780,7 @@ String? _anitabiThumbnailUrl(String? url) {
   }
 
   final uri = Uri.tryParse(fullUrl);
-  if (uri == null || uri.host != 'image.anitabi.cn') {
+  if (uri == null || !anitabiImageHosts.contains(uri.host)) {
     return fullUrl;
   }
 
@@ -1881,7 +1907,7 @@ class _ImportErrorState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('重新加载 Anitabi 点位'),
+              label: const Text('清除缓存并重新加载 Anitabi 点位'),
             ),
           ],
         ),
