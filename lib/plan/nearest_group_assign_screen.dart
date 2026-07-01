@@ -10,6 +10,7 @@ import '../map/map_tile_config.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/constrained_menu_anchor.dart';
 import '../widgets/snackbar_helper.dart';
@@ -76,6 +77,11 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      _ungroupedPoints,
+      isSelected: (point) => point.id == _selectedPoint?.id,
+    );
+
     return PopScope(
       canPop: !_isSaving,
       onPopInvokedWithResult: (didPop, _) {
@@ -138,7 +144,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                         height: 38,
                         child: _AnchorMarker(name: group.name),
                       ),
-                    for (final point in _ungroupedPoints)
+                    for (final point in mapPoints)
                       Marker(
                         point: point.position,
                         width: point.id == _selectedPoint?.id ? 42 : 36,
@@ -460,6 +466,10 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
   Widget build(BuildContext context) {
     final targetGroup = _targetGroup;
     final selectedBoxPoints = _selectedBoxPoints;
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      _ungroupedPoints,
+      isSelected: (point) => point.id == _selectedPoint?.id,
+    );
 
     return PopScope(
       canPop: !_isSaving,
@@ -507,7 +517,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                           height: 38,
                           child: _AnchorMarker(name: group.name),
                         ),
-                    for (final point in _ungroupedPoints)
+                    for (final point in mapPoints)
                       Marker(
                         point: point.position,
                         width: point.id == _selectedPoint?.id ? 42 : 36,

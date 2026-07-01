@@ -16,6 +16,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/reference_image_status.dart';
 import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
+import '../utils/selected_item_order.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
@@ -325,6 +326,10 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     final thumbnailPointIds = _thumbnailPointIdsForCurrentView(
       _controller.points,
     );
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      _controller.points,
+      isSelected: (point) => point.id == selectedPoint?.id,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -352,7 +357,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  for (final point in _controller.points)
+                  for (final point in mapPoints)
                     () {
                       final showThumbnail =
                           _showThumbnailMarkers &&

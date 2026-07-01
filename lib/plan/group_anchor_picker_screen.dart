@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../map/map_tile_config.dart';
+import '../utils/selected_item_order.dart';
 import 'pilgrimage_models.dart';
 
 class GroupAnchorSelection {
@@ -70,6 +71,10 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedPosition = _selectedPoint?.position ?? _manualPosition;
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      widget.points,
+      isSelected: (point) => point.id == _selectedPoint?.id,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -108,7 +113,7 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
               configuredMapTileLayer(widget.settings),
               MarkerLayer(
                 markers: [
-                  for (final point in widget.points)
+                  for (final point in mapPoints)
                     Marker(
                       point: point.position,
                       width: 42,
