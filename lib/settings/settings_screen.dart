@@ -2161,7 +2161,7 @@ class _CustomAspectRatioOption extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        height: 48,
+        height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? AppColors.accent : AppColors.surface,
@@ -2313,7 +2313,7 @@ class _AspectRatioOption extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        height: 48,
+        height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? AppColors.accent : AppColors.surface,
