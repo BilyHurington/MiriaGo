@@ -840,7 +840,7 @@ void main() {
     expect(reloadedPlan.name, '改名后的计划');
     expect(reloadedPlan.area, '京都市');
     expect(reloadedPlan.memo, '上午宇治，下午木幡。');
-    expect(settings.uiScale, 1.5);
+    expect(settings.uiScale, 1.0);
     expect(settings.cameraCaptureAspectRatio, CameraPhotoAspectRatio.photo3x2);
     expect(
       settings.cameraFallbackAspectRatio,

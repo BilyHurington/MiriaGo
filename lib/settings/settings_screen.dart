@@ -480,7 +480,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
-    final uiScale = settings.uiScale.clamp(0.8, 1.2);
+    final uiScale = settings.uiScale.clamp(0.8, 1.0);
     final fontScale = settings.fontScale.clamp(0.8, 1.2);
     AppColors.palette = settings.themePalette;
     AppColors.customAccentValue = settings.customThemeColorValue;
@@ -649,9 +649,9 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 _PercentScaleControl(
                   value: uiScale,
                   min: 0.8,
-                  max: 1.2,
+                  max: 1.0,
                   divisions: 4,
-                  tickLabels: const ['80%', '90%', '100%', '110%', '120%'],
+                  tickLabels: const ['80%', '85%', '90%', '95%', '100%'],
                   showStepper: false,
                   onChanged: (value) {
                     _update(settings.copyWith(uiScale: value));

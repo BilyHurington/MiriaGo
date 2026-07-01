@@ -51,7 +51,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     }
 
     return AppSettings(
-      uiScale: row.uiScale.clamp(0.5, 2.0),
+      uiScale: row.uiScale.clamp(0.8, 1.0),
       fontScale: row.fontScale.clamp(0.7, 1.4),
       themeMode: _themeModeFromName(row.themeMode),
       cameraCaptureAspectRatio: _cameraAspectRatioFromName(
@@ -918,7 +918,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         .insertOnConflictUpdate(
           AppSettingsEntriesCompanion.insert(
             id: 'default',
-            uiScale: Value(settings.uiScale.clamp(0.5, 2.0)),
+            uiScale: Value(settings.uiScale.clamp(0.8, 1.0)),
             fontScale: Value(settings.fontScale.clamp(0.7, 1.4)),
             themeMode: Value(settings.themeMode.name),
             cameraAspectRatio: Value(settings.cameraFallbackAspectRatio.name),

@@ -38,7 +38,7 @@ void main() {
 
     expect(decoded, isNotNull);
     expect(decoded!.activePlanId, source.activePlanId);
-    expect(decoded.settings.uiScale, 1.25);
+    expect(decoded.settings.uiScale, 1.0);
     expect(
       decoded.settings.cameraCaptureAspectRatio,
       CameraPhotoAspectRatio.landscape16x9,

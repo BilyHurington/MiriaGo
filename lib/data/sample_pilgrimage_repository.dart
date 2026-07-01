@@ -737,7 +737,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<void> saveAppSettings(AppSettings settings) async {
     _settings = settings.copyWith(
-      uiScale: settings.uiScale.clamp(0.5, 2.0),
+      uiScale: settings.uiScale.clamp(0.8, 1.0),
       fontScale: settings.fontScale.clamp(0.7, 1.4),
       themeMode: settings.themeMode,
       cameraMinZoom: settings.cameraMinZoom.clamp(0.1, 20.0),

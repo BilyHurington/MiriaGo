@@ -99,7 +99,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
 
 AppSettings _settingsFromJson(Map<String, Object?> json) {
   return AppSettings(
-    uiScale: _doubleValue(json['uiScale']) ?? 1,
+    uiScale: (_doubleValue(json['uiScale']) ?? 1).clamp(0.8, 1.0),
     fontScale: _doubleValue(json['fontScale']) ?? 1,
     themeMode:
         _enumByName(AppThemeMode.values, json['themeMode']) ??

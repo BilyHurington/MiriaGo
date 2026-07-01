@@ -186,7 +186,7 @@ TextScaler appTextScaler(double fontScale) {
 }
 
 double appUiScaler(double uiScale) {
-  final clampedScale = uiScale.clamp(0.8, 1.2);
+  final clampedScale = uiScale.clamp(0.8, 1.0);
   return 1 + (clampedScale - 1) * 0.72;
 }
 
