@@ -12,6 +12,7 @@ import '../point_detail/point_detail_sheet.dart';
 import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../map/map_tile_config.dart';
+import '../utils/selected_item_order.dart';
 import 'add_points_screen.dart';
 import 'plan_group_utils.dart';
 import 'plan_memo_screen.dart';
@@ -543,6 +544,7 @@ class _PlanScreenState extends State<PlanScreen> {
         repository: widget.repository,
         onPlanUpdated: controller.replacePlan,
         imageSource: settings.anitabiImageSource,
+        maxConcurrent: settings.mapThumbnailConcurrentLoads,
         onProgress: (progress) {
           if (!mounted) {
             return;
@@ -1120,6 +1122,11 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
 
   @override
   Widget build(BuildContext context) {
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      widget.group.points,
+      isSelected: (point) => point.id == widget.selectedPointId,
+    );
+
     return SizedBox(
       height: widget.height,
       width: double.infinity,
@@ -1148,7 +1155,7 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                   configuredMapTileLayer(widget.settings),
                   MarkerLayer(
                     markers: [
-                      for (final point in widget.group.points)
+                      for (final point in mapPoints)
                         Marker(
                           point: point.position,
                           width: point.id == widget.selectedPointId ? 34 : 28,

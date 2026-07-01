@@ -182,6 +182,21 @@ class PilgrimagePlanController extends ChangeNotifier {
     _replacePlanState(updatedPlan);
   }
 
+  Future<void> updatePointImageCaches(
+    Map<String, PointImageCacheUpdate> updatesByPointId,
+  ) async {
+    final repository = _repository;
+    if (repository == null || updatesByPointId.isEmpty) {
+      return;
+    }
+
+    final updatedPlan = await repository.updatePointImageCaches(
+      planId: _plan.id,
+      updatesByPointId: updatesByPointId,
+    );
+    _replacePlanState(updatedPlan);
+  }
+
   Future<void> updatePoint(PilgrimagePoint point) async {
     final repository = _repository;
     if (repository == null) {

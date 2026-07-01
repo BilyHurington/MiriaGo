@@ -241,15 +241,36 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     String? referenceThumbnailPath,
     String? referenceFullImagePath,
   }) async {
+    return updatePointImageCaches(
+      planId: planId,
+      updatesByPointId: {
+        pointId: PointImageCacheUpdate(
+          referenceThumbnailPath: referenceThumbnailPath,
+          referenceFullImagePath: referenceFullImagePath,
+        ),
+      },
+    );
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePointImageCaches({
+    required String planId,
+    required Map<String, PointImageCacheUpdate> updatesByPointId,
+  }) async {
     final index = _planIndex(planId);
     final plan = _plans[index];
+    if (updatesByPointId.isEmpty) {
+      return plan;
+    }
     final updatedPlan = plan.copyWith(
       points: [
         for (final point in plan.points)
-          point.id == pointId
+          updatesByPointId.containsKey(point.id)
               ? point.copyWith(
-                  referenceThumbnailPath: referenceThumbnailPath,
-                  referenceFullImagePath: referenceFullImagePath,
+                  referenceThumbnailPath:
+                      updatesByPointId[point.id]!.referenceThumbnailPath,
+                  referenceFullImagePath:
+                      updatesByPointId[point.id]!.referenceFullImagePath,
                 )
               : point,
       ],

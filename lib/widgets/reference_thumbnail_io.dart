@@ -17,6 +17,7 @@ class ReferenceThumbnail extends StatelessWidget {
     this.width,
     this.height,
     this.loadLimiter,
+    this.gaplessPlayback = false,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class ReferenceThumbnail extends StatelessWidget {
   final double? width;
   final double? height;
   final ImageLoadLimiter? loadLimiter;
+  final bool gaplessPlayback;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +51,7 @@ class ReferenceThumbnail extends StatelessWidget {
         height: height,
         fit: fit,
         loadLimiter: loadLimiter,
+        gaplessPlayback: gaplessPlayback,
         errorBuilder: (_) => placeholder,
       );
     }

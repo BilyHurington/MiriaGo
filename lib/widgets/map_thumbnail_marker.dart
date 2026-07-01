@@ -185,6 +185,7 @@ class _ThumbnailBubble extends StatelessWidget {
             width: width,
             height: height,
             fit: BoxFit.cover,
+            gaplessPlayback: true,
             placeholder: Center(child: placeholder),
           ),
         ),

@@ -1243,8 +1243,8 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
             const SizedBox(height: 12),
             _NumberStepperSetting(
               icon: Icons.download_for_offline_outlined,
-              title: '缩略图同时加载数',
-              subtitle: '限制同一时间远程缩略图请求数量，减少点位很多时的卡顿和网络压力。',
+              title: '图片同时请求数',
+              subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
               value: settings.mapThumbnailConcurrentLoads,
               min: 1,
               max: 30,

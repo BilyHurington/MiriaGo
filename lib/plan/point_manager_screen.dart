@@ -10,6 +10,7 @@ import '../data/reference_cache_file_stub.dart'
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 import 'add_points_screen.dart';
@@ -1023,6 +1024,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
         plan: _plan,
         repository: widget.repository,
         imageSource: widget.settings.anitabiImageSource,
+        maxConcurrent: widget.settings.mapThumbnailConcurrentLoads,
         onPlanUpdated: (plan) {
           if (!mounted) {
             return;
@@ -1779,6 +1781,10 @@ class _GroupAnchorMapPickerScreenState
   @override
   Widget build(BuildContext context) {
     final selectedPosition = _selectedPoint?.position ?? _manualPosition;
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      widget.points,
+      isSelected: (point) => point.id == _selectedPoint?.id,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -1817,7 +1823,7 @@ class _GroupAnchorMapPickerScreenState
               configuredMapTileLayer(widget.settings),
               MarkerLayer(
                 markers: [
-                  for (final point in widget.points)
+                  for (final point in mapPoints)
                     Marker(
                       point: point.position,
                       width: 42,

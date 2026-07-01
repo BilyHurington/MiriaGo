@@ -22,6 +22,8 @@ import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../utils/limited_concurrency.dart';
+import '../utils/selected_item_order.dart';
 import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_manager_screen.dart';
@@ -639,62 +641,82 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       var cacheFailed = 0;
       var processed = 0;
       var lastProgressSnackBarAt = DateTime.fromMillisecondsSinceEpoch(0);
-      for (final pilgrimagePoint in pilgrimagePoints) {
-        String? thumbnailPath;
-        try {
-          thumbnailPath = await reference_image_cache
-              .ensureReferenceThumbnailCached(pilgrimagePoint);
-        } catch (_) {
-          thumbnailPath = null;
-        }
-
-        if (thumbnailPath == null) {
-          cacheFailed += 1;
-        } else {
+      final imageCacheUpdates = <String, PointImageCacheUpdate>{};
+      await runLimitedConcurrent<PilgrimagePoint, _ThumbnailCacheResult>(
+        items: pilgrimagePoints,
+        maxConcurrent: _settings.mapThumbnailConcurrentLoads,
+        task: (pilgrimagePoint, _) async {
           try {
-            importedPlan = await widget.repository.updatePointImageCache(
-              planId: widget.plan.id,
+            final thumbnailPath = await reference_image_cache
+                .ensureReferenceThumbnailCached(
+                  pilgrimagePoint,
+                  imageSource: _settings.anitabiImageSource,
+                );
+            if (thumbnailPath == null || thumbnailPath.isEmpty) {
+              return _ThumbnailCacheResult.failed(pilgrimagePoint.id);
+            }
+            return _ThumbnailCacheResult.succeeded(
               pointId: pilgrimagePoint.id,
               referenceThumbnailPath: thumbnailPath,
+            );
+          } catch (_) {
+            return _ThumbnailCacheResult.failed(pilgrimagePoint.id);
+          }
+        },
+        onResult: (result) {
+          processed += 1;
+          if (result.referenceThumbnailPath == null) {
+            cacheFailed += 1;
+          } else {
+            cached += 1;
+            imageCacheUpdates[result.pointId] = PointImageCacheUpdate(
+              referenceThumbnailPath: result.referenceThumbnailPath,
               referenceFullImagePath: importedPlan.points
-                  .firstWhere((point) => point.id == pilgrimagePoint.id)
+                  .firstWhere((point) => point.id == result.pointId)
                   .referenceFullImagePath,
             );
-            cached += 1;
-          } catch (_) {
-            cacheFailed += 1;
           }
-        }
 
-        processed += 1;
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _replaceImportedPlan(importedPlan);
-          _didUpdatePlan = true;
-          _importProgress = _ImportProgress.caching(
-            total: pilgrimagePoints.length,
-            processed: processed,
-            succeeded: cached,
-          );
-        });
-        final now = DateTime.now();
-        final shouldShowProgressSnackBar =
-            processed == pilgrimagePoints.length ||
-            now.difference(lastProgressSnackBarAt) >=
-                const Duration(milliseconds: 450);
-        if (shouldShowProgressSnackBar && mounted) {
-          lastProgressSnackBarAt = now;
-          messenger.showReplacingSnackBar(
-            SnackBar(
-              duration: const Duration(milliseconds: 1200),
-              content: Text(
-                '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _replaceImportedPlan(importedPlan);
+            _didUpdatePlan = true;
+            _importProgress = _ImportProgress.caching(
+              total: pilgrimagePoints.length,
+              processed: processed,
+              succeeded: cached,
+            );
+          });
+          final now = DateTime.now();
+          final shouldShowProgressSnackBar =
+              processed == pilgrimagePoints.length ||
+              now.difference(lastProgressSnackBarAt) >=
+                  const Duration(milliseconds: 450);
+          if (shouldShowProgressSnackBar) {
+            lastProgressSnackBarAt = now;
+            messenger.showReplacingSnackBar(
+              SnackBar(
+                duration: const Duration(milliseconds: 1200),
+                content: Text(
+                  '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+                ),
               ),
-            ),
-          );
-        }
+            );
+          }
+        },
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (imageCacheUpdates.isNotEmpty) {
+        importedPlan = await widget.repository.updatePointImageCaches(
+          planId: widget.plan.id,
+          updatesByPointId: imageCacheUpdates,
+        );
       }
 
       setState(() {
@@ -886,6 +908,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     final selectedWork = _selectedWork;
     final visiblePoints = _pointsForWork(selectedWork);
     final selectedPoint = _selectedPointForWork(selectedWork);
+    final mapPoints = selectedItemsLast<AnitabiPoint>(
+      visiblePoints,
+      isSelected: (point) => point.id == selectedPoint?.id,
+    );
     final thumbnailPointIds = _thumbnailPointIdsForCurrentView(visiblePoints);
 
     return PopScope(
@@ -986,7 +1012,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         configuredMapTileLayer(_settings),
                         MarkerLayer(
                           markers: [
-                            for (final point in visiblePoints)
+                            for (final point in mapPoints)
                               () {
                                 final imported = _importedPointIds.contains(
                                   point.toPilgrimagePoint(_selectedWork!).id,
@@ -1213,6 +1239,33 @@ class _ImportProgress {
 }
 
 enum _ImportOrganizeAction { later, groupManager, nearestAssign }
+
+class _ThumbnailCacheResult {
+  const _ThumbnailCacheResult._({
+    required this.pointId,
+    required this.referenceThumbnailPath,
+  });
+
+  factory _ThumbnailCacheResult.succeeded({
+    required String pointId,
+    required String referenceThumbnailPath,
+  }) {
+    return _ThumbnailCacheResult._(
+      pointId: pointId,
+      referenceThumbnailPath: referenceThumbnailPath,
+    );
+  }
+
+  factory _ThumbnailCacheResult.failed(String pointId) {
+    return _ThumbnailCacheResult._(
+      pointId: pointId,
+      referenceThumbnailPath: null,
+    );
+  }
+
+  final String pointId;
+  final String? referenceThumbnailPath;
+}
 
 class _ImportMarker extends StatelessWidget {
   const _ImportMarker({

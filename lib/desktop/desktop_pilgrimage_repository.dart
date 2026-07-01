@@ -152,6 +152,19 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePointImageCaches({
+    required String planId,
+    required Map<String, PointImageCacheUpdate> updatesByPointId,
+  }) {
+    return _withPlanSave(
+      () => super.updatePointImageCaches(
+        planId: planId,
+        updatesByPointId: updatesByPointId,
+      ),
+    );
+  }
+
+  @override
   Future<PilgrimagePlan> addWorkToPlan({
     required String planId,
     required PilgrimageWork work,

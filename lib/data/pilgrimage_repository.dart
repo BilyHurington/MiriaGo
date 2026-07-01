@@ -59,6 +59,11 @@ abstract interface class PilgrimageRepository {
     String? referenceFullImagePath,
   });
 
+  Future<PilgrimagePlan> updatePointImageCaches({
+    required String planId,
+    required Map<String, PointImageCacheUpdate> updatesByPointId,
+  });
+
   Future<PilgrimagePlan> addWorkToPlan({
     required String planId,
     required PilgrimageWork work,
@@ -178,4 +183,14 @@ abstract interface class PilgrimageRepository {
   Future<void> deletePlan(String id);
 
   Future<void> saveAppSettings(AppSettings settings);
+}
+
+class PointImageCacheUpdate {
+  const PointImageCacheUpdate({
+    this.referenceThumbnailPath,
+    this.referenceFullImagePath,
+  });
+
+  final String? referenceThumbnailPath;
+  final String? referenceFullImagePath;
 }

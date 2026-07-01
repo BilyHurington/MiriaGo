@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/data/local/app_database.dart';
 import 'package:miriago/data/local/sqlite_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
@@ -755,6 +756,39 @@ void main() {
       updatedPlan.points.first.referenceFullImagePath,
       '/tmp/reference-full.jpg',
     );
+  });
+
+  test('batch updates cached reference images', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final repository = SqlitePilgrimageRepository(database: database);
+    final sourcePlan = await repository.loadActivePlan();
+    final emptyPlan = await repository.createPlan(name: '批量缓存测试', area: '京都');
+    final addedPlan = await repository.addPointsToPlan(
+      planId: emptyPlan.id,
+      points: sourcePlan.points.take(2).toList(growable: false),
+    );
+
+    final updatedPlan = await repository.updatePointImageCaches(
+      planId: addedPlan.id,
+      updatesByPointId: {
+        addedPlan.points[0].id: const PointImageCacheUpdate(
+          referenceThumbnailPath: '/tmp/thumb-a.jpg',
+          referenceFullImagePath: '/tmp/full-a.jpg',
+        ),
+        addedPlan.points[1].id: const PointImageCacheUpdate(
+          referenceThumbnailPath: '/tmp/thumb-b.jpg',
+          referenceFullImagePath: '/tmp/full-b.jpg',
+        ),
+      },
+    );
+
+    expect(updatedPlan.currentPointId, addedPlan.currentPointId);
+    expect(updatedPlan.points[0].referenceThumbnailPath, '/tmp/thumb-a.jpg');
+    expect(updatedPlan.points[0].referenceFullImagePath, '/tmp/full-a.jpg');
+    expect(updatedPlan.points[1].referenceThumbnailPath, '/tmp/thumb-b.jpg');
+    expect(updatedPlan.points[1].referenceFullImagePath, '/tmp/full-b.jpg');
   });
 
   test('renames plans and persists app settings', () async {

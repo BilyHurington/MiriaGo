@@ -361,18 +361,46 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     String? referenceThumbnailPath,
     String? referenceFullImagePath,
   }) async {
-    final storagePointId = _storageId(planId, pointId);
-    await (_database.update(_database.points)..where(
-          (table) =>
-              table.planId.equals(planId) & table.id.equals(storagePointId),
-        ))
-        .write(
-          PointsCompanion(
-            referenceThumbnailPath: Value(referenceThumbnailPath),
-            referenceFullImagePath: Value(referenceFullImagePath),
-          ),
-        );
-    await _touchPlan(planId);
+    return updatePointImageCaches(
+      planId: planId,
+      updatesByPointId: {
+        pointId: PointImageCacheUpdate(
+          referenceThumbnailPath: referenceThumbnailPath,
+          referenceFullImagePath: referenceFullImagePath,
+        ),
+      },
+    );
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePointImageCaches({
+    required String planId,
+    required Map<String, PointImageCacheUpdate> updatesByPointId,
+  }) async {
+    if (updatesByPointId.isEmpty) {
+      return _planFromRow(await _planRowById(planId));
+    }
+
+    await _database.transaction(() async {
+      for (final entry in updatesByPointId.entries) {
+        final storagePointId = _storageId(planId, entry.key);
+        await (_database.update(_database.points)..where(
+              (table) =>
+                  table.planId.equals(planId) & table.id.equals(storagePointId),
+            ))
+            .write(
+              PointsCompanion(
+                referenceThumbnailPath: Value(
+                  entry.value.referenceThumbnailPath,
+                ),
+                referenceFullImagePath: Value(
+                  entry.value.referenceFullImagePath,
+                ),
+              ),
+            );
+      }
+      await _touchPlan(planId);
+    });
     return _planFromRow(await _planRowById(planId));
   }
 
