@@ -10,6 +10,39 @@ enum PointSortMode { plan, distance }
 
 const previewCurrentLocation = LatLng(34.8903, 135.8009);
 
+const planGroupMapColors = [
+  Color(0xFF0F8B8D),
+  Color(0xFFFFCE00),
+  Color(0xFF7C3AED),
+  Color(0xFF2563EB),
+  Color(0xFFE11D48),
+];
+
+const ungroupedMapMarkerColor = Color(0xFF6B7280);
+
+Color planGroupMapColorAt(int index) {
+  return planGroupMapColors[index % planGroupMapColors.length];
+}
+
+Color mapColorForGroupBucket(PlanGroupBucket group, int index) {
+  return group.isUngrouped
+      ? ungroupedMapMarkerColor
+      : planGroupMapColorAt(index);
+}
+
+Color mapColorForPoint(PilgrimagePoint point, List<PlanGroupBucket> groups) {
+  for (var index = 0; index < groups.length; index += 1) {
+    final group = groups[index];
+    if (point.groupId == null && group.isUngrouped) {
+      return mapColorForGroupBucket(group, index);
+    }
+    if (point.groupId == group.id) {
+      return mapColorForGroupBucket(group, index);
+    }
+  }
+  return ungroupedMapMarkerColor;
+}
+
 class PlanGroupBucket {
   const PlanGroupBucket({
     required this.id,
@@ -186,14 +219,6 @@ List<Polygon> groupAreaPolygons(
   List<PlanGroupBucket> groups, {
   required String selectedGroupId,
 }) {
-  const colors = [
-    Color(0xFF0F8B8D),
-    Color(0xFFFFCE00),
-    Color(0xFF7C3AED),
-    Color(0xFF2563EB),
-    Color(0xFFE11D48),
-  ];
-
   final polygons = <Polygon>[];
   for (var index = 0; index < groups.length; index += 1) {
     final group = groups[index];
@@ -204,7 +229,7 @@ List<Polygon> groupAreaPolygons(
     if (points.length < 3) {
       continue;
     }
-    final color = colors[index % colors.length];
+    final color = planGroupMapColorAt(index);
     final isSelected = group.id == selectedGroupId;
     polygons.add(
       Polygon(

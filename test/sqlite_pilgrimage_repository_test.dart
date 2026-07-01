@@ -764,6 +764,7 @@ void main() {
     final repository = SqlitePilgrimageRepository(database: database);
     final plan = await repository.loadActivePlan();
 
+    await repository.updatePlanMemo(planId: plan.id, memo: '上午宇治，下午木幡。');
     await repository.updatePlanInfo(
       planId: plan.id,
       name: '改名后的计划',
@@ -794,6 +795,8 @@ void main() {
         ],
         customCameraAspectRatioWidth: 21,
         customCameraAspectRatioHeight: 9,
+        mapThumbnailVisibleThreshold: 55,
+        mapThumbnailConcurrentLoads: 12,
       ),
     );
 
@@ -802,6 +805,7 @@ void main() {
 
     expect(reloadedPlan.name, '改名后的计划');
     expect(reloadedPlan.area, '京都市');
+    expect(reloadedPlan.memo, '上午宇治，下午木幡。');
     expect(settings.uiScale, 1.5);
     expect(settings.cameraCaptureAspectRatio, CameraPhotoAspectRatio.photo3x2);
     expect(
@@ -827,6 +831,8 @@ void main() {
     expect(settings.customThemeColors.first.value, 0xFF00AA99);
     expect(settings.customCameraAspectRatioWidth, 21);
     expect(settings.customCameraAspectRatioHeight, 9);
+    expect(settings.mapThumbnailVisibleThreshold, 55);
+    expect(settings.mapThumbnailConcurrentLoads, 12);
   });
 
   test(

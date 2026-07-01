@@ -16,7 +16,9 @@ import '../plan_transfer/plan_export_delivery.dart';
 import '../plan_transfer/plan_export_delivery_result.dart';
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
-import 'anitabi_network_image.dart';
+
+typedef ImageViewerRemoteImageResolver =
+    Future<Uint8List?> Function(String url, AnitabiImageSource imageSource);
 
 class ImageViewerScreen extends StatelessWidget {
   const ImageViewerScreen({
@@ -24,6 +26,7 @@ class ImageViewerScreen extends StatelessWidget {
     this.imageUrl,
     this.bytes,
     this.imageSource = AnitabiImageSource.auto,
+    this.remoteImageResolver,
     super.key,
   });
 
@@ -31,6 +34,7 @@ class ImageViewerScreen extends StatelessWidget {
   final String? imageUrl;
   final Uint8List? bytes;
   final AnitabiImageSource imageSource;
+  final ImageViewerRemoteImageResolver? remoteImageResolver;
 
   static Future<void> show(
     BuildContext context, {
@@ -353,18 +357,10 @@ class ImageViewerScreen extends StatelessWidget {
 
     final url = imageUrl;
     if (url != null) {
-      return AnitabiNetworkImage(
+      return _RemoteImageViewer(
         url: url,
         imageSource: imageSource,
-        fit: BoxFit.contain,
-        loadingBuilder: (_) {
-          return const _ImageViewerPlaceholder(
-            state: _ImageViewerPlaceholderState.loading,
-          );
-        },
-        errorBuilder: (_) {
-          return const _ImageViewerPlaceholder();
-        },
+        resolver: remoteImageResolver ?? _resolveRemoteImageBytes,
       );
     }
 
@@ -375,6 +371,92 @@ class ImageViewerScreen extends StatelessWidget {
 
   bool _isBundledSampleAssetPath(String path) {
     return path.startsWith('docs/sample_images/');
+  }
+}
+
+Future<Uint8List?> _resolveRemoteImageBytes(
+  String url,
+  AnitabiImageSource imageSource,
+) async {
+  final anitabiBytes = await fetchAnitabiImageBytes(url, source: imageSource);
+  if (anitabiBytes != null) {
+    return Uint8List.fromList(anitabiBytes);
+  }
+
+  try {
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      return null;
+    }
+    return response.bodyBytes;
+  } catch (_) {
+    return null;
+  }
+}
+
+class _RemoteImageViewer extends StatefulWidget {
+  const _RemoteImageViewer({
+    required this.url,
+    required this.imageSource,
+    required this.resolver,
+  });
+
+  final String url;
+  final AnitabiImageSource imageSource;
+  final ImageViewerRemoteImageResolver resolver;
+
+  @override
+  State<_RemoteImageViewer> createState() => _RemoteImageViewerState();
+}
+
+class _RemoteImageViewerState extends State<_RemoteImageViewer> {
+  late Future<Uint8List?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RemoteImageViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url ||
+        oldWidget.imageSource != widget.imageSource ||
+        oldWidget.resolver != widget.resolver) {
+      _future = _load();
+    }
+  }
+
+  Future<Uint8List?> _load() {
+    return widget.resolver(widget.url, widget.imageSource);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _ImageViewerPlaceholder(
+            state: _ImageViewerPlaceholderState.loading,
+          );
+        }
+
+        final bytes = snapshot.data;
+        if (snapshot.hasError || bytes == null || bytes.isEmpty) {
+          return const _ImageViewerPlaceholder();
+        }
+
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return const _ImageViewerPlaceholder();
+          },
+        );
+      },
+    );
   }
 }
 

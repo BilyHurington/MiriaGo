@@ -35,6 +35,16 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _memoMeta = const VerificationMeta('memo');
+  @override
+  late final GeneratedColumn<String> memo = GeneratedColumn<String>(
+    'memo',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _currentGroupIdMeta = const VerificationMeta(
     'currentGroupId',
   );
@@ -86,6 +96,7 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
     id,
     name,
     area,
+    memo,
     currentGroupId,
     active,
     createdAt,
@@ -123,6 +134,12 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
       );
     } else if (isInserting) {
       context.missing(_areaMeta);
+    }
+    if (data.containsKey('memo')) {
+      context.handle(
+        _memoMeta,
+        memo.isAcceptableOrUnknown(data['memo']!, _memoMeta),
+      );
     }
     if (data.containsKey('current_group_id')) {
       context.handle(
@@ -176,6 +193,10 @@ class $PlansTable extends Plans with TableInfo<$PlansTable, Plan> {
         DriftSqlType.string,
         data['${effectivePrefix}area'],
       )!,
+      memo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}memo'],
+      )!,
       currentGroupId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}current_group_id'],
@@ -205,6 +226,7 @@ class Plan extends DataClass implements Insertable<Plan> {
   final String id;
   final String name;
   final String area;
+  final String memo;
   final String? currentGroupId;
   final bool active;
   final DateTime createdAt;
@@ -213,6 +235,7 @@ class Plan extends DataClass implements Insertable<Plan> {
     required this.id,
     required this.name,
     required this.area,
+    required this.memo,
     this.currentGroupId,
     required this.active,
     required this.createdAt,
@@ -224,6 +247,7 @@ class Plan extends DataClass implements Insertable<Plan> {
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
     map['area'] = Variable<String>(area);
+    map['memo'] = Variable<String>(memo);
     if (!nullToAbsent || currentGroupId != null) {
       map['current_group_id'] = Variable<String>(currentGroupId);
     }
@@ -238,6 +262,7 @@ class Plan extends DataClass implements Insertable<Plan> {
       id: Value(id),
       name: Value(name),
       area: Value(area),
+      memo: Value(memo),
       currentGroupId: currentGroupId == null && nullToAbsent
           ? const Value.absent()
           : Value(currentGroupId),
@@ -256,6 +281,7 @@ class Plan extends DataClass implements Insertable<Plan> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       area: serializer.fromJson<String>(json['area']),
+      memo: serializer.fromJson<String>(json['memo']),
       currentGroupId: serializer.fromJson<String?>(json['currentGroupId']),
       active: serializer.fromJson<bool>(json['active']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -269,6 +295,7 @@ class Plan extends DataClass implements Insertable<Plan> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'area': serializer.toJson<String>(area),
+      'memo': serializer.toJson<String>(memo),
       'currentGroupId': serializer.toJson<String?>(currentGroupId),
       'active': serializer.toJson<bool>(active),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -280,6 +307,7 @@ class Plan extends DataClass implements Insertable<Plan> {
     String? id,
     String? name,
     String? area,
+    String? memo,
     Value<String?> currentGroupId = const Value.absent(),
     bool? active,
     DateTime? createdAt,
@@ -288,6 +316,7 @@ class Plan extends DataClass implements Insertable<Plan> {
     id: id ?? this.id,
     name: name ?? this.name,
     area: area ?? this.area,
+    memo: memo ?? this.memo,
     currentGroupId: currentGroupId.present
         ? currentGroupId.value
         : this.currentGroupId,
@@ -300,6 +329,7 @@ class Plan extends DataClass implements Insertable<Plan> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       area: data.area.present ? data.area.value : this.area,
+      memo: data.memo.present ? data.memo.value : this.memo,
       currentGroupId: data.currentGroupId.present
           ? data.currentGroupId.value
           : this.currentGroupId,
@@ -315,6 +345,7 @@ class Plan extends DataClass implements Insertable<Plan> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('area: $area, ')
+          ..write('memo: $memo, ')
           ..write('currentGroupId: $currentGroupId, ')
           ..write('active: $active, ')
           ..write('createdAt: $createdAt, ')
@@ -324,8 +355,16 @@ class Plan extends DataClass implements Insertable<Plan> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, area, currentGroupId, active, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    area,
+    memo,
+    currentGroupId,
+    active,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -333,6 +372,7 @@ class Plan extends DataClass implements Insertable<Plan> {
           other.id == this.id &&
           other.name == this.name &&
           other.area == this.area &&
+          other.memo == this.memo &&
           other.currentGroupId == this.currentGroupId &&
           other.active == this.active &&
           other.createdAt == this.createdAt &&
@@ -343,6 +383,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
   final Value<String> id;
   final Value<String> name;
   final Value<String> area;
+  final Value<String> memo;
   final Value<String?> currentGroupId;
   final Value<bool> active;
   final Value<DateTime> createdAt;
@@ -352,6 +393,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.area = const Value.absent(),
+    this.memo = const Value.absent(),
     this.currentGroupId = const Value.absent(),
     this.active = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -362,6 +404,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     required String id,
     required String name,
     required String area,
+    this.memo = const Value.absent(),
     this.currentGroupId = const Value.absent(),
     this.active = const Value.absent(),
     required DateTime createdAt,
@@ -376,6 +419,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? area,
+    Expression<String>? memo,
     Expression<String>? currentGroupId,
     Expression<bool>? active,
     Expression<DateTime>? createdAt,
@@ -386,6 +430,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (area != null) 'area': area,
+      if (memo != null) 'memo': memo,
       if (currentGroupId != null) 'current_group_id': currentGroupId,
       if (active != null) 'active': active,
       if (createdAt != null) 'created_at': createdAt,
@@ -398,6 +443,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     Value<String>? id,
     Value<String>? name,
     Value<String>? area,
+    Value<String>? memo,
     Value<String?>? currentGroupId,
     Value<bool>? active,
     Value<DateTime>? createdAt,
@@ -408,6 +454,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
       id: id ?? this.id,
       name: name ?? this.name,
       area: area ?? this.area,
+      memo: memo ?? this.memo,
       currentGroupId: currentGroupId ?? this.currentGroupId,
       active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,
@@ -427,6 +474,9 @@ class PlansCompanion extends UpdateCompanion<Plan> {
     }
     if (area.present) {
       map['area'] = Variable<String>(area.value);
+    }
+    if (memo.present) {
+      map['memo'] = Variable<String>(memo.value);
     }
     if (currentGroupId.present) {
       map['current_group_id'] = Variable<String>(currentGroupId.value);
@@ -452,6 +502,7 @@ class PlansCompanion extends UpdateCompanion<Plan> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('area: $area, ')
+          ..write('memo: $memo, ')
           ..write('currentGroupId: $currentGroupId, ')
           ..write('active: $active, ')
           ..write('createdAt: $createdAt, ')
@@ -4215,6 +4266,30 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant(1.0),
       );
+  static const VerificationMeta _mapThumbnailVisibleThresholdMeta =
+      const VerificationMeta('mapThumbnailVisibleThreshold');
+  @override
+  late final GeneratedColumn<int> mapThumbnailVisibleThreshold =
+      GeneratedColumn<int>(
+        'map_thumbnail_visible_threshold',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(40),
+      );
+  static const VerificationMeta _mapThumbnailConcurrentLoadsMeta =
+      const VerificationMeta('mapThumbnailConcurrentLoads');
+  @override
+  late final GeneratedColumn<int> mapThumbnailConcurrentLoads =
+      GeneratedColumn<int>(
+        'map_thumbnail_concurrent_loads',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(10),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4243,6 +4318,8 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     customThemeColorsJson,
     customCameraAspectRatioWidth,
     customCameraAspectRatioHeight,
+    mapThumbnailVisibleThreshold,
+    mapThumbnailConcurrentLoads,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4477,6 +4554,24 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('map_thumbnail_visible_threshold')) {
+      context.handle(
+        _mapThumbnailVisibleThresholdMeta,
+        mapThumbnailVisibleThreshold.isAcceptableOrUnknown(
+          data['map_thumbnail_visible_threshold']!,
+          _mapThumbnailVisibleThresholdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('map_thumbnail_concurrent_loads')) {
+      context.handle(
+        _mapThumbnailConcurrentLoadsMeta,
+        mapThumbnailConcurrentLoads.isAcceptableOrUnknown(
+          data['map_thumbnail_concurrent_loads']!,
+          _mapThumbnailConcurrentLoadsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4590,6 +4685,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.double,
         data['${effectivePrefix}custom_camera_aspect_ratio_height'],
       )!,
+      mapThumbnailVisibleThreshold: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}map_thumbnail_visible_threshold'],
+      )!,
+      mapThumbnailConcurrentLoads: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}map_thumbnail_concurrent_loads'],
+      )!,
     );
   }
 
@@ -4627,6 +4730,8 @@ class AppSettingsEntry extends DataClass
   final String customThemeColorsJson;
   final double customCameraAspectRatioWidth;
   final double customCameraAspectRatioHeight;
+  final int mapThumbnailVisibleThreshold;
+  final int mapThumbnailConcurrentLoads;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -4654,6 +4759,8 @@ class AppSettingsEntry extends DataClass
     required this.customThemeColorsJson,
     required this.customCameraAspectRatioWidth,
     required this.customCameraAspectRatioHeight,
+    required this.mapThumbnailVisibleThreshold,
+    required this.mapThumbnailConcurrentLoads,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4700,6 +4807,12 @@ class AppSettingsEntry extends DataClass
     map['custom_camera_aspect_ratio_height'] = Variable<double>(
       customCameraAspectRatioHeight,
     );
+    map['map_thumbnail_visible_threshold'] = Variable<int>(
+      mapThumbnailVisibleThreshold,
+    );
+    map['map_thumbnail_concurrent_loads'] = Variable<int>(
+      mapThumbnailConcurrentLoads,
+    );
     return map;
   }
 
@@ -4731,6 +4844,8 @@ class AppSettingsEntry extends DataClass
       customThemeColorsJson: Value(customThemeColorsJson),
       customCameraAspectRatioWidth: Value(customCameraAspectRatioWidth),
       customCameraAspectRatioHeight: Value(customCameraAspectRatioHeight),
+      mapThumbnailVisibleThreshold: Value(mapThumbnailVisibleThreshold),
+      mapThumbnailConcurrentLoads: Value(mapThumbnailConcurrentLoads),
     );
   }
 
@@ -4794,6 +4909,12 @@ class AppSettingsEntry extends DataClass
       customCameraAspectRatioHeight: serializer.fromJson<double>(
         json['customCameraAspectRatioHeight'],
       ),
+      mapThumbnailVisibleThreshold: serializer.fromJson<int>(
+        json['mapThumbnailVisibleThreshold'],
+      ),
+      mapThumbnailConcurrentLoads: serializer.fromJson<int>(
+        json['mapThumbnailConcurrentLoads'],
+      ),
     );
   }
   @override
@@ -4842,6 +4963,12 @@ class AppSettingsEntry extends DataClass
       'customCameraAspectRatioHeight': serializer.toJson<double>(
         customCameraAspectRatioHeight,
       ),
+      'mapThumbnailVisibleThreshold': serializer.toJson<int>(
+        mapThumbnailVisibleThreshold,
+      ),
+      'mapThumbnailConcurrentLoads': serializer.toJson<int>(
+        mapThumbnailConcurrentLoads,
+      ),
     };
   }
 
@@ -4872,6 +4999,8 @@ class AppSettingsEntry extends DataClass
     String? customThemeColorsJson,
     double? customCameraAspectRatioWidth,
     double? customCameraAspectRatioHeight,
+    int? mapThumbnailVisibleThreshold,
+    int? mapThumbnailConcurrentLoads,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -4907,6 +5036,10 @@ class AppSettingsEntry extends DataClass
         customCameraAspectRatioWidth ?? this.customCameraAspectRatioWidth,
     customCameraAspectRatioHeight:
         customCameraAspectRatioHeight ?? this.customCameraAspectRatioHeight,
+    mapThumbnailVisibleThreshold:
+        mapThumbnailVisibleThreshold ?? this.mapThumbnailVisibleThreshold,
+    mapThumbnailConcurrentLoads:
+        mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -4980,6 +5113,12 @@ class AppSettingsEntry extends DataClass
       customCameraAspectRatioHeight: data.customCameraAspectRatioHeight.present
           ? data.customCameraAspectRatioHeight.value
           : this.customCameraAspectRatioHeight,
+      mapThumbnailVisibleThreshold: data.mapThumbnailVisibleThreshold.present
+          ? data.mapThumbnailVisibleThreshold.value
+          : this.mapThumbnailVisibleThreshold,
+      mapThumbnailConcurrentLoads: data.mapThumbnailConcurrentLoads.present
+          ? data.mapThumbnailConcurrentLoads.value
+          : this.mapThumbnailConcurrentLoads,
     );
   }
 
@@ -5014,8 +5153,12 @@ class AppSettingsEntry extends DataClass
             'customCameraAspectRatioWidth: $customCameraAspectRatioWidth, ',
           )
           ..write(
-            'customCameraAspectRatioHeight: $customCameraAspectRatioHeight',
+            'customCameraAspectRatioHeight: $customCameraAspectRatioHeight, ',
           )
+          ..write(
+            'mapThumbnailVisibleThreshold: $mapThumbnailVisibleThreshold, ',
+          )
+          ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads')
           ..write(')'))
         .toString();
   }
@@ -5048,6 +5191,8 @@ class AppSettingsEntry extends DataClass
     customThemeColorsJson,
     customCameraAspectRatioWidth,
     customCameraAspectRatioHeight,
+    mapThumbnailVisibleThreshold,
+    mapThumbnailConcurrentLoads,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -5082,7 +5227,11 @@ class AppSettingsEntry extends DataClass
           other.customCameraAspectRatioWidth ==
               this.customCameraAspectRatioWidth &&
           other.customCameraAspectRatioHeight ==
-              this.customCameraAspectRatioHeight);
+              this.customCameraAspectRatioHeight &&
+          other.mapThumbnailVisibleThreshold ==
+              this.mapThumbnailVisibleThreshold &&
+          other.mapThumbnailConcurrentLoads ==
+              this.mapThumbnailConcurrentLoads);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -5112,6 +5261,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> customThemeColorsJson;
   final Value<double> customCameraAspectRatioWidth;
   final Value<double> customCameraAspectRatioHeight;
+  final Value<int> mapThumbnailVisibleThreshold;
+  final Value<int> mapThumbnailConcurrentLoads;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -5140,6 +5291,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.customThemeColorsJson = const Value.absent(),
     this.customCameraAspectRatioWidth = const Value.absent(),
     this.customCameraAspectRatioHeight = const Value.absent(),
+    this.mapThumbnailVisibleThreshold = const Value.absent(),
+    this.mapThumbnailConcurrentLoads = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -5169,6 +5322,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.customThemeColorsJson = const Value.absent(),
     this.customCameraAspectRatioWidth = const Value.absent(),
     this.customCameraAspectRatioHeight = const Value.absent(),
+    this.mapThumbnailVisibleThreshold = const Value.absent(),
+    this.mapThumbnailConcurrentLoads = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -5198,6 +5353,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? customThemeColorsJson,
     Expression<double>? customCameraAspectRatioWidth,
     Expression<double>? customCameraAspectRatioHeight,
+    Expression<int>? mapThumbnailVisibleThreshold,
+    Expression<int>? mapThumbnailConcurrentLoads,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5241,6 +5398,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'custom_camera_aspect_ratio_width': customCameraAspectRatioWidth,
       if (customCameraAspectRatioHeight != null)
         'custom_camera_aspect_ratio_height': customCameraAspectRatioHeight,
+      if (mapThumbnailVisibleThreshold != null)
+        'map_thumbnail_visible_threshold': mapThumbnailVisibleThreshold,
+      if (mapThumbnailConcurrentLoads != null)
+        'map_thumbnail_concurrent_loads': mapThumbnailConcurrentLoads,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5272,6 +5433,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? customThemeColorsJson,
     Value<double>? customCameraAspectRatioWidth,
     Value<double>? customCameraAspectRatioHeight,
+    Value<int>? mapThumbnailVisibleThreshold,
+    Value<int>? mapThumbnailConcurrentLoads,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -5312,6 +5475,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           customCameraAspectRatioWidth ?? this.customCameraAspectRatioWidth,
       customCameraAspectRatioHeight:
           customCameraAspectRatioHeight ?? this.customCameraAspectRatioHeight,
+      mapThumbnailVisibleThreshold:
+          mapThumbnailVisibleThreshold ?? this.mapThumbnailVisibleThreshold,
+      mapThumbnailConcurrentLoads:
+          mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5423,6 +5590,16 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         customCameraAspectRatioHeight.value,
       );
     }
+    if (mapThumbnailVisibleThreshold.present) {
+      map['map_thumbnail_visible_threshold'] = Variable<int>(
+        mapThumbnailVisibleThreshold.value,
+      );
+    }
+    if (mapThumbnailConcurrentLoads.present) {
+      map['map_thumbnail_concurrent_loads'] = Variable<int>(
+        mapThumbnailConcurrentLoads.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5462,6 +5639,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write(
             'customCameraAspectRatioHeight: $customCameraAspectRatioHeight, ',
           )
+          ..write(
+            'mapThumbnailVisibleThreshold: $mapThumbnailVisibleThreshold, ',
+          )
+          ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5497,6 +5678,7 @@ typedef $$PlansTableCreateCompanionBuilder =
       required String id,
       required String name,
       required String area,
+      Value<String> memo,
       Value<String?> currentGroupId,
       Value<bool> active,
       required DateTime createdAt,
@@ -5508,6 +5690,7 @@ typedef $$PlansTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String> area,
+      Value<String> memo,
       Value<String?> currentGroupId,
       Value<bool> active,
       Value<DateTime> createdAt,
@@ -5596,6 +5779,11 @@ class $$PlansTableFilterComposer extends Composer<_$AppDatabase, $PlansTable> {
 
   ColumnFilters<String> get area => $composableBuilder(
     column: $table.area,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memo => $composableBuilder(
+    column: $table.memo,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5719,6 +5907,11 @@ class $$PlansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get memo => $composableBuilder(
+    column: $table.memo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get currentGroupId => $composableBuilder(
     column: $table.currentGroupId,
     builder: (column) => ColumnOrderings(column),
@@ -5757,6 +5950,9 @@ class $$PlansTableAnnotationComposer
 
   GeneratedColumn<String> get area =>
       $composableBuilder(column: $table.area, builder: (column) => column);
+
+  GeneratedColumn<String> get memo =>
+      $composableBuilder(column: $table.memo, builder: (column) => column);
 
   GeneratedColumn<String> get currentGroupId => $composableBuilder(
     column: $table.currentGroupId,
@@ -5883,6 +6079,7 @@ class $$PlansTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> area = const Value.absent(),
+                Value<String> memo = const Value.absent(),
                 Value<String?> currentGroupId = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -5892,6 +6089,7 @@ class $$PlansTableTableManager
                 id: id,
                 name: name,
                 area: area,
+                memo: memo,
                 currentGroupId: currentGroupId,
                 active: active,
                 createdAt: createdAt,
@@ -5903,6 +6101,7 @@ class $$PlansTableTableManager
                 required String id,
                 required String name,
                 required String area,
+                Value<String> memo = const Value.absent(),
                 Value<String?> currentGroupId = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 required DateTime createdAt,
@@ -5912,6 +6111,7 @@ class $$PlansTableTableManager
                 id: id,
                 name: name,
                 area: area,
+                memo: memo,
                 currentGroupId: currentGroupId,
                 active: active,
                 createdAt: createdAt,
@@ -8273,6 +8473,8 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> customThemeColorsJson,
       Value<double> customCameraAspectRatioWidth,
       Value<double> customCameraAspectRatioHeight,
+      Value<int> mapThumbnailVisibleThreshold,
+      Value<int> mapThumbnailConcurrentLoads,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -8303,6 +8505,8 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> customThemeColorsJson,
       Value<double> customCameraAspectRatioWidth,
       Value<double> customCameraAspectRatioHeight,
+      Value<int> mapThumbnailVisibleThreshold,
+      Value<int> mapThumbnailConcurrentLoads,
       Value<int> rowid,
     });
 
@@ -8442,6 +8646,16 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<double> get customCameraAspectRatioHeight => $composableBuilder(
     column: $table.customCameraAspectRatioHeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mapThumbnailVisibleThreshold => $composableBuilder(
+    column: $table.mapThumbnailVisibleThreshold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mapThumbnailConcurrentLoads => $composableBuilder(
+    column: $table.mapThumbnailConcurrentLoads,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8586,6 +8800,16 @@ class $$AppSettingsEntriesTableOrderingComposer
         column: $table.customCameraAspectRatioHeight,
         builder: (column) => ColumnOrderings(column),
       );
+
+  ColumnOrderings<int> get mapThumbnailVisibleThreshold => $composableBuilder(
+    column: $table.mapThumbnailVisibleThreshold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mapThumbnailConcurrentLoads => $composableBuilder(
+    column: $table.mapThumbnailConcurrentLoads,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -8720,6 +8944,16 @@ class $$AppSettingsEntriesTableAnnotationComposer
         column: $table.customCameraAspectRatioHeight,
         builder: (column) => column,
       );
+
+  GeneratedColumn<int> get mapThumbnailVisibleThreshold => $composableBuilder(
+    column: $table.mapThumbnailVisibleThreshold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get mapThumbnailConcurrentLoads => $composableBuilder(
+    column: $table.mapThumbnailConcurrentLoads,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsEntriesTableTableManager
@@ -8791,6 +9025,8 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<double> customCameraAspectRatioHeight =
                     const Value.absent(),
+                Value<int> mapThumbnailVisibleThreshold = const Value.absent(),
+                Value<int> mapThumbnailConcurrentLoads = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -8819,6 +9055,8 @@ class $$AppSettingsEntriesTableTableManager
                 customThemeColorsJson: customThemeColorsJson,
                 customCameraAspectRatioWidth: customCameraAspectRatioWidth,
                 customCameraAspectRatioHeight: customCameraAspectRatioHeight,
+                mapThumbnailVisibleThreshold: mapThumbnailVisibleThreshold,
+                mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8852,6 +9090,8 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<double> customCameraAspectRatioHeight =
                     const Value.absent(),
+                Value<int> mapThumbnailVisibleThreshold = const Value.absent(),
+                Value<int> mapThumbnailConcurrentLoads = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -8880,6 +9120,8 @@ class $$AppSettingsEntriesTableTableManager
                 customThemeColorsJson: customThemeColorsJson,
                 customCameraAspectRatioWidth: customCameraAspectRatioWidth,
                 customCameraAspectRatioHeight: customCameraAspectRatioHeight,
+                mapThumbnailVisibleThreshold: mapThumbnailVisibleThreshold,
+                mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

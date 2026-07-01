@@ -402,6 +402,7 @@ Map<String, Object?> _planJson({
       'id': plan.id,
       'name': plan.name,
       'area': plan.area,
+      'memo': plan.memo,
       'createdAt': plan.createdAt.toIso8601String(),
       'updatedAt': plan.updatedAt.toIso8601String(),
       'currentPointId': plan.currentPointId,

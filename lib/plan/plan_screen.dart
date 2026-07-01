@@ -14,6 +14,7 @@ import '../records/visit_record_detail_screen.dart';
 import '../map/map_tile_config.dart';
 import 'add_points_screen.dart';
 import 'plan_group_utils.dart';
+import 'plan_memo_screen.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
 import 'reference_full_cache_runner.dart';
@@ -275,6 +276,8 @@ class _PlanScreenState extends State<PlanScreen> {
                   widget.onOpenAddPoints();
                 case _PlanMenuAction.managePoints:
                   widget.onOpenPointManager();
+                case _PlanMenuAction.memo:
+                  _openPlanMemo();
                 case _PlanMenuAction.importExport:
                   widget.onOpenImportExport();
               }
@@ -299,6 +302,13 @@ class _PlanScreenState extends State<PlanScreen> {
                 child: ListTile(
                   leading: Icon(Icons.tune_outlined),
                   title: Text('管理计划'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _PlanMenuAction.memo,
+                child: ListTile(
+                  leading: Icon(Icons.sticky_note_2_outlined),
+                  title: Text('计划备忘录'),
                 ),
               ),
               PopupMenuItem(
@@ -391,6 +401,14 @@ class _PlanScreenState extends State<PlanScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _openPlanMemo() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => PlanMemoScreen(controller: controller),
       ),
     );
   }
@@ -560,7 +578,7 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 }
 
-enum _PlanMenuAction { switchPlan, addPoints, managePoints, importExport }
+enum _PlanMenuAction { switchPlan, addPoints, managePoints, memo, importExport }
 
 class _ReferenceCacheIconButton extends StatelessWidget {
   const _ReferenceCacheIconButton({

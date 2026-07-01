@@ -22,12 +22,14 @@ void main() {
     );
 
     final encoded = PlanPackage(
-      plan: plan,
+      plan: plan.copyWith(memo: '第一天先去宇治站，晚上整理补拍点。'),
       visitRecords: [record],
     ).toJsonString();
     final decoded = PlanPackage.fromJsonString(encoded);
 
     expect(decoded.plan.name, plan.name);
+    expect(decoded.plan.memo, '第一天先去宇治站，晚上整理补拍点。');
+    expect(encoded, contains('"memo": "第一天先去宇治站，晚上整理补拍点。"'));
     expect(
       decoded.plan.points.map((point) => point.id),
       plan.points.map((p) => p.id),
@@ -40,6 +42,30 @@ void main() {
     expect(decoded.visitRecords.single.referenceMode, '叠影');
     expect(decoded.visitRecords.single.workTitle, point.work.title);
     expect(decoded.visitRecords.single.pointName, point.name);
+  });
+
+  test('decodes legacy plan packages without memo', () {
+    final decoded = PlanPackage.fromJsonString('''
+{
+  "format": "miriago-plan",
+  "version": 1,
+  "exportedAt": "2026-07-01T00:00:00.000",
+  "plan": {
+    "id": "legacy-plan",
+    "name": "Legacy Plan",
+    "area": "Uji",
+    "createdAt": "2026-07-01T00:00:00.000",
+    "updatedAt": "2026-07-01T00:00:00.000",
+    "currentPointId": null,
+    "completedPointIds": [],
+    "works": [],
+    "points": []
+  },
+  "visitRecords": []
+}
+''');
+
+    expect(decoded.plan.memo, '');
   });
 
   test('keeps exported Anitabi URLs in canonical image host', () async {

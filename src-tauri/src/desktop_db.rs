@@ -160,6 +160,7 @@ impl DesktopDatabase {
                   id TEXT PRIMARY KEY NOT NULL,
                   name TEXT NOT NULL,
                   area TEXT NOT NULL,
+                  memo TEXT NOT NULL DEFAULT '',
                   current_group_id TEXT,
                   active INTEGER NOT NULL DEFAULT 0,
                   created_at TEXT NOT NULL,
@@ -244,7 +245,9 @@ impl DesktopDatabase {
                   open_free_map_style TEXT NOT NULL DEFAULT 'liberty',
                   anitabi_image_source TEXT NOT NULL DEFAULT 'auto',
                   custom_xyz_tile_url TEXT NOT NULL DEFAULT '',
-                  custom_maplibre_style_url TEXT NOT NULL DEFAULT ''
+                  custom_maplibre_style_url TEXT NOT NULL DEFAULT '',
+                  map_thumbnail_visible_threshold INTEGER NOT NULL DEFAULT 40,
+                  map_thumbnail_concurrent_loads INTEGER NOT NULL DEFAULT 10
                 );
                 CREATE TABLE IF NOT EXISTS asset_metadata (
                   path TEXT PRIMARY KEY NOT NULL,
@@ -259,6 +262,7 @@ impl DesktopDatabase {
             )
             .map_err(|error| error.to_string())?;
         self.ensure_app_settings_columns()?;
+        self.ensure_plan_columns()?;
         self.ensure_points_columns()?;
         self.normalize_anitabi_image_urls()?;
 
@@ -319,6 +323,14 @@ impl DesktopDatabase {
             ("anitabi_image_source", "TEXT NOT NULL DEFAULT 'auto'"),
             ("custom_xyz_tile_url", "TEXT NOT NULL DEFAULT ''"),
             ("custom_maplibre_style_url", "TEXT NOT NULL DEFAULT ''"),
+            (
+                "map_thumbnail_visible_threshold",
+                "INTEGER NOT NULL DEFAULT 40",
+            ),
+            (
+                "map_thumbnail_concurrent_loads",
+                "INTEGER NOT NULL DEFAULT 10",
+            ),
         ] {
             if columns.iter().any(|column| column == name) {
                 continue;
@@ -328,6 +340,27 @@ impl DesktopDatabase {
                     &format!("ALTER TABLE app_settings ADD COLUMN {name} {definition}"),
                     [],
                 )
+                .map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+
+    fn ensure_plan_columns(&self) -> Result<(), String> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA table_info(plans)")
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|error| error.to_string())?;
+        let mut columns = Vec::new();
+        for row in rows {
+            columns.push(row.map_err(|error| error.to_string())?);
+        }
+
+        if !columns.iter().any(|column| column == "memo") {
+            self.connection
+                .execute("ALTER TABLE plans ADD COLUMN memo TEXT NOT NULL DEFAULT ''", [])
                 .map_err(|error| error.to_string())?;
         }
         Ok(())
@@ -401,7 +434,8 @@ impl DesktopDatabase {
                         camera_min_zoom, camera_max_zoom, reference_image_scale,
                         nearest_assign_distance_meters, theme_palette,
                         map_tile_provider, open_free_map_style, anitabi_image_source,
-                        custom_xyz_tile_url, custom_maplibre_style_url
+                        custom_xyz_tile_url, custom_maplibre_style_url,
+                        map_thumbnail_visible_threshold, map_thumbnail_concurrent_loads
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -419,6 +453,8 @@ impl DesktopDatabase {
                         "anitabiImageSource": row.get::<_, String>(10)?,
                         "customXyzTileUrl": row.get::<_, String>(11)?,
                         "customMapLibreStyleUrl": row.get::<_, String>(12)?,
+                        "mapThumbnailVisibleThreshold": row.get::<_, i64>(13)?,
+                        "mapThumbnailConcurrentLoads": row.get::<_, i64>(14)?,
                     }))
                 },
             )
@@ -431,7 +467,7 @@ impl DesktopDatabase {
         let mut statement = self
             .connection
             .prepare(
-                "SELECT id, name, area, current_group_id, created_at, updated_at
+                "SELECT id, name, area, memo, current_group_id, created_at, updated_at
                  FROM plans ORDER BY created_at ASC",
             )
             .map_err(|error| error.to_string())?;
@@ -441,16 +477,17 @@ impl DesktopDatabase {
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
                     row.get::<_, String>(5)?,
+                    row.get::<_, String>(6)?,
                 ))
             })
             .map_err(|error| error.to_string())?;
 
         let mut plans = Vec::new();
         for row in rows {
-            let (id, name, area, current_group_id, created_at, updated_at) =
+            let (id, name, area, memo, current_group_id, created_at, updated_at) =
                 row.map_err(|error| error.to_string())?;
             let points = self.load_points_json(&id)?;
             let current_point_id = points
@@ -487,6 +524,7 @@ impl DesktopDatabase {
                 "id": id,
                 "name": name,
                 "area": area,
+                "memo": memo,
                 "createdAt": created_at,
                 "updatedAt": updated_at,
                 "currentPointId": current_point_id,
@@ -740,8 +778,9 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            camera_min_zoom, camera_max_zoom, reference_image_scale,
            nearest_assign_distance_meters, theme_palette, map_tile_provider,
            open_free_map_style, anitabi_image_source, custom_xyz_tile_url,
-           custom_maplibre_style_url
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+           custom_maplibre_style_url, map_thumbnail_visible_threshold,
+           map_thumbnail_concurrent_loads
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -756,6 +795,8 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             string_value(settings, "anitabiImageSource", "auto"),
             string_value(settings, "customXyzTileUrl", ""),
             string_value(settings, "customMapLibreStyleUrl", ""),
+            i64_value(settings, "mapThumbnailVisibleThreshold", 40).clamp(0, 200),
+            i64_value(settings, "mapThumbnailConcurrentLoads", 10).clamp(1, 30),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -769,12 +810,13 @@ fn insert_plan(
 ) -> Result<(), String> {
     let plan_id = required_string(plan, "id")?;
     tx.execute(
-        "INSERT INTO plans (id, name, area, current_group_id, active, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO plans (id, name, area, memo, current_group_id, active, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             plan_id,
             string_value(plan, "name", "桌面端计划"),
             string_value(plan, "area", ""),
+            string_value(plan, "memo", ""),
             optional_string(plan, "currentGroupId"),
             (active_plan_id == Some(plan_id)) as i64,
             string_value(plan, "createdAt", "1970-01-01T00:00:00.000"),
@@ -941,6 +983,8 @@ fn default_settings_json() -> Value {
         "anitabiImageSource": "auto",
         "customXyzTileUrl": "",
         "customMapLibreStyleUrl": "",
+        "mapThumbnailVisibleThreshold": 40,
+        "mapThumbnailConcurrentLoads": 10,
     })
 }
 

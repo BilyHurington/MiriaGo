@@ -92,6 +92,8 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
         .toList(growable: false),
     'customCameraAspectRatioWidth': settings.customCameraAspectRatioWidth,
     'customCameraAspectRatioHeight': settings.customCameraAspectRatioHeight,
+    'mapThumbnailVisibleThreshold': settings.mapThumbnailVisibleThreshold,
+    'mapThumbnailConcurrentLoads': settings.mapThumbnailConcurrentLoads,
   };
 }
 
@@ -160,6 +162,10 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _doubleValue(json['customCameraAspectRatioWidth']) ?? 1,
     customCameraAspectRatioHeight:
         _doubleValue(json['customCameraAspectRatioHeight']) ?? 1,
+    mapThumbnailVisibleThreshold:
+        _intValue(json['mapThumbnailVisibleThreshold']) ?? 40,
+    mapThumbnailConcurrentLoads:
+        _intValue(json['mapThumbnailConcurrentLoads']) ?? 10,
   );
 }
 
@@ -168,6 +174,7 @@ Map<String, Object?> _planJson(PilgrimagePlan plan) {
     'id': plan.id,
     'name': plan.name,
     'area': plan.area,
+    'memo': plan.memo,
     'createdAt': plan.createdAt.toIso8601String(),
     'updatedAt': plan.updatedAt.toIso8601String(),
     'currentPointId': plan.currentPointId,
@@ -186,6 +193,7 @@ PilgrimagePlan _planFromJson(Map<String, Object?> json) {
     id: _stringValue(json['id'], fallback: 'desktop-plan'),
     name: _stringValue(json['name'], fallback: '桌面端计划'),
     area: _stringValue(json['area'], fallback: ''),
+    memo: _stringValue(json['memo'], fallback: ''),
     works: works,
     groups: _listMaps(json['groups']).map(_groupFromJson).toList(),
     points: _listMaps(

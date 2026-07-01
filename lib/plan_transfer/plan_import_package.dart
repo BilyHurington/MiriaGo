@@ -393,6 +393,7 @@ PilgrimagePlan _planFromV2Json(Map<String, Object?> json) {
     id: _stringValue(json['id'], fallback: 'imported-plan'),
     name: _stringValue(json['name'], fallback: '导入的巡礼计划'),
     area: _stringValue(json['area'], fallback: '未设置区域'),
+    memo: _optionalStringValue(json['memo']) ?? '',
     works: works,
     groups: groups,
     points: points,
@@ -549,6 +550,13 @@ T? _enumValue<T extends Enum>(List<T> values, Object? source) {
 
 String _stringValue(Object? value, {required String fallback}) {
   return value is String && value.isNotEmpty ? value : fallback;
+}
+
+String? _optionalStringValue(Object? value) {
+  if (value is! String) {
+    return null;
+  }
+  return value;
 }
 
 double _doubleValue(Object? value) {

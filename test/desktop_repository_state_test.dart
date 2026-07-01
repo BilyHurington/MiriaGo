@@ -20,11 +20,20 @@ void main() {
         autoSaveComparisonToGallery: true,
         comparisonShowPilgrimName: true,
         comparisonPilgrimName: 'BilyHurington',
+        mapThumbnailVisibleThreshold: 55,
+        mapThumbnailConcurrentLoads: 12,
       ),
     );
     final source = repository.snapshot();
+    final sourcePlan = source.plans.single.copyWith(memo: '桌面端备忘录');
+    final sourceWithMemo = SamplePilgrimageRepositorySnapshot(
+      plans: [sourcePlan],
+      visitRecords: source.visitRecords,
+      settings: source.settings,
+      activePlanId: source.activePlanId,
+    );
 
-    final encoded = encodeDesktopRepositoryState(source);
+    final encoded = encodeDesktopRepositoryState(sourceWithMemo);
     final decoded = decodeDesktopRepositoryState(encoded);
 
     expect(decoded, isNotNull);
@@ -53,7 +62,10 @@ void main() {
     expect(decoded.settings.autoSaveComparisonToGallery, isTrue);
     expect(decoded.settings.comparisonShowPilgrimName, isTrue);
     expect(decoded.settings.comparisonPilgrimName, 'BilyHurington');
+    expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
+    expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
     expect(decoded.plans.single.id, source.plans.single.id);
+    expect(decoded.plans.single.memo, '桌面端备忘录');
     expect(
       decoded.plans.single.points.length,
       source.plans.single.points.length,

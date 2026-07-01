@@ -120,6 +120,89 @@ void main() {
     expect(find.textContaining('1 部作品'), findsOneWidget);
   });
 
+  testWidgets('opens and edits plan memo from plan menu', (tester) async {
+    await _pumpApp(tester);
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('计划备忘录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('计划备忘录'), findsOneWidget);
+    expect(find.text('还没有写计划备忘'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '第一天先去宇治站，下午整理补拍点。');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('计划备忘录已保存'), findsOneWidget);
+    expect(find.text('第一天先去宇治站，下午整理补拍点。'), findsOneWidget);
+  });
+
+  testWidgets('plan memo toolbar inserts markdown and preview renders it', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('计划备忘录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('标题'));
+    await tester.pumpAndSettle();
+    expect(find.text('## 标题'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.tap(find.byTooltip('待办'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('- [ ] 待办事项'), findsOneWidget);
+
+    await tester.enterText(
+      find.byType(TextField),
+      '# 第一天\n\n- [ ] 预约咖啡店\n\n> 下雨时改室内点位\n\n![参考图](https://example.com/a.jpg)',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('第一天'), findsOneWidget);
+    expect(find.text('预约咖啡店'), findsOneWidget);
+    expect(find.textContaining('备忘录不支持图片'), findsOneWidget);
+  });
+
+  testWidgets('plan memo quote renders and task checkbox toggles markdown', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('计划备忘录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField),
+      '> 备用路线\n\n- [ ] 预约咖啡店\n- [x] 下载参考图',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('备用路线'), findsOneWidget);
+    expect(find.byIcon(Icons.check_box_outline_blank), findsOneWidget);
+    expect(find.byIcon(Icons.check_box), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.check_box_outline_blank));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.check_box), findsNWidgets(2));
+
+    await tester.tap(find.byTooltip('编辑'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('- [x] 预约咖啡店'), findsOneWidget);
+  });
+
   testWidgets('opens camera reference from current target', (tester) async {
     await _pumpApp(tester);
 

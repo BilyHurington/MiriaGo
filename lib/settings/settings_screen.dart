@@ -1222,6 +1222,42 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _SettingsSection(
+          title: '地图缩略图',
+          children: [
+            _NumberStepperSetting(
+              icon: Icons.photo_size_select_large_outlined,
+              title: '缩略图显示阈值',
+              subtitle:
+                  '视图内点位不超过 ${settings.mapThumbnailVisibleThreshold} 个时显示缩略图；超过时仅显示圆点。',
+              value: settings.mapThumbnailVisibleThreshold,
+              min: 0,
+              max: 200,
+              step: 5,
+              valueLabel: '${settings.mapThumbnailVisibleThreshold} 个',
+              onChanged: (value) {
+                _update(settings.copyWith(mapThumbnailVisibleThreshold: value));
+              },
+            ),
+            const SizedBox(height: 12),
+            _NumberStepperSetting(
+              icon: Icons.download_for_offline_outlined,
+              title: '缩略图同时加载数',
+              subtitle: '限制同一时间远程缩略图请求数量，减少点位很多时的卡顿和网络压力。',
+              value: settings.mapThumbnailConcurrentLoads,
+              min: 1,
+              max: 30,
+              step: 1,
+              valueLabel: '${settings.mapThumbnailConcurrentLoads} 个',
+              onChanged: (value) {
+                _update(settings.copyWith(mapThumbnailConcurrentLoads: value));
+              },
+            ),
+            const SizedBox(height: 8),
+            const Text('阈值为 0 时不会在地图上显示缩略图。', style: _secondaryTextStyle),
+          ],
+        ),
         if (_showFutureNavigationAppSettings) ...[
           const SizedBox(height: 12),
           _SettingsSection(
@@ -1866,6 +1902,129 @@ class _SettingsSubheading extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _NumberStepperSetting extends StatelessWidget {
+  const _NumberStepperSetting({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.step,
+    required this.valueLabel,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final int value;
+  final int min;
+  final int max;
+  final int step;
+  final String valueLabel;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final canDecrease = value > min;
+    final canIncrease = value < max;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.textSecondary, size: 22),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _titleTextStyle),
+              const SizedBox(height: 3),
+              Text(subtitle, style: _secondaryTextStyle),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _NumberStepperIconButton(
+              icon: Icons.remove,
+              tooltip: '减少',
+              onTap: canDecrease
+                  ? () => onChanged((value - step).clamp(min, max))
+                  : null,
+            ),
+            Container(
+              width: 58,
+              height: 36,
+              alignment: Alignment.center,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                valueLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            _NumberStepperIconButton(
+              icon: Icons.add,
+              tooltip: '增加',
+              onTap: canIncrease
+                  ? () => onChanged((value + step).clamp(min, max))
+                  : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _NumberStepperIconButton extends StatelessWidget {
+  const _NumberStepperIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onTap,
+        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+        padding: EdgeInsets.zero,
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textPrimary,
+          disabledForegroundColor: AppColors.textSecondary.withValues(
+            alpha: 0.5,
+          ),
+          side: const BorderSide(color: AppColors.border),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        icon: Icon(icon, size: 18),
+      ),
     );
   }
 }

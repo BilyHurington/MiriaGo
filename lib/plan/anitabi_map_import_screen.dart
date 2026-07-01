@@ -18,6 +18,8 @@ import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/image_load_limiter.dart';
+import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'nearest_group_assign_screen.dart';
@@ -58,10 +60,15 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   bool _isImporting = false;
   _ImportProgress? _importProgress;
   bool _didUpdatePlan = false;
+  bool _showThumbnailMarkers = false;
   bool _isBoxSelecting = false;
   Offset? _selectionStart;
   Offset? _selectionEnd;
   int _loadGeneration = 0;
+  LatLngBounds? _visibleBounds;
+  late final ImageLoadLimiter _thumbnailLoadLimiter = ImageLoadLimiter(
+    _settings.mapThumbnailConcurrentLoads,
+  );
 
   List<PilgrimageWork> get _works {
     final selectedWork = _selectedWork;
@@ -118,6 +125,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     setState(() {
       _settings = settings;
     });
+    _thumbnailLoadLimiter.maxConcurrent = settings.mapThumbnailConcurrentLoads;
   }
 
   Future<void> _refreshAnitabiData() async {
@@ -843,12 +851,42 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
   }
 
+  void _handleMapPositionChanged(MapCamera camera, bool hasGesture) {
+    if (!_showThumbnailMarkers) {
+      return;
+    }
+    setState(() {
+      _visibleBounds = camera.visibleBounds;
+    });
+  }
+
+  Set<String> _thumbnailPointIdsForCurrentView(Iterable<AnitabiPoint> points) {
+    if (!_showThumbnailMarkers) {
+      return const <String>{};
+    }
+    final threshold = _settings.mapThumbnailVisibleThreshold.clamp(0, 200);
+    if (threshold <= 0) {
+      return const <String>{};
+    }
+    final bounds = _visibleBounds;
+    final visiblePoints = bounds == null
+        ? points.toList(growable: false)
+        : points
+              .where((point) => bounds.contains(point.position))
+              .toList(growable: false);
+    if (visiblePoints.length > threshold) {
+      return const <String>{};
+    }
+    return visiblePoints.map((point) => point.id).toSet();
+  }
+
   @override
   Widget build(BuildContext context) {
     final works = _works;
     final selectedWork = _selectedWork;
     final visiblePoints = _pointsForWork(selectedWork);
     final selectedPoint = _selectedPointForWork(selectedWork);
+    final thumbnailPointIds = _thumbnailPointIdsForCurrentView(visiblePoints);
 
     return PopScope(
       canPop: !_isImporting,
@@ -939,6 +977,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         initialZoom: _lite?.zoom ?? 12,
                         minZoom: 4,
                         maxZoom: 24,
+                        onPositionChanged: _handleMapPositionChanged,
                         interactionOptions: const InteractionOptions(
                           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                         ),
@@ -948,18 +987,56 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         MarkerLayer(
                           markers: [
                             for (final point in visiblePoints)
-                              Marker(
-                                point: point.position,
-                                width: 40,
-                                height: 40,
-                                child: _ImportMarker(
-                                  selected: selectedPoint?.id == point.id,
-                                  imported: _importedPointIds.contains(
-                                    point.toPilgrimagePoint(_selectedWork!).id,
-                                  ),
-                                  onTap: () => _selectPoint(point),
-                                ),
-                              ),
+                              () {
+                                final imported = _importedPointIds.contains(
+                                  point.toPilgrimagePoint(_selectedWork!).id,
+                                );
+                                final showThumbnail =
+                                    _showThumbnailMarkers &&
+                                    thumbnailPointIds.contains(point.id);
+                                return Marker(
+                                  point: point.position,
+                                  width: _showThumbnailMarkers
+                                      ? (showThumbnail ? 84 : 24)
+                                      : 40,
+                                  height: _showThumbnailMarkers
+                                      ? (showThumbnail ? 82 : 24)
+                                      : 40,
+                                  alignment: _showThumbnailMarkers
+                                      ? (showThumbnail
+                                            ? Alignment.topCenter
+                                            : Alignment.center)
+                                      : Alignment.center,
+                                  child: _showThumbnailMarkers
+                                      ? MapThumbnailMarker(
+                                          selected:
+                                              selectedPoint?.id == point.id,
+                                          imported: imported,
+                                          showThumbnail: showThumbnail,
+                                          markerColor: imported
+                                              ? AppColors.textSecondary
+                                              : AppColors.accent,
+                                          imageLoadLimiter:
+                                              _thumbnailLoadLimiter,
+                                          localPath: _importedPointFor(
+                                            point,
+                                          )?.referenceThumbnailPath,
+                                          imageUrl: _anitabiThumbnailUrl(
+                                            point.referenceImageUrl,
+                                          ),
+                                          imageSource:
+                                              _settings.anitabiImageSource,
+                                          tooltip: 'Anitabi 点位',
+                                          onTap: () => _selectPoint(point),
+                                        )
+                                      : _ImportMarker(
+                                          selected:
+                                              selectedPoint?.id == point.id,
+                                          imported: imported,
+                                          onTap: () => _selectPoint(point),
+                                        ),
+                                );
+                              }(),
                           ],
                         ),
                         configuredMapAttribution(_settings),
@@ -988,7 +1065,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     Positioned(
                       top: 12,
                       left: 16,
-                      right: 16,
+                      right: 64,
                       child: _ImportSummary(
                         isLoading: _isLoading,
                         isImporting: _isImporting,
@@ -1008,6 +1085,28 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         onToggleBoxSelection: _toggleBoxSelection,
                         onImportAll: _importAllAvailablePoints,
                         onImportSelection: _importSelectedBoxPoints,
+                      ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: 16,
+                      child: _ImportMapModeButton(
+                        selected: _showThumbnailMarkers,
+                        onTap: () {
+                          setState(() {
+                            _showThumbnailMarkers = !_showThumbnailMarkers;
+                            if (!_showThumbnailMarkers) {
+                              _visibleBounds = null;
+                            } else {
+                              try {
+                                _visibleBounds =
+                                    _mapController.camera.visibleBounds;
+                              } catch (_) {
+                                _visibleBounds = null;
+                              }
+                            }
+                          });
+                        },
                       ),
                     ),
                     Align(
@@ -1140,6 +1239,45 @@ class _ImportMarker extends StatelessWidget {
         ),
       ),
       icon: Icon(imported ? Icons.check : Icons.place, size: 22),
+    );
+  }
+}
+
+class _ImportMapModeButton extends StatelessWidget {
+  const _ImportMapModeButton({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: selected ? '使用图标标记' : '显示缩略图标记',
+      child: Material(
+        color: selected
+            ? AppColors.accent.withValues(alpha: 0.95)
+            : AppColors.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: IconTheme(
+            data: IconThemeData(
+              color: selected ? AppColors.onAccent : AppColors.textPrimary,
+            ),
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: Icon(
+                  selected ? Icons.location_on_outlined : Icons.image_outlined,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

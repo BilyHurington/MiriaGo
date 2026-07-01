@@ -47,6 +47,7 @@ dependencies:
   web: ^1.1.1
   flutter_map_maplibre: ^0.0.5
   maplibre: ^0.3.5
+  flutter_markdown_plus: ^1.0.7
 dev_dependencies:
   flutter_test:
     sdk: flutter

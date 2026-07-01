@@ -61,6 +61,7 @@ Map<String, Object?> _planToJson(PilgrimagePlan plan) {
     'id': plan.id,
     'name': plan.name,
     'area': plan.area,
+    'memo': plan.memo,
     'createdAt': plan.createdAt.toIso8601String(),
     'updatedAt': plan.updatedAt.toIso8601String(),
     'currentPointId': plan.currentPointId,
@@ -85,6 +86,7 @@ PilgrimagePlan _planFromJson(Map<String, Object?> json) {
     id: _stringValue(json['id'], fallback: 'imported-plan'),
     name: _stringValue(json['name'], fallback: '导入的巡礼计划'),
     area: _stringValue(json['area'], fallback: '未设置区域'),
+    memo: _optionalStringValue(json['memo']) ?? '',
     works: works,
     points: points,
     createdAt: _dateValue(json['createdAt']),
@@ -236,6 +238,13 @@ List<T> _readList<T>(
 
 String _stringValue(Object? value, {required String fallback}) {
   return value is String && value.isNotEmpty ? value : fallback;
+}
+
+String? _optionalStringValue(Object? value) {
+  if (value is! String) {
+    return null;
+  }
+  return value;
 }
 
 double _doubleValue(Object? value) {

@@ -157,6 +157,20 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> updatePlanMemo({
+    required String planId,
+    required String memo,
+  }) async {
+    final index = _planIndex(planId);
+    final updatedPlan = _plans[index].copyWith(
+      memo: memo,
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
   Future<PilgrimagePlan> addPointToPlan({
     required String planId,
     required PilgrimagePoint point,
@@ -737,6 +751,14 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       ),
       customCameraAspectRatioHeight: settings.customCameraAspectRatioHeight
           .clamp(0.1, 99.0),
+      mapThumbnailVisibleThreshold: settings.mapThumbnailVisibleThreshold.clamp(
+        0,
+        200,
+      ),
+      mapThumbnailConcurrentLoads: settings.mapThumbnailConcurrentLoads.clamp(
+        1,
+        30,
+      ),
     );
   }
 

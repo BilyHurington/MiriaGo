@@ -21,7 +21,7 @@ void main() {
       referenceFullImagePath: 'docs/sample_images/铃音-记录详情页面-调色后.jpg',
     );
     final package = await buildPlanExportV2Package(
-      plan: plan.copyWith(points: [point]),
+      plan: plan.copyWith(memo: '导出前确认交通预约。', points: [point]),
       visitRecords: [record],
       options: const PlanExportV2Options(
         mode: PlanExportV2Mode.planWithRecords,
@@ -35,6 +35,7 @@ void main() {
     );
 
     expect(importPackage.kind, PlanImportPackageKind.miriagoZip);
+    expect(importPackage.package.plan.memo, '导出前确认交通预约。');
     expect(importPackage.hasRestorableAssets, isTrue);
     expect(
       importPackage.assetEntries,
@@ -114,6 +115,7 @@ void main() {
       );
 
       expect(importPackage.kind, PlanImportPackageKind.legacyJson);
+      expect(importPackage.package.plan.memo, '');
       expect(importPackage.visitRecordCount, 0);
       expect(importPackage.package.visitRecords, isEmpty);
     },

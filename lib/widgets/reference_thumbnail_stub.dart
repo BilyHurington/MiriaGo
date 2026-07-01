@@ -4,6 +4,7 @@ import '../data/anitabi_image_url.dart';
 import '../desktop/desktop_asset_image.dart';
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_network_image.dart';
+import 'image_load_limiter.dart';
 
 class ReferenceThumbnail extends StatelessWidget {
   const ReferenceThumbnail({
@@ -14,6 +15,7 @@ class ReferenceThumbnail extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.width,
     this.height,
+    this.loadLimiter,
     super.key,
   });
 
@@ -24,6 +26,7 @@ class ReferenceThumbnail extends StatelessWidget {
   final BoxFit fit;
   final double? width;
   final double? height;
+  final ImageLoadLimiter? loadLimiter;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +50,7 @@ class ReferenceThumbnail extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        loadLimiter: loadLimiter,
         errorBuilder: (_) => placeholder,
       );
     }

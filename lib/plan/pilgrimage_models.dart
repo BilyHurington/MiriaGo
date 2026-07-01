@@ -173,6 +173,8 @@ class AppSettings {
     this.customThemeColors = const [],
     this.customCameraAspectRatioWidth = 1,
     this.customCameraAspectRatioHeight = 1,
+    this.mapThumbnailVisibleThreshold = 40,
+    this.mapThumbnailConcurrentLoads = 10,
   });
 
   final double uiScale;
@@ -200,6 +202,8 @@ class AppSettings {
   final List<CustomThemeColor> customThemeColors;
   final double customCameraAspectRatioWidth;
   final double customCameraAspectRatioHeight;
+  final int mapThumbnailVisibleThreshold;
+  final int mapThumbnailConcurrentLoads;
 
   AppSettings copyWith({
     double? uiScale,
@@ -227,6 +231,8 @@ class AppSettings {
     List<CustomThemeColor>? customThemeColors,
     double? customCameraAspectRatioWidth,
     double? customCameraAspectRatioHeight,
+    int? mapThumbnailVisibleThreshold,
+    int? mapThumbnailConcurrentLoads,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -265,6 +271,10 @@ class AppSettings {
           customCameraAspectRatioWidth ?? this.customCameraAspectRatioWidth,
       customCameraAspectRatioHeight:
           customCameraAspectRatioHeight ?? this.customCameraAspectRatioHeight,
+      mapThumbnailVisibleThreshold:
+          mapThumbnailVisibleThreshold ?? this.mapThumbnailVisibleThreshold,
+      mapThumbnailConcurrentLoads:
+          mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
     );
   }
 }
@@ -562,6 +572,7 @@ class PilgrimagePlan {
     required this.id,
     required this.name,
     required this.area,
+    this.memo = '',
     required this.works,
     this.groups = const [],
     required this.points,
@@ -575,6 +586,7 @@ class PilgrimagePlan {
   final String id;
   final String name;
   final String area;
+  final String memo;
   final List<PilgrimageWork> works;
   final List<PilgrimagePlanGroup> groups;
   final List<PilgrimagePoint> points;
@@ -588,6 +600,7 @@ class PilgrimagePlan {
     String? id,
     String? name,
     String? area,
+    String? memo,
     List<PilgrimageWork>? works,
     List<PilgrimagePlanGroup>? groups,
     List<PilgrimagePoint>? points,
@@ -601,6 +614,7 @@ class PilgrimagePlan {
       id: id ?? this.id,
       name: name ?? this.name,
       area: area ?? this.area,
+      memo: memo ?? this.memo,
       works: works ?? this.works,
       groups: groups ?? this.groups,
       points: points ?? this.points,

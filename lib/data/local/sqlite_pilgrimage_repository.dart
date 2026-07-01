@@ -89,6 +89,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         0.1,
         99.0,
       ),
+      mapThumbnailVisibleThreshold: row.mapThumbnailVisibleThreshold.clamp(
+        0,
+        200,
+      ),
+      mapThumbnailConcurrentLoads: row.mapThumbnailConcurrentLoads.clamp(1, 30),
     );
   }
 
@@ -241,6 +246,19 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         area: Value(area),
         updatedAt: Value(DateTime.now()),
       ),
+    );
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> updatePlanMemo({
+    required String planId,
+    required String memo,
+  }) async {
+    await (_database.update(
+      _database.plans,
+    )..where((table) => table.id.equals(planId))).write(
+      PlansCompanion(memo: Value(memo), updatedAt: Value(DateTime.now())),
     );
     return _planFromRow(await _planRowById(planId));
   }
@@ -919,6 +937,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             customCameraAspectRatioHeight: Value(
               settings.customCameraAspectRatioHeight.clamp(0.1, 99.0),
             ),
+            mapThumbnailVisibleThreshold: Value(
+              settings.mapThumbnailVisibleThreshold.clamp(0, 200),
+            ),
+            mapThumbnailConcurrentLoads: Value(
+              settings.mapThumbnailConcurrentLoads.clamp(1, 30),
+            ),
           ),
         );
   }
@@ -1057,6 +1081,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             id: plan.id,
             name: plan.name,
             area: plan.area,
+            memo: Value(plan.memo),
             currentGroupId: Value(plan.currentGroupId),
             active: Value(active),
             createdAt: plan.createdAt,
@@ -1300,6 +1325,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       id: row.id,
       name: row.name,
       area: row.area,
+      memo: row.memo,
       works: workById.values.toList(growable: false),
       groups: groups
           .map((group) => _groupFromRow(group, row.id))

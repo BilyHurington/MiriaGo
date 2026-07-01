@@ -6,6 +6,7 @@ class Plans extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get area => text()();
+  TextColumn get memo => text().withDefault(const Constant(''))();
   TextColumn get currentGroupId => text().nullable()();
   BoolColumn get active => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -142,6 +143,10 @@ class AppSettingsEntries extends Table {
       real().withDefault(const Constant(1.0))();
   RealColumn get customCameraAspectRatioHeight =>
       real().withDefault(const Constant(1.0))();
+  IntColumn get mapThumbnailVisibleThreshold =>
+      integer().withDefault(const Constant(40))();
+  IntColumn get mapThumbnailConcurrentLoads =>
+      integer().withDefault(const Constant(10))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -154,7 +159,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -396,6 +401,25 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 25) {
         await normalizeAnitabiImageUrls();
+      }
+      if (from < 26) {
+        await _addColumnIfMissing(migrator, 'plans', 'memo', plans, plans.memo);
+      }
+      if (from < 27) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'map_thumbnail_visible_threshold',
+          appSettingsEntries,
+          appSettingsEntries.mapThumbnailVisibleThreshold,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'map_thumbnail_concurrent_loads',
+          appSettingsEntries,
+          appSettingsEntries.mapThumbnailConcurrentLoads,
+        );
       }
     },
   );

@@ -19,6 +19,8 @@ import '../records/visit_record_detail_screen.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
+import '../widgets/image_load_limiter.dart';
+import '../widgets/map_thumbnail_marker.dart';
 import 'map_navigation_launcher.dart';
 import 'map_tile_config.dart';
 import '../widgets/reference_thumbnail_stub.dart'
@@ -45,9 +47,24 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   LatLng? _currentLocation;
   bool _isLocating = false;
+  bool _showThumbnailMarkers = false;
   int _selectedGroupIndex = 0;
+  LatLngBounds? _visibleBounds;
+  late final ImageLoadLimiter _thumbnailLoadLimiter = ImageLoadLimiter(
+    widget.settings.mapThumbnailConcurrentLoads,
+  );
 
   PilgrimagePlanController get _controller => widget.controller;
+
+  @override
+  void didUpdateWidget(covariant PilgrimageMapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings.mapThumbnailConcurrentLoads !=
+        widget.settings.mapThumbnailConcurrentLoads) {
+      _thumbnailLoadLimiter.maxConcurrent =
+          widget.settings.mapThumbnailConcurrentLoads;
+    }
+  }
 
   Future<void> _locateUser() async {
     setState(() {
@@ -146,6 +163,40 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     if (group.points.isNotEmpty) {
       _mapController.move(groupMapCenter(group), 15);
     }
+  }
+
+  void _handleMapPositionChanged(MapCamera camera, bool hasGesture) {
+    if (!_showThumbnailMarkers) {
+      return;
+    }
+    setState(() {
+      _visibleBounds = camera.visibleBounds;
+    });
+  }
+
+  Set<String> _thumbnailPointIdsForCurrentView(
+    Iterable<PilgrimagePoint> points,
+  ) {
+    if (!_showThumbnailMarkers) {
+      return const <String>{};
+    }
+    final threshold = widget.settings.mapThumbnailVisibleThreshold.clamp(
+      0,
+      200,
+    );
+    if (threshold <= 0) {
+      return const <String>{};
+    }
+    final bounds = _visibleBounds;
+    final visiblePoints = bounds == null
+        ? points.toList(growable: false)
+        : points
+              .where((point) => bounds.contains(point.position))
+              .toList(growable: false);
+    if (visiblePoints.length > threshold) {
+      return const <String>{};
+    }
+    return visiblePoints.map((point) => point.id).toSet();
   }
 
   void _moveToCurrentTarget() {
@@ -271,6 +322,9 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
         ? _fallbackCenter
         : groupMapCenter(selectedGroup);
     final selectedGroupId = selectedGroup?.id ?? '';
+    final thumbnailPointIds = _thumbnailPointIdsForCurrentView(
+      _controller.points,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -283,6 +337,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               initialZoom: 15,
               minZoom: 4,
               maxZoom: 24,
+              onPositionChanged: _handleMapPositionChanged,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
@@ -298,16 +353,47 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               MarkerLayer(
                 markers: [
                   for (final point in _controller.points)
-                    Marker(
-                      point: point.position,
-                      width: 44,
-                      height: 44,
-                      child: _PointMarker(
-                        selected: point.id == selectedPoint?.id,
-                        status: _controller.statusFor(point),
-                        onTap: () => _selectPoint(point),
-                      ),
-                    ),
+                    () {
+                      final showThumbnail =
+                          _showThumbnailMarkers &&
+                          thumbnailPointIds.contains(point.id);
+                      return Marker(
+                        key: ValueKey('plan-map-marker-${point.id}'),
+                        point: point.position,
+                        width: _showThumbnailMarkers
+                            ? (showThumbnail ? 84 : 24)
+                            : 44,
+                        height: _showThumbnailMarkers
+                            ? (showThumbnail ? 82 : 24)
+                            : 44,
+                        alignment: _showThumbnailMarkers
+                            ? (showThumbnail
+                                  ? Alignment.topCenter
+                                  : Alignment.center)
+                            : Alignment.center,
+                        child: _showThumbnailMarkers
+                            ? MapThumbnailMarker(
+                                selected: point.id == selectedPoint?.id,
+                                imported:
+                                    _controller.statusFor(point) ==
+                                    VisitStatus.completed,
+                                showThumbnail: showThumbnail,
+                                markerColor: mapColorForPoint(point, groups),
+                                imageLoadLimiter: _thumbnailLoadLimiter,
+                                localPath: point.referenceThumbnailPath,
+                                imageUrl: hasRemoteReferenceImage(point)
+                                    ? point.referenceImageUrl
+                                    : null,
+                                imageSource: widget.settings.anitabiImageSource,
+                                onTap: () => _selectPoint(point),
+                              )
+                            : _PointMarker(
+                                selected: point.id == selectedPoint?.id,
+                                status: _controller.statusFor(point),
+                                onTap: () => _selectPoint(point),
+                              ),
+                      );
+                    }(),
                   if (_currentLocation != null)
                     Marker(
                       point: _currentLocation!,
@@ -335,7 +421,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
             ),
           Positioned(
             right: 12,
-            top: 92,
+            top: 76,
             child: SafeArea(
               bottom: false,
               child: Column(
@@ -356,6 +442,32 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                     tooltip: '当前目标',
                     onTap: _moveToCurrentTarget,
                     child: const Icon(Icons.flag_outlined, size: 20),
+                  ),
+                  const SizedBox(height: 8),
+                  _MapFloatingIconButton(
+                    tooltip: _showThumbnailMarkers ? '使用图标标记' : '显示缩略图标记',
+                    selected: _showThumbnailMarkers,
+                    onTap: () {
+                      setState(() {
+                        _showThumbnailMarkers = !_showThumbnailMarkers;
+                        if (!_showThumbnailMarkers) {
+                          _visibleBounds = null;
+                        } else {
+                          try {
+                            _visibleBounds =
+                                _mapController.camera.visibleBounds;
+                          } catch (_) {
+                            _visibleBounds = null;
+                          }
+                        }
+                      });
+                    },
+                    child: Icon(
+                      _showThumbnailMarkers
+                          ? Icons.location_on_outlined
+                          : Icons.image_outlined,
+                      size: 20,
+                    ),
                   ),
                 ],
               ),
@@ -487,23 +599,32 @@ class _MapFloatingIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.child,
+    this.selected = false,
   });
 
   final String tooltip;
   final VoidCallback? onTap;
   final Widget child;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: AppColors.surface.withValues(alpha: 0.94),
+        color: selected
+            ? AppColors.accent.withValues(alpha: 0.95)
+            : AppColors.surface.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
-          child: SizedBox(width: 38, height: 38, child: Center(child: child)),
+          child: IconTheme(
+            data: IconThemeData(
+              color: selected ? AppColors.onAccent : AppColors.textPrimary,
+            ),
+            child: SizedBox(width: 38, height: 38, child: Center(child: child)),
+          ),
         ),
       ),
     );
