@@ -1,11 +1,18 @@
 import 'dart:io';
 
+import 'app_managed_file_paths_io.dart';
+
 Future<int?> localAssetSize(String? path) async {
   if (path == null || path.isEmpty) {
     return null;
   }
   try {
-    final file = File(path);
+    final resolvedPath =
+        await resolveAppManagedFilePath(
+          path,
+        ).then((resolution) => resolution.resolvedPath) ??
+        path;
+    final file = File(resolvedPath);
     if (!file.existsSync()) {
       return null;
     }

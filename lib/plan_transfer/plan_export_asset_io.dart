@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../data/anitabi_image_fetcher.dart';
 import '../data/anitabi_image_url.dart';
+import '../data/app_managed_file_paths_io.dart';
 import '../data/image_bytes.dart';
 import '../data/reference_asset_paths.dart';
 
@@ -16,7 +17,12 @@ Future<List<int>?> readExportAssetBytes(String path) async {
   if (normalizedPath.isEmpty || _isNetworkUrl(normalizedPath)) {
     return null;
   }
-  final file = File(normalizedPath);
+  final localPath =
+      await resolveAppManagedFilePath(
+        normalizedPath,
+      ).then((resolution) => resolution.resolvedPath) ??
+      normalizedPath;
+  final file = File(localPath);
   if (!await file.exists()) {
     if (isRuntimeManagedAssetPath(normalizedPath)) {
       return null;

@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../plan/pilgrimage_models.dart';
 import '../anitabi_image_url.dart';
+import '../app_managed_file_paths_stub.dart'
+    if (dart.library.io) '../app_managed_file_paths_io.dart';
 import '../pilgrimage_repository.dart';
 import '../sample_pilgrimage_repository.dart';
 import 'app_database.dart';
@@ -15,10 +17,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     : _database = database ?? AppDatabase(openConnection());
 
   final AppDatabase _database;
+  bool _visitRecordPathRepairAttempted = false;
 
   @override
   Future<List<PilgrimagePlan>> loadPlans() async {
     await _seedIfNeeded();
+    await _repairVisitRecordManagedFilePathsIfNeeded();
     final planRows = await (_database.select(
       _database.plans,
     )..orderBy([(table) => OrderingTerm.asc(table.createdAt)])).get();
@@ -29,6 +33,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<PilgrimagePlan> loadActivePlan() async {
     await _seedIfNeeded();
+    await _repairVisitRecordManagedFilePathsIfNeeded();
     final activePlan =
         await (_database.select(_database.plans)
               ..where((table) => table.active.equals(true))
@@ -100,6 +105,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
     await _seedIfNeeded();
+    await _repairVisitRecordManagedFilePathsIfNeeded();
     final rows =
         await (_database.select(_database.visitRecords)
               ..where((table) => table.planId.equals(planId))
@@ -996,6 +1002,74 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceMode: row.referenceMode,
       capturedAt: row.capturedAt,
     );
+  }
+
+  Future<void> _repairVisitRecordManagedFilePathsIfNeeded() async {
+    if (_visitRecordPathRepairAttempted) {
+      return;
+    }
+    _visitRecordPathRepairAttempted = true;
+
+    final rows = await _database.select(_database.visitRecords).get();
+    final candidates = rows
+        .where(_visitRecordNeedsManagedPathRepair)
+        .toList(growable: false);
+    if (candidates.isEmpty) {
+      return;
+    }
+
+    for (final row in candidates) {
+      final photoPath = await _rebasedPathOrNull(row.photoPath);
+      final originalPhotoPath = await _rebasedPathOrNull(row.originalPhotoPath);
+      final gradedPhotoPath = await _rebasedPathOrNull(row.gradedPhotoPath);
+      final referenceImagePath = await _rebasedPathOrNull(
+        row.referenceImagePath,
+      );
+
+      if (photoPath == null &&
+          originalPhotoPath == null &&
+          gradedPhotoPath == null &&
+          referenceImagePath == null) {
+        continue;
+      }
+
+      await (_database.update(
+        _database.visitRecords,
+      )..where((table) => table.id.equals(row.id))).write(
+        VisitRecordsCompanion(
+          photoPath: photoPath == null
+              ? const Value.absent()
+              : Value(photoPath),
+          originalPhotoPath: originalPhotoPath == null
+              ? const Value.absent()
+              : Value(originalPhotoPath),
+          gradedPhotoPath: gradedPhotoPath == null
+              ? const Value.absent()
+              : Value(gradedPhotoPath),
+          referenceImagePath: referenceImagePath == null
+              ? const Value.absent()
+              : Value(referenceImagePath),
+        ),
+      );
+    }
+  }
+
+  bool _visitRecordNeedsManagedPathRepair(VisitRecord row) {
+    return hasPotentiallyRebasableAppManagedFilePath(row.photoPath) ||
+        hasPotentiallyRebasableAppManagedFilePath(row.originalPhotoPath) ||
+        hasPotentiallyRebasableAppManagedFilePath(row.gradedPhotoPath) ||
+        hasPotentiallyRebasableAppManagedFilePath(row.referenceImagePath);
+  }
+
+  Future<String?> _rebasedPathOrNull(String? path) async {
+    if (!hasPotentiallyRebasableAppManagedFilePath(path)) {
+      return null;
+    }
+    final resolution = await resolveAppManagedFilePath(path);
+    if (!resolution.exists || !resolution.rebased) {
+      return null;
+    }
+    return resolution.resolvedPath;
   }
 
   @override

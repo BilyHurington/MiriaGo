@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../data/app_managed_file_paths_io.dart';
 import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_network_image.dart';
@@ -35,7 +36,8 @@ class ReferenceThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = localPath;
     if (path != null) {
-      final file = File(path);
+      final resolvedPath = resolveExistingAppManagedFilePathSync(path) ?? path;
+      final file = File(resolvedPath);
       if (file.existsSync()) {
         return Image.file(file, width: width, height: height, fit: fit);
       }

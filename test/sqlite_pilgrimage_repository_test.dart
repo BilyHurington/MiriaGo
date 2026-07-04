@@ -1,17 +1,36 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/data/app_managed_file_paths_io.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/data/local/app_database.dart';
 import 'package:miriago/data/local/sqlite_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan_transfer/plan_export_v2.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+
+class _FakePathProviderPlatform extends PathProviderPlatform {
+  _FakePathProviderPlatform(this.documentsPath);
+
+  final String documentsPath;
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async => documentsPath;
+
+  @override
+  Future<String?> getApplicationSupportPath() async =>
+      p.join(p.dirname(documentsPath), 'files');
+}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('persists completed point and next current target', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -112,6 +131,87 @@ void main() {
     expect(updatedPlan.currentPointId, sourcePlan.points.first.id);
     expect(updatedPlan.points.single.note, '翻修后外观已有变化');
   });
+
+  test(
+    'repairs old container visit record image paths when files still exist',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_sqlite_repair_',
+      );
+      addTearDown(() async {
+        setAppManagedFileBaseDirectoriesForTesting(null);
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final documentsPath = p.join(tempDirectory.path, 'Documents');
+      PathProviderPlatform.instance = _FakePathProviderPlatform(documentsPath);
+      setAppManagedFileBaseDirectoriesForTesting(null);
+
+      final currentPhoto = File(
+        p.join(documentsPath, 'visit_record_images', 'legacy-photo.jpg'),
+      );
+      final currentOriginal = File(
+        p.join(documentsPath, 'visit_record_images', 'legacy-original.jpg'),
+      );
+      final currentReference = File(
+        p.join(documentsPath, 'visit_record_images', 'legacy-reference.jpg'),
+      );
+      final currentGraded = File(
+        p.join(documentsPath, 'graded_photos', 'legacy-graded.jpg'),
+      );
+      for (final file in [
+        currentPhoto,
+        currentOriginal,
+        currentReference,
+        currentGraded,
+      ]) {
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(<int>[1, 2, 3], flush: true);
+      }
+
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+      final point = plan.points.first;
+      final oldPrefix = '/var/mobile/Containers/Data/Application/OLD/Documents';
+      final record = await repository.createVisitRecord(
+        planId: plan.id,
+        pointId: point.id,
+        workId: point.work.id,
+        workTitle: point.work.title,
+        pointName: point.name,
+        photoPath: '$oldPrefix/visit_record_images/legacy-photo.jpg',
+        referenceImagePath:
+            '$oldPrefix/visit_record_images/legacy-reference.jpg',
+        referenceMode: '上下',
+      );
+      await repository.updateVisitRecordColorGrading(
+        planId: plan.id,
+        recordId: record.id,
+        originalPhotoPath: '$oldPrefix/visit_record_images/legacy-original.jpg',
+        gradedPhotoPath: '$oldPrefix/graded_photos/legacy-graded.jpg',
+        colorGradingMode: 'manual',
+        colorGradingParamsJson: '{}',
+        colorGradingIntensity: 1,
+      );
+
+      final repairingRepository = SqlitePilgrimageRepository(
+        database: database,
+      );
+      final records = await repairingRepository.loadVisitRecords(plan.id);
+      final repaired = records.firstWhere(
+        (candidate) => candidate.id == record.id,
+      );
+
+      expect(repaired.photoPath, currentPhoto.path);
+      expect(repaired.originalPhotoPath, currentOriginal.path);
+      expect(repaired.gradedPhotoPath, currentGraded.path);
+      expect(repaired.referenceImagePath, currentReference.path);
+    },
+  );
 
   test('keeps same Bangumi work independent across plans', () async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -962,7 +1062,8 @@ void main() {
       referenceMode: '叠影',
     );
 
-    final records = await repository.loadVisitRecords(plan.id);
+    final repairingRepository = SqlitePilgrimageRepository(database: database);
+    final records = await repairingRepository.loadVisitRecords(plan.id);
 
     expect(records, hasLength(1));
     expect(records.single.id, record.id);

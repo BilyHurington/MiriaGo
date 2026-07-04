@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../data/anitabi_image_fetcher.dart';
 import '../data/anitabi_image_url.dart';
+import '../data/app_managed_file_paths_io.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_renderer.dart';
 
@@ -40,7 +41,10 @@ Future<ComparisonExportImageResult> exportComparisonImage({
 }) async {
   Uint8List? refBytes;
   if (referenceImagePath != null) {
-    final refFile = File(referenceImagePath);
+    final resolvedReferencePath =
+        resolveExistingAppManagedFilePathSync(referenceImagePath) ??
+        referenceImagePath;
+    final refFile = File(resolvedReferencePath);
     if (refFile.existsSync()) {
       refBytes = refFile.readAsBytesSync();
     }
@@ -68,7 +72,9 @@ Future<ComparisonExportImageResult> exportComparisonImage({
     );
   }
 
-  final capFile = File(capturedPath);
+  final resolvedCapturedPath =
+      resolveExistingAppManagedFilePathSync(capturedPath) ?? capturedPath;
+  final capFile = File(resolvedCapturedPath);
   if (!capFile.existsSync()) {
     return const ComparisonExportImageResult.failure(
       ComparisonExportFailureReason.capturedPhotoUnavailable,

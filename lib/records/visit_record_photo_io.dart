@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../data/app_managed_file_paths_io.dart';
 import '../plan/pilgrimage_models.dart';
 
 String? resolveVisitRecordDisplayPhotoPath(PilgrimageVisitRecord record) {
@@ -22,20 +23,25 @@ String? resolveVisitRecordSourcePhotoPath(PilgrimageVisitRecord record) {
 }
 
 bool visitRecordPhotoPathCanDisplay(String? path) {
+  return _displayableVisitRecordPath(path) != null;
+}
+
+String? _displayableVisitRecordPath(String? path) {
   final value = path?.trim();
   if (value == null || value.isEmpty) {
-    return false;
+    return null;
   }
   if (value.startsWith('docs/sample_images/')) {
-    return true;
+    return value;
   }
-  return File(value).existsSync();
+  return resolveExistingAppManagedFilePathSync(value);
 }
 
 String? _firstDisplayableVisitRecordPath(Iterable<String?> paths) {
   for (final path in paths) {
-    if (visitRecordPhotoPathCanDisplay(path)) {
-      return path;
+    final displayablePath = _displayableVisitRecordPath(path);
+    if (displayablePath != null) {
+      return displayablePath;
     }
   }
   return null;
@@ -62,7 +68,9 @@ class VisitRecordPhoto extends StatelessWidget {
       );
     }
 
-    final file = File(resolvedPath);
+    final resolvedFilePath =
+        resolveExistingAppManagedFilePathSync(resolvedPath) ?? resolvedPath;
+    final file = File(resolvedFilePath);
     if (!file.existsSync()) {
       return _placeholder();
     }
