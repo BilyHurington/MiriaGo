@@ -902,6 +902,21 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     return visiblePoints.map((point) => point.id).toSet();
   }
 
+  void _toggleThumbnailMarkers() {
+    setState(() {
+      _showThumbnailMarkers = !_showThumbnailMarkers;
+      if (!_showThumbnailMarkers) {
+        _visibleBounds = null;
+      } else {
+        try {
+          _visibleBounds = _mapController.camera.visibleBounds;
+        } catch (_) {
+          _visibleBounds = null;
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final works = _works;
@@ -927,6 +942,17 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         appBar: AppBar(
           title: const Text('从作品地图导入'),
           actions: [
+            Tooltip(
+              message: _showThumbnailMarkers ? '使用图标标记' : '显示缩略图标记',
+              child: IconButton(
+                onPressed: _toggleThumbnailMarkers,
+                icon: Icon(
+                  _showThumbnailMarkers
+                      ? Icons.location_on_outlined
+                      : Icons.image_outlined,
+                ),
+              ),
+            ),
             Tooltip(
               message: '清除缓存并重新加载 Anitabi 点位',
               child: IconButton(
@@ -1091,7 +1117,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     Positioned(
                       top: 12,
                       left: 16,
-                      right: 64,
+                      right: 16,
                       child: _ImportSummary(
                         isLoading: _isLoading,
                         isImporting: _isImporting,
@@ -1111,28 +1137,6 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         onToggleBoxSelection: _toggleBoxSelection,
                         onImportAll: _importAllAvailablePoints,
                         onImportSelection: _importSelectedBoxPoints,
-                      ),
-                    ),
-                    Positioned(
-                      top: 12,
-                      right: 16,
-                      child: _ImportMapModeButton(
-                        selected: _showThumbnailMarkers,
-                        onTap: () {
-                          setState(() {
-                            _showThumbnailMarkers = !_showThumbnailMarkers;
-                            if (!_showThumbnailMarkers) {
-                              _visibleBounds = null;
-                            } else {
-                              try {
-                                _visibleBounds =
-                                    _mapController.camera.visibleBounds;
-                              } catch (_) {
-                                _visibleBounds = null;
-                              }
-                            }
-                          });
-                        },
                       ),
                     ),
                     Align(
@@ -1292,45 +1296,6 @@ class _ImportMarker extends StatelessWidget {
         ),
       ),
       icon: Icon(imported ? Icons.check : Icons.place, size: 22),
-    );
-  }
-}
-
-class _ImportMapModeButton extends StatelessWidget {
-  const _ImportMapModeButton({required this.selected, required this.onTap});
-
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: selected ? '使用图标标记' : '显示缩略图标记',
-      child: Material(
-        color: selected
-            ? AppColors.accent.withValues(alpha: 0.95)
-            : AppColors.surface.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: IconTheme(
-            data: IconThemeData(
-              color: selected ? AppColors.onAccent : AppColors.textPrimary,
-            ),
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Center(
-                child: Icon(
-                  selected ? Icons.location_on_outlined : Icons.image_outlined,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
