@@ -606,6 +606,46 @@ void main() {
     expect(updatedPlan.points, hasLength(1));
   });
 
+  testWidgets('Anitabi link import uses global pid owner work', (tester) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '跨作品链接测试', area: '东京');
+    final anitabiClient = _FakeAnitabiClient(
+      globalPointBangumiIds: const {'cross-point': 543360},
+      pointIdsByBangumi: const {543360: 'cross-point'},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 282923,
+          initialPointId: 'cross-point',
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(anitabiClient.globalLookedUpPoints, contains('cross-point'));
+    expect(anitabiClient.lookedUpPoints, isEmpty);
+
+    await tester.tap(find.text('加入计划'));
+    await tester.pumpAndSettle();
+
+    final updatedPlan = await repository.loadActivePlan();
+    expect(
+      updatedPlan.works.where((work) => work.bangumiId == 282923),
+      isEmpty,
+    );
+    final works = updatedPlan.works
+        .where((work) => work.bangumiId == 543360)
+        .toList(growable: false);
+    expect(works, hasLength(1));
+    expect(works.single.title, '真实动画作品');
+    expect(updatedPlan.points.single.id, 'anitabi-543360-cross-point');
+  });
+
   testWidgets('Anitabi link import reuses existing work', (tester) async {
     final repository = SamplePilgrimageRepository(plans: const []);
     final plan = await repository.createPlan(name: '链接导入测试', area: '京都');
@@ -804,12 +844,17 @@ class _FakeAnitabiClient extends AnitabiClient {
   _FakeAnitabiClient({
     this.pointDelays = const {},
     this.failingPointPids = const {},
+    this.globalPointBangumiIds = const {},
+    this.pointIdsByBangumi = const {},
   });
 
   final fetchedPointPids = <int>[];
   final lookedUpPoints = <(int, String)>[];
+  final globalLookedUpPoints = <String>[];
   final Map<int, Duration> pointDelays;
   final Set<int> failingPointPids;
+  final Map<String, int> globalPointBangumiIds;
+  final Map<int, String> pointIdsByBangumi;
 
   @override
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
@@ -818,6 +863,8 @@ class _FakeAnitabiClient extends AnitabiClient {
       title: switch (bangumiId) {
         1001 => '慢作品',
         1002 => '快作品',
+        282923 => '系列作品',
+        543360 => '真实动画作品',
         _ => 'PID 作品',
       },
       subtitle: 'Pid Work',
@@ -843,10 +890,11 @@ class _FakeAnitabiClient extends AnitabiClient {
         'fixture failure for $bangumiId',
       );
     }
+    final pointId = pointIdsByBangumi[bangumiId] ?? 'point-1';
     return [
       AnitabiPoint(
         bangumiId: bangumiId,
-        id: 'point-1',
+        id: pointId,
         name: '$bangumiId 点位',
         subtitle: '$bangumiId 场景',
         position: const LatLng(35, 135),
@@ -856,6 +904,27 @@ class _FakeAnitabiClient extends AnitabiClient {
         originUrl: 'https://anitabi.cn/',
       ),
     ];
+  }
+
+  @override
+  Future<AnitabiPointLookupResult?> findPointGlobally({
+    required String pointId,
+  }) async {
+    globalLookedUpPoints.add(pointId);
+    final bangumiId = globalPointBangumiIds[pointId];
+    if (bangumiId == null) {
+      return null;
+    }
+    final points = await fetchPoints(bangumiId);
+    final point = points.where((point) => point.id == pointId).firstOrNull;
+    if (point == null) {
+      return null;
+    }
+    return AnitabiPointLookupResult(
+      work: await fetchBangumiLite(bangumiId),
+      point: point,
+      points: points,
+    );
   }
 
   @override

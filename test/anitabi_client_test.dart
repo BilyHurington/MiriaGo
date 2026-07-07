@@ -84,6 +84,33 @@ void main() {
     );
   });
 
+  test('finds a compact Anitabi point globally across related works', () async {
+    final client = AnitabiClient(
+      httpClient: _FixtureHttpClient({
+        'https://www.anitabi.cn/d/g.json':
+            '[[[282923,"上伊那牡丹，酒醉身姿似百合花般",0,"上伊那ぼたん、酔へる姿は百合の花","秩父市","#476347","/images/bangumi/282923.jpg",7.6,"漫画系列",37.238036,138.957161,6.3,["ttr1hpv2a",35.648102,139.703165,1]],[543360,"上伊那牡丹，酒醉身姿似百合花般",0,"上伊那ぼたん、酔へる姿は百合の花","秩父市","#ff9a8a","/images/bangumi/543360.jpg",0,"TV",0,0,0,["djnfcvo",35.647974,139.70287,1]]],1,1783421160481]',
+        'https://www.anitabi.cn/d/g0.json':
+            '[[282923,0,[["ttr1hpv2a","代官山",0,0,0,1099,"/images/points/282923/ttr1hpv2a.jpg",0,4,"",0,0,0,"EP4",133]],1783421160481]]',
+        'https://www.anitabi.cn/d/g1.json':
+            '[[543360,0,[["djnfcvo","代官山駅",0,0,0,1099,"/images/user/1099/bangumi/543360/points/djnfcvo-1776496761302.jpg",0,2,1021,0,0,0,"EP2",133]],1783421160481]]',
+      }),
+    );
+
+    final result = await client.findPointGlobally(pointId: 'djnfcvo');
+
+    expect(result, isNotNull);
+    expect(result!.work.bangumiId, 543360);
+    expect(result.work.title, '上伊那牡丹，酒醉身姿似百合花般');
+    expect(result.point.id, 'djnfcvo');
+    expect(result.point.name, '代官山駅');
+    expect(result.point.position.latitude, 35.647974);
+    expect(result.point.position.longitude, 139.70287);
+    expect(
+      result.point.referenceImageUrl,
+      'https://image.anitabi.cn/user/1099/bangumi/543360/points/djnfcvo-1776496761302.jpg',
+    );
+  });
+
   test('fetches complete points from static Anitabi map data first', () async {
     final client = AnitabiClient(
       httpClient: _FixtureHttpClient({

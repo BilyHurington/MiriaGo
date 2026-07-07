@@ -91,6 +91,40 @@ class AnitabiClient {
     );
   }
 
+  Future<AnitabiPointLookupResult?> findPointGlobally({
+    required String pointId,
+  }) async {
+    final normalizedPointId = pointId.trim();
+    if (normalizedPointId.isEmpty) {
+      return null;
+    }
+
+    final staticIndex = await _fetchStaticIndex();
+    final work = staticIndex.works
+        .where((work) => work.pointById(normalizedPointId) != null)
+        .firstOrNull;
+    if (work == null) {
+      return null;
+    }
+
+    final points = await fetchPoints(
+      work.bangumiId,
+      lite: work.toBangumiLite(),
+    );
+    final point = points
+        .where((point) => point.id == normalizedPointId)
+        .firstOrNull;
+    if (point == null) {
+      return null;
+    }
+
+    return AnitabiPointLookupResult(
+      work: work.toBangumiLite(),
+      point: point,
+      points: points,
+    );
+  }
+
   Future<List<AnitabiPoint>?> _fetchStaticPointsForBangumi(
     int bangumiId,
   ) async {

@@ -301,10 +301,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
 
     try {
-      final result = await widget.anitabiClient.findPointInBangumi(
-        bangumiId: bangumiId,
-        pointId: pointId,
-      );
+      final result =
+          await widget.anitabiClient.findPointGlobally(pointId: pointId) ??
+          await widget.anitabiClient.findPointInBangumi(
+            bangumiId: bangumiId,
+            pointId: pointId,
+          );
       if (!_isActiveLoad(generation)) {
         return;
       }
@@ -1192,6 +1194,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return '这个 Bangumi 条目暂无 Anitabi 地图数据';
     }
 
+    if (error is AnitabiPointNotFoundException) {
+      return '没有找到这个 Anitabi 点位';
+    }
+
     return 'Anitabi 点位加载失败';
   }
 
@@ -1209,6 +1215,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     if (error is AnitabiException && error.statusCode == 404) {
       return '可以尝试在作品管理中添加同名的原作、游戏或其他关联条目。';
+    }
+
+    if (error is AnitabiPointNotFoundException) {
+      return '链接里的点位 ID 可能已失效，或 Anitabi 地图数据尚未同步。';
     }
 
     return '请检查网络后重试，或稍后再重新加载。';
