@@ -15,7 +15,6 @@ import '../records/comparison_export_config_storage_stub.dart'
 import '../widgets/copyable_text.dart';
 
 bool get _showFutureThemeModeSettings => false;
-bool get _showFutureNavigationAppSettings => false;
 bool get _showFutureCacheCleanupSettings => false;
 bool get _shouldShowMobileGallerySettings {
   if (kIsWeb) {
@@ -1224,6 +1223,23 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
         ),
         const SizedBox(height: 12),
         _SettingsSection(
+          title: '导航地图 ${settings.navigationApp.label}',
+          children: [
+            _NavigationAppGrid(
+              selectedApp: settings.navigationApp,
+              onSelected: (app) {
+                _update(settings.copyWith(navigationApp: app));
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _navigationAppDescription(settings.navigationApp),
+              style: _secondaryTextStyle,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
           title: '地图缩略图',
           children: [
             _NumberStepperSetting(
@@ -1258,25 +1274,6 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
             const Text('阈值为 0 时不会在地图上显示缩略图。', style: _secondaryTextStyle),
           ],
         ),
-        if (_showFutureNavigationAppSettings) ...[
-          const SizedBox(height: 12),
-          _SettingsSection(
-            title: '\u5bfc\u822a\u8f6f\u4ef6 ${settings.navigationApp.label}',
-            children: [
-              _NavigationAppGrid(
-                selectedApp: settings.navigationApp,
-                onSelected: (app) {
-                  _update(settings.copyWith(navigationApp: app));
-                },
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                '\u4ec5\u4fdd\u7559\u754c\u9762\u9009\u9879\uff0c\u6682\u4e0d\u63a5\u5165\u5b9e\u9645\u5bfc\u822a\u8df3\u8f6c\u3002',
-                style: _secondaryTextStyle,
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -3402,8 +3399,6 @@ IconData _navigationAppIcon(NavigationApp app) {
     NavigationApp.amap => Icons.near_me_outlined,
     NavigationApp.appleMaps => Icons.map_outlined,
     NavigationApp.baiduMaps => Icons.assistant_direction_outlined,
-    NavigationApp.tencentMaps => Icons.navigation_outlined,
-    NavigationApp.browser => Icons.language_outlined,
   };
 }
 
@@ -3413,8 +3408,15 @@ String _navigationAppHint(NavigationApp app) {
     NavigationApp.amap => '\u56fd\u5185\u5e38\u7528',
     NavigationApp.appleMaps => 'iOS \u539f\u751f',
     NavigationApp.baiduMaps => '\u57ce\u5e02\u5bfc\u822a',
-    NavigationApp.tencentMaps => '\u8f7b\u91cf\u5907\u9009',
-    NavigationApp.browser => '\u7f51\u9875\u6253\u5f00',
+  };
+}
+
+String _navigationAppDescription(NavigationApp app) {
+  return switch (app) {
+    NavigationApp.googleMaps => '导航按钮会通过 Google Maps 官方 Maps URL 打开步行路线。',
+    NavigationApp.appleMaps => '导航按钮会通过 Apple Map Links 打开步行路线。',
+    NavigationApp.amap => '导航按钮会通过高德 URI API 打开步行路线，并使用 WGS84 坐标。',
+    NavigationApp.baiduMaps => '导航按钮会通过百度地图 URI API 打开步行路线，并使用 WGS84 坐标。',
   };
 }
 

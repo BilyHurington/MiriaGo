@@ -14,9 +14,14 @@ const String _ungroupedRecordFilterId = '__ungrouped__';
 const String _orphanRecordFilterId = '__orphan__';
 
 class RecordsScreen extends StatefulWidget {
-  const RecordsScreen({required this.controller, super.key});
+  const RecordsScreen({
+    required this.controller,
+    required this.settings,
+    super.key,
+  });
 
   final PilgrimagePlanController controller;
+  final AppSettings settings;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -115,6 +120,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           record: record,
           point: controller.pointById(record.pointId),
           controller: controller,
+          settings: widget.settings,
           onDelete: () => controller.deleteVisitRecord(record),
         ),
       ),

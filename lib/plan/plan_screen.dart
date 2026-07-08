@@ -449,6 +449,7 @@ class _PlanScreenState extends State<PlanScreen> {
       onOpenRecords: () => _openPointRecords(context, point),
       onOpenRecord: (record) => _openRecordDetail(context, record),
       onEditPoint: () => _editPoint(context, point),
+      navigationApp: settings.navigationApp,
     );
   }
 
@@ -472,8 +473,11 @@ class _PlanScreenState extends State<PlanScreen> {
   void _openPointRecords(BuildContext context, PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            PointVisitRecordsScreen(point: point, controller: controller),
+        builder: (_) => PointVisitRecordsScreen(
+          point: point,
+          controller: controller,
+          settings: settings,
+        ),
       ),
     );
   }
@@ -485,6 +489,7 @@ class _PlanScreenState extends State<PlanScreen> {
           record: record,
           point: controller.pointById(record.pointId),
           controller: controller,
+          settings: settings,
           onDelete: () => controller.deleteVisitRecord(record),
         ),
       ),

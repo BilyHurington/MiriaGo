@@ -134,9 +134,10 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   }
 
   Future<void> _openNavigation(PilgrimagePoint point) async {
-    final opened = await _navigationLauncher.openGoogleMapsWalking(point);
+    final app = widget.settings.navigationApp;
+    final opened = await _navigationLauncher.openWalking(point, app);
     if (!opened) {
-      _showSnackBar('无法打开 Google Maps。');
+      _showSnackBar('无法打开${app.label}。');
     }
   }
 
@@ -302,6 +303,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       onOpenRecords: () => _openPointRecords(point),
       onOpenRecord: _openRecordDetail,
       onEditPoint: () => _editPoint(point),
+      navigationApp: widget.settings.navigationApp,
     );
   }
 
@@ -330,8 +332,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   void _openPointRecords(PilgrimagePoint point) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            PointVisitRecordsScreen(point: point, controller: _controller),
+        builder: (_) => PointVisitRecordsScreen(
+          point: point,
+          controller: _controller,
+          settings: widget.settings,
+        ),
       ),
     );
   }
@@ -343,6 +348,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
           record: record,
           point: _controller.pointById(record.pointId),
           controller: _controller,
+          settings: widget.settings,
           onDelete: () => _controller.deleteVisitRecord(record),
         ),
       ),

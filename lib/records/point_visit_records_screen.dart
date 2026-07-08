@@ -11,11 +11,13 @@ class PointVisitRecordsScreen extends StatelessWidget {
   const PointVisitRecordsScreen({
     required this.point,
     required this.controller,
+    required this.settings,
     super.key,
   });
 
   final PilgrimagePoint point;
   final PilgrimagePlanController controller;
+  final AppSettings settings;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +63,7 @@ class PointVisitRecordsScreen extends StatelessWidget {
           record: record,
           point: point,
           controller: controller,
+          settings: settings,
           onDelete: () => controller.deleteVisitRecord(record),
         ),
       ),

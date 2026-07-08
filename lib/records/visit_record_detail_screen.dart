@@ -29,6 +29,7 @@ class VisitRecordDetailScreen extends StatefulWidget {
     required this.record,
     required this.point,
     required this.controller,
+    required this.settings,
     required this.onDelete,
     super.key,
   });
@@ -36,6 +37,7 @@ class VisitRecordDetailScreen extends StatefulWidget {
   final PilgrimageVisitRecord record;
   final PilgrimagePoint? point;
   final PilgrimagePlanController controller;
+  final AppSettings settings;
   final Future<void> Function() onDelete;
 
   @override
@@ -167,6 +169,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       records: widget.controller.recordsForPoint(point.id),
       onOpenRecords: () => _openPointRecords(point),
       onOpenRecord: _openRelatedRecord,
+      navigationApp: widget.settings.navigationApp,
     );
   }
 
@@ -176,6 +179,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         builder: (_) => PointVisitRecordsScreen(
           point: point,
           controller: widget.controller,
+          settings: widget.settings,
         ),
       ),
     );
@@ -188,6 +192,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           record: record,
           point: widget.controller.pointById(record.pointId),
           controller: widget.controller,
+          settings: widget.settings,
           onDelete: () => widget.controller.deleteVisitRecord(record),
         ),
       ),

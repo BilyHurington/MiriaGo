@@ -341,6 +341,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       actionScope: PointDetailActionScope.assign,
       groups: _plan.groups,
       onMoveToGroup: _movePointToGroup,
+      navigationApp: widget.settings.navigationApp,
     );
   }
 
@@ -716,6 +717,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       actionScope: PointDetailActionScope.assign,
       groups: _plan.groups,
       onMoveToGroup: _movePointToGroup,
+      navigationApp: widget.settings.navigationApp,
     );
   }
 

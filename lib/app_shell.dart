@@ -251,7 +251,10 @@ class _AppShellState extends State<AppShell> {
                         controller: controller,
                         settings: _settings,
                       ),
-                      RecordsScreen(controller: controller),
+                      RecordsScreen(
+                        controller: controller,
+                        settings: _settings,
+                      ),
                       SettingsScreen(
                         settings: _settings,
                         repository: widget.repository,

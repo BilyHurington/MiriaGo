@@ -33,6 +33,7 @@ class PointDetailSheet extends StatelessWidget {
     this.onOpenRecords,
     this.onOpenRecord,
     this.onEditPoint,
+    this.navigationApp = NavigationApp.googleMaps,
     this.navigationLauncher = const MapNavigationLauncher(),
     super.key,
   });
@@ -55,6 +56,7 @@ class PointDetailSheet extends StatelessWidget {
   final VoidCallback? onOpenRecords;
   final ValueChanged<PilgrimageVisitRecord>? onOpenRecord;
   final VoidCallback? onEditPoint;
+  final NavigationApp navigationApp;
   final MapNavigationLauncher navigationLauncher;
 
   static Future<void> show(
@@ -77,6 +79,7 @@ class PointDetailSheet extends StatelessWidget {
     VoidCallback? onOpenRecords,
     ValueChanged<PilgrimageVisitRecord>? onOpenRecord,
     VoidCallback? onEditPoint,
+    NavigationApp navigationApp = NavigationApp.googleMaps,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -98,6 +101,7 @@ class PointDetailSheet extends StatelessWidget {
           onOpenRecords: onOpenRecords,
           onOpenRecord: onOpenRecord,
           onEditPoint: onEditPoint,
+          navigationApp: navigationApp,
         );
       },
     );
@@ -135,10 +139,10 @@ class PointDetailSheet extends StatelessWidget {
   }
 
   Future<void> _openNavigation(BuildContext context) async {
-    final opened = await navigationLauncher.openGoogleMapsWalking(point);
+    final opened = await navigationLauncher.openWalking(point, navigationApp);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showReplacingSnackBar(
-        const SnackBar(content: Text('无法打开 Google Maps。')),
+        SnackBar(content: Text('无法打开${navigationApp.label}。')),
       );
     }
   }
