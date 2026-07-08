@@ -180,6 +180,52 @@ void main() {
     expect(reader.requests[1], 'g0.json?v=1782816540092');
   });
 
+  test('scans other static pages when the index page is stale', () async {
+    final reader = _FixtureStaticDataReader({
+      'g.json':
+          '[[[999001,"测试作品",0,"Fixture Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["p1",34.1,134.1,1]],[999002,"其它作品",0,"Other","测试市","#61a4d8","/images/bangumi/999002.jpg",7.5,"TV",34.421,134.057,11,["p2",34.2,134.2,1]]],1,1782816540092]',
+      'g0.json?v=1782816540092':
+          '[[999002,0,[["p2","其它点位",0,0,0,0,"/images/points/999002/p2.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999002"]],1782816540092]]',
+      'g1.json?v=1782816540092':
+          '[[999001,0,[["p1","错页点位",0,0,0,0,"/images/points/999001/p1.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1782816540092]]',
+    });
+    final client = AnitabiClient(staticDataReader: reader);
+
+    final points = await client.fetchPoints(999001);
+
+    expect(points.single.name, '错页点位');
+    expect(reader.requests, contains('g0.json?v=1782816540092'));
+    expect(reader.requests, contains('g1.json?v=1782816540092'));
+  });
+
+  test('throws a specific error when static work is not found', () async {
+    final client = AnitabiClient(
+      staticDataReader: _FixtureStaticDataReader({
+        'g.json': '[[],250,1782816540092]',
+      }),
+    );
+
+    expect(
+      () => client.fetchPoints(999001),
+      throwsA(isA<AnitabiWorkNotFoundException>()),
+    );
+  });
+
+  test('throws a specific error when static work has no points', () async {
+    final client = AnitabiClient(
+      staticDataReader: _FixtureStaticDataReader({
+        'g.json':
+            '[[[999001,"空作品",0,"Empty Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,[]]],250,1782816540092]',
+        'g0.json?v=1782816540092': '[[999001,0,[],1782816540092]]',
+      }),
+    );
+
+    expect(
+      () => client.fetchPoints(999001),
+      throwsA(isA<AnitabiNoPointsException>()),
+    );
+  });
+
   test('clearStaticCache refreshes the static index timestamp', () async {
     final reader = _FixtureStaticDataReader({
       'g.json':

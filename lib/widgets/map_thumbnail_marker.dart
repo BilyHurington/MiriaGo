@@ -23,7 +23,7 @@ class MapThumbnailMarker extends StatelessWidget {
 
   final bool selected;
   final bool imported;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool showThumbnail;
   final Color? markerColor;
   final ImageLoadLimiter? imageLoadLimiter;

@@ -46,11 +46,22 @@ class AnitabiClient {
     int bangumiId, {
     AnitabiBangumiLite? lite,
   }) async {
-    final staticPoints = await _fetchStaticPointsForBangumi(bangumiId);
+    final staticIndex = await _fetchStaticIndex();
+    final work = staticIndex.works
+        .where((work) => work.bangumiId == bangumiId)
+        .firstOrNull;
+    if (work == null) {
+      throw AnitabiWorkNotFoundException(bangumiId);
+    }
+
+    final staticPoints = await _fetchStaticPointsForWork(staticIndex, work);
     if (staticPoints == null) {
       throw AnitabiStaticDataUnavailableException(
         'No static points for Bangumi $bangumiId',
       );
+    }
+    if (staticPoints.isEmpty) {
+      throw AnitabiNoPointsException(bangumiId);
     }
 
     final expectedCount = lite?.pointsLength;
@@ -125,55 +136,79 @@ class AnitabiClient {
     );
   }
 
-  Future<List<AnitabiPoint>?> _fetchStaticPointsForBangumi(
-    int bangumiId,
+  Future<List<AnitabiPoint>?> _fetchStaticPointsForWork(
+    AnitabiStaticIndex staticIndex,
+    AnitabiMapWorkLite work,
   ) async {
-    try {
-      final staticIndex = await _fetchStaticIndex();
-      final workIndex = staticIndex.works.indexWhere(
-        (work) => work.bangumiId == bangumiId,
-      );
-      if (workIndex < 0) {
-        return null;
-      }
-
-      final work = staticIndex.works[workIndex];
-      final pageIndex = workIndex ~/ staticIndex.pageSize;
-      final pageResponse = await _getAnitabiStaticJson(
-        'g$pageIndex.json',
-        version: staticIndex.version,
-      );
-      final page = (jsonDecode(pageResponse.body) as List<Object?>)
-          .whereType<List<Object?>>();
-      for (final entry in page) {
-        final entryBangumiId = (entry[0] as num).toInt();
-        if (entryBangumiId != bangumiId) {
-          continue;
-        }
-
-        final pointRows = (entry[2] as List<Object?>)
-            .whereType<List<Object?>>();
-        return pointRows
-            .map((pointRow) {
-              final id = _stringValue(pointRow[0]);
-              final litePoint = id == null ? null : work.pointById(id);
-              if (litePoint == null) {
-                return null;
-              }
-
-              return AnitabiPoint.fromCompactJson(
-                pointRow,
-                bangumiId: bangumiId,
-                position: litePoint.position,
-              );
-            })
-            .nonNulls
-            .toList(growable: false);
-      }
-    } catch (_) {
+    final workIndex = staticIndex.works.indexWhere(
+      (candidate) => candidate.bangumiId == work.bangumiId,
+    );
+    if (workIndex < 0) {
       return null;
     }
 
+    final guessedPageIndex = workIndex ~/ staticIndex.pageSize;
+    final guessedPoints = await _fetchStaticPointsFromPage(
+      staticIndex: staticIndex,
+      work: work,
+      pageIndex: guessedPageIndex,
+    );
+    if (guessedPoints != null) {
+      return guessedPoints;
+    }
+
+    final pageCount = (staticIndex.works.length / staticIndex.pageSize).ceil();
+    for (var pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+      if (pageIndex == guessedPageIndex) {
+        continue;
+      }
+      final points = await _fetchStaticPointsFromPage(
+        staticIndex: staticIndex,
+        work: work,
+        pageIndex: pageIndex,
+      );
+      if (points != null) {
+        return points;
+      }
+    }
+    return null;
+  }
+
+  Future<List<AnitabiPoint>?> _fetchStaticPointsFromPage({
+    required AnitabiStaticIndex staticIndex,
+    required AnitabiMapWorkLite work,
+    required int pageIndex,
+  }) async {
+    final pageResponse = await _getAnitabiStaticJson(
+      'g$pageIndex.json',
+      version: staticIndex.version,
+    );
+    final page = (jsonDecode(pageResponse.body) as List<Object?>)
+        .whereType<List<Object?>>();
+    for (final entry in page) {
+      final entryBangumiId = (entry[0] as num).toInt();
+      if (entryBangumiId != work.bangumiId) {
+        continue;
+      }
+
+      final pointRows = (entry[2] as List<Object?>).whereType<List<Object?>>();
+      return pointRows
+          .map((pointRow) {
+            final id = _stringValue(pointRow[0]);
+            final litePoint = id == null ? null : work.pointById(id);
+            if (litePoint == null) {
+              return null;
+            }
+
+            return AnitabiPoint.fromCompactJson(
+              pointRow,
+              bangumiId: work.bangumiId,
+              position: litePoint.position,
+            );
+          })
+          .nonNulls
+          .toList(growable: false);
+    }
     return null;
   }
 
@@ -513,6 +548,28 @@ class AnitabiPointNotFoundException implements Exception {
   @override
   String toString() {
     return '没有找到对应的 Anitabi 点位';
+  }
+}
+
+class AnitabiWorkNotFoundException implements Exception {
+  const AnitabiWorkNotFoundException(this.bangumiId);
+
+  final int bangumiId;
+
+  @override
+  String toString() {
+    return 'Anitabi work $bangumiId was not found';
+  }
+}
+
+class AnitabiNoPointsException implements Exception {
+  const AnitabiNoPointsException(this.bangumiId);
+
+  final int bangumiId;
+
+  @override
+  String toString() {
+    return 'Anitabi work $bangumiId has no points';
   }
 }
 

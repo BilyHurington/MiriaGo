@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -646,6 +649,39 @@ void main() {
     expect(updatedPlan.points.single.id, 'anitabi-543360-cross-point');
   });
 
+  testWidgets('Anitabi link import shows loading while resolving global pid', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '加载态测试', area: '东京');
+    final anitabiClient = _FakeAnitabiClient(
+      globalLookupDelay: const Duration(milliseconds: 80),
+      globalPointBangumiIds: const {'slow-point': 543360},
+      pointIdsByBangumi: const {543360: 'slow-point'},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 282923,
+          initialPointId: 'slow-point',
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('正在加载 Anitabi 作品和点位'), findsOneWidget);
+    expect(find.textContaining('手动添加的作品没有 Bangumi ID'), findsNothing);
+    expect(find.textContaining('当前作品没有可导入'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pumpAndSettle();
+    expect(find.text('543360 点位'), findsOneWidget);
+  });
+
   testWidgets('Anitabi link import reuses existing work', (tester) async {
     final repository = SamplePilgrimageRepository(plans: const []);
     final plan = await repository.createPlan(name: '链接导入测试', area: '京都');
@@ -705,6 +741,174 @@ void main() {
     expect(find.text('12345 点位'), findsOneWidget);
     expect(anitabiClient.lookedUpPoints, isEmpty);
     expect(anitabiClient.fetchedPointPids, contains(12345));
+  });
+
+  testWidgets('Anitabi work with zero center selects point near point bounds', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '零中心测试', area: '东京');
+    final anitabiClient = _FakeAnitabiClient(
+      liteByBangumi: const {
+        543360: AnitabiBangumiLite(
+          bangumiId: 543360,
+          title: '零中心作品',
+          subtitle: 'Zero Center',
+          city: '东京',
+          center: LatLng(0, 0),
+          zoom: 1,
+          pointsLength: 3,
+        ),
+      },
+      pointsByBangumi: const {
+        543360: [
+          AnitabiPoint(
+            bangumiId: 543360,
+            id: 'west',
+            name: '西侧点位',
+            subtitle: 'west',
+            position: LatLng(35, 139),
+            episodeLabel: 'EP 1',
+            referenceImageUrl: null,
+            origin: 'Anitabi',
+            originUrl: 'https://anitabi.cn/',
+          ),
+          AnitabiPoint(
+            bangumiId: 543360,
+            id: 'center',
+            name: '中心点位',
+            subtitle: 'center',
+            position: LatLng(35.5, 139.5),
+            episodeLabel: 'EP 2',
+            referenceImageUrl: null,
+            origin: 'Anitabi',
+            originUrl: 'https://anitabi.cn/',
+          ),
+          AnitabiPoint(
+            bangumiId: 543360,
+            id: 'east',
+            name: '东侧点位',
+            subtitle: 'east',
+            position: LatLng(36, 140),
+            episodeLabel: 'EP 3',
+            referenceImageUrl: null,
+            origin: 'Anitabi',
+            originUrl: 'https://anitabi.cn/',
+          ),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 543360,
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    expect(map.options.initialCenter.latitude, 35.5);
+    expect(map.options.initialCenter.longitude, 139.5);
+    expect(map.options.initialZoom, 15);
+    expect(find.text('中心点位'), findsOneWidget);
+    expect(find.text('西侧点位'), findsNothing);
+    expect(find.text('东侧点位'), findsNothing);
+  });
+
+  testWidgets('Anitabi import locks point switching and clears stale message', (
+    tester,
+  ) async {
+    final repository = _DelayedAddPointRepository(plans: const []);
+    final plan = await repository.createPlan(name: '导入锁定测试', area: '东京');
+    final anitabiClient = _FakeAnitabiClient(
+      liteByBangumi: const {
+        12345: AnitabiBangumiLite(
+          bangumiId: 12345,
+          title: '导入锁定作品',
+          subtitle: 'Import Lock',
+          city: '东京',
+          center: LatLng(35, 135),
+          zoom: 15,
+          pointsLength: 2,
+        ),
+      },
+      pointsByBangumi: const {
+        12345: [
+          AnitabiPoint(
+            bangumiId: 12345,
+            id: 'first',
+            name: '第一个点位',
+            subtitle: 'first',
+            position: LatLng(35, 135),
+            episodeLabel: 'EP 1',
+            referenceImageUrl: null,
+            origin: 'Anitabi',
+            originUrl: 'https://anitabi.cn/',
+          ),
+          AnitabiPoint(
+            bangumiId: 12345,
+            id: 'second',
+            name: '第二个点位',
+            subtitle: 'second',
+            position: LatLng(35.0005, 135.0005),
+            episodeLabel: 'EP 2',
+            referenceImageUrl: null,
+            origin: 'Anitabi',
+            originUrl: 'https://anitabi.cn/',
+          ),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 12345,
+          anitabiClient: anitabiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('第一个点位'), findsOneWidget);
+
+    await tester.tap(find.text('加入计划'));
+    await repository.addPointStarted.future;
+    await tester.pump();
+
+    final importingMarkers = tester
+        .widgetList<IconButton>(find.byType(IconButton))
+        .where((button) => button.tooltip == '可导入点位')
+        .toList(growable: false);
+    expect(importingMarkers, isNotEmpty);
+    expect(importingMarkers.every((button) => button.onPressed == null), true);
+
+    expect(find.text('第一个点位'), findsOneWidget);
+    expect(find.text('第二个点位'), findsNothing);
+
+    repository.finishAddPoint();
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('已导入 1 个点位'), findsOneWidget);
+    final availableMarkers = tester
+        .widgetList<IconButton>(find.byType(IconButton))
+        .where(
+          (button) => button.tooltip == '可导入点位' && button.onPressed != null,
+        )
+        .toList(growable: false);
+    expect(availableMarkers, isNotEmpty);
+    availableMarkers.last.onPressed!();
+    await tester.pump();
+
+    expect(find.text('第二个点位'), findsOneWidget);
+    expect(find.textContaining('已导入 1 个点位'), findsNothing);
   });
 
   testWidgets('Anitabi link import requires bangumi ID before opening map', (
@@ -838,26 +1042,106 @@ void main() {
     expect(updatedPlan.works, isEmpty);
     expect(anitabiClient.fetchedPointPids, contains(12345));
   });
+
+  testWidgets('Anitabi import explains empty works and missing points', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '错误文案测试', area: '京都');
+    final emptyClient = _FakeAnitabiClient(noPointPids: {12345});
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 12345,
+          anitabiClient: emptyClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前作品暂无 Anitabi 点位'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    final missingPointClient = _FakeAnitabiClient(missingPointIds: {'missing'});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 12345,
+          initialPointId: 'missing',
+          anitabiClient: missingPointClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('没有找到这个 Anitabi 点位'), findsOneWidget);
+  });
+}
+
+class _DelayedAddPointRepository extends SamplePilgrimageRepository {
+  _DelayedAddPointRepository({super.plans});
+
+  final Completer<void> addPointStarted = Completer<void>();
+  final Completer<void> _finishAddPoint = Completer<void>();
+
+  void finishAddPoint() {
+    if (!_finishAddPoint.isCompleted) {
+      _finishAddPoint.complete();
+    }
+  }
+
+  @override
+  Future<PilgrimagePlan> addPointToPlan({
+    required String planId,
+    required PilgrimagePoint point,
+  }) async {
+    if (!addPointStarted.isCompleted) {
+      addPointStarted.complete();
+    }
+    await _finishAddPoint.future;
+    return super.addPointToPlan(planId: planId, point: point);
+  }
 }
 
 class _FakeAnitabiClient extends AnitabiClient {
   _FakeAnitabiClient({
     this.pointDelays = const {},
+    this.globalLookupDelay,
     this.failingPointPids = const {},
+    this.noPointPids = const {},
+    this.missingPointIds = const {},
     this.globalPointBangumiIds = const {},
     this.pointIdsByBangumi = const {},
+    this.liteByBangumi = const {},
+    this.pointsByBangumi = const {},
   });
 
   final fetchedPointPids = <int>[];
   final lookedUpPoints = <(int, String)>[];
   final globalLookedUpPoints = <String>[];
   final Map<int, Duration> pointDelays;
+  final Duration? globalLookupDelay;
   final Set<int> failingPointPids;
+  final Set<int> noPointPids;
+  final Set<String> missingPointIds;
   final Map<String, int> globalPointBangumiIds;
   final Map<int, String> pointIdsByBangumi;
+  final Map<int, AnitabiBangumiLite> liteByBangumi;
+  final Map<int, List<AnitabiPoint>> pointsByBangumi;
 
   @override
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
+    final lite = liteByBangumi[bangumiId];
+    if (lite != null) {
+      return lite;
+    }
     return AnitabiBangumiLite(
       bangumiId: bangumiId,
       title: switch (bangumiId) {
@@ -890,6 +1174,13 @@ class _FakeAnitabiClient extends AnitabiClient {
         'fixture failure for $bangumiId',
       );
     }
+    if (noPointPids.contains(bangumiId)) {
+      throw AnitabiNoPointsException(bangumiId);
+    }
+    final points = pointsByBangumi[bangumiId];
+    if (points != null) {
+      return points;
+    }
     final pointId = pointIdsByBangumi[bangumiId] ?? 'point-1';
     return [
       AnitabiPoint(
@@ -910,7 +1201,13 @@ class _FakeAnitabiClient extends AnitabiClient {
   Future<AnitabiPointLookupResult?> findPointGlobally({
     required String pointId,
   }) async {
+    if (globalLookupDelay != null) {
+      await Future<void>.delayed(globalLookupDelay!);
+    }
     globalLookedUpPoints.add(pointId);
+    if (missingPointIds.contains(pointId)) {
+      return null;
+    }
     final bangumiId = globalPointBangumiIds[pointId];
     if (bangumiId == null) {
       return null;
@@ -933,6 +1230,9 @@ class _FakeAnitabiClient extends AnitabiClient {
     required String pointId,
   }) async {
     lookedUpPoints.add((bangumiId, pointId));
+    if (missingPointIds.contains(pointId)) {
+      return null;
+    }
     final points = await fetchPoints(bangumiId);
     return AnitabiPointLookupResult(
       work: await fetchBangumiLite(bangumiId),

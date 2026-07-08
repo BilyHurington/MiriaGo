@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -49,6 +50,11 @@ class AnitabiMapImportScreen extends StatefulWidget {
 }
 
 class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
+  static const double _fallbackLoadedPointsZoom = 15;
+  static const Duration _thumbnailBoundsDebounceDuration = Duration(
+    milliseconds: 180,
+  );
+
   final MapController _mapController = MapController();
   late final Set<String> _importedPointIds;
   late PilgrimagePlan _importedPlan = widget.plan;
@@ -67,7 +73,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Offset? _selectionStart;
   Offset? _selectionEnd;
   int _loadGeneration = 0;
-  LatLngBounds? _visibleBounds;
+  final ValueNotifier<LatLngBounds?> _visibleBoundsNotifier = ValueNotifier(
+    null,
+  );
+  Timer? _thumbnailBoundsDebounce;
+  LatLng? _pendingMapCenter;
+  double? _pendingMapZoom;
   late final ImageLoadLimiter _thumbnailLoadLimiter = ImageLoadLimiter(
     _settings.mapThumbnailConcurrentLoads,
   );
@@ -128,6 +139,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       _settings = settings;
     });
     _thumbnailLoadLimiter.maxConcurrent = settings.mapThumbnailConcurrentLoads;
+  }
+
+  @override
+  void dispose() {
+    _thumbnailBoundsDebounce?.cancel();
+    _visibleBoundsNotifier.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshAnitabiData() async {
@@ -203,9 +221,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       setState(() {
         _lite = lite;
         _points = points;
-        _selectedPoint = points.firstOrNull;
+        _selectedPoint = _initialSelectedPointForLoadedPoints(points, lite);
       });
-      _moveMapAfterBuild(lite.center, lite.zoom);
+      _requestMapMove(
+        _centerForLoadedPoints(points, lite),
+        _zoomForLoadedPoints(points, lite),
+      );
     } catch (error) {
       if (!_isActiveLoad(generation)) {
         return;
@@ -229,18 +250,41 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     );
   }
 
-  void _moveMapAfterBuild(LatLng center, double zoom) {
+  void _requestMapMove(LatLng center, double zoom) {
+    _pendingMapCenter = center;
+    _pendingMapZoom = zoom;
+    _moveMapAfterBuild(center, zoom);
+  }
+
+  void _moveMapAfterBuild(LatLng center, double zoom, {int attempt = 0}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
       try {
         _mapController.move(center, zoom);
+        if (_pendingMapCenter == center && _pendingMapZoom == zoom) {
+          _pendingMapCenter = null;
+          _pendingMapZoom = null;
+        }
       } catch (_) {
-        // Direct-link loads can finish before FlutterMap attaches the
-        // controller. The map still renders from its initial options.
+        if (attempt < 5) {
+          Future<void>.delayed(const Duration(milliseconds: 50), () {
+            if (mounted) {
+              _moveMapAfterBuild(center, zoom, attempt: attempt + 1);
+            }
+          });
+        }
       }
     });
+  }
+
+  void _handleMapReady() {
+    final center = _pendingMapCenter;
+    final zoom = _pendingMapZoom;
+    if (center != null && zoom != null) {
+      _moveMapAfterBuild(center, zoom);
+    }
   }
 
   Future<void> _loadInitialBangumiId(int bangumiId) async {
@@ -271,9 +315,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _selectedWork = work;
         _lite = lite;
         _points = points;
-        _selectedPoint = points.firstOrNull;
+        _selectedPoint = _initialSelectedPointForLoadedPoints(points, lite);
       });
-      _moveMapAfterBuild(lite.center, lite.zoom);
+      _requestMapMove(
+        _centerForLoadedPoints(points, lite),
+        _zoomForLoadedPoints(points, lite),
+      );
     } catch (error) {
       if (!_isActiveLoad(generation)) {
         return;
@@ -323,7 +370,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         _points = result.points;
         _selectedPoint = result.point;
       });
-      _moveMapAfterBuild(result.point.position, math.max(lite.zoom, 15));
+      _requestMapMove(result.point.position, math.max(lite.zoom, 15));
     } catch (error) {
       if (!_isActiveLoad(generation)) {
         return;
@@ -438,10 +485,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   void _selectPoint(AnitabiPoint point) {
+    if (_isImporting) {
+      return;
+    }
     final selectedBangumiId = _selectedWork?.bangumiId;
     if (selectedBangumiId == null || point.bangumiId != selectedBangumiId) {
       return;
     }
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
+    messenger.clearSnackBars();
     setState(() {
       _selectedPoint = point;
     });
@@ -487,6 +540,122 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return null;
     }
     return point;
+  }
+
+  LatLng _initialMapCenter({
+    required AnitabiPoint? selectedPoint,
+    required List<AnitabiPoint> visiblePoints,
+  }) {
+    final pendingCenter = _pendingMapCenter;
+    if (pendingCenter != null) {
+      return pendingCenter;
+    }
+    if (selectedPoint != null) {
+      return selectedPoint.position;
+    }
+    return _centerForLoadedPoints(visiblePoints, _lite);
+  }
+
+  double _initialMapZoom({required AnitabiPoint? selectedPoint}) {
+    final pendingZoom = _pendingMapZoom;
+    if (pendingZoom != null) {
+      return pendingZoom;
+    }
+    final liteZoom = _lite?.zoom;
+    if (selectedPoint != null) {
+      return math.max(liteZoom ?? 15, 15);
+    }
+    return liteZoom ?? 12;
+  }
+
+  LatLng _centerForLoadedPoints(
+    List<AnitabiPoint> points,
+    AnitabiBangumiLite? lite,
+  ) {
+    final center = lite?.center;
+    if (center != null && _isValidMapCenter(center)) {
+      return center;
+    }
+    if (points.isEmpty) {
+      return const LatLng(35.0, 135.0);
+    }
+    final boundsCenter = _pointBoundsCenter(points);
+    return _nearestPointTo(boundsCenter, points).position;
+  }
+
+  LatLng _pointBoundsCenter(List<AnitabiPoint> points) {
+    var minLat = points.first.position.latitude;
+    var maxLat = minLat;
+    var minLng = points.first.position.longitude;
+    var maxLng = minLng;
+    for (final point in points.skip(1)) {
+      minLat = math.min(minLat, point.position.latitude);
+      maxLat = math.max(maxLat, point.position.latitude);
+      minLng = math.min(minLng, point.position.longitude);
+      maxLng = math.max(maxLng, point.position.longitude);
+    }
+    return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+  }
+
+  double _zoomForLoadedPoints(
+    List<AnitabiPoint> points,
+    AnitabiBangumiLite? lite,
+  ) {
+    final center = lite?.center;
+    if (points.isNotEmpty && (center == null || !_isValidMapCenter(center))) {
+      return _fallbackLoadedPointsZoom;
+    }
+    return lite?.zoom ?? 12;
+  }
+
+  AnitabiPoint? _initialSelectedPointForLoadedPoints(
+    List<AnitabiPoint> points,
+    AnitabiBangumiLite? lite,
+  ) {
+    if (points.isEmpty) {
+      return null;
+    }
+
+    final center = lite?.center;
+    if (center != null && _isValidMapCenter(center)) {
+      return points.first;
+    }
+
+    return _nearestPointTo(_pointBoundsCenter(points), points);
+  }
+
+  AnitabiPoint _nearestPointTo(LatLng center, List<AnitabiPoint> points) {
+    var nearest = points.first;
+    var nearestDistance = _roughDistanceSquared(center, nearest.position);
+    for (final point in points.skip(1)) {
+      final distance = _roughDistanceSquared(center, point.position);
+      if (distance < nearestDistance) {
+        nearest = point;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  double _roughDistanceSquared(LatLng first, LatLng second) {
+    final lat = first.latitude - second.latitude;
+    final lng = first.longitude - second.longitude;
+    return lat * lat + lng * lng;
+  }
+
+  bool _isValidMapCenter(LatLng center) {
+    final latitude = center.latitude;
+    final longitude = center.longitude;
+    if (!latitude.isFinite || !longitude.isFinite) {
+      return false;
+    }
+    if (latitude.abs() < 0.0001 && longitude.abs() < 0.0001) {
+      return false;
+    }
+    return latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
   }
 
   Rect? get _selectionRect {
@@ -875,16 +1044,61 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
   }
 
-  void _handleMapPositionChanged(MapCamera camera, bool hasGesture) {
+  void _handleMapEvent(MapEvent event) {
     if (!_showThumbnailMarkers) {
       return;
     }
-    setState(() {
-      _visibleBounds = camera.visibleBounds;
+    if (event is MapEventMoveStart ||
+        event is MapEventFlingAnimationStart ||
+        event is MapEventDoubleTapZoomStart) {
+      _thumbnailBoundsDebounce?.cancel();
+      return;
+    }
+
+    if (event is MapEventMoveEnd ||
+        event is MapEventFlingAnimationEnd ||
+        event is MapEventFlingAnimationNotStarted ||
+        event is MapEventDoubleTapZoomEnd) {
+      _setThumbnailVisibleBounds(event.camera);
+      return;
+    }
+
+    if (event is MapEventMove && event.source == MapEventSource.mapController) {
+      _scheduleThumbnailVisibleBoundsRefresh();
+      return;
+    }
+
+    if (event is MapEventScrollWheelZoom) {
+      _scheduleThumbnailVisibleBoundsRefresh();
+    }
+  }
+
+  void _scheduleThumbnailVisibleBoundsRefresh() {
+    _thumbnailBoundsDebounce?.cancel();
+    _thumbnailBoundsDebounce = Timer(_thumbnailBoundsDebounceDuration, () {
+      if (!mounted || !_showThumbnailMarkers) {
+        return;
+      }
+      try {
+        _setThumbnailVisibleBounds(_mapController.camera);
+      } catch (_) {
+        // The controller may briefly be unavailable while the map mounts.
+      }
     });
   }
 
-  Set<String> _thumbnailPointIdsForCurrentView(Iterable<AnitabiPoint> points) {
+  void _setThumbnailVisibleBounds(MapCamera camera) {
+    _thumbnailBoundsDebounce?.cancel();
+    if (!mounted || !_showThumbnailMarkers) {
+      return;
+    }
+    _visibleBoundsNotifier.value = camera.visibleBounds;
+  }
+
+  Set<String> _thumbnailPointIdsForCurrentView(
+    Iterable<AnitabiPoint> points,
+    LatLngBounds? bounds,
+  ) {
     if (!_showThumbnailMarkers) {
       return const <String>{};
     }
@@ -892,7 +1106,6 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     if (threshold <= 0) {
       return const <String>{};
     }
-    final bounds = _visibleBounds;
     final visiblePoints = bounds == null
         ? points.toList(growable: false)
         : points
@@ -908,12 +1121,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     setState(() {
       _showThumbnailMarkers = !_showThumbnailMarkers;
       if (!_showThumbnailMarkers) {
-        _visibleBounds = null;
+        _thumbnailBoundsDebounce?.cancel();
+        _visibleBoundsNotifier.value = null;
       } else {
         try {
-          _visibleBounds = _mapController.camera.visibleBounds;
+          _visibleBoundsNotifier.value = _mapController.camera.visibleBounds;
         } catch (_) {
-          _visibleBounds = null;
+          _visibleBoundsNotifier.value = null;
         }
       }
     });
@@ -929,7 +1143,6 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       visiblePoints,
       isSelected: (point) => point.id == selectedPoint?.id,
     );
-    final thumbnailPointIds = _thumbnailPointIdsForCurrentView(visiblePoints);
 
     return PopScope(
       canPop: !_isImporting,
@@ -987,11 +1200,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                             ),
                           ),
                       ],
-                      onChanged: (work) {
-                        if (work != null) {
-                          _loadPoints(work);
-                        }
-                      },
+                      onChanged: _isImporting
+                          ? null
+                          : (work) {
+                              if (work != null) {
+                                _loadPoints(work);
+                              }
+                            },
                     ),
                   ),
                 ),
@@ -1006,15 +1221,25 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               );
             }
 
+            if (_isLoading && _points.isEmpty) {
+              return const _ImportLoadingState();
+            }
+
             if (works.isEmpty) {
-              if (_isLoading) {
-                return const _ImportLoadingState();
-              }
               return const _EmptyImportState();
             }
 
-            if (selectedWork?.bangumiId == null && visiblePoints.isEmpty) {
+            if (!_isLoading &&
+                selectedWork?.bangumiId == null &&
+                visiblePoints.isEmpty) {
               return const _ManualWorkImportState();
+            }
+
+            if (!_isLoading &&
+                selectedWork?.bangumiId != null &&
+                _lite != null &&
+                visiblePoints.isEmpty) {
+              return _NoAnitabiPointsState(workTitle: selectedWork!.title);
             }
 
             return LayoutBuilder(
@@ -1026,72 +1251,103 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     FlutterMap(
                       mapController: _mapController,
                       options: MapOptions(
-                        initialCenter:
-                            _lite?.center ?? const LatLng(35.0, 135.0),
-                        initialZoom: _lite?.zoom ?? 12,
+                        initialCenter: _initialMapCenter(
+                          selectedPoint: selectedPoint,
+                          visiblePoints: visiblePoints,
+                        ),
+                        initialZoom: _initialMapZoom(
+                          selectedPoint: selectedPoint,
+                        ),
                         minZoom: 4,
                         maxZoom: 24,
-                        onPositionChanged: _handleMapPositionChanged,
+                        onMapReady: _handleMapReady,
+                        onMapEvent: _handleMapEvent,
+                        keepAlive: true,
                         interactionOptions: const InteractionOptions(
                           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                         ),
                       ),
                       children: [
                         configuredMapTileLayer(_settings),
-                        MarkerLayer(
-                          markers: [
-                            for (final point in mapPoints)
-                              () {
-                                final imported = _importedPointIds.contains(
-                                  point.toPilgrimagePoint(_selectedWork!).id,
+                        ValueListenableBuilder<LatLngBounds?>(
+                          valueListenable: _visibleBoundsNotifier,
+                          builder: (context, visibleBounds, _) {
+                            final thumbnailPointIds =
+                                _thumbnailPointIdsForCurrentView(
+                                  visiblePoints,
+                                  visibleBounds,
                                 );
-                                final showThumbnail =
-                                    _showThumbnailMarkers &&
-                                    thumbnailPointIds.contains(point.id);
-                                return Marker(
-                                  point: point.position,
-                                  width: _showThumbnailMarkers
-                                      ? (showThumbnail ? 84 : 24)
-                                      : 40,
-                                  height: _showThumbnailMarkers
-                                      ? (showThumbnail ? 82 : 24)
-                                      : 40,
-                                  alignment: _showThumbnailMarkers
-                                      ? (showThumbnail
-                                            ? Alignment.topCenter
-                                            : Alignment.center)
-                                      : Alignment.center,
-                                  child: _showThumbnailMarkers
-                                      ? MapThumbnailMarker(
-                                          selected:
-                                              selectedPoint?.id == point.id,
-                                          imported: imported,
-                                          showThumbnail: showThumbnail,
-                                          markerColor: imported
-                                              ? AppColors.textSecondary
-                                              : AppColors.accent,
-                                          imageLoadLimiter:
-                                              _thumbnailLoadLimiter,
-                                          localPath: _importedPointFor(
-                                            point,
-                                          )?.referenceThumbnailPath,
-                                          imageUrl: _anitabiThumbnailUrl(
-                                            point.referenceImageUrl,
-                                          ),
-                                          imageSource:
-                                              _settings.anitabiImageSource,
-                                          tooltip: 'Anitabi 点位',
-                                          onTap: () => _selectPoint(point),
-                                        )
-                                      : _ImportMarker(
-                                          selected:
-                                              selectedPoint?.id == point.id,
-                                          imported: imported,
-                                          onTap: () => _selectPoint(point),
-                                        ),
-                                );
-                              }(),
-                          ],
+                            return MarkerLayer(
+                              markers: [
+                                for (final point in mapPoints)
+                                  () {
+                                    final imported = _importedPointIds.contains(
+                                      point
+                                          .toPilgrimagePoint(_selectedWork!)
+                                          .id,
+                                    );
+                                    final isSelected =
+                                        selectedPoint?.id == point.id;
+                                    final showThumbnail =
+                                        _showThumbnailMarkers &&
+                                        (isSelected ||
+                                            thumbnailPointIds.contains(
+                                              point.id,
+                                            ));
+                                    return Marker(
+                                      key: ValueKey(
+                                        'anitabi-import-marker-${point.id}',
+                                      ),
+                                      point: point.position,
+                                      width: _showThumbnailMarkers
+                                          ? (showThumbnail ? 84 : 24)
+                                          : 40,
+                                      height: _showThumbnailMarkers
+                                          ? (showThumbnail ? 82 : 24)
+                                          : 40,
+                                      alignment: _showThumbnailMarkers
+                                          ? (showThumbnail
+                                                ? Alignment.topCenter
+                                                : Alignment.center)
+                                          : Alignment.center,
+                                      child: _showThumbnailMarkers
+                                          ? MapThumbnailMarker(
+                                              key: ValueKey(
+                                                'anitabi-import-thumbnail-marker-${point.id}',
+                                              ),
+                                              selected: isSelected,
+                                              imported: imported,
+                                              showThumbnail: showThumbnail,
+                                              markerColor: imported
+                                                  ? AppColors.textSecondary
+                                                  : AppColors.accent,
+                                              imageLoadLimiter:
+                                                  _thumbnailLoadLimiter,
+                                              localPath: _importedPointFor(
+                                                point,
+                                              )?.referenceThumbnailPath,
+                                              imageUrl: _anitabiThumbnailUrl(
+                                                point.referenceImageUrl,
+                                              ),
+                                              imageSource:
+                                                  _settings.anitabiImageSource,
+                                              tooltip: 'Anitabi 点位',
+                                              onTap: _isImporting
+                                                  ? null
+                                                  : () => _selectPoint(point),
+                                            )
+                                          : _ImportMarker(
+                                              selected: isSelected,
+                                              imported: imported,
+                                              onTap: _isImporting
+                                                  ? null
+                                                  : () => _selectPoint(point),
+                                            ),
+                                    );
+                                  }(),
+                              ],
+                            );
+                          },
                         ),
                         configuredMapAttribution(_settings),
                       ],
@@ -1144,10 +1400,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: selectedPoint == null
-                          ? _NoPointSelectedCard(
-                              hasPoints: visiblePoints.isNotEmpty,
-                              expectedCount: _lite?.pointsLength,
-                            )
+                          ? _isLoading
+                                ? const SizedBox.shrink()
+                                : _NoPointSelectedCard(
+                                    hasPoints: visiblePoints.isNotEmpty,
+                                    expectedCount: _lite?.pointsLength,
+                                  )
                           : _AnitabiPointCard(
                               point: selectedPoint,
                               planId: _importedPlan.id,
@@ -1186,6 +1444,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return 'Anitabi 地图数据无法加载';
     }
 
+    if (error is AnitabiWorkNotFoundException) {
+      return 'Anitabi 中没有找到这个作品';
+    }
+
+    if (error is AnitabiNoPointsException) {
+      return '当前作品暂无 Anitabi 点位';
+    }
+
     if (error is AnitabiPartialPointsException) {
       return 'Anitabi 点位只加载到一部分';
     }
@@ -1207,6 +1473,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         return '可能是 Anitabi 地图数据缓存版本不一致，或当前预览服务网络请求被拦截。请清除缓存并重新加载 Anitabi 点位。';
       }
       return '无法读取 Anitabi 地图索引。请检查网络连接，或清除缓存并重新加载 Anitabi 点位。';
+    }
+
+    if (error is AnitabiWorkNotFoundException) {
+      return '这个 Bangumi 条目在 Anitabi 地图数据中没有对应作品。可以尝试添加同名动画、原作或其它关联条目。';
+    }
+
+    if (error is AnitabiNoPointsException) {
+      return 'Anitabi 中能找到这个作品，但当前还没有可导入的地图点位。';
     }
 
     if (error is AnitabiPartialPointsException) {
@@ -1290,7 +1564,7 @@ class _ImportMarker extends StatelessWidget {
 
   final bool selected;
   final bool imported;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2000,6 +2274,31 @@ class _ManualWorkImportState extends StatelessWidget {
           '手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。\n\n请通过 Bangumi/Anitabi 搜索添加作品，或使用手动添加点位。',
           textAlign: TextAlign.center,
           style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.45,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoAnitabiPointsState extends StatelessWidget {
+  const _NoAnitabiPointsState({required this.workTitle});
+
+  final String workTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          '「$workTitle」暂无可导入的 Anitabi 点位。',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 14,
             height: 1.45,

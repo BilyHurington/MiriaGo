@@ -42,6 +42,10 @@ class PilgrimageMapScreen extends StatefulWidget {
 }
 
 class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
+  static const Duration _thumbnailBoundsDebounceDuration = Duration(
+    milliseconds: 180,
+  );
+
   final MapController _mapController = MapController();
   final MapNavigationLauncher _navigationLauncher =
       const MapNavigationLauncher();
@@ -50,7 +54,10 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   bool _isLocating = false;
   bool _showThumbnailMarkers = false;
   int _selectedGroupIndex = 0;
-  LatLngBounds? _visibleBounds;
+  final ValueNotifier<LatLngBounds?> _visibleBoundsNotifier = ValueNotifier(
+    null,
+  );
+  Timer? _thumbnailBoundsDebounce;
   late final ImageLoadLimiter _thumbnailLoadLimiter = ImageLoadLimiter(
     widget.settings.mapThumbnailConcurrentLoads,
   );
@@ -65,6 +72,13 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       _thumbnailLoadLimiter.maxConcurrent =
           widget.settings.mapThumbnailConcurrentLoads;
     }
+  }
+
+  @override
+  void dispose() {
+    _thumbnailBoundsDebounce?.cancel();
+    _visibleBoundsNotifier.dispose();
+    super.dispose();
   }
 
   Future<void> _locateUser() async {
@@ -166,17 +180,60 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     }
   }
 
-  void _handleMapPositionChanged(MapCamera camera, bool hasGesture) {
+  void _handleMapEvent(MapEvent event) {
     if (!_showThumbnailMarkers) {
       return;
     }
-    setState(() {
-      _visibleBounds = camera.visibleBounds;
+    if (event is MapEventMoveStart ||
+        event is MapEventFlingAnimationStart ||
+        event is MapEventDoubleTapZoomStart) {
+      _thumbnailBoundsDebounce?.cancel();
+      return;
+    }
+
+    if (event is MapEventMoveEnd ||
+        event is MapEventFlingAnimationEnd ||
+        event is MapEventFlingAnimationNotStarted ||
+        event is MapEventDoubleTapZoomEnd) {
+      _setThumbnailVisibleBounds(event.camera);
+      return;
+    }
+
+    if (event is MapEventMove && event.source == MapEventSource.mapController) {
+      _scheduleThumbnailVisibleBoundsRefresh();
+      return;
+    }
+
+    if (event is MapEventScrollWheelZoom) {
+      _scheduleThumbnailVisibleBoundsRefresh();
+    }
+  }
+
+  void _scheduleThumbnailVisibleBoundsRefresh() {
+    _thumbnailBoundsDebounce?.cancel();
+    _thumbnailBoundsDebounce = Timer(_thumbnailBoundsDebounceDuration, () {
+      if (!mounted || !_showThumbnailMarkers) {
+        return;
+      }
+      try {
+        _setThumbnailVisibleBounds(_mapController.camera);
+      } catch (_) {
+        // The controller may briefly be unavailable while the map mounts.
+      }
     });
+  }
+
+  void _setThumbnailVisibleBounds(MapCamera camera) {
+    _thumbnailBoundsDebounce?.cancel();
+    if (!mounted || !_showThumbnailMarkers) {
+      return;
+    }
+    _visibleBoundsNotifier.value = camera.visibleBounds;
   }
 
   Set<String> _thumbnailPointIdsForCurrentView(
     Iterable<PilgrimagePoint> points,
+    LatLngBounds? bounds,
   ) {
     if (!_showThumbnailMarkers) {
       return const <String>{};
@@ -188,7 +245,6 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     if (threshold <= 0) {
       return const <String>{};
     }
-    final bounds = _visibleBounds;
     final visiblePoints = bounds == null
         ? points.toList(growable: false)
         : points
@@ -319,13 +375,20 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
         )
         ? _controller.selectedPoint
         : null;
-    final initialCenter = selectedGroup == null
-        ? _fallbackCenter
-        : groupMapCenter(selectedGroup);
+    final currentPoint =
+        _controller.points.any(
+          (point) => point.id == _controller.currentPoint?.id,
+        )
+        ? _controller.currentPoint
+        : null;
+    final initialFocusPoint =
+        selectedPoint ?? currentPoint ?? _controller.points.firstOrNull;
+    final initialCenter =
+        initialFocusPoint?.position ??
+        (selectedGroup == null
+            ? _fallbackCenter
+            : groupMapCenter(selectedGroup));
     final selectedGroupId = selectedGroup?.id ?? '';
-    final thumbnailPointIds = _thumbnailPointIdsForCurrentView(
-      _controller.points,
-    );
     final mapPoints = selectedItemsLast<PilgrimagePoint>(
       _controller.points,
       isSelected: (point) => point.id == selectedPoint?.id,
@@ -342,7 +405,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               initialZoom: 15,
               minZoom: 4,
               maxZoom: 24,
-              onPositionChanged: _handleMapPositionChanged,
+              onMapEvent: _handleMapEvent,
+              keepAlive: true,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
@@ -355,58 +419,76 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                   selectedGroupId: selectedGroupId,
                 ),
               ),
-              MarkerLayer(
-                markers: [
-                  for (final point in mapPoints)
-                    () {
-                      final showThumbnail =
-                          _showThumbnailMarkers &&
-                          thumbnailPointIds.contains(point.id);
-                      return Marker(
-                        key: ValueKey('plan-map-marker-${point.id}'),
-                        point: point.position,
-                        width: _showThumbnailMarkers
-                            ? (showThumbnail ? 84 : 24)
-                            : 44,
-                        height: _showThumbnailMarkers
-                            ? (showThumbnail ? 82 : 24)
-                            : 44,
-                        alignment: _showThumbnailMarkers
-                            ? (showThumbnail
-                                  ? Alignment.topCenter
-                                  : Alignment.center)
-                            : Alignment.center,
-                        child: _showThumbnailMarkers
-                            ? MapThumbnailMarker(
-                                selected: point.id == selectedPoint?.id,
-                                imported:
-                                    _controller.statusFor(point) ==
-                                    VisitStatus.completed,
-                                showThumbnail: showThumbnail,
-                                markerColor: mapColorForPoint(point, groups),
-                                imageLoadLimiter: _thumbnailLoadLimiter,
-                                localPath: point.referenceThumbnailPath,
-                                imageUrl: hasRemoteReferenceImage(point)
-                                    ? point.referenceImageUrl
-                                    : null,
-                                imageSource: widget.settings.anitabiImageSource,
-                                onTap: () => _selectPoint(point),
-                              )
-                            : _PointMarker(
-                                selected: point.id == selectedPoint?.id,
-                                status: _controller.statusFor(point),
-                                onTap: () => _selectPoint(point),
-                              ),
-                      );
-                    }(),
-                  if (_currentLocation != null)
-                    Marker(
-                      point: _currentLocation!,
-                      width: 44,
-                      height: 44,
-                      child: const _CurrentLocationMarker(),
-                    ),
-                ],
+              ValueListenableBuilder<LatLngBounds?>(
+                valueListenable: _visibleBoundsNotifier,
+                builder: (context, visibleBounds, _) {
+                  final thumbnailPointIds = _thumbnailPointIdsForCurrentView(
+                    _controller.points,
+                    visibleBounds,
+                  );
+                  return MarkerLayer(
+                    markers: [
+                      for (final point in mapPoints)
+                        () {
+                          final isSelected = point.id == selectedPoint?.id;
+                          final showThumbnail =
+                              _showThumbnailMarkers &&
+                              (isSelected ||
+                                  thumbnailPointIds.contains(point.id));
+                          return Marker(
+                            key: ValueKey('plan-map-marker-${point.id}'),
+                            point: point.position,
+                            width: _showThumbnailMarkers
+                                ? (showThumbnail ? 84 : 24)
+                                : 44,
+                            height: _showThumbnailMarkers
+                                ? (showThumbnail ? 82 : 24)
+                                : 44,
+                            alignment: _showThumbnailMarkers
+                                ? (showThumbnail
+                                      ? Alignment.topCenter
+                                      : Alignment.center)
+                                : Alignment.center,
+                            child: _showThumbnailMarkers
+                                ? MapThumbnailMarker(
+                                    key: ValueKey(
+                                      'plan-map-thumbnail-marker-${point.id}',
+                                    ),
+                                    selected: isSelected,
+                                    imported:
+                                        _controller.statusFor(point) ==
+                                        VisitStatus.completed,
+                                    showThumbnail: showThumbnail,
+                                    markerColor: mapColorForPoint(
+                                      point,
+                                      groups,
+                                    ),
+                                    imageLoadLimiter: _thumbnailLoadLimiter,
+                                    localPath: point.referenceThumbnailPath,
+                                    imageUrl: hasRemoteReferenceImage(point)
+                                        ? point.referenceImageUrl
+                                        : null,
+                                    imageSource:
+                                        widget.settings.anitabiImageSource,
+                                    onTap: () => _selectPoint(point),
+                                  )
+                                : _PointMarker(
+                                    selected: isSelected,
+                                    status: _controller.statusFor(point),
+                                    onTap: () => _selectPoint(point),
+                                  ),
+                          );
+                        }(),
+                      if (_currentLocation != null)
+                        Marker(
+                          point: _currentLocation!,
+                          width: 44,
+                          height: 44,
+                          child: const _CurrentLocationMarker(),
+                        ),
+                    ],
+                  );
+                },
               ),
               configuredMapAttribution(widget.settings),
             ],
@@ -456,13 +538,14 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                       setState(() {
                         _showThumbnailMarkers = !_showThumbnailMarkers;
                         if (!_showThumbnailMarkers) {
-                          _visibleBounds = null;
+                          _thumbnailBoundsDebounce?.cancel();
+                          _visibleBoundsNotifier.value = null;
                         } else {
                           try {
-                            _visibleBounds =
+                            _visibleBoundsNotifier.value =
                                 _mapController.camera.visibleBounds;
                           } catch (_) {
-                            _visibleBounds = null;
+                            _visibleBoundsNotifier.value = null;
                           }
                         }
                       });
