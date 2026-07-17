@@ -19,6 +19,7 @@ import '../widgets/reference_thumbnail_stub.dart'
 import '../widgets/image_viewer_screen.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
+import 'pilgrimage_work_dropdown.dart';
 import 'pilgrimage_models.dart';
 import 'reference_image_status.dart';
 import 'work_manager_screen.dart';
@@ -35,6 +36,35 @@ InputDecoration stableInputDecoration({
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
     helperText: ' ',
+  );
+}
+
+InputDecoration _boxedFormDecoration({String? hintText}) {
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: TextStyle(
+      color: AppColors.textSecondary.withValues(alpha: 0.42),
+      fontSize: 14,
+      letterSpacing: 0,
+    ),
+    helperText: ' ',
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: AppColors.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: AppColors.accent, width: 1.4),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Colors.redAccent),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+    ),
   );
 }
 
@@ -419,10 +449,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
                 text: 'Bangumi 搜索失败，请检查网络后重试。',
               )
             else if (_results.isEmpty)
-              const _MessageCard(
-                icon: Icons.info_outline,
-                text: '输入作品名后搜索，选择结果即可加入当前计划。',
-              )
+              const _BangumiSearchHintCard()
             else
               for (final work in _results) ...[
                 _WorkResultCard(
@@ -553,47 +580,131 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
             Text(
               '加入到：${widget.plan.name}',
               style: const TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 13,
+                fontSize: 14,
                 letterSpacing: 0,
               ),
             ),
-            const SizedBox(height: 12),
-            _FormSection(
-              children: [
-                TextFormField(
-                  controller: _linkController,
-                  decoration: stableInputDecoration(
-                    labelText: 'Anitabi 链接',
-                    hintText:
-                        '例如 https://www.anitabi.cn/map?bangumiId=8290&pid=qdmnf6iqj',
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Anitabi 链接',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
                   ),
-                  keyboardType: TextInputType.url,
-                  textInputAction: TextInputAction.done,
-                  validator: _validateLink,
-                  onFieldSubmitted: (_) => _openImport(),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _linkController,
+                    decoration: InputDecoration(
+                      hintText: '粘贴 Anitabi 作品或点位链接',
+                      hintStyle: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.48),
+                        fontSize: 14,
+                        letterSpacing: 0,
+                      ),
+                      helperText: ' ',
+                      suffixIcon: const Padding(
+                        padding: EdgeInsets.only(right: 6),
+                        child: IconButton(
+                          onPressed: null,
+                          tooltip: '粘贴',
+                          icon: Icon(Icons.content_paste_outlined, size: 20),
+                        ),
+                      ),
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 46,
+                        minHeight: 40,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: AppColors.accent,
+                          width: 1.4,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.redAccent),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Colors.redAccent,
+                          width: 1.4,
+                        ),
+                      ),
+                    ),
+                    keyboardType: TextInputType.url,
+                    textInputAction: TextInputAction.done,
+                    validator: _validateLink,
+                    onFieldSubmitted: (_) => _openImport(),
+                  ),
+                  const SizedBox(height: 8),
+                  const _DashedDivider(),
+                  const SizedBox(height: 16),
+                  const _InfoHeading(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '如果链接里包含作品 ID，会只加载对应作品；\n如果还包含点位 ID，会自动选中该点位。\n没有作品 ID 的链接需要先在 Anitabi 中进入对应作品后重新复制。',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.45,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            const _LinkExampleCard(),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _openImport,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  alignment: Alignment.center,
                 ),
-                const SizedBox(height: 10),
-                const Text(
-                  '如果链接里包含作品 ID，会只加载对应作品；如果还包含点位 ID，会自动选中该点位。没有作品 ID 的链接需要先在 Anitabi 中进入对应作品后重新复制。',
+                icon: const Icon(Icons.add_location_alt_outlined, size: 21),
+                label: const Text(
+                  '打开 Anitabi 点位',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
                     letterSpacing: 0,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _openImport,
-              icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-              label: const Text('打开 Anitabi 点位'),
+              ),
             ),
           ],
         ),
@@ -614,6 +725,272 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
       return '链接缺少作品 ID，请先在 Anitabi 进入对应作品后复制链接';
     }
     return null;
+  }
+}
+
+class _LinkExampleCard extends StatelessWidget {
+  const _LinkExampleCard();
+
+  static const _linkPrefix = 'https://www.anitabi.cn/map?';
+  static const _bangumiId = 'bangumiId=186515';
+  static const _middle = '&';
+  static const _pointId = 'pid=95ff4037';
+  static const _suffix = '&c=139.7226%2C35.7126&z=19.1';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '有效链接示例',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const _ExampleLinkText(),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExampleLinkText extends StatelessWidget {
+  const _ExampleLinkText();
+
+  @override
+  Widget build(BuildContext context) {
+    const normalStyle = TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: 13,
+      fontFamily: 'monospace',
+      height: 1.25,
+      letterSpacing: 0,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.start,
+          runSpacing: 4,
+          children: [
+            const _ExamplePlainText(
+              text: _LinkExampleCard._linkPrefix,
+              style: normalStyle,
+            ),
+            _highlight(_LinkExampleCard._bangumiId),
+            const _ExamplePlainText(
+              text: _LinkExampleCard._middle,
+              style: normalStyle,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _ExampleNoteRow(normalStyle: normalStyle),
+        const SizedBox(height: 6),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.start,
+          runSpacing: 4,
+          children: [
+            _highlight(_LinkExampleCard._pointId),
+            const _ExamplePlainText(
+              text: _LinkExampleCard._suffix,
+              style: normalStyle,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static Widget _highlight(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        softWrap: false,
+        style: TextStyle(
+          color: AppColors.accentDark,
+          fontSize: 13,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w800,
+          height: 1.25,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _ExampleNoteRow extends StatelessWidget {
+  const _ExampleNoteRow({required this.normalStyle});
+
+  final TextStyle normalStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textDirection = Directionality.of(context);
+        final bangumiLeft = _measureTextWidth(
+          _LinkExampleCard._linkPrefix,
+          normalStyle,
+          textDirection,
+        );
+        final bangumiNoteWidth =
+            _measureTextWidth(
+              'Bangumi 作品 ID（必须）',
+              _ExampleNote.textStyle,
+              textDirection,
+            ) +
+            _ExampleNote.horizontalPadding;
+        final resolvedBangumiLeft = bangumiLeft.clamp(
+          0,
+          (constraints.maxWidth - bangumiNoteWidth).clamp(0, double.infinity),
+        );
+
+        return SizedBox(
+          height: 18,
+          child: Stack(
+            children: [
+              const Positioned(
+                left: 0,
+                top: 0,
+                child: _ExampleNote(text: 'Anitabi 点位 ID（可选）'),
+              ),
+              Positioned(
+                left: resolvedBangumiLeft.toDouble(),
+                top: 0,
+                child: const _ExampleNote(text: 'Bangumi 作品 ID（必须）'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double _measureTextWidth(
+    String text,
+    TextStyle style,
+    TextDirection textDirection,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: textDirection,
+      maxLines: 1,
+    )..layout();
+    return painter.width;
+  }
+}
+
+class _ExamplePlainText extends StatelessWidget {
+  const _ExamplePlainText({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(text, softWrap: false, style: style),
+    );
+  }
+}
+
+class _ExampleNote extends StatelessWidget {
+  const _ExampleNote({required this.text});
+
+  static const horizontalPadding = 16.0;
+  static const textStyle = TextStyle(
+    color: AppColors.textSecondary,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    height: 1,
+    letterSpacing: 0,
+  );
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(text, style: textStyle),
+    );
+  }
+}
+
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const dashWidth = 6.0;
+        const gapWidth = 4.0;
+        final dashCount = (constraints.maxWidth / (dashWidth + gapWidth))
+            .floor()
+            .clamp(1, 1000);
+        return Row(
+          children: List.generate(
+            dashCount,
+            (index) => Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: index == dashCount - 1 ? 0 : gapWidth,
+                ),
+                child: Container(height: 1, color: AppColors.border),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _InfoHeading extends StatelessWidget {
+  const _InfoHeading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.info_outline, color: AppColors.accent, size: 15),
+        const SizedBox(width: 6),
+        const Text(
+          '使用说明',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -724,30 +1101,38 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
             children: [
               _FormSection(
                 children: [
-                  TextFormField(
-                    controller: _titleController,
-                    decoration: stableInputDecoration(labelText: '作品名称'),
-                    textInputAction: TextInputAction.next,
-                    validator: _requiredText,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _subtitleController,
-                    decoration: const InputDecoration(
-                      labelText: '作品原名',
-                      hintText: '可选',
+                  _ManualWorkLabeledField(
+                    label: '作品名称',
+                    required: true,
+                    child: TextFormField(
+                      controller: _titleController,
+                      decoration: _boxedFormDecoration(hintText: '请输入作品的中文名称'),
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredText,
                     ),
-                    textInputAction: TextInputAction.next,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _cityController,
-                    decoration: InputDecoration(
-                      labelText: '主要地区',
-                      hintText: '可选，默认 ${widget.plan.area}',
+                  const SizedBox(height: 8),
+                  _ManualWorkLabeledField(
+                    label: '作品原名',
+                    child: TextFormField(
+                      controller: _subtitleController,
+                      decoration: _boxedFormDecoration(
+                        hintText: '请输入作品的原名（如日文/英文）',
+                      ),
+                      textInputAction: TextInputAction.next,
                     ),
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _saveWork(),
+                  ),
+                  const SizedBox(height: 8),
+                  _ManualWorkLabeledField(
+                    label: '主要地区',
+                    child: TextFormField(
+                      controller: _cityController,
+                      decoration: _boxedFormDecoration(
+                        hintText: '输入作品主要发生或取景的地区',
+                      ),
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _saveWork(),
+                    ),
                   ),
                 ],
               ),
@@ -777,6 +1162,49 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
     }
 
     return null;
+  }
+}
+
+class _ManualWorkLabeledField extends StatelessWidget {
+  const _ManualWorkLabeledField({
+    required this.label,
+    required this.child,
+    this.required = false,
+    this.prominent = false,
+  });
+
+  final String label;
+  final Widget child;
+  final bool required;
+  final bool prominent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: label),
+              if (required)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+            ],
+          ),
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: prominent ? 15 : 13,
+            fontWeight: prominent ? FontWeight.w800 : FontWeight.w600,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
   }
 }
 
@@ -828,6 +1256,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _referenceController = TextEditingController();
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
+  final _latitudeFocusNode = FocusNode();
+  final _longitudeFocusNode = FocusNode();
   final _noteController = TextEditingController();
   PilgrimageWork? _selectedWork;
   StoredUserReferenceImage? _pendingReferenceImage;
@@ -886,6 +1316,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     _referenceController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
+    _latitudeFocusNode.dispose();
+    _longitudeFocusNode.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -1052,8 +1484,23 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   }
 
   Future<void> _pasteCoordinateFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final coordinate = parseCoordinateText(data?.text ?? '');
+    String clipboardText = '';
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      clipboardText = data?.text ?? '';
+    } on Object {
+      clipboardText = '';
+    }
+
+    var coordinate = parseCoordinateText(clipboardText);
+    if (coordinate == null && mounted) {
+      final manualText = await _showCoordinatePasteDialog();
+      if (!mounted || manualText == null) {
+        return;
+      }
+      coordinate = parseCoordinateText(manualText);
+    }
+
     if (!mounted) {
       return;
     }
@@ -1063,14 +1510,69 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       ).showReplacingSnackBar(const SnackBar(content: Text('剪切板中没有可识别的坐标。')));
       return;
     }
+    final parsedCoordinate = coordinate;
 
     setState(() {
-      _latitudeController.text = coordinate.latitude.toStringAsFixed(6);
-      _longitudeController.text = coordinate.longitude.toStringAsFixed(6);
+      _latitudeController.text = parsedCoordinate.latitude.toStringAsFixed(6);
+      _longitudeController.text = parsedCoordinate.longitude.toStringAsFixed(6);
     });
     ScaffoldMessenger.of(
       context,
-    ).showReplacingSnackBar(const SnackBar(content: Text('已填入剪切板坐标。')));
+    ).showReplacingSnackBar(const SnackBar(content: Text('已填入坐标。')));
+  }
+
+  Future<String?> _showCoordinatePasteDialog() async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('粘贴坐标'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 3,
+              decoration: stableInputDecoration(
+                labelText: '坐标文本',
+                hintText: '例如 35.712576, 139.722166',
+              ),
+              validator: (value) {
+                if (parseCoordinateText(value ?? '') == null) {
+                  return '请输入可识别的坐标';
+                }
+                return null;
+              },
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogContext).pop(controller.text);
+                }
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogContext).pop(controller.text);
+                }
+              },
+              child: const Text('填入'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   void _removeReferenceImage() {
@@ -1162,53 +1664,58 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               _FormSection(
                 children: [
                   if (hasPlanWorks)
-                    DropdownButtonFormField<PilgrimageWork>(
-                      initialValue: _selectedWork,
-                      decoration: const InputDecoration(labelText: '所属作品'),
-                      isExpanded: true,
-                      items: [
-                        for (final work in workOptions)
-                          DropdownMenuItem<PilgrimageWork>(
-                            value: work,
-                            child: Text(
-                              work.displayBangumiSubjectType == null
-                                  ? work.title
-                                  : '${work.title} · ${work.displayBangumiSubjectType!.label}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (work) {
-                        setState(() {
-                          _selectedWork = work;
-                        });
-                      },
-                      validator: (work) => work == null ? '请选择作品' : null,
+                    _ManualWorkLabeledField(
+                      label: '所属作品',
+                      required: true,
+                      prominent: true,
+                      child: PilgrimageWorkDropdown(
+                        works: workOptions,
+                        value: _selectedWork,
+                        onChanged: (work) {
+                          setState(() {
+                            _selectedWork = work;
+                          });
+                        },
+                        validator: (work) => work == null ? '请选择作品' : null,
+                      ),
                     )
                   else ...[
-                    TextFormField(
-                      controller: _fallbackWorkTitleController,
-                      decoration: stableInputDecoration(labelText: '动画/作品名称'),
-                      textInputAction: TextInputAction.next,
-                      validator: _requiredText,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _fallbackWorkSubtitleController,
-                      decoration: const InputDecoration(
-                        labelText: '作品原名',
-                        hintText: '可选',
+                    _ManualWorkLabeledField(
+                      label: '作品名称',
+                      required: true,
+                      prominent: true,
+                      child: TextFormField(
+                        controller: _fallbackWorkTitleController,
+                        decoration: _boxedFormDecoration(
+                          hintText: '请输入作品的中文名称',
+                        ),
+                        textInputAction: TextInputAction.next,
+                        validator: _requiredText,
                       ),
-                      textInputAction: TextInputAction.next,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _fallbackWorkCityController,
-                      decoration: InputDecoration(
-                        labelText: '作品主要地区',
-                        hintText: '可选，默认 ${widget.plan.area}',
+                    const SizedBox(height: 8),
+                    _ManualWorkLabeledField(
+                      label: '作品原名',
+                      prominent: true,
+                      child: TextFormField(
+                        controller: _fallbackWorkSubtitleController,
+                        decoration: _boxedFormDecoration(
+                          hintText: '请输入作品的原名（如日文/英文）',
+                        ),
+                        textInputAction: TextInputAction.next,
                       ),
-                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 8),
+                    _ManualWorkLabeledField(
+                      label: '主要地区',
+                      prominent: true,
+                      child: TextFormField(
+                        controller: _fallbackWorkCityController,
+                        decoration: _boxedFormDecoration(
+                          hintText: '输入作品主要发生或取景的地区',
+                        ),
+                        textInputAction: TextInputAction.next,
+                      ),
                     ),
                   ],
                 ],
@@ -1216,97 +1723,194 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               const SizedBox(height: 12),
               _FormSection(
                 children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: stableInputDecoration(labelText: '点位名称'),
-                    textInputAction: TextInputAction.next,
-                    validator: _requiredText,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _subtitleController,
-                    decoration: stableInputDecoration(labelText: '位置说明'),
-                    textInputAction: TextInputAction.next,
-                    validator: _requiredText,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _episodeController,
-                    decoration: stableInputDecoration(labelText: '集数/场景标签'),
-                    textInputAction: TextInputAction.next,
-                    validator: _requiredText,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _referenceController,
-                    decoration: stableInputDecoration(labelText: '参考来源'),
-                    textInputAction: TextInputAction.next,
-                    validator: _requiredText,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _noteController,
-                    decoration: const InputDecoration(
-                      labelText: '备注',
-                      hintText: '可选，例如闭店、翻修、拍摄建议',
+                  _ManualWorkLabeledField(
+                    label: '点位名称',
+                    required: true,
+                    prominent: true,
+                    child: TextFormField(
+                      controller: _nameController,
+                      decoration: _boxedFormDecoration(hintText: '请输入点位名称'),
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredText,
                     ),
-                    minLines: 2,
-                    maxLines: 4,
-                    textInputAction: TextInputAction.newline,
+                  ),
+                  const SizedBox(height: 8),
+                  _ManualWorkLabeledField(
+                    label: '位置说明',
+                    required: true,
+                    prominent: true,
+                    child: TextFormField(
+                      controller: _subtitleController,
+                      decoration: _boxedFormDecoration(hintText: '请输入位置说明'),
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ManualWorkLabeledField(
+                    label: '集数/场景标签',
+                    required: true,
+                    prominent: true,
+                    child: TextFormField(
+                      controller: _episodeController,
+                      decoration: _boxedFormDecoration(hintText: '请输入集数或场景标签'),
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ManualWorkLabeledField(
+                    label: '参考来源',
+                    required: true,
+                    prominent: true,
+                    child: TextFormField(
+                      controller: _referenceController,
+                      decoration: _boxedFormDecoration(hintText: '请输入参考来源'),
+                      textInputAction: TextInputAction.next,
+                      validator: _requiredText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ManualWorkLabeledField(
+                    label: '备注',
+                    prominent: true,
+                    child: TextFormField(
+                      controller: _noteController,
+                      decoration: _boxedFormDecoration(
+                        hintText: '可选，填写闭店、翻修或拍摄建议等补充信息',
+                      ),
+                      minLines: 4,
+                      maxLines: 8,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
+                      textAlignVertical: TextAlignVertical.top,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               _FormSection(
                 children: [
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '坐标位置',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _CoordinateLabeledField(
+                          label: '纬度',
+                          focusNode: _latitudeFocusNode,
+                          child: TextFormField(
+                            controller: _latitudeController,
+                            focusNode: _latitudeFocusNode,
+                            decoration: _coordinateInputDecoration(
+                              hintText: '例如 34.8917',
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            textInputAction: TextInputAction.next,
+                            validator: _validateLatitude,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _CoordinateLabeledField(
+                          label: '经度',
+                          focusNode: _longitudeFocusNode,
+                          child: TextFormField(
+                            controller: _longitudeController,
+                            focusNode: _longitudeFocusNode,
+                            decoration: _coordinateInputDecoration(
+                              hintText: '例如 135.8077',
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            textInputAction: TextInputAction.done,
+                            validator: _validateLongitude,
+                            onFieldSubmitted: (_) => _savePoint(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _isSaving ? null : _pickCoordinateFromMap,
-                          icon: const Icon(Icons.ads_click_outlined, size: 18),
-                          label: const Text('从地图选择坐标'),
+                          style: OutlinedButton.styleFrom(
+                            fixedSize: const Size.fromHeight(40),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            foregroundColor: AppColors.accent,
+                            backgroundColor: AppColors.accent.withValues(
+                              alpha: 0.06,
+                            ),
+                            side: BorderSide(
+                              color: AppColors.accent.withValues(alpha: 0.35),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.location_on, size: 19),
+                          label: const Text(
+                            '从地图选择',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.outlined(
-                        tooltip: '粘贴剪切板坐标',
-                        onPressed: _isSaving
-                            ? null
-                            : _pasteCoordinateFromClipboard,
-                        style: AppButtonStyles.compactOutlinedIconButton(),
-                        icon: const Icon(Icons.content_paste_outlined),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 44,
+                        height: 40,
+                        child: IconButton.outlined(
+                          tooltip: '粘贴剪切板坐标',
+                          onPressed: _isSaving
+                              ? null
+                              : _pasteCoordinateFromClipboard,
+                          style: IconButton.styleFrom(
+                            foregroundColor: AppColors.textPrimary,
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.content_paste_outlined),
+                        ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _latitudeController,
-                    decoration: stableInputDecoration(
-                      labelText: '纬度',
-                      hintText: '例如 34.8917',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
-                    ),
-                    textInputAction: TextInputAction.next,
-                    validator: _validateLatitude,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _longitudeController,
-                    decoration: stableInputDecoration(
-                      labelText: '经度',
-                      hintText: '例如 135.8077',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
-                    ),
-                    textInputAction: TextInputAction.done,
-                    validator: _validateLongitude,
-                    onFieldSubmitted: (_) => _savePoint(),
                   ),
                 ],
               ),
@@ -1360,6 +1964,25 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     return null;
   }
 
+  InputDecoration _coordinateInputDecoration({String? hintText}) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(
+        color: AppColors.textSecondary.withValues(alpha: 0.42),
+        fontSize: 13,
+        letterSpacing: 0,
+      ),
+      isDense: true,
+      contentPadding: EdgeInsets.zero,
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      focusedErrorBorder: InputBorder.none,
+      errorStyle: const TextStyle(fontSize: 11, height: 0.9),
+    );
+  }
+
   String? _validateLatitude(String? value) {
     return _validateCoordinate(value, min: -90, max: 90, emptyMessage: '请填写纬度');
   }
@@ -1390,6 +2013,67 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     }
 
     return null;
+  }
+}
+
+class _CoordinateLabeledField extends StatelessWidget {
+  const _CoordinateLabeledField({
+    required this.label,
+    required this.focusNode,
+    required this.child,
+  });
+
+  final String label;
+  final FocusNode focusNode;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: focusNode,
+      builder: (context, child) {
+        final focused = focusNode.hasFocus;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.fromLTRB(14, 9, 14, 8),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border.all(
+              color: focused ? AppColors.accent : AppColors.border,
+              width: 1.4,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: label),
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                  ],
+                ),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 4),
+              child!,
+            ],
+          ),
+        );
+      },
+      child: child,
+    );
   }
 }
 
@@ -1682,85 +2366,90 @@ class _ManualReferenceImagePicker extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
-        children: [
-          Tooltip(
-            message: canPreview ? '查看大图' : '暂无参考图',
-            child: GestureDetector(
-              onTap: canPreview
-                  ? () => ImageViewerScreen.show(
-                      context,
-                      filePath: previewPath,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Tooltip(
+              message: canPreview ? '查看大图' : '暂无参考图',
+              child: GestureDetector(
+                onTap: canPreview
+                    ? () => ImageViewerScreen.show(
+                        context,
+                        filePath: previewPath,
+                        imageUrl: imageUrl,
+                      )
+                    : null,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 104,
+                    color: AppColors.surfaceMuted,
+                    child: ReferenceThumbnail(
+                      localPath: localPath,
                       imageUrl: imageUrl,
-                    )
-                  : null,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  color: AppColors.surfaceMuted,
-                  child: ReferenceThumbnail(
-                    localPath: localPath,
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: const Icon(
-                      Icons.image_outlined,
-                      color: AppColors.textSecondary,
+                      fit: BoxFit.cover,
+                      placeholder: const Icon(
+                        Icons.image_outlined,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '参考图片',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  hasPendingSelection
-                      ? '已选择新图片，保存后生效。'
-                      : hasExistingImage
-                      ? '当前参考图，重新选择后需保存才会生效。'
-                      : '可选，保存时会复制到 App 本地目录。',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: onPick,
-                      icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: Text(hasImage ? '重新选择' : '上传参考图'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '参考图片',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
                     ),
-                    if (hasPendingSelection)
-                      TextButton.icon(
-                        onPressed: onRemove,
-                        icon: const Icon(Icons.close_outlined, size: 18),
-                        label: const Text('移除'),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    hasPendingSelection
+                        ? '已选择新图片，保存后生效。'
+                        : hasExistingImage
+                        ? '当前参考图，重新选择后需保存才会生效。'
+                        : '可选，保存时会复制到 App 本地目录。',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: onPick,
+                        icon: const Icon(
+                          Icons.photo_library_outlined,
+                          size: 18,
+                        ),
+                        label: Text(hasImage ? '重新选择' : '上传参考图'),
                       ),
-                  ],
-                ),
-              ],
+                      if (hasPendingSelection)
+                        TextButton.icon(
+                          onPressed: onRemove,
+                          icon: const Icon(Icons.close_outlined, size: 18),
+                          label: const Text('移除'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1941,6 +2630,72 @@ class _MessageCard extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BangumiSearchHintCard extends StatelessWidget {
+  const _BangumiSearchHintCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.info_outline, color: AppColors.accent, size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                '温馨提示',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '输入作品名后搜索，选择结果即可加入当前计划。',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.35,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'Bangumi需要国际网络环境才能正常搜索。',
+              style: TextStyle(
+                color: AppColors.accentDark,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
                 letterSpacing: 0,
               ),
             ),

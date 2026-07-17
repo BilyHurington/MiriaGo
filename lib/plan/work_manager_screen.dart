@@ -242,9 +242,7 @@ class _WorkManageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sourceText = work.bangumiId == null
-        ? '手动添加'
-        : 'Bangumi #${work.bangumiId}';
+    final sourceText = work.bangumiId == null ? '手动添加' : 'Bangumi';
     final typeText = work.displayBangumiSubjectType?.label;
     final infoText = [
       work.subtitle,
@@ -324,13 +322,129 @@ class _EmptyWorkPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Text(
-        '当前计划还没有作品。',
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 14,
-          letterSpacing: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Text(
+                '还没有作品',
+                style: TextStyle(
+                  color: AppColors.accentDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const _WorkOnboardingTimeline(),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkOnboardingTimeline extends StatelessWidget {
+  const _WorkOnboardingTimeline();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        _WorkOnboardingStep(
+          title: '从Bangumi导入',
+          body:
+              '点击上方按钮可从Bangumi搜索你想导入的作品并导入。之后你可以在“从作品地图导入点位”直接查看对应作品在Anitabi上的点位。',
         ),
+        _WorkOnboardingStep(
+          title: '手动添加作品',
+          body:
+              '若Bangumi未收录你想要添加到作品，你可以通过“手动添加”将作品加入到计划内。之后你可以通过“手动添加点位”自主上传想要巡礼的点位。',
+          isLast: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkOnboardingStep extends StatelessWidget {
+  const _WorkOnboardingStep({
+    required this.title,
+    required this.body,
+    this.isLast = false,
+  });
+
+  final String title;
+  final String body;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 18,
+            child: Stack(
+              children: [
+                if (!isLast)
+                  Positioned(
+                    left: 8,
+                    top: 10,
+                    bottom: 0,
+                    child: Container(width: 2, color: AppColors.border),
+                  ),
+                Positioned(
+                  left: 4,
+                  top: 5,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.35,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
