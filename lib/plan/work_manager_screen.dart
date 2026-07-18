@@ -212,7 +212,7 @@ class _AddWorkPanel extends StatelessWidget {
             Expanded(
               child: _AddWorkAction(
                 icon: Icons.search_rounded,
-                title: '从 Bangumi 搜索',
+                title: '从Bangumi添加',
                 subtitle: '自动获取信息',
                 onTap: onBangumi,
               ),
@@ -306,7 +306,7 @@ class _AddWorkAction extends StatelessWidget {
   }
 }
 
-class _WorkManageCard extends StatelessWidget {
+class _WorkManageCard extends StatefulWidget {
   const _WorkManageCard({
     required this.work,
     required this.pointCount,
@@ -320,18 +320,27 @@ class _WorkManageCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
+  State<_WorkManageCard> createState() => _WorkManageCardState();
+}
+
+class _WorkManageCardState extends State<_WorkManageCard> {
+  var _titleExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final sourceText = work.bangumiId == null ? '手动添加' : 'Bangumi';
-    final typeText = work.displayBangumiSubjectType?.label;
-    final infoText = [
-      work.subtitle,
-      ?typeText,
-      sourceText,
-      '$pointCount 个点位',
-    ].where((value) => value.trim().isNotEmpty).join(' / ');
+    final work = widget.work;
+    final pointCount = widget.pointCount;
+    final subtitle = work.subtitle.trim();
+    final showSubtitle =
+        subtitle.isNotEmpty &&
+        subtitle != work.title.trim() &&
+        !subtitle.startsWith('Bangumi #') &&
+        subtitle != 'Manual Work' &&
+        subtitle != '暂无作品原名';
+    final isBangumiWork = work.bangumiId != null;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(8),
@@ -339,7 +348,18 @@ class _WorkManageCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.movie_filter_outlined, color: AppColors.accentDark),
+          Semantics(
+            label: '作品封面预留',
+            child: Container(
+              width: 58,
+              height: 78,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppColors.border),
+              ),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -348,8 +368,15 @@ class _WorkManageCard extends StatelessWidget {
                 CopyableText(
                   text: work.title,
                   copyLabel: '作品名称',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: _titleExpanded ? null : 1,
+                  overflow: _titleExpanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  onTap: () {
+                    setState(() {
+                      _titleExpanded = !_titleExpanded;
+                    });
+                  },
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -358,32 +385,92 @@ class _WorkManageCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 CopyableText(
-                  text: infoText,
+                  text: showSubtitle ? subtitle : '暂无作品原名',
                   copyText: [
                     work.title,
-                    work.subtitle,
-                    ?typeText,
-                    sourceText,
-                    '$pointCount 个点位',
+                    if (showSubtitle) subtitle,
                   ].where((value) => value.trim().isNotEmpty).join('\n'),
                   copyLabel: '作品信息',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: showSubtitle
+                        ? AppColors.textSecondary
+                        : AppColors.textSecondary.withValues(alpha: 0.55),
                     fontSize: 12,
                     letterSpacing: 0,
                   ),
                 ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (work.displayBangumiSubjectType != null)
+                      _WorkManageBadge(
+                        label: work.displayBangumiSubjectType!.label,
+                      ),
+                    _WorkManageBadge(
+                      label: isBangumiWork ? 'Bangumi' : '手动添加',
+                      emphasized: isBangumiWork,
+                    ),
+                    _WorkManageBadge(label: '$pointCount 个点位'),
+                  ],
+                ),
               ],
             ),
           ),
-          IconButton(
-            tooltip: '删除作品',
-            onPressed: disabled ? null : onDelete,
-            icon: const Icon(Icons.delete_outline),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: widget.disabled ? null : widget.onDelete,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(88, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              foregroundColor: Colors.redAccent,
+              side: BorderSide(
+                color: widget.disabled
+                    ? AppColors.border
+                    : Colors.redAccent.withValues(alpha: 0.65),
+              ),
+            ),
+            child: const Text('删除'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WorkManageBadge extends StatelessWidget {
+  const _WorkManageBadge({required this.label, this.emphasized = false});
+
+  final String label;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? AppColors.accent.withValues(alpha: 0.08)
+            : AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: emphasized
+              ? AppColors.accent.withValues(alpha: 0.42)
+              : AppColors.border,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: emphasized ? AppColors.accentDark : AppColors.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
       ),
     );
   }
