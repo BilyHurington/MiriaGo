@@ -8,6 +8,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
     required this.works,
     required this.value,
     required this.onChanged,
+    this.omitScrollbarInsetWhenUnscrollable = false,
     this.validator,
     super.key,
   });
@@ -15,10 +16,17 @@ class PilgrimageWorkDropdown extends StatelessWidget {
   final List<PilgrimageWork> works;
   final PilgrimageWork? value;
   final ValueChanged<PilgrimageWork?>? onChanged;
+  final bool omitScrollbarInsetWhenUnscrollable;
   final FormFieldValidator<PilgrimageWork>? validator;
+
+  static const _maxItemsWithoutScrollbar = 7;
 
   @override
   Widget build(BuildContext context) {
+    final omitScrollbarInset =
+        omitScrollbarInsetWhenUnscrollable &&
+        works.length <= _maxItemsWithoutScrollbar;
+
     return Theme(
       data: Theme.of(context).copyWith(
         focusColor: Colors.transparent,
@@ -50,6 +58,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
                 work: work,
                 selected: work.id == value?.id,
                 menuItem: true,
+                omitScrollbarInset: omitScrollbarInset,
               ),
             ),
         ],
@@ -91,101 +100,116 @@ class _WorkDropdownItem extends StatefulWidget {
     required this.work,
     this.selected = false,
     this.menuItem = false,
+    this.omitScrollbarInset = false,
   });
 
   final PilgrimageWork work;
   final bool selected;
   final bool menuItem;
+  final bool omitScrollbarInset;
 
   @override
   State<_WorkDropdownItem> createState() => _WorkDropdownItemState();
 }
 
 class _WorkDropdownItemState extends State<_WorkDropdownItem> {
+  static const _hoverOffset = 12.0;
+  static const _menuTrailingInset = 10.0;
+  static const _menuBackgroundTrailingInset = 6.0;
+
   var _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final work = widget.work;
     final selected = widget.selected;
-    final highlighted = selected || _hovered;
+    final reserveScrollbarSpace = widget.menuItem && !widget.omitScrollbarInset;
     final badgeLabel =
         work.displayBangumiSubjectType?.label ??
         (work.source == WorkSource.manual ? '手动' : '作品');
 
-    final item = AnimatedContainer(
-      duration: const Duration(milliseconds: 100),
-      curve: Curves.easeOut,
+    final item = SizedBox(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: highlighted ? 12 : 0,
-        vertical: widget.menuItem ? 7 : 0,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.08),
-              border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.42),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(
+          _hovered && !selected ? _hoverOffset : 0,
+          0,
+          0,
+        ),
+        transformAlignment: Alignment.centerLeft,
+        padding: EdgeInsets.only(
+          right: reserveScrollbarSpace ? _menuTrailingInset : 0,
+          top: widget.menuItem ? 7 : 0,
+          bottom: widget.menuItem ? 7 : 0,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.42),
+                ),
+                borderRadius: BorderRadius.circular(4),
               ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              badgeLabel,
-              style: TextStyle(
-                color: AppColors.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                height: 1.15,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              work.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                letterSpacing: 0,
+              child: Text(
+                badgeLabel,
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                  letterSpacing: 0,
+                ),
               ),
             ),
-          ),
-          if (selected) ...[
-            const SizedBox(width: 8),
-            Icon(Icons.check_circle, color: AppColors.accent, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                work.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.check_circle, color: AppColors.accent, size: 18),
+            ],
           ],
-        ],
+        ),
       ),
     );
 
-    final content = highlighted
-        ? Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: -8,
-                top: 0,
-                right: -8,
-                bottom: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(
-                      alpha: selected ? 0.1 : 0.05,
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
+    final content = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: -8,
+          top: 0,
+          right: reserveScrollbarSpace ? _menuBackgroundTrailingInset : -8,
+          bottom: 0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(
+                alpha: selected ? 0.1 : (_hovered ? 0.05 : 0),
               ),
-              item,
-            ],
-          )
-        : item;
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+        item,
+      ],
+    );
 
     return MouseRegion(
       onEnter: widget.menuItem && !selected

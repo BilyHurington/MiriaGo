@@ -1214,6 +1214,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     child: PilgrimageWorkDropdown(
                       works: works,
                       value: _selectedWork,
+                      omitScrollbarInsetWhenUnscrollable: true,
                       onChanged: _isImporting
                           ? null
                           : (work) {

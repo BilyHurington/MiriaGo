@@ -39,7 +39,10 @@ InputDecoration stableInputDecoration({
   );
 }
 
-InputDecoration _boxedFormDecoration({String? hintText}) {
+InputDecoration _boxedFormDecoration({
+  String? hintText,
+  bool reserveHelperSpace = true,
+}) {
   return InputDecoration(
     hintText: hintText,
     hintStyle: TextStyle(
@@ -47,7 +50,7 @@ InputDecoration _boxedFormDecoration({String? hintText}) {
       fontSize: 14,
       letterSpacing: 0,
     ),
-    helperText: ' ',
+    helperText: reserveHelperSpace ? ' ' : null,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
@@ -410,35 +413,50 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
           children: [
             _FormSection(
               children: [
-                TextField(
-                  controller: _queryController,
-                  decoration: const InputDecoration(
-                    labelText: '作品名称',
-                    hintText: '例如 轻音少女',
+                _ManualWorkLabeledField(
+                  label: '作品名称',
+                  prominent: true,
+                  child: TextField(
+                    controller: _queryController,
+                    decoration: _boxedFormDecoration(
+                      hintText: '例如 轻音少女',
+                      reserveHelperSpace: false,
+                    ),
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _search(),
                   ),
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _search(),
                 ),
-                const SizedBox(height: 12),
-                _BangumiTypeFilter(
-                  selectedTypes: _selectedTypes,
-                  onChanged: (types) {
-                    setState(() {
-                      _selectedTypes = types;
-                    });
-                  },
+                const SizedBox(height: 16),
+                _ManualWorkLabeledField(
+                  label: '作品类型',
+                  prominent: true,
+                  child: _BangumiTypeFilter(
+                    selectedTypes: _selectedTypes,
+                    onChanged: (types) {
+                      setState(() {
+                        _selectedTypes = types;
+                      });
+                    },
+                  ),
                 ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _isSearching ? null : _search,
-                  icon: _isSearching
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search, size: 18),
-                  label: Text(_isSearching ? '搜索中' : '搜索作品'),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isSearching ? null : _search,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    icon: _isSearching
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.search, size: 18),
+                    label: Text(_isSearching ? '搜索中' : '搜索作品'),
+                  ),
                 ),
               ],
             ),
@@ -490,26 +508,97 @@ class _BangumiTypeFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      children: [
-        for (final type in _types)
-          FilterChip(
-            label: Text(type.label),
-            selected: selectedTypes.contains(type),
-            onSelected: (selected) {
-              final nextTypes = {...selectedTypes};
-              if (selected) {
-                nextTypes.add(type);
-              } else if (nextTypes.length > 1) {
-                nextTypes.remove(type);
-              }
-              onChanged(nextTypes);
-            },
-          ),
-      ],
+    return Container(
+      width: double.infinity,
+      height: 40,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < _types.length; index++) ...[
+            Expanded(child: _buildTypeItem(_types[index])),
+            if (index < _types.length - 1)
+              const VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: AppColors.border,
+              ),
+          ],
+        ],
+      ),
     );
+  }
+
+  Widget _buildTypeItem(BangumiSubjectType type) {
+    final selected = selectedTypes.contains(type);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _toggleType(type, selected),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                curve: Curves.easeOut,
+                color: selected
+                    ? AppColors.accent.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                alignment: Alignment.center,
+                child: Text(
+                  type.label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: selected
+                        ? AppColors.accentDark
+                        : AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              if (selected)
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 0,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleType(BangumiSubjectType type, bool selected) {
+    final nextTypes = {...selectedTypes};
+    if (selected) {
+      if (nextTypes.length == 1) {
+        return;
+      }
+      nextTypes.remove(type);
+    } else {
+      nextTypes.add(type);
+    }
+    onChanged(nextTypes);
   }
 }
 
@@ -1671,6 +1760,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       child: PilgrimageWorkDropdown(
                         works: workOptions,
                         value: _selectedWork,
+                        omitScrollbarInsetWhenUnscrollable: true,
                         onChanged: (work) {
                           setState(() {
                             _selectedWork = work;
@@ -2648,9 +2738,9 @@ class _BangumiSearchHintCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.accent.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.42)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2658,10 +2748,14 @@ class _BangumiSearchHintCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.info_outline, color: AppColors.accent, size: 16),
+              Icon(
+                Icons.manage_search_rounded,
+                color: AppColors.accent,
+                size: 17,
+              ),
               const SizedBox(width: 8),
               const Text(
-                '温馨提示',
+                '搜索说明',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
@@ -2683,22 +2777,31 @@ class _BangumiSearchHintCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              'Bangumi需要国际网络环境才能正常搜索。',
-              style: TextStyle(
-                color: AppColors.accentDark,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                height: 1.25,
-                letterSpacing: 0,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  color: AppColors.accent,
+                  size: 16,
+                ),
               ),
-            ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Bangumi需要国际网络环境才能正常搜索。',
+                  style: TextStyle(
+                    color: AppColors.accentDark,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
