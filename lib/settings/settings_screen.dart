@@ -796,6 +796,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
       children: [
         _SettingsSection(
           title: '\u62cd\u6444\u56fe\u7247\u6bd4\u4f8b',
+          titleSpacing: 6,
           children: [
             const Text(
               '\u81ea\u52a8\u4f1a\u4f18\u5148\u8ddf\u968f\u53c2\u8003\u56fe\u6bd4\u4f8b\uff1b\u9009\u62e9\u56fa\u5b9a\u6bd4\u4f8b\u540e\u4f1a\u6309\u8be5\u6bd4\u4f8b\u62cd\u6444\u3002',
@@ -830,6 +831,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
         const SizedBox(height: 12),
         _SettingsSection(
           title: '\u65e0\u53c2\u8003\u56fe\u65f6\u6bd4\u4f8b',
+          titleSpacing: 6,
           children: [
             const Text(
               '\u62cd\u6444\u56fe\u7247\u6bd4\u4f8b\u4e3a\u81ea\u52a8\u3001\u4e14\u6ca1\u6709\u53c2\u8003\u56fe\u53ef\u5bf9\u9f50\u65f6\u4f7f\u7528\u3002',
@@ -1044,17 +1046,13 @@ class _ComparisonStyleSettingsPageState
       fontScale: _settings.fontScale,
       children: [
         _SettingsSection(
-          title: '默认配置',
+          title: '',
+          showTitle: false,
           children: [
-            Text(
-              comparisonExportConfigSummary(_config),
-              style: _secondaryTextStyle,
-            ),
             if (_loading) ...[
-              const SizedBox(height: 12),
               const LinearProgressIndicator(minHeight: 2),
+              const SizedBox(height: 14),
             ],
-            const SizedBox(height: 14),
             ComparisonExportConfigEditor(
               config: _config,
               pilgrimNameController: _pilgrimNameController,
@@ -1545,9 +1543,31 @@ class _AboutSettingsPage extends StatelessWidget {
         const _SettingsSection(
           title: '数据与版权',
           children: [
-            Text(
-              '地图可使用 OpenFreeMap、OpenStreetMap 或自定义服务；作品搜索使用 Bangumi；巡礼点位与参考图来自 Anitabi。图片源设置只影响访问域名，远端链接会统一保留 Anitabi 默认格式。第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
-              style: _secondaryParagraphTextStyle,
+            _AboutDataItem(
+              icon: Icons.map_outlined,
+              label: '地图',
+              description: '可使用 OpenFreeMap、OpenStreetMap 或自定义地图服务。',
+            ),
+            _AboutDataItem(
+              icon: Icons.search_outlined,
+              label: '作品',
+              description: '作品搜索数据来自 Bangumi。',
+            ),
+            _AboutDataItem(
+              icon: Icons.place_outlined,
+              label: '巡礼内容',
+              description: '巡礼点位与参考图来自 Anitabi。',
+            ),
+            _AboutDataItem(
+              icon: Icons.image_outlined,
+              label: '图片源',
+              description: '图片源设置只影响访问域名，远端链接统一保留 Anitabi 默认格式。',
+            ),
+            _AboutDataItem(
+              icon: Icons.copyright_outlined,
+              label: '版权归属',
+              description: '第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
+              bottomSpacing: 0,
             ),
           ],
         ),
@@ -1841,10 +1861,17 @@ class _SummarySwitchTile extends StatelessWidget {
 }
 
 class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({required this.title, required this.children});
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+    this.titleSpacing = 12,
+    this.showTitle = true,
+  });
 
   final String title;
   final List<Widget> children;
+  final double titleSpacing;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1858,16 +1885,18 @@ class _SettingsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+          if (showTitle) ...[
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            SizedBox(height: titleSpacing),
+          ],
           ...children,
         ],
       ),
@@ -3484,6 +3513,44 @@ class _AboutInfoTile extends StatelessWidget {
                   copyLabel: value,
                   style: const TextStyle(fontSize: 14, letterSpacing: 0),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AboutDataItem extends StatelessWidget {
+  const _AboutDataItem({
+    required this.icon,
+    required this.label,
+    required this.description,
+    this.bottomSpacing = 12,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final double bottomSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.textSecondary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: _captionTextStyle),
+                const SizedBox(height: 2),
+                Text(description, style: _secondaryParagraphTextStyle),
               ],
             ),
           ),

@@ -23,6 +23,7 @@ import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../widgets/app_scaled_route.dart';
 import '../utils/limited_concurrency.dart';
 import '../utils/selected_item_order.dart';
 import 'nearest_group_assign_screen.dart';
@@ -37,6 +38,7 @@ class AnitabiMapImportScreen extends StatefulWidget {
     required this.repository,
     this.initialBangumiId,
     this.initialPointId,
+    this.initialSettings,
     AnitabiClient? anitabiClient,
     super.key,
   }) : anitabiClient = anitabiClient ?? AnitabiClient();
@@ -45,6 +47,7 @@ class AnitabiMapImportScreen extends StatefulWidget {
   final PilgrimageRepository repository;
   final int? initialBangumiId;
   final String? initialPointId;
+  final AppSettings? initialSettings;
   final AnitabiClient anitabiClient;
 
   @override
@@ -61,7 +64,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   late final Set<String> _importedPointIds;
   late PilgrimagePlan _importedPlan = widget.plan;
   PilgrimageWork? _selectedWork;
-  AppSettings _settings = const AppSettings();
+  late AppSettings _settings = widget.initialSettings ?? const AppSettings();
   AnitabiBangumiLite? _lite;
   List<AnitabiPoint> _points = const [];
   AnitabiPoint? _selectedPoint;
@@ -185,10 +188,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   Future<void> _openWorkManager() async {
     final didUpdate = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: _settings,
         builder: (_) => WorkManagerScreen(
           plan: _importedPlan,
           repository: widget.repository,
+          settings: _settings,
         ),
       ),
     );
@@ -1021,7 +1026,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   Future<void> _openGroupManager() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      appScaledMaterialPageRoute<bool>(
+        settings: _settings,
         builder: (_) => PlanGroupManagerScreen(
           plan: _importedPlan,
           repository: widget.repository,
@@ -1039,7 +1045,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return;
     }
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      appScaledMaterialPageRoute<bool>(
+        settings: settings,
         builder: (_) => NearestGroupAssignScreen(
           plan: _importedPlan,
           settings: settings,
@@ -1214,6 +1221,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     child: PilgrimageWorkDropdown(
                       works: works,
                       value: _selectedWork,
+                      settings: _settings,
                       omitScrollbarInsetWhenUnscrollable: true,
                       onChanged: _isImporting
                           ? null

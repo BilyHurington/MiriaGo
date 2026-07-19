@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../widgets/app_scaled_route.dart';
 import 'pilgrimage_models.dart';
 
 class PilgrimageWorkDropdown extends StatelessWidget {
@@ -10,6 +11,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
     required this.onChanged,
     this.omitScrollbarInsetWhenUnscrollable = false,
     this.validator,
+    this.settings = const AppSettings(),
     super.key,
   });
 
@@ -18,6 +20,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
   final ValueChanged<PilgrimageWork?>? onChanged;
   final bool omitScrollbarInsetWhenUnscrollable;
   final FormFieldValidator<PilgrimageWork>? validator;
+  final AppSettings settings;
 
   static const _maxItemsWithoutScrollbar = 7;
 
@@ -42,7 +45,8 @@ class PilgrimageWorkDropdown extends StatelessWidget {
         elevation: 2,
         borderRadius: BorderRadius.circular(8),
         dropdownColor: AppColors.surface,
-        menuMaxHeight: 360,
+        itemHeight: null,
+        menuMaxHeight: appScaledOverlayExtent(settings, 360),
         icon: const Padding(
           padding: EdgeInsets.only(right: 8),
           child: Icon(Icons.keyboard_arrow_down_rounded, size: 20),
@@ -54,11 +58,17 @@ class PilgrimageWorkDropdown extends StatelessWidget {
           for (final work in works)
             DropdownMenuItem<PilgrimageWork>(
               value: work,
-              child: _WorkDropdownItem(
-                work: work,
-                selected: work.id == value?.id,
-                menuItem: true,
-                omitScrollbarInset: omitScrollbarInset,
+              child: SizedBox(
+                height: appScaledOverlayExtent(settings, 48),
+                child: AppScaledOverlayContent(
+                  settings: settings,
+                  child: _WorkDropdownItem(
+                    work: work,
+                    selected: work.id == value?.id,
+                    menuItem: true,
+                    omitScrollbarInset: omitScrollbarInset,
+                  ),
+                ),
               ),
             ),
         ],
@@ -130,9 +140,11 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
 
     final item = SizedBox(
       width: double.infinity,
+      height: widget.menuItem ? double.infinity : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
+        alignment: Alignment.centerLeft,
         transform: Matrix4.translationValues(
           _hovered && !selected ? _hoverOffset : 0,
           0,
@@ -141,10 +153,9 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
         transformAlignment: Alignment.centerLeft,
         padding: EdgeInsets.only(
           right: reserveScrollbarSpace ? _menuTrailingInset : 0,
-          top: widget.menuItem ? 7 : 0,
-          bottom: widget.menuItem ? 7 : 0,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -188,27 +199,32 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
       ),
     );
 
-    final content = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          left: -8,
-          top: 0,
-          right: reserveScrollbarSpace ? _menuBackgroundTrailingInset : -8,
-          bottom: 0,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(
-                alpha: selected ? 0.1 : (_hovered ? 0.05 : 0),
+    final content = SizedBox(
+      width: double.infinity,
+      height: widget.menuItem ? double.infinity : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        fit: widget.menuItem ? StackFit.expand : StackFit.loose,
+        children: [
+          Positioned(
+            left: -8,
+            top: 6,
+            right: reserveScrollbarSpace ? _menuBackgroundTrailingInset : -8,
+            bottom: 6,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(
+                  alpha: selected ? 0.1 : (_hovered ? 0.05 : 0),
+                ),
+                borderRadius: BorderRadius.circular(6),
               ),
-              borderRadius: BorderRadius.circular(6),
             ),
           ),
-        ),
-        item,
-      ],
+          item,
+        ],
+      ),
     );
 
     return MouseRegion(

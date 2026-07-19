@@ -5,6 +5,7 @@ import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_scaled_route.dart';
 import 'add_points_screen.dart';
 import 'pilgrimage_models.dart';
 
@@ -12,12 +13,14 @@ class WorkManagerScreen extends StatefulWidget {
   WorkManagerScreen({
     required this.plan,
     required this.repository,
+    required this.settings,
     BangumiApiClient? bangumiApiClient,
     super.key,
   }) : bangumiApiClient = bangumiApiClient ?? BangumiApiClient();
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final AppSettings settings;
   final BangumiApiClient bangumiApiClient;
 
   @override
@@ -81,7 +84,8 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
 
   Future<void> _openBangumiSearch() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
         builder: (_) => BangumiWorkSearchScreen(
           plan: _plan,
           repository: widget.repository,
@@ -96,9 +100,13 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
 
   Future<void> _openManualWorkForm() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            ManualWorkFormScreen(plan: _plan, repository: widget.repository),
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
+        builder: (_) => ManualWorkFormScreen(
+          plan: _plan,
+          repository: widget.repository,
+          settings: widget.settings,
+        ),
       ),
     );
     if (mounted) {

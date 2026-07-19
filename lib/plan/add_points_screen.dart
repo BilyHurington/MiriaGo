@@ -17,6 +17,7 @@ import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/app_scaled_route.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pilgrimage_work_dropdown.dart';
@@ -110,12 +111,14 @@ class AddPointsScreen extends StatefulWidget {
   AddPointsScreen({
     required this.plan,
     required this.repository,
+    required this.settings,
     BangumiApiClient? bangumiApiClient,
     super.key,
   }) : bangumiApiClient = bangumiApiClient ?? BangumiApiClient();
 
   final PilgrimagePlan? plan;
   final PilgrimageRepository repository;
+  final AppSettings settings;
   final BangumiApiClient bangumiApiClient;
 
   @override
@@ -184,10 +187,12 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
         builder: (_) => WorkManagerScreen(
           plan: plan,
           repository: widget.repository,
+          settings: widget.settings,
           bangumiApiClient: widget.bangumiApiClient,
         ),
       ),
@@ -204,7 +209,8 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
         builder: (_) => BangumiWorkSearchScreen(
           plan: plan,
           repository: widget.repository,
@@ -222,9 +228,13 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            ManualWorkFormScreen(plan: plan, repository: widget.repository),
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
+        builder: (_) => ManualWorkFormScreen(
+          plan: plan,
+          repository: widget.repository,
+          settings: widget.settings,
+        ),
       ),
     );
     if (context.mounted) {
@@ -237,9 +247,13 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            AnitabiMapImportScreen(plan: plan, repository: widget.repository),
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
+        builder: (_) => AnitabiMapImportScreen(
+          plan: plan,
+          repository: widget.repository,
+          initialSettings: widget.settings,
+        ),
       ),
     );
     if (!context.mounted) {
@@ -258,9 +272,13 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            _AnitabiLinkImportScreen(plan: plan, repository: widget.repository),
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
+        builder: (_) => _AnitabiLinkImportScreen(
+          plan: plan,
+          repository: widget.repository,
+          settings: widget.settings,
+        ),
       ),
     );
     if (!context.mounted) {
@@ -279,9 +297,13 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     PilgrimagePlan plan,
   ) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            _ManualPointFormScreen(plan: plan, repository: widget.repository),
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
+        builder: (_) => _ManualPointFormScreen(
+          plan: plan,
+          repository: widget.repository,
+          settings: widget.settings,
+        ),
       ),
     );
     if (!context.mounted) {
@@ -748,10 +770,12 @@ class _AnitabiLinkImportScreen extends StatefulWidget {
   const _AnitabiLinkImportScreen({
     required this.plan,
     required this.repository,
+    required this.settings,
   });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final AppSettings settings;
 
   @override
   State<_AnitabiLinkImportScreen> createState() =>
@@ -780,10 +804,12 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
     }
     final oldPointCount = widget.plan.points.length;
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: widget.settings,
         builder: (_) => AnitabiMapImportScreen(
           plan: widget.plan,
           repository: widget.repository,
+          initialSettings: widget.settings,
           initialBangumiId: link.bangumiId,
           initialPointId: link.pointId,
         ),
@@ -1175,11 +1201,13 @@ class ManualWorkFormScreen extends StatefulWidget {
   const ManualWorkFormScreen({
     required this.plan,
     required this.repository,
+    required this.settings,
     super.key,
   });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final AppSettings settings;
 
   @override
   State<ManualWorkFormScreen> createState() => ManualWorkFormScreenState();
@@ -1322,7 +1350,11 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
                         elevation: 2,
                         borderRadius: BorderRadius.circular(8),
                         dropdownColor: AppColors.surface,
-                        menuMaxHeight: 360,
+                        itemHeight: null,
+                        menuMaxHeight: appScaledOverlayExtent(
+                          widget.settings,
+                          360,
+                        ),
                         icon: const Padding(
                           padding: EdgeInsets.only(right: 8),
                           child: Icon(
@@ -1341,9 +1373,18 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
                           for (final type in _manualWorkSubjectTypes)
                             DropdownMenuItem<BangumiSubjectType>(
                               value: type,
-                              child: _ManualWorkTypeDropdownItem(
-                                type: type,
-                                selected: type == _selectedSubjectType,
+                              child: SizedBox(
+                                height: appScaledOverlayExtent(
+                                  widget.settings,
+                                  48,
+                                ),
+                                child: AppScaledOverlayContent(
+                                  settings: widget.settings,
+                                  child: _ManualWorkTypeDropdownItem(
+                                    type: type,
+                                    selected: type == _selectedSubjectType,
+                                  ),
+                                ),
                               ),
                             ),
                         ],
@@ -1432,7 +1473,9 @@ class _ManualWorkTypeDropdownItemState
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(hovered ? 14 : 8, 7, 8, 7),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.fromLTRB(hovered ? 14 : 8, 0, 8, 0),
         decoration: BoxDecoration(
           color: AppColors.accent.withValues(
             alpha: widget.selected ? 0.10 : (hovered ? 0.05 : 0),
@@ -1440,6 +1483,7 @@ class _ManualWorkTypeDropdownItemState
           borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(child: Text(widget.type.label)),
             if (widget.selected)
@@ -1498,11 +1542,13 @@ class _ManualPointFormScreen extends StatefulWidget {
   const _ManualPointFormScreen({
     required this.plan,
     required this.repository,
+    this.settings,
     this.editingPoint,
   });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
+  final AppSettings? settings;
   final PilgrimagePoint? editingPoint;
 
   @override
@@ -1752,7 +1798,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
     final initialPosition = _currentPositionInput() ?? _planCenter;
     final picked = await Navigator.of(context).push<LatLng>(
-      MaterialPageRoute<LatLng>(
+      appScaledMaterialPageRoute<LatLng>(
+        settings: settings,
         builder: (_) => _ManualPointMapPickerScreen(
           initialPosition: initialPosition,
           settings: settings,
@@ -1957,6 +2004,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       child: PilgrimageWorkDropdown(
                         works: workOptions,
                         value: _selectedWork,
+                        settings: widget.settings ?? const AppSettings(),
                         omitScrollbarInsetWhenUnscrollable: true,
                         onChanged: (work) {
                           setState(() {
