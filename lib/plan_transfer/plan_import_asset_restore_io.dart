@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -35,7 +36,13 @@ Future<Map<String, String>> restorePlanImportAssets(
     final localPath = p.joinAll([importDirectory.path, ...segments]);
     final file = File(localPath);
     await file.parent.create(recursive: true);
-    await file.writeAsBytes(entry.value, flush: true);
+    final alreadyRestored =
+        file.existsSync() &&
+        file.lengthSync() == entry.value.length &&
+        listEquals(await file.readAsBytes(), entry.value);
+    if (!alreadyRestored) {
+      await file.writeAsBytes(entry.value, flush: true);
+    }
     restoredPaths[relativePath] = localPath;
   }
   return restoredPaths;

@@ -157,6 +157,17 @@ void main() {
     expect(find.textContaining('1 部作品'), findsOneWidget);
   });
 
+  testWidgets('restores the last selected plan group', (tester) async {
+    final group = samplePilgrimagePlan.groups.last;
+    final repository = SamplePilgrimageRepository(
+      plans: [samplePilgrimagePlan.copyWith(currentGroupId: group.id)],
+    );
+    await tester.pumpWidget(MiriaGoApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, group.name), findsOneWidget);
+  });
+
   testWidgets('opens and edits plan memo from plan menu', (tester) async {
     await _pumpApp(tester);
 

@@ -572,6 +572,19 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<void> setCurrentGroup({
+    required String planId,
+    required String? groupId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    _plans[index] = plan.copyWith(
+      currentGroupId: groupId,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
   Future<void> completePoint({
     required String planId,
     required String pointId,

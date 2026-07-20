@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_fetcher.dart';
 import 'anitabi_image_url.dart';
+import 'app_managed_file_paths_io.dart';
 import 'image_bytes.dart';
 
 Future<String?> cacheReferenceThumbnail(
@@ -26,7 +27,7 @@ Future<String?> cacheReferenceThumbnail(
     imageSource: imageSource,
     namespace: 'reference_thumbnails',
     filename:
-        '${_safeFileName(point.id)}_${_stableUrlHash(thumbnailUrl)}${_extensionFromUrl(thumbnailUrl)}',
+        '${_stableUrlHash(thumbnailUrl)}${_extensionFromUrl(thumbnailUrl)}',
   );
 }
 
@@ -35,10 +36,13 @@ Future<String?> ensureReferenceThumbnailCached(
   AnitabiImageSource imageSource = AnitabiImageSource.auto,
 }) async {
   final thumbnailUrl = anitabiThumbnailImageUrl(point.referenceImageUrl);
-  final existingPath = point.referenceThumbnailPath;
+  final existingPath = resolveExistingAppManagedFilePathSync(
+    point.referenceThumbnailPath,
+  );
   if (existingPath != null &&
       thumbnailUrl != null &&
-      _cachedPathMatchesUrl(existingPath, thumbnailUrl)) {
+      (_cachedPathMatchesUrl(existingPath, thumbnailUrl) ||
+          _isImportedThumbnailPath(existingPath))) {
     final file = File(existingPath);
     if (file.existsSync() && file.lengthSync() > 0) {
       return existingPath;
@@ -60,8 +64,7 @@ Future<String?> cacheReferenceFullImage(
     url: url,
     imageSource: imageSource,
     namespace: 'reference_full',
-    filename:
-        '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
+    filename: '${_stableUrlHash(url)}${_extensionFromUrl(url)}',
   );
 }
 
@@ -79,12 +82,13 @@ Future<String?> _cacheImage({
 
   final path = p.join(cacheDirectory.path, filename);
   final file = File(path);
-  if (file.existsSync() && file.lengthSync() > 0) {
-    final bytes = await file.readAsBytes();
-    if (isSupportedImageBytes(bytes)) {
-      return path;
-    }
-    await file.delete();
+  final cachedFile = await _findValidCachedFile(
+    cacheDirectory,
+    urlHash: _stableUrlHash(url),
+    preferredFile: file,
+  );
+  if (cachedFile != null) {
+    return cachedFile.path;
   }
 
   final bytes = await fetchAnitabiImageBytes(url, source: imageSource);
@@ -96,8 +100,31 @@ Future<String?> _cacheImage({
   return path;
 }
 
-String _safeFileName(String value) {
-  return value.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
+Future<File?> _findValidCachedFile(
+  Directory directory, {
+  required String urlHash,
+  required File preferredFile,
+}) async {
+  final candidates = <File>[
+    preferredFile,
+    if (directory.existsSync())
+      ...directory
+          .listSync(followLinks: false)
+          .whereType<File>()
+          .where((file) => p.basename(file.path).contains(urlHash)),
+  ];
+  final visited = <String>{};
+  for (final candidate in candidates) {
+    if (!visited.add(candidate.path) || !candidate.existsSync()) {
+      continue;
+    }
+    final bytes = await candidate.readAsBytes();
+    if (bytes.isNotEmpty && isSupportedImageBytes(bytes)) {
+      return candidate;
+    }
+    await candidate.delete();
+  }
+  return null;
 }
 
 String _stableUrlHash(String value) {
@@ -110,7 +137,13 @@ String _stableUrlHash(String value) {
 }
 
 bool _cachedPathMatchesUrl(String path, String url) {
-  return p.basename(path).contains('_${_stableUrlHash(url)}');
+  return p.basename(path).contains(_stableUrlHash(url));
+}
+
+bool _isImportedThumbnailPath(String path) {
+  final normalized = path.replaceAll(r'\', '/').toLowerCase();
+  return normalized.contains('/imported_plan_assets/') &&
+      normalized.contains('/assets/thumbnails/');
 }
 
 String _extensionFromUrl(String url) {

@@ -7,6 +7,7 @@ import '../data/anitabi_image_url.dart';
 import '../data/image_bytes.dart';
 import '../data/reference_asset_paths.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/reference_image_status.dart';
 import 'plan_export_v2.dart';
 import 'plan_package.dart';
 
@@ -311,7 +312,13 @@ PilgrimagePoint _pointWithRestoredAssets(
   List<String> warnings,
 ) {
   if (assetRefs == null) {
-    return point;
+    if (isLocalUploadedReference(point)) {
+      warnings.add('local reference not bundled: ${point.id}');
+    }
+    return point.copyWith(
+      referenceThumbnailPath: null,
+      referenceFullImagePath: null,
+    );
   }
   final thumbnailPath = _restoredPath(
     assetRefs.referenceThumbnailAsset,
@@ -326,7 +333,7 @@ PilgrimagePoint _pointWithRestoredAssets(
   final hasRestoredUserReference =
       assetRefs.userReferenceAsset != null && fullReferencePath != null;
   return point.copyWith(
-    referenceThumbnailPath: thumbnailPath ?? point.referenceThumbnailPath,
+    referenceThumbnailPath: thumbnailPath,
     referenceFullImagePath: fullReferencePath,
     referenceImageUrl: hasRestoredUserReference
         ? null

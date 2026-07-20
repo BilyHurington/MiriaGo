@@ -292,6 +292,57 @@ void main() {
     expect(restored.plan.points.single.referenceFullImagePath, isNull);
   });
 
+  test('clears exporter device paths when package has no point assets', () {
+    final bytes = _zipPackageBytes(
+      assetFiles: const {},
+      pointReferenceImageUrl: 'https://image.anitabi.cn/points/remote.jpg',
+      pointThumbnailAsset: null,
+      pointFullReferenceAsset: null,
+      pointSource: 'anitabi',
+    );
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'remote-without-assets.sjhplan',
+    );
+
+    final restored = applyRestoredAssetPaths(
+      importPackage: importPackage,
+      restoredPaths: const {},
+      includeRecords: false,
+    );
+
+    final point = restored.plan.points.single;
+    expect(point.referenceThumbnailPath, isNull);
+    expect(point.referenceFullImagePath, isNull);
+    expect(
+      point.referenceImageUrl,
+      'https://image.anitabi.cn/points/remote.jpg',
+    );
+  });
+
+  test('warns when an unbundled local reference cannot be restored', () {
+    final bytes = _zipPackageBytes(
+      assetFiles: const {},
+      pointThumbnailAsset: null,
+      pointFullReferenceAsset: null,
+    );
+    final importPackage = readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: 'local-without-assets.sjhplan',
+    );
+
+    final restored = applyRestoredAssetPaths(
+      importPackage: importPackage,
+      restoredPaths: const {},
+      includeRecords: false,
+    );
+
+    final point = restored.plan.points.single;
+    expect(point.referenceThumbnailPath, isNull);
+    expect(point.referenceFullImagePath, isNull);
+    expect(restored.warnings, contains('local reference not bundled: point-1'));
+  });
+
   test('ignores image package assets that contain html bytes', () {
     final bytes = _zipPackageBytes(
       assetFiles: {
@@ -319,7 +370,7 @@ void main() {
     );
 
     final point = restored.plan.points.single;
-    expect(point.referenceThumbnailPath, '/old/thumb.jpg');
+    expect(point.referenceThumbnailPath, isNull);
     expect(point.referenceFullImagePath, isNull);
     expect(
       restored.warnings,
@@ -377,8 +428,10 @@ void main() {
 List<int> _zipPackageBytes({
   required Map<String, List<int>> assetFiles,
   String? pointReferenceImageUrl,
+  String? pointThumbnailAsset = 'assets/thumbnails/point-1.jpg',
   String? pointFullReferenceAsset = 'assets/full_references/point-1.jpg',
   String? pointUserReferenceAsset,
+  String pointSource = 'manual',
 }) {
   final archive = Archive()
     ..addFile(ArchiveFile.string('manifest.json', _manifestJson()))
@@ -387,8 +440,10 @@ List<int> _zipPackageBytes({
         'plan.json',
         _planJson(
           pointReferenceImageUrl: pointReferenceImageUrl,
+          pointThumbnailAsset: pointThumbnailAsset,
           pointFullReferenceAsset: pointFullReferenceAsset,
           pointUserReferenceAsset: pointUserReferenceAsset,
+          pointSource: pointSource,
         ),
       ),
     );
@@ -428,8 +483,10 @@ String _manifestJson() {
 
 String _planJson({
   String? pointReferenceImageUrl,
+  String? pointThumbnailAsset = 'assets/thumbnails/point-1.jpg',
   String? pointFullReferenceAsset = 'assets/full_references/point-1.jpg',
   String? pointUserReferenceAsset,
+  String pointSource = 'manual',
 }) {
   return jsonEncode({
     'schemaVersion': miriagoExportSchemaVersion,
@@ -451,7 +508,7 @@ String _planJson({
           'title': 'Work',
           'subtitle': '',
           'city': 'City',
-          'source': 'manual',
+          'source': pointSource,
         },
       ],
       'groups': [],
@@ -470,7 +527,7 @@ String _planJson({
           'referenceImageUrl': pointReferenceImageUrl,
           'referenceThumbnailPath': '/old/thumb.jpg',
           'referenceFullImagePath': '/old/full.jpg',
-          'referenceThumbnailAsset': 'assets/thumbnails/point-1.jpg',
+          'referenceThumbnailAsset': pointThumbnailAsset,
           'referenceFullReferenceAsset': pointFullReferenceAsset,
           'userReferenceAsset': pointUserReferenceAsset,
           'sourceUrl': null,

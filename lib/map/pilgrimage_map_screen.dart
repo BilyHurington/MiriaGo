@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
@@ -24,6 +23,7 @@ import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import 'map_navigation_launcher.dart';
 import 'map_tile_config.dart';
+import 'current_location_resolver.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
@@ -87,29 +87,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     });
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showSnackBar('定位服务未开启。');
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showSnackBar('需要定位权限来显示当前位置。');
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 12),
-        ),
-      );
+      final position = await resolveCurrentLocation();
       final location = LatLng(position.latitude, position.longitude);
 
       if (!mounted) {
@@ -120,8 +98,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
         _currentLocation = location;
       });
       _mapController.move(location, 16);
-    } on TimeoutException {
-      _showSnackBar('定位超时，请稍后重试。');
+    } on CurrentLocationException catch (error) {
+      _showSnackBar(currentLocationFailureMessage(error));
     } catch (_) {
       _showSnackBar('定位失败，请检查权限和定位服务。');
     } finally {

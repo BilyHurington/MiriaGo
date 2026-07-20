@@ -22,8 +22,7 @@ Future<String?> cacheReferenceThumbnail(
     url: url,
     imageSource: imageSource,
     namespace: 'reference_thumbnails',
-    filename:
-        '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
+    filename: '${_stableUrlHash(url)}${_extensionFromUrl(url)}',
   );
 }
 
@@ -64,8 +63,7 @@ Future<String?> cacheReferenceFullImage(
     url: url,
     imageSource: imageSource,
     namespace: 'reference_full',
-    filename:
-        '${_safeFileName(point.id)}_${_stableUrlHash(url)}${_extensionFromUrl(url)}',
+    filename: '${_stableUrlHash(url)}${_extensionFromUrl(url)}',
   );
 }
 
@@ -94,10 +92,6 @@ Future<String?> _cacheTauriReferenceImage({
   return path;
 }
 
-String _safeFileName(String value) {
-  return value.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
-}
-
 String _stableUrlHash(String value) {
   var hash = 0x811c9dc5;
   for (final codeUnit in value.codeUnits) {
@@ -108,7 +102,7 @@ String _stableUrlHash(String value) {
 }
 
 bool _cachedPathMatchesUrl(String path, String url) {
-  return path.contains('_${_stableUrlHash(url)}');
+  return path.contains(_stableUrlHash(url));
 }
 
 String _extensionFromUrl(String url) {

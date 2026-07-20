@@ -9,7 +9,8 @@ import 'comparison_export_config_editor.dart';
 import 'comparison_export_config_storage_stub.dart'
     if (dart.library.io) 'comparison_export_config_storage_io.dart';
 import 'comparison_exporter_stub.dart'
-    if (dart.library.io) 'comparison_exporter_io.dart';
+    if (dart.library.io) 'comparison_exporter_io.dart'
+    if (dart.library.js_interop) 'comparison_exporter_web.dart';
 
 class ComparisonExportSheet extends StatefulWidget {
   const ComparisonExportSheet({

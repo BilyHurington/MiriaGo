@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_image_source_scope.dart';
+import '../desktop/desktop_asset_image.dart';
 import '../color_grading/color_grading_params.dart';
 import '../color_grading/color_grading_screen.dart';
 import '../plan/pilgrimage_models.dart';
@@ -344,7 +346,8 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       _record.referenceImagePath,
       resolvedPoint?.referenceFullImagePath,
     ].whereType<String>()) {
-      if (visitRecordLocalFileExists(path)) {
+      if (visitRecordLocalFileExists(path) ||
+          (kIsWeb && isDesktopAssetPath(path))) {
         return path;
       }
     }

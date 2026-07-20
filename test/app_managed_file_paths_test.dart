@@ -81,6 +81,35 @@ void main() {
     expect(resolution.resolvedPath, currentPhoto.path);
   });
 
+  for (final directory in <String>[
+    'reference_full',
+    'reference_thumbnails',
+    'user_reference_images',
+    'imported_plan_assets',
+  ]) {
+    test('rebases old iOS $directory path', () async {
+      final currentFile = File(p.join(documentsPath, directory, 'image.jpg'));
+      await currentFile.parent.create(recursive: true);
+      await currentFile.writeAsBytes(<int>[1, 2, 3], flush: true);
+
+      final resolution = await resolveAppManagedFilePath(
+        '/var/mobile/Containers/Data/Application/OLD/Documents/'
+        '$directory/image.jpg',
+      );
+
+      expect(resolution.exists, isTrue);
+      expect(resolution.rebased, isTrue);
+      expect(resolution.resolvedPath, currentFile.path);
+      expect(
+        resolveExistingAppManagedFilePathSync(
+          '/var/mobile/Containers/Data/Application/OLD/Documents/'
+          '$directory/image.jpg',
+        ),
+        currentFile.path,
+      );
+    });
+  }
+
   test(
     'keeps missing managed path unresolved without clearing original',
     () async {

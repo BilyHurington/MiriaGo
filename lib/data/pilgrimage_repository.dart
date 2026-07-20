@@ -127,6 +127,11 @@ abstract interface class PilgrimageRepository {
     required String pointId,
   });
 
+  Future<void> setCurrentGroup({
+    required String planId,
+    required String? groupId,
+  });
+
   Future<void> completePoint({
     required String planId,
     required String pointId,

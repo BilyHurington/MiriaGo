@@ -8,6 +8,10 @@ const _managedDirectories = <String>{
   'visit_record_images',
   'graded_photos',
   'imported_plan_assets',
+  'reference_full',
+  'reference_thumbnails',
+  'user_reference_images',
+  'user_references',
 };
 
 class AppManagedFilePathResolution {

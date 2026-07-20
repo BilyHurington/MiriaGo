@@ -293,6 +293,15 @@ class DesktopPilgrimageRepository extends SamplePilgrimageRepository {
   }
 
   @override
+  Future<void> setCurrentGroup({
+    required String planId,
+    required String? groupId,
+  }) async {
+    await super.setCurrentGroup(planId: planId, groupId: groupId);
+    await _savePlanById(planId);
+  }
+
+  @override
   Future<void> completePoint({
     required String planId,
     required String pointId,

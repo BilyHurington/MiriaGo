@@ -50,6 +50,22 @@ void main() {
     expect(reloadedPlan.currentPointId, plan.points[1].id);
   });
 
+  test('persists the last selected plan group', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final groupId = plan.groups.last.id;
+
+    await repository.setCurrentGroup(planId: plan.id, groupId: groupId);
+    final reloaded = await repository.loadActivePlan();
+    expect(reloaded.currentGroupId, groupId);
+
+    await repository.setCurrentGroup(planId: plan.id, groupId: 'ungrouped');
+    final ungrouped = await repository.loadActivePlan();
+    expect(ungrouped.currentGroupId, 'ungrouped');
+  });
+
   test('persists work type and cover metadata', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -318,6 +334,87 @@ void main() {
       expect(repaired.referenceImagePath, currentReference.path);
     },
   );
+
+  test(
+    'repairs old container point reference paths without losing data',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_point_path_repair_',
+      );
+      addTearDown(() async {
+        setAppManagedFileBaseDirectoriesForTesting(null);
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final documentsPath = p.join(tempDirectory.path, 'Documents');
+      PathProviderPlatform.instance = _FakePathProviderPlatform(documentsPath);
+      setAppManagedFileBaseDirectoriesForTesting(null);
+
+      final currentThumbnail = File(
+        p.join(documentsPath, 'reference_thumbnails', 'point_hash.jpg'),
+      );
+      final currentFull = File(
+        p.join(documentsPath, 'user_reference_images', 'full', 'point.jpg'),
+      );
+      for (final file in [currentThumbnail, currentFull]) {
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(<int>[1, 2, 3], flush: true);
+      }
+
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+      final point = plan.points.first;
+      const oldPrefix = '/var/mobile/Containers/Data/Application/OLD/Documents';
+      await repository.updatePointInPlan(
+        planId: plan.id,
+        point: point.copyWith(
+          referenceThumbnailPath:
+              '$oldPrefix/reference_thumbnails/point_hash.jpg',
+          referenceFullImagePath:
+              '$oldPrefix/user_reference_images/full/point.jpg',
+        ),
+      );
+
+      final repairingRepository = SqlitePilgrimageRepository(
+        database: database,
+      );
+      final repaired =
+          (await repairingRepository.loadActivePlan()).points.first;
+
+      expect(repaired.referenceThumbnailPath, currentThumbnail.path);
+      expect(repaired.referenceFullImagePath, currentFull.path);
+    },
+  );
+
+  test('keeps missing old container point paths for later recovery', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+    const missingThumbnail =
+        '/var/mobile/Containers/Data/Application/OLD/Documents/'
+        'reference_thumbnails/missing.jpg';
+    const missingFull =
+        '/var/mobile/Containers/Data/Application/OLD/Documents/'
+        'reference_full/missing.jpg';
+    await repository.updatePointInPlan(
+      planId: plan.id,
+      point: point.copyWith(
+        referenceThumbnailPath: missingThumbnail,
+        referenceFullImagePath: missingFull,
+      ),
+    );
+
+    final repairingRepository = SqlitePilgrimageRepository(database: database);
+    final repaired = (await repairingRepository.loadActivePlan()).points.first;
+
+    expect(repaired.referenceThumbnailPath, missingThumbnail);
+    expect(repaired.referenceFullImagePath, missingFull);
+  });
 
   test('keeps same Bangumi work independent across plans', () async {
     final database = AppDatabase(NativeDatabase.memory());

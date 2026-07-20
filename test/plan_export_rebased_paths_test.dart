@@ -107,6 +107,69 @@ void main() {
     );
     expect(package.warningCounts['visitPhotoMissing'] ?? 0, 0);
   });
+
+  test(
+    'exports local reference from rebased old app container paths',
+    () async {
+      final currentThumbnail = File(
+        p.join(documentsPath, 'user_reference_images', 'thumb', 'point.jpg'),
+      );
+      final currentFull = File(
+        p.join(documentsPath, 'user_reference_images', 'full', 'point.jpg'),
+      );
+      for (final file in [currentThumbnail, currentFull]) {
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(_minimalJpegBytes(), flush: true);
+      }
+
+      const oldPrefix = '/var/mobile/Containers/Data/Application/OLD/Documents';
+      const work = PilgrimageWork(
+        id: 'work-1',
+        title: '测试作品',
+        subtitle: '',
+        city: '测试市',
+        source: WorkSource.manual,
+      );
+      const point = PilgrimagePoint(
+        id: 'point-1',
+        work: work,
+        name: '本地点位',
+        subtitle: '',
+        position: LatLng(35, 135),
+        episodeLabel: '',
+        referenceLabel: '',
+        source: PointSource.manual,
+        referenceThumbnailPath:
+            '$oldPrefix/user_reference_images/thumb/point.jpg',
+        referenceFullImagePath:
+            '$oldPrefix/user_reference_images/full/point.jpg',
+      );
+      final plan = PilgrimagePlan(
+        id: 'plan-1',
+        name: '本地图片路径修复',
+        area: '测试市',
+        works: const [work],
+        points: const [point],
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      );
+
+      final package = await buildPlanExportV2Package(
+        plan: plan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: false,
+        ),
+      );
+
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      expect(archive.findFile('assets/thumbnails/point-1.jpg'), isNotNull);
+      expect(archive.findFile('assets/user_references/point-1.jpg'), isNotNull);
+      expect(package.warningCounts['thumbnailMissing'] ?? 0, 0);
+      expect(package.warningCounts['userReferenceMissing'] ?? 0, 0);
+    },
+  );
 }
 
 List<int> _minimalJpegBytes() {

@@ -663,7 +663,7 @@ class _BackupOptions extends StatelessWidget {
               '包含完整参考图缓存',
               style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0),
             ),
-            subtitle: const Text('默认仍会包含缩略图和用户自己添加的参考图。'),
+            subtitle: const Text('开启后才会把完整参考图写入数据包；默认仍会包含缩略图和用户自己添加的参考图。'),
             value: includeFullReferenceCache,
             onChanged: exporting ? null : onFullReferenceChanged,
           ),

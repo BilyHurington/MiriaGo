@@ -17,12 +17,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     : _database = database ?? AppDatabase(openConnection());
 
   final AppDatabase _database;
-  bool _visitRecordPathRepairAttempted = false;
+  bool _managedPathRepairAttempted = false;
 
   @override
   Future<List<PilgrimagePlan>> loadPlans() async {
     await _seedIfNeeded();
-    await _repairVisitRecordManagedFilePathsIfNeeded();
+    await _repairManagedFilePathsIfNeeded();
     final planRows = await (_database.select(
       _database.plans,
     )..orderBy([(table) => OrderingTerm.asc(table.createdAt)])).get();
@@ -33,7 +33,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<PilgrimagePlan> loadActivePlan() async {
     await _seedIfNeeded();
-    await _repairVisitRecordManagedFilePathsIfNeeded();
+    await _repairManagedFilePathsIfNeeded();
     final activePlan =
         await (_database.select(_database.plans)
               ..where((table) => table.active.equals(true))
@@ -105,7 +105,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
     await _seedIfNeeded();
-    await _repairVisitRecordManagedFilePathsIfNeeded();
+    await _repairManagedFilePathsIfNeeded();
     final rows =
         await (_database.select(_database.visitRecords)
               ..where((table) => table.planId.equals(planId))
@@ -628,6 +628,19 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<void> setCurrentGroup({
+    required String planId,
+    required String? groupId,
+  }) async {
+    await _database.transaction(() async {
+      await (_database.update(_database.plans)
+            ..where((table) => table.id.equals(planId)))
+          .write(PlansCompanion(currentGroupId: Value(groupId)));
+      await _touchPlan(planId);
+    });
+  }
+
+  @override
   Future<void> completePoint({
     required String planId,
     required String pointId,
@@ -1004,11 +1017,39 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
-  Future<void> _repairVisitRecordManagedFilePathsIfNeeded() async {
-    if (_visitRecordPathRepairAttempted) {
+  Future<void> _repairManagedFilePathsIfNeeded() async {
+    if (_managedPathRepairAttempted) {
       return;
     }
-    _visitRecordPathRepairAttempted = true;
+    _managedPathRepairAttempted = true;
+
+    final pointRows = await _database.select(_database.points).get();
+    final pointCandidates = pointRows
+        .where(_pointNeedsManagedPathRepair)
+        .toList(growable: false);
+    for (final row in pointCandidates) {
+      final thumbnailPath = await _rebasedPathOrNull(
+        row.referenceThumbnailPath,
+      );
+      final fullImagePath = await _rebasedPathOrNull(
+        row.referenceFullImagePath,
+      );
+      if (thumbnailPath == null && fullImagePath == null) {
+        continue;
+      }
+      await (_database.update(
+        _database.points,
+      )..where((table) => table.id.equals(row.id))).write(
+        PointsCompanion(
+          referenceThumbnailPath: thumbnailPath == null
+              ? const Value.absent()
+              : Value(thumbnailPath),
+          referenceFullImagePath: fullImagePath == null
+              ? const Value.absent()
+              : Value(fullImagePath),
+        ),
+      );
+    }
 
     final rows = await _database.select(_database.visitRecords).get();
     final candidates = rows
@@ -1052,6 +1093,13 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         ),
       );
     }
+  }
+
+  bool _pointNeedsManagedPathRepair(Point row) {
+    return hasPotentiallyRebasableAppManagedFilePath(
+          row.referenceThumbnailPath,
+        ) ||
+        hasPotentiallyRebasableAppManagedFilePath(row.referenceFullImagePath);
   }
 
   bool _visitRecordNeedsManagedPathRepair(VisitRecord row) {
