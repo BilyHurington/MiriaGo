@@ -37,6 +37,8 @@ class Works extends Table {
   TextColumn get id => text()();
   TextColumn get planId => text().references(Plans, #id)();
   IntColumn get bangumiId => integer().nullable()();
+  TextColumn get bangumiSubjectType => text().nullable()();
+  TextColumn get coverImageUrl => text().nullable()();
   TextColumn get title => text()();
   TextColumn get subtitle => text()();
   TextColumn get city => text()();
@@ -159,7 +161,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -419,6 +421,22 @@ class AppDatabase extends _$AppDatabase {
           'map_thumbnail_concurrent_loads',
           appSettingsEntries,
           appSettingsEntries.mapThumbnailConcurrentLoads,
+        );
+      }
+      if (from < 29) {
+        await _addColumnIfMissing(
+          migrator,
+          'works',
+          'bangumi_subject_type',
+          works,
+          works.bangumiSubjectType,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'works',
+          'cover_image_url',
+          works,
+          works.coverImageUrl,
         );
       }
     },

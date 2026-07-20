@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan_transfer/plan_package.dart';
 
 void main() {
@@ -21,14 +22,33 @@ void main() {
       referenceMode: '叠影',
     );
 
+    final originalWork = plan.works.first;
+    final workWithCover = PilgrimageWork(
+      id: originalWork.id,
+      bangumiId: originalWork.bangumiId,
+      bangumiSubjectType: BangumiSubjectType.anime,
+      coverImageUrl: 'https://lain.bgm.tv/r/200/pic/cover/test.jpg',
+      title: originalWork.title,
+      subtitle: originalWork.subtitle,
+      city: originalWork.city,
+      source: originalWork.source,
+    );
     final encoded = PlanPackage(
-      plan: plan.copyWith(memo: '第一天先去宇治站，晚上整理补拍点。'),
+      plan: plan.copyWith(
+        memo: '第一天先去宇治站，晚上整理补拍点。',
+        works: [workWithCover, ...plan.works.skip(1)],
+      ),
       visitRecords: [record],
     ).toJsonString();
     final decoded = PlanPackage.fromJsonString(encoded);
 
     expect(decoded.plan.name, plan.name);
     expect(decoded.plan.memo, '第一天先去宇治站，晚上整理补拍点。');
+    expect(decoded.plan.works.first.coverImageUrl, workWithCover.coverImageUrl);
+    expect(
+      decoded.plan.works.first.bangumiSubjectType,
+      BangumiSubjectType.anime,
+    );
     expect(encoded, contains('"memo": "第一天先去宇治站，晚上整理补拍点。"'));
     expect(
       decoded.plan.points.map((point) => point.id),
@@ -58,7 +78,16 @@ void main() {
     "updatedAt": "2026-07-01T00:00:00.000",
     "currentPointId": null,
     "completedPointIds": [],
-    "works": [],
+    "works": [
+      {
+        "id": "legacy-work",
+        "bangumiId": 123,
+        "title": "Legacy Work",
+        "subtitle": "",
+        "city": "Uji",
+        "source": "bangumi"
+      }
+    ],
     "points": []
   },
   "visitRecords": []
@@ -66,6 +95,8 @@ void main() {
 ''');
 
     expect(decoded.plan.memo, '');
+    expect(decoded.plan.works.single.bangumiSubjectType, isNull);
+    expect(decoded.plan.works.single.coverImageUrl, isNull);
   });
 
   test('keeps exported Anitabi URLs in canonical image host', () async {

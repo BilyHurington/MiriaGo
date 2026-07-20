@@ -1425,33 +1425,152 @@ class _EmptyPlanCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.route_outlined, color: AppColors.accent),
-              SizedBox(width: 8),
+              Icon(Icons.inventory_2_rounded, color: AppColors.accent),
+              const SizedBox(width: 10),
               Text(
                 '还没有点位',
                 style: TextStyle(
                   color: AppColors.accentDark,
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '先从 Anitabi 或手动录入添加巡礼点，之后这里会显示当前目标和完成进度。',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-              letterSpacing: 0,
+          const SizedBox(height: 14),
+          const _OnboardingTimeline(),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('plan-add-points'),
+              onPressed: onAddPoints,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+              label: const Text('添加点位'),
             ),
           ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: onAddPoints,
-            icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-            label: const Text('添加点位'),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingTimeline extends StatelessWidget {
+  const _OnboardingTimeline();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        _OnboardingStep(
+          number: 1,
+          title: '加作品',
+          body: '点击右上角，选择“添加点位”，点击“作品管理”，在这里搜索你想要加入巡礼计划的作品并添加。',
+        ),
+        _OnboardingStep(
+          number: 2,
+          title: '选点位',
+          body:
+              '在“添加点位”页面点击“从作品地图导入”，在这里你可以选择并添加巡礼点位。\n你也可以在“添加点位”页面点击“从Anitabi链接导入”。通过使用有效链接，导入点位时作品也会被一起添加。',
+        ),
+        _OnboardingStep(
+          number: 3,
+          title: '划片区',
+          body:
+              '回到“计划”页，点击右上角，选择“管理计划”，在这里你可以对加入计划的点位进行更细致的管理。你可以创建片区，把距离接近的点位放到一起。',
+          isLast: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _OnboardingStep extends StatelessWidget {
+  const _OnboardingStep({
+    required this.number,
+    required this.title,
+    required this.body,
+    this.isLast = false,
+  });
+
+  final int number;
+  final String title;
+  final String body;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Column(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$number',
+                    style: TextStyle(
+                      color: AppColors.onAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(child: Container(width: 2, color: AppColors.border)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 26,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.35,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1467,7 +1586,7 @@ class _WorkHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      margin: const EdgeInsets.fromLTRB(0, 8, 0, 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,

@@ -415,6 +415,7 @@ PilgrimageWork _workFromV2Json(Map<String, Object?> json) {
       BangumiSubjectType.values,
       json['bangumiSubjectType'],
     ),
+    coverImageUrl: json['coverImageUrl'] as String?,
     title: _stringValue(json['title'], fallback: '未知作品'),
     subtitle: _stringValue(json['subtitle'], fallback: ''),
     city: _stringValue(json['city'], fallback: '未设置地区'),

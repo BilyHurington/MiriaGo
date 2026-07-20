@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -30,6 +31,39 @@ Future<void> _pumpAppWithEmptyPlan(WidgetTester tester) async {
 Future<void> _openPlanMenu(WidgetTester tester) async {
   await tester.tap(find.byTooltip('计划操作').first);
   await tester.pumpAndSettle();
+}
+
+Future<void> _openAddPointsFromEmptyPlan(WidgetTester tester) async {
+  _invokeKeyedAction(tester, 'plan-add-points');
+  await tester.pumpAndSettle();
+}
+
+void _invokeKeyedAction(WidgetTester tester, String key) {
+  final finder = find.byKey(ValueKey(key));
+  final widget = tester.widget(finder);
+  if (widget is ButtonStyleButton) {
+    widget.onPressed!();
+    return;
+  }
+  if (widget is InkWell) {
+    widget.onTap!();
+    return;
+  }
+  final inkWell = find.descendant(of: finder, matching: find.byType(InkWell));
+  tester.widget<InkWell>(inkWell.first).onTap!();
+}
+
+void _mockClipboardRead(WidgetTester tester, String text) {
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.getData') {
+      return <String, dynamic>{'text': text};
+    }
+    return null;
+  });
+  addTearDown(() {
+    messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+  });
 }
 
 void main() {
@@ -131,7 +165,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('计划备忘录'), findsOneWidget);
-    expect(find.text('还没有写计划备忘'), findsOneWidget);
+    expect(find.text('还没有计划备忘'), findsOneWidget);
+    expect(find.text('开始记录'), findsOneWidget);
 
     await tester.tap(find.byTooltip('编辑'));
     await tester.pumpAndSettle();
@@ -321,31 +356,25 @@ void main() {
 
     await tester.tap(find.text('井用机前步行道').first);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('编辑点位'));
-    await tester.tap(find.text('编辑点位'));
+    _invokeKeyedAction(tester, 'point-detail-edit');
     await tester.pumpAndSettle();
 
     expect(find.text('编辑点位'), findsOneWidget);
     expect(find.text('备注'), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, '点位名称'),
+      find.byKey(const ValueKey('point-form-name')),
       '井用机前步行道 改',
     );
-    await tester.scrollUntilVisible(
-      find.widgetWithText(TextFormField, '备注'),
-      160,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.enterText(find.widgetWithText(TextFormField, '备注'), '测试备注');
-    await tester.scrollUntilVisible(
-      find.text('保存修改'),
-      160,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -120));
+    await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('保存修改'));
+    await tester.enterText(
+      find.byKey(const ValueKey('point-form-note')),
+      '测试备注',
+    );
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'point-form-save');
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(TextFormField, '点位名称'), findsNothing);
@@ -456,12 +485,14 @@ void main() {
     expect(find.text('还没有点位'), findsOneWidget);
     expect(find.text('添加点位'), findsOneWidget);
 
-    await tester.tap(find.text('添加点位'));
-    await tester.pumpAndSettle();
+    await _openAddPointsFromEmptyPlan(tester);
 
     expect(find.text('添加内容'), findsOneWidget);
-    expect(find.text('作品管理'), findsOneWidget);
-    expect(find.text('手动添加点位'), findsOneWidget);
+    expect(find.text('管理作品'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('add-points-manual-point')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('creates a new plan from the plan manager', (tester) async {
@@ -480,19 +511,16 @@ void main() {
   testWidgets('adds a manual work to an empty plan', (tester) async {
     await _pumpAppWithEmptyPlan(tester);
 
-    await tester.tap(find.text('添加点位'));
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-work-manager');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('作品管理'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('手动添加'));
+    _invokeKeyedAction(tester, 'work-manager-manual-work');
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.widgetWithText(TextFormField, '作品名称'), '原创短片');
-    await tester.enterText(
-      find.widgetWithText(TextFormField, '作品原名'),
-      'Original',
-    );
-    await tester.enterText(find.widgetWithText(TextFormField, '主要地区'), '京都市');
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '原创短片');
+    await tester.enterText(fields.at(1), 'Original');
+    await tester.enterText(fields.at(2), '京都市');
     await tester.tap(find.text('保存作品'));
     await tester.pumpAndSettle();
 
@@ -507,36 +535,31 @@ void main() {
   testWidgets('adds a manual point to an empty plan', (tester) async {
     await _pumpAppWithEmptyPlan(tester);
 
-    await tester.tap(find.text('添加点位'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('手动添加点位'));
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-manual-point');
     await tester.pumpAndSettle();
 
     expect(find.text('备注'), findsOneWidget);
 
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '轻音少女');
+    await tester.enterText(fields.at(3), '鸭川三条');
+    await tester.enterText(fields.at(4), '鸭川沿岸');
+    await tester.enterText(fields.at(5), '自定义场景 1');
+    await tester.enterText(fields.at(6), '手动录入');
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextFormField, '动画/作品名称'),
-      '轻音少女',
+      find.byKey(const ValueKey('point-form-latitude')),
+      '35.0089',
     );
-    await tester.enterText(find.widgetWithText(TextFormField, '点位名称'), '鸭川三条');
-    await tester.enterText(find.widgetWithText(TextFormField, '位置说明'), '鸭川沿岸');
     await tester.enterText(
-      find.widgetWithText(TextFormField, '集数/场景标签'),
-      '自定义场景 1',
-    );
-    await tester.enterText(find.widgetWithText(TextFormField, '参考来源'), '手动录入');
-    await tester.scrollUntilVisible(
-      find.widgetWithText(TextFormField, '纬度'),
-      120,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.enterText(find.widgetWithText(TextFormField, '纬度'), '35.0089');
-    await tester.enterText(
-      find.widgetWithText(TextFormField, '经度'),
+      find.byKey(const ValueKey('point-form-longitude')),
       '135.7711',
     );
-    await tester.ensureVisible(find.text('保存点位'));
-    await tester.tap(find.text('保存点位'));
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'point-form-save');
     await tester.pumpAndSettle();
 
     expect(find.text('未分组'), findsWidgets);
@@ -549,18 +572,13 @@ void main() {
   ) async {
     await _pumpAppWithEmptyPlan(tester);
 
-    await tester.tap(find.text('添加点位'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('手动添加点位'));
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-manual-point');
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('从地图选择坐标'),
-      220,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.ensureVisible(find.text('从地图选择坐标'));
-    await tester.tap(find.text('从地图选择坐标'));
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'point-form-map-picker');
     await tester.pumpAndSettle();
 
     expect(find.text('选择点位坐标'), findsOneWidget);
@@ -916,9 +934,8 @@ void main() {
   ) async {
     await _pumpAppWithEmptyPlan(tester);
 
-    await tester.tap(find.text('添加点位'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('从 Anitabi 链接导入'));
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-anitabi-link');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -930,6 +947,75 @@ void main() {
 
     expect(find.textContaining('链接缺少作品 ID'), findsOneWidget);
     expect(find.text('从作品地图导入'), findsNothing);
+  });
+
+  testWidgets('Anitabi link import pastes clipboard without opening map', (
+    tester,
+  ) async {
+    await _pumpAppWithEmptyPlan(tester);
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-anitabi-link');
+    await tester.pumpAndSettle();
+    const link = 'https://www.anitabi.cn/map?bangumiId=282923&pid=djnfcvo';
+    _mockClipboardRead(tester, link);
+
+    await tester.tap(find.byTooltip('粘贴'));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextFormField>(find.byType(TextFormField));
+    expect(field.controller?.text, link);
+    expect(find.text('Anitabi 地图导入'), findsNothing);
+  });
+
+  testWidgets('Anitabi link import explains empty clipboard', (tester) async {
+    await _pumpAppWithEmptyPlan(tester);
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-anitabi-link');
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '');
+
+    await tester.tap(find.byTooltip('粘贴'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('剪贴板中没有可用'), findsOneWidget);
+  });
+
+  testWidgets('Anitabi link import validates pasted text', (tester) async {
+    await _pumpAppWithEmptyPlan(tester);
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-anitabi-link');
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, 'not an Anitabi URL');
+
+    await tester.tap(find.byTooltip('粘贴'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('请输入有效的 Anitabi'), findsOneWidget);
+    expect(find.text('Anitabi 地图导入'), findsNothing);
+  });
+
+  testWidgets('Anitabi link import handles clipboard read failure', (
+    tester,
+  ) async {
+    await _pumpAppWithEmptyPlan(tester);
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-anitabi-link');
+    await tester.pumpAndSettle();
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.getData') {
+        throw PlatformException(code: 'clipboard-unavailable');
+      }
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.tap(find.byTooltip('粘贴'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('无法读取剪贴板'), findsOneWidget);
   });
 
   testWidgets('Anitabi map import explains manual works', (tester) async {

@@ -50,6 +50,112 @@ void main() {
     expect(reloadedPlan.currentPointId, plan.points[1].id);
   });
 
+  test('persists work type and cover metadata', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.createPlan(name: '作品元数据', area: '东京');
+    const work = PilgrimageWork(
+      id: 'manual-music-work',
+      title: '测试音乐',
+      subtitle: 'Test Music',
+      city: '东京',
+      source: WorkSource.manual,
+      bangumiSubjectType: BangumiSubjectType.music,
+      coverImageUrl: 'https://lain.bgm.tv/r/200/pic/cover/test.jpg',
+    );
+
+    await repository.addWorkToPlan(planId: plan.id, work: work);
+    final reloaded = (await repository.loadPlans()).singleWhere(
+      (candidate) => candidate.id == plan.id,
+    );
+    final stored = reloaded.works.single;
+
+    expect(stored.bangumiSubjectType, BangumiSubjectType.music);
+    expect(stored.coverImageUrl, work.coverImageUrl);
+  });
+
+  for (final sourceVersion in [27, 28]) {
+    test(
+      'schema $sourceVersion migration preserves data and adds work metadata',
+      () async {
+        final database = AppDatabase(NativeDatabase.memory());
+        addTearDown(database.close);
+        final repository = SqlitePilgrimageRepository(database: database);
+        final plan = await repository.createPlan(
+          name: '迁移保留计划 $sourceVersion',
+          area: '测试地区',
+        );
+        const legacyWork = PilgrimageWork(
+          id: 'legacy-work',
+          bangumiId: 29,
+          title: '迁移保留作品',
+          subtitle: 'Migration Work',
+          city: '测试地区',
+          source: WorkSource.bangumi,
+        );
+        await repository.addWorkToPlan(planId: plan.id, work: legacyWork);
+        await repository.saveAppSettings(
+          const AppSettings(
+            customXyzTileUrl: 'https://example.com/migration/{z}/{x}/{y}.png',
+          ),
+        );
+        await database.customStatement(
+          'ALTER TABLE works DROP COLUMN bangumi_subject_type',
+        );
+        await database.customStatement(
+          'ALTER TABLE works DROP COLUMN cover_image_url',
+        );
+        if (sourceVersion == 28) {
+          await database.customStatement(
+            'ALTER TABLE app_settings_entries '
+            'ADD COLUMN camera_input_source TEXT NULL',
+          );
+          await database.customStatement(
+            "UPDATE app_settings_entries SET camera_input_source = 'usb'",
+          );
+        }
+
+        await database.migration.onUpgrade(
+          database.createMigrator(),
+          sourceVersion,
+          database.schemaVersion,
+        );
+
+        final workColumns = await _tableColumnNames(database, 'works');
+        expect(
+          workColumns,
+          containsAll(['bangumi_subject_type', 'cover_image_url']),
+        );
+        final migratedPlan = (await repository.loadPlans()).singleWhere(
+          (candidate) => candidate.id == plan.id,
+        );
+        expect(migratedPlan.name, '迁移保留计划 $sourceVersion');
+        expect(migratedPlan.works.single.title, legacyWork.title);
+        expect(migratedPlan.works.single.bangumiSubjectType, isNull);
+        expect(migratedPlan.works.single.coverImageUrl, isNull);
+        final settings = await repository.loadAppSettings();
+        expect(
+          settings.customXyzTileUrl,
+          'https://example.com/migration/{z}/{x}/{y}.png',
+        );
+        if (sourceVersion == 28) {
+          final settingColumns = await _tableColumnNames(
+            database,
+            'app_settings_entries',
+          );
+          expect(settingColumns, contains('camera_input_source'));
+          final cameraSource = await database
+              .customSelect(
+                'SELECT camera_input_source FROM app_settings_entries LIMIT 1',
+              )
+              .getSingle();
+          expect(cameraSource.read<String?>('camera_input_source'), 'usb');
+        }
+      },
+    );
+  }
+
   test('deletes current point and promotes first pending point', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -1482,6 +1588,16 @@ void main() {
     expect(updatedPlan.points.first.groupId, isNull);
     expect(updatedPlan.points.first.groupOrderIndex, isNull);
   });
+}
+
+Future<Set<String>> _tableColumnNames(
+  AppDatabase database,
+  String tableName,
+) async {
+  final rows = await database
+      .customSelect('PRAGMA table_info($tableName)')
+      .get();
+  return rows.map((row) => row.read<String>('name')).toSet();
 }
 
 Future<void> _insertLegacyWork(

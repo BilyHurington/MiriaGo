@@ -69,6 +69,7 @@ class BangumiApiClient {
     final date = subject['date'] as String? ?? '';
     final title = nameCn.isEmpty ? name : nameCn;
     final subtitle = nameCn.isEmpty ? 'Bangumi #$bangumiId' : name;
+    final coverImageUrl = _coverImageUrl(subject['images']);
 
     final metaParts = [
       if (subjectType != null) subjectType.label,
@@ -79,11 +80,36 @@ class BangumiApiClient {
       id: 'bangumi-$bangumiId',
       bangumiId: bangumiId,
       bangumiSubjectType: subjectType,
+      coverImageUrl: coverImageUrl,
       title: title,
       subtitle: subtitle,
       city: metaParts.isEmpty ? '未设置地区' : metaParts.join(' / '),
       source: WorkSource.bangumi,
     );
+  }
+
+  String? _coverImageUrl(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    for (final key in const ['small', 'common', 'medium', 'grid', 'large']) {
+      final candidate = value[key];
+      if (candidate is! String || candidate.trim().isEmpty) {
+        continue;
+      }
+      final text = candidate.trim();
+      if (text.startsWith('//')) {
+        return 'https:$text';
+      }
+      final uri = Uri.tryParse(text);
+      if (uri == null || !uri.hasAuthority) {
+        continue;
+      }
+      return uri.scheme == 'http'
+          ? uri.replace(scheme: 'https').toString()
+          : text;
+    }
+    return null;
   }
 }
 

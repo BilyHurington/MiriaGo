@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan_transfer/plan_export_v2.dart';
 import 'package:miriago/plan_transfer/plan_import_package.dart';
 
@@ -20,8 +21,23 @@ void main() {
       referenceThumbnailPath: 'docs/sample_images/铃音-记录详情页面-调色前.jpg',
       referenceFullImagePath: 'docs/sample_images/铃音-记录详情页面-调色后.jpg',
     );
+    final originalWork = plan.works.first;
+    final workWithMetadata = PilgrimageWork(
+      id: originalWork.id,
+      bangumiId: originalWork.bangumiId,
+      bangumiSubjectType: BangumiSubjectType.anime,
+      coverImageUrl: 'https://lain.bgm.tv/r/200/pic/cover/import.jpg',
+      title: originalWork.title,
+      subtitle: originalWork.subtitle,
+      city: originalWork.city,
+      source: originalWork.source,
+    );
     final package = await buildPlanExportV2Package(
-      plan: plan.copyWith(memo: '导出前确认交通预约。', points: [point]),
+      plan: plan.copyWith(
+        memo: '导出前确认交通预约。',
+        works: [workWithMetadata, ...plan.works.skip(1)],
+        points: [point],
+      ),
       visitRecords: [record],
       options: const PlanExportV2Options(
         mode: PlanExportV2Mode.planWithRecords,
@@ -36,6 +52,14 @@ void main() {
 
     expect(importPackage.kind, PlanImportPackageKind.miriagoZip);
     expect(importPackage.package.plan.memo, '导出前确认交通预约。');
+    expect(
+      importPackage.package.plan.works.first.bangumiSubjectType,
+      BangumiSubjectType.anime,
+    );
+    expect(
+      importPackage.package.plan.works.first.coverImageUrl,
+      workWithMetadata.coverImageUrl,
+    );
     expect(importPackage.hasRestorableAssets, isTrue);
     expect(
       importPackage.assetEntries,

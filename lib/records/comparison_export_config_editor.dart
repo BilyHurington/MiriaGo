@@ -28,12 +28,20 @@ class ComparisonExportConfigEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _CurrentConfigSummary(config: config),
+        const SizedBox(height: 18),
+        const _SectionDivider(),
+        const SizedBox(height: 18),
+        const _SectionLabel('外观'),
+        const SizedBox(height: 12),
         ComparisonAppearanceSection(
           config: config,
           borderColorOptions: borderColorOptions,
           borderColorLabels: borderColorLabels,
           onChanged: onChanged,
         ),
+        const SizedBox(height: 20),
+        const _SectionDivider(),
         const SizedBox(height: 18),
         ComparisonMetadataSection(
           config: config,
@@ -75,37 +83,49 @@ class ComparisonAppearanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final automaticOutput = config.outputWidth == ComparisonOutputWidth.auto;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('外观'),
-        const SizedBox(height: 8),
         Row(
           children: [
             const _FieldLabel('边框宽度'),
             const Spacer(),
-            Text(
-              config.borderWidthPercent == 0
+            _ValueCapsule(
+              label: config.borderWidthPercent == 0
                   ? '无'
                   : '${config.borderWidthPercent.toStringAsFixed(1)}%',
-              style: TextStyle(
-                color: AppColors.accent,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
             ),
           ],
         ),
-        Slider(
-          value: config.borderWidthPercent,
-          min: 0,
-          max: 3.0,
-          divisions: 30,
-          onChanged: (v) => onChanged(config.copyWith(borderWidthPercent: v)),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 4,
+            thumbShape: const RoundSliderThumbShape(
+              enabledThumbRadius: 7,
+              pressedElevation: 3,
+            ),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            valueIndicatorShape: const PaddleSliderValueIndicatorShape(),
+            showValueIndicator: ShowValueIndicator.onlyForDiscrete,
+          ),
+          child: Slider(
+            value: config.borderWidthPercent,
+            min: 0,
+            max: 3.0,
+            divisions: 30,
+            label: config.borderWidthPercent == 0
+                ? '无'
+                : '${config.borderWidthPercent.toStringAsFixed(1)}%',
+            onChanged: (v) => onChanged(config.copyWith(borderWidthPercent: v)),
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        const _SectionDivider(),
+        const SizedBox(height: 16),
         const _FieldLabel('边框颜色'),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
         Wrap(
           spacing: 10,
           runSpacing: 8,
@@ -121,36 +141,306 @@ class ComparisonAppearanceSection extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 18),
+        const _SectionDivider(),
         const SizedBox(height: 16),
-        const _FieldLabel('输出宽度'),
-        const SizedBox(height: 6),
+        _ToggleSetting(
+          title: '自动输出宽度',
+          subtitle: '根据图片尺寸自动确定输出宽度',
+          value: automaticOutput,
+          switchKey: const ValueKey('comparison-output-auto'),
+          onChanged: (useAutomatic) {
+            onChanged(
+              config.copyWith(
+                outputWidth: useAutomatic
+                    ? ComparisonOutputWidth.auto
+                    : ComparisonOutputWidth.w1920,
+              ),
+            );
+          },
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          child: automaticOutput
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _OutputWidthSelector(
+                    selectedWidth: config.outputWidth,
+                    onSelected: (width) =>
+                        onChanged(config.copyWith(outputWidth: width)),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 18),
+        const _SectionDivider(),
+        const SizedBox(height: 8),
+        _ToggleSetting(
+          title: '显示标签',
+          subtitle: '在参考图上显示“参考”字样，在你拍的巡礼图上显示“巡礼”字样',
+          value: config.showLabels,
+          onChanged: (value) => onChanged(config.copyWith(showLabels: value)),
+        ),
+      ],
+    );
+  }
+}
+
+class _CurrentConfigSummary extends StatelessWidget {
+  const _CurrentConfigSummary({required this.config});
+
+  final ComparisonExportConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderLabel = config.borderWidthPercent == 0
+        ? '无边框'
+        : '${config.borderWidthPercent.toStringAsFixed(1)}% 边框';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('当前配置'),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ComparisonOutputWidth.values
-              .map((ow) {
-                return _OptionChip(
-                  label: ow.label,
-                  selected: config.outputWidth == ow,
-                  onSelected: () => onChanged(config.copyWith(outputWidth: ow)),
-                );
-              })
-              .toList(growable: false),
-        ),
-        const SizedBox(height: 16),
-        Row(
           children: [
-            const Text(
-              '显示标签',
-              style: TextStyle(fontSize: 14, letterSpacing: 0),
+            _SummaryChip(
+              label: config.outputWidth == ComparisonOutputWidth.auto
+                  ? '自动宽度'
+                  : config.outputWidth.label,
             ),
-            const Spacer(),
-            Switch(
-              value: config.showLabels,
-              onChanged: (v) => onChanged(config.copyWith(showLabels: v)),
-            ),
+            _SummaryChip(label: borderLabel),
+            _SummaryChip(label: config.showLabels ? '显示标签' : '隐藏标签'),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _ValueCapsule extends StatelessWidget {
+  const _ValueCapsule({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 32),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _OutputWidthSelector extends StatelessWidget {
+  const _OutputWidthSelector({
+    required this.selectedWidth,
+    required this.onSelected,
+  });
+
+  final ComparisonOutputWidth selectedWidth;
+  final ValueChanged<ComparisonOutputWidth> onSelected;
+
+  static const _fixedWidths = [
+    ComparisonOutputWidth.w1080,
+    ComparisonOutputWidth.w1920,
+    ComparisonOutputWidth.w2560,
+    ComparisonOutputWidth.w3840,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 40,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < _fixedWidths.length; index++) ...[
+            Expanded(
+              child: _OutputWidthOption(
+                key: ValueKey('comparison-output-${_fixedWidths[index].name}'),
+                label: _fixedWidths[index].label,
+                selected: selectedWidth == _fixedWidths[index],
+                onTap: () => onSelected(_fixedWidths[index]),
+              ),
+            ),
+            if (index < _fixedWidths.length - 1)
+              const VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: AppColors.surfaceMuted,
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OutputWidthOption extends StatelessWidget {
+  const _OutputWidthOption({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                color: selected
+                    ? AppColors.accent.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: selected
+                        ? AppColors.accentDark
+                        : AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              if (selected)
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 0,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToggleSetting extends StatelessWidget {
+  const _ToggleSetting({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    this.switchKey,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Key? switchKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Switch(key: switchKey, value: value, onChanged: onChanged),
       ],
     );
   }
@@ -174,97 +464,75 @@ class ComparisonMetadataSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel('元数据'),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: pilgrimNameController,
-          decoration: const InputDecoration(
-            labelText: '巡礼者名字',
-            prefixIcon: Icon(Icons.person_outline),
+        const SizedBox(height: 12),
+        _ToggleSetting(
+          title: '显示巡礼者名字',
+          subtitle: '在图片上显示巡礼者名字',
+          value: config.showPilgrimName,
+          switchKey: const ValueKey('comparison-show-pilgrim-name'),
+          onChanged: (value) =>
+              onChanged(config.copyWith(showPilgrimName: value)),
+        ),
+        const SizedBox(height: 10),
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 160),
+          opacity: config.showPilgrimName ? 1 : 0.45,
+          child: TextFormField(
+            key: const ValueKey('comparison-pilgrim-name'),
+            controller: pilgrimNameController,
+            enabled: config.showPilgrimName,
+            decoration: _comparisonTextFieldDecoration(
+              hintText: '请输入巡礼者名字',
+              enabled: config.showPilgrimName,
+            ),
+            textInputAction: TextInputAction.done,
+            onChanged: (value) =>
+                onChanged(config.copyWith(pilgrimName: value)),
           ),
-          textInputAction: TextInputAction.done,
-          onChanged: (value) => onChanged(config.copyWith(pilgrimName: value)),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '在右侧显示巡礼者',
-                style: TextStyle(fontSize: 14, letterSpacing: 0),
-              ),
-            ),
-            Switch(
-              value: config.showPilgrimName,
-              onChanged: (v) => onChanged(config.copyWith(showPilgrimName: v)),
-            ),
-          ],
+        const SizedBox(height: 20),
+        const _SectionDivider(),
+        const SizedBox(height: 10),
+        _ToggleSetting(
+          title: '显示调色参数',
+          subtitle: '在图片底部显示调色相关参数',
+          value: config.showColorGradingParams,
+          onChanged: (value) =>
+              onChanged(config.copyWith(showColorGradingParams: value)),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '底部显示调色参数',
-                style: TextStyle(fontSize: 14, letterSpacing: 0),
-              ),
-            ),
-            Switch(
-              value: config.showColorGradingParams,
-              onChanged: (v) =>
-                  onChanged(config.copyWith(showColorGradingParams: v)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 20),
+        const _SectionDivider(),
+        const SizedBox(height: 18),
+        const _SectionLabel('显示内容'),
+        const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
-            final itemWidth = constraints.maxWidth >= 360
-                ? (constraints.maxWidth - 8) / 2
-                : constraints.maxWidth;
-
+            const spacing = 8.0;
+            final itemWidth = (constraints.maxWidth - spacing * 2) / 3;
             return Wrap(
-              spacing: 8,
-              runSpacing: 2,
-              children: ComparisonMetadataField.values
-                  .map((field) {
-                    final selected = config.metadataFields.contains(field);
-                    return SizedBox(
-                      width: itemWidth,
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: selected,
-                            onChanged: (_) {
-                              final updated = Set<ComparisonMetadataField>.from(
-                                config.metadataFields,
-                              );
-                              if (selected) {
-                                updated.remove(field);
-                              } else {
-                                updated.add(field);
-                              }
-                              onChanged(
-                                config.copyWith(metadataFields: updated),
-                              );
-                            },
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          Expanded(
-                            child: Text(
-                              field.label,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
+              spacing: spacing,
+              runSpacing: 8,
+              children: [
+                for (final field in _metadataFieldOrder)
+                  SizedBox(
+                    width: itemWidth,
+                    child: _MetadataFilterChip(
+                      field: field,
+                      selected: config.metadataFields.contains(field),
+                      onSelected: () {
+                        final updated = Set<ComparisonMetadataField>.from(
+                          config.metadataFields,
+                        );
+                        if (updated.contains(field)) {
+                          updated.remove(field);
+                        } else {
+                          updated.add(field);
+                        }
+                        onChanged(config.copyWith(metadataFields: updated));
+                      },
+                    ),
+                  ),
+              ],
             );
           },
         ),
@@ -273,37 +541,101 @@ class ComparisonMetadataSection extends StatelessWidget {
   }
 }
 
-class _OptionChip extends StatelessWidget {
-  const _OptionChip({
-    required this.label,
+const _metadataFieldOrder = [
+  ComparisonMetadataField.capturedAt,
+  ComparisonMetadataField.pointName,
+  ComparisonMetadataField.workTitle,
+  ComparisonMetadataField.episodeLabel,
+  ComparisonMetadataField.coordinates,
+  ComparisonMetadataField.anitabiId,
+];
+
+class _MetadataFilterChip extends StatelessWidget {
+  const _MetadataFilterChip({
+    required this.field,
     required this.selected,
     required this.onSelected,
   });
 
-  final String label;
+  final ComparisonMetadataField field;
   final bool selected;
   final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: selected ? Colors.white : AppColors.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+    final foreground = selected
+        ? AppColors.accentDark
+        : AppColors.textSecondary;
+    return FilterChip(
+      key: ValueKey('comparison-metadata-${field.name}'),
+      avatar: Icon(_metadataFieldIcon(field), size: 16, color: foreground),
+      label: SizedBox(
+        width: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            field.label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
         ),
       ),
       selected: selected,
-      selectedColor: AppColors.accent,
-      backgroundColor: AppColors.surfaceMuted,
+      showCheckmark: false,
+      selectedColor: AppColors.accent.withValues(alpha: 0.08),
+      backgroundColor: AppColors.surface,
       side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
       onSelected: (_) => onSelected(),
     );
   }
+}
+
+IconData _metadataFieldIcon(ComparisonMetadataField field) {
+  return switch (field) {
+    ComparisonMetadataField.capturedAt => Icons.access_time_rounded,
+    ComparisonMetadataField.pointName => Icons.place_rounded,
+    ComparisonMetadataField.workTitle => Icons.article_rounded,
+    ComparisonMetadataField.episodeLabel => Icons.landscape_outlined,
+    ComparisonMetadataField.coordinates => Icons.my_location_rounded,
+    ComparisonMetadataField.anitabiId => Icons.badge_outlined,
+  };
+}
+
+InputDecoration _comparisonTextFieldDecoration({
+  required String hintText,
+  required bool enabled,
+}) {
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: TextStyle(
+      color: AppColors.textSecondary.withValues(alpha: 0.42),
+      fontSize: 14,
+      letterSpacing: 0,
+    ),
+    filled: true,
+    fillColor: enabled ? AppColors.surface : AppColors.surfaceMuted,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: AppColors.border),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: AppColors.border.withValues(alpha: 0.65)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: AppColors.accent, width: 1.4),
+    ),
+  );
 }
 
 class _ColorOption extends StatelessWidget {
@@ -322,57 +654,79 @@ class _ColorOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected
-                    ? (color == AppColors.accent
-                          ? AppColors.textPrimary
-                          : AppColors.accent)
-                    : color == Colors.white
-                    ? AppColors.border
-                    : Colors.transparent,
-                width: selected ? 3 : 1,
+      child: AnimatedScale(
+        scale: selected ? 1.03 : 1,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          constraints: const BoxConstraints(minWidth: 76, minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.accent.withValues(alpha: 0.08)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.border,
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color == Colors.white
+                        ? AppColors.border
+                        : Colors.transparent,
+                  ),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 140),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  child: selected
+                      ? Icon(
+                          Icons.check,
+                          key: const ValueKey('selected'),
+                          size: 14,
+                          color: color.computeLuminance() > 0.55
+                              ? AppColors.textPrimary
+                              : Colors.white,
+                        )
+                      : const SizedBox(
+                          key: ValueKey('unselected'),
+                          width: 14,
+                          height: 14,
+                        ),
+                ),
               ),
-              boxShadow: selected
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x33000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: selected
-                ? Icon(
-                    Icons.check,
-                    size: 18,
-                    color: color.computeLuminance() > 0.55
-                        ? AppColors.textPrimary
-                        : Colors.white,
-                  )
-                : null,
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? AppColors.accentDark
+                      : AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -388,10 +742,23 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       label,
       style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
+        fontSize: 18,
+        fontWeight: FontWeight.w900,
         letterSpacing: 0,
       ),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(
+      height: 1,
+      thickness: 1,
+      color: AppColors.surfaceMuted,
     );
   }
 }
@@ -406,8 +773,8 @@ class _FieldLabel extends StatelessWidget {
     return Text(
       label,
       style: const TextStyle(
-        color: AppColors.textSecondary,
-        fontSize: 13,
+        color: AppColors.textPrimary,
+        fontSize: 14,
         fontWeight: FontWeight.w700,
         letterSpacing: 0,
       ),

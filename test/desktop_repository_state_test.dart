@@ -25,7 +25,21 @@ void main() {
       ),
     );
     final source = repository.snapshot();
-    final sourcePlan = source.plans.single.copyWith(memo: '桌面端备忘录');
+    final originalWork = source.plans.single.works.first;
+    final workWithCover = PilgrimageWork(
+      id: originalWork.id,
+      bangumiId: originalWork.bangumiId,
+      bangumiSubjectType: BangumiSubjectType.anime,
+      coverImageUrl: 'https://lain.bgm.tv/r/200/pic/cover/test.jpg',
+      title: originalWork.title,
+      subtitle: originalWork.subtitle,
+      city: originalWork.city,
+      source: originalWork.source,
+    );
+    final sourcePlan = source.plans.single.copyWith(
+      memo: '桌面端备忘录',
+      works: [workWithCover, ...source.plans.single.works.skip(1)],
+    );
     final sourceWithMemo = SamplePilgrimageRepositorySnapshot(
       plans: [sourcePlan],
       visitRecords: source.visitRecords,
@@ -66,6 +80,14 @@ void main() {
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
     expect(decoded.plans.single.id, source.plans.single.id);
     expect(decoded.plans.single.memo, '桌面端备忘录');
+    expect(
+      decoded.plans.single.works.first.coverImageUrl,
+      workWithCover.coverImageUrl,
+    );
+    expect(
+      decoded.plans.single.works.first.bangumiSubjectType,
+      BangumiSubjectType.anime,
+    );
     expect(
       decoded.plans.single.points.length,
       source.plans.single.points.length,

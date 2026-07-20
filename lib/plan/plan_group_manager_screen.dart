@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_scaled_route.dart';
 import 'group_anchor_picker_screen.dart';
 import 'pilgrimage_models.dart';
 
@@ -231,7 +232,8 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
       return;
     }
     final selection = await Navigator.of(context).push<GroupAnchorSelection>(
-      MaterialPageRoute(
+      appScaledMaterialPageRoute<GroupAnchorSelection>(
+        settings: settings,
         builder: (_) => GroupAnchorPickerScreen(
           group: group,
           points: _plan.points,

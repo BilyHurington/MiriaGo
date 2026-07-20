@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/app_theme.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/records/comparison_export_config.dart';
 import 'package:miriago/records/comparison_export_config_editor.dart';
@@ -58,5 +59,99 @@ void main() {
     );
 
     expect(comparisonExportConfigSummary(config), '宽度 1920px / 边框 1.0% / 显示标签');
+  });
+
+  testWidgets('comparison editor exposes the redesigned interactions', (
+    tester,
+  ) async {
+    var config = const ComparisonExportConfig();
+    final pilgrimNameController = TextEditingController();
+    addTearDown(pilgrimNameController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return ComparisonExportConfigEditor(
+                  config: config,
+                  pilgrimNameController: pilgrimNameController,
+                  onChanged: (updated) {
+                    setState(() => config = updated);
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('自动宽度'), findsOneWidget);
+    expect(find.text('1080px'), findsNothing);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('comparison-pilgrim-name')),
+          )
+          .enabled,
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('comparison-output-auto')));
+    await tester.pumpAndSettle();
+    expect(config.outputWidth, ComparisonOutputWidth.w1920);
+    expect(find.text('1080px'), findsOneWidget);
+    expect(find.text('自定义'), findsNothing);
+    expect(find.text('外观'), findsOneWidget);
+    expect(find.text('元数据'), findsOneWidget);
+    expect(find.text('显示内容'), findsOneWidget);
+    expect(find.text('巡礼者信息'), findsNothing);
+    expect(find.text('调色参数'), findsNothing);
+
+    final pilgrimSwitch = find.byKey(
+      const ValueKey('comparison-show-pilgrim-name'),
+    );
+    await tester.ensureVisible(pilgrimSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(pilgrimSwitch);
+    await tester.pumpAndSettle();
+    expect(config.showPilgrimName, isTrue);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('comparison-pilgrim-name')),
+          )
+          .enabled,
+      isTrue,
+    );
+
+    final episodeChip = find.byKey(
+      const ValueKey('comparison-metadata-episodeLabel'),
+    );
+    await tester.ensureVisible(episodeChip);
+    await tester.pumpAndSettle();
+    final firstRowTops = ['capturedAt', 'pointName', 'workTitle'].map(
+      (name) => tester
+          .getTopLeft(find.byKey(ValueKey('comparison-metadata-$name')))
+          .dy,
+    );
+    expect(firstRowTops.toSet(), hasLength(1));
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey('comparison-metadata-episodeLabel')),
+          )
+          .dy,
+      greaterThan(firstRowTops.first),
+    );
+    await tester.tap(episodeChip);
+    await tester.pumpAndSettle();
+    expect(
+      config.metadataFields.contains(ComparisonMetadataField.episodeLabel),
+      isTrue,
+    );
   });
 }
