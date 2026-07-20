@@ -8,6 +8,7 @@ import '../widgets/snackbar_helper.dart';
 import '../widgets/app_scaled_route.dart';
 import 'add_points_screen.dart';
 import 'pilgrimage_models.dart';
+import 'pilgrimage_work_cover.dart';
 
 class WorkManagerScreen extends StatefulWidget {
   WorkManagerScreen({
@@ -219,6 +220,7 @@ class _AddWorkPanel extends StatelessWidget {
           children: [
             Expanded(
               child: _AddWorkAction(
+                key: const ValueKey('work-manager-bangumi-work'),
                 icon: Icons.search_rounded,
                 title: '从Bangumi添加',
                 subtitle: '自动获取信息',
@@ -233,6 +235,7 @@ class _AddWorkPanel extends StatelessWidget {
             ),
             Expanded(
               child: _AddWorkAction(
+                key: const ValueKey('work-manager-manual-work'),
                 icon: Icons.edit_rounded,
                 title: '手动添加作品',
                 subtitle: '未收录时使用',
@@ -252,6 +255,7 @@ class _AddWorkAction extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    super.key,
   });
 
   final IconData icon;
@@ -356,18 +360,7 @@ class _WorkManageCardState extends State<_WorkManageCard> {
       ),
       child: Row(
         children: [
-          Semantics(
-            label: '作品封面预留',
-            child: Container(
-              width: 58,
-              height: 78,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: AppColors.border),
-              ),
-            ),
-          ),
+          PilgrimageWorkCover(work: work),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

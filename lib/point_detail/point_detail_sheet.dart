@@ -510,6 +510,7 @@ class _PointDetailActions extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
+              key: const ValueKey('point-detail-edit'),
               onPressed: onEditPoint,
               icon: const Icon(Icons.edit_outlined, size: 18),
               label: const Text('编辑点位'),

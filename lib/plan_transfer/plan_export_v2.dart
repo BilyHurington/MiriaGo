@@ -429,6 +429,7 @@ Map<String, Object?> _workJson(PilgrimageWork work) {
     'id': work.id,
     'bangumiId': work.bangumiId,
     'bangumiSubjectType': work.bangumiSubjectType?.name,
+    'coverImageUrl': work.coverImageUrl,
     'title': work.title,
     'subtitle': work.subtitle,
     'city': work.city,

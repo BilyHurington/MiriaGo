@@ -1444,6 +1444,7 @@ class _EmptyPlanCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
+              key: const ValueKey('plan-add-points'),
               onPressed: onAddPoints,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(46),

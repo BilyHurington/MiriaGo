@@ -100,6 +100,8 @@ Map<String, Object?> _workToJson(PilgrimageWork work) {
   return {
     'id': work.id,
     'bangumiId': work.bangumiId,
+    'bangumiSubjectType': work.bangumiSubjectType?.name,
+    'coverImageUrl': work.coverImageUrl,
     'title': work.title,
     'subtitle': work.subtitle,
     'city': work.city,
@@ -111,6 +113,8 @@ PilgrimageWork _workFromJson(Map<String, Object?> json) {
   return PilgrimageWork(
     id: _stringValue(json['id'], fallback: 'work-${json.hashCode}'),
     bangumiId: json['bangumiId'] is int ? json['bangumiId'] as int : null,
+    bangumiSubjectType: _bangumiSubjectTypeValue(json['bangumiSubjectType']),
+    coverImageUrl: json['coverImageUrl'] as String?,
     title: _stringValue(json['title'], fallback: '未知作品'),
     subtitle: _stringValue(json['subtitle'], fallback: ''),
     city: _stringValue(json['city'], fallback: '未设置地区'),
@@ -119,6 +123,15 @@ PilgrimageWork _workFromJson(Map<String, Object?> json) {
       orElse: () => WorkSource.manual,
     ),
   );
+}
+
+BangumiSubjectType? _bangumiSubjectTypeValue(Object? value) {
+  for (final type in BangumiSubjectType.values) {
+    if (type.name == value) {
+      return type;
+    }
+  }
+  return null;
 }
 
 Map<String, Object?> _pointToJson(PilgrimagePoint point) {

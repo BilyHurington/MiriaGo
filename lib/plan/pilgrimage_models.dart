@@ -398,11 +398,13 @@ class PilgrimageWork {
     required this.source,
     this.bangumiId,
     this.bangumiSubjectType,
+    this.coverImageUrl,
   });
 
   final String id;
   final int? bangumiId;
   final BangumiSubjectType? bangumiSubjectType;
+  final String? coverImageUrl;
   final String title;
   final String subtitle;
   final String city;

@@ -459,6 +459,7 @@ void main() {
           id: 'anime-work',
           bangumiId: 1,
           bangumiSubjectType: BangumiSubjectType.anime,
+          coverImageUrl: 'https://lain.bgm.tv/r/200/pic/cover/anime.jpg',
           title: '动画作品',
           subtitle: 'Anime',
           city: '动画 / 2026',
@@ -510,6 +511,10 @@ void main() {
       'game',
       'book',
     ]);
+    expect(
+      (works.first as Map<String, Object?>)['coverImageUrl'],
+      'https://lain.bgm.tv/r/200/pic/cover/anime.jpg',
+    );
   });
 
   test(

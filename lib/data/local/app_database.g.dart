@@ -1227,6 +1227,28 @@ class $WorksTable extends Works with TableInfo<$WorksTable, Work> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _bangumiSubjectTypeMeta =
+      const VerificationMeta('bangumiSubjectType');
+  @override
+  late final GeneratedColumn<String> bangumiSubjectType =
+      GeneratedColumn<String>(
+        'bangumi_subject_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _coverImageUrlMeta = const VerificationMeta(
+    'coverImageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> coverImageUrl = GeneratedColumn<String>(
+    'cover_image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -1270,6 +1292,8 @@ class $WorksTable extends Works with TableInfo<$WorksTable, Work> {
     id,
     planId,
     bangumiId,
+    bangumiSubjectType,
+    coverImageUrl,
     title,
     subtitle,
     city,
@@ -1304,6 +1328,24 @@ class $WorksTable extends Works with TableInfo<$WorksTable, Work> {
       context.handle(
         _bangumiIdMeta,
         bangumiId.isAcceptableOrUnknown(data['bangumi_id']!, _bangumiIdMeta),
+      );
+    }
+    if (data.containsKey('bangumi_subject_type')) {
+      context.handle(
+        _bangumiSubjectTypeMeta,
+        bangumiSubjectType.isAcceptableOrUnknown(
+          data['bangumi_subject_type']!,
+          _bangumiSubjectTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cover_image_url')) {
+      context.handle(
+        _coverImageUrlMeta,
+        coverImageUrl.isAcceptableOrUnknown(
+          data['cover_image_url']!,
+          _coverImageUrlMeta,
+        ),
       );
     }
     if (data.containsKey('title')) {
@@ -1359,6 +1401,14 @@ class $WorksTable extends Works with TableInfo<$WorksTable, Work> {
         DriftSqlType.int,
         data['${effectivePrefix}bangumi_id'],
       ),
+      bangumiSubjectType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bangumi_subject_type'],
+      ),
+      coverImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_image_url'],
+      ),
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -1388,6 +1438,8 @@ class Work extends DataClass implements Insertable<Work> {
   final String id;
   final String planId;
   final int? bangumiId;
+  final String? bangumiSubjectType;
+  final String? coverImageUrl;
   final String title;
   final String subtitle;
   final String city;
@@ -1396,6 +1448,8 @@ class Work extends DataClass implements Insertable<Work> {
     required this.id,
     required this.planId,
     this.bangumiId,
+    this.bangumiSubjectType,
+    this.coverImageUrl,
     required this.title,
     required this.subtitle,
     required this.city,
@@ -1408,6 +1462,12 @@ class Work extends DataClass implements Insertable<Work> {
     map['plan_id'] = Variable<String>(planId);
     if (!nullToAbsent || bangumiId != null) {
       map['bangumi_id'] = Variable<int>(bangumiId);
+    }
+    if (!nullToAbsent || bangumiSubjectType != null) {
+      map['bangumi_subject_type'] = Variable<String>(bangumiSubjectType);
+    }
+    if (!nullToAbsent || coverImageUrl != null) {
+      map['cover_image_url'] = Variable<String>(coverImageUrl);
     }
     map['title'] = Variable<String>(title);
     map['subtitle'] = Variable<String>(subtitle);
@@ -1423,6 +1483,12 @@ class Work extends DataClass implements Insertable<Work> {
       bangumiId: bangumiId == null && nullToAbsent
           ? const Value.absent()
           : Value(bangumiId),
+      bangumiSubjectType: bangumiSubjectType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bangumiSubjectType),
+      coverImageUrl: coverImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverImageUrl),
       title: Value(title),
       subtitle: Value(subtitle),
       city: Value(city),
@@ -1439,6 +1505,10 @@ class Work extends DataClass implements Insertable<Work> {
       id: serializer.fromJson<String>(json['id']),
       planId: serializer.fromJson<String>(json['planId']),
       bangumiId: serializer.fromJson<int?>(json['bangumiId']),
+      bangumiSubjectType: serializer.fromJson<String?>(
+        json['bangumiSubjectType'],
+      ),
+      coverImageUrl: serializer.fromJson<String?>(json['coverImageUrl']),
       title: serializer.fromJson<String>(json['title']),
       subtitle: serializer.fromJson<String>(json['subtitle']),
       city: serializer.fromJson<String>(json['city']),
@@ -1452,6 +1522,8 @@ class Work extends DataClass implements Insertable<Work> {
       'id': serializer.toJson<String>(id),
       'planId': serializer.toJson<String>(planId),
       'bangumiId': serializer.toJson<int?>(bangumiId),
+      'bangumiSubjectType': serializer.toJson<String?>(bangumiSubjectType),
+      'coverImageUrl': serializer.toJson<String?>(coverImageUrl),
       'title': serializer.toJson<String>(title),
       'subtitle': serializer.toJson<String>(subtitle),
       'city': serializer.toJson<String>(city),
@@ -1463,6 +1535,8 @@ class Work extends DataClass implements Insertable<Work> {
     String? id,
     String? planId,
     Value<int?> bangumiId = const Value.absent(),
+    Value<String?> bangumiSubjectType = const Value.absent(),
+    Value<String?> coverImageUrl = const Value.absent(),
     String? title,
     String? subtitle,
     String? city,
@@ -1471,6 +1545,12 @@ class Work extends DataClass implements Insertable<Work> {
     id: id ?? this.id,
     planId: planId ?? this.planId,
     bangumiId: bangumiId.present ? bangumiId.value : this.bangumiId,
+    bangumiSubjectType: bangumiSubjectType.present
+        ? bangumiSubjectType.value
+        : this.bangumiSubjectType,
+    coverImageUrl: coverImageUrl.present
+        ? coverImageUrl.value
+        : this.coverImageUrl,
     title: title ?? this.title,
     subtitle: subtitle ?? this.subtitle,
     city: city ?? this.city,
@@ -1481,6 +1561,12 @@ class Work extends DataClass implements Insertable<Work> {
       id: data.id.present ? data.id.value : this.id,
       planId: data.planId.present ? data.planId.value : this.planId,
       bangumiId: data.bangumiId.present ? data.bangumiId.value : this.bangumiId,
+      bangumiSubjectType: data.bangumiSubjectType.present
+          ? data.bangumiSubjectType.value
+          : this.bangumiSubjectType,
+      coverImageUrl: data.coverImageUrl.present
+          ? data.coverImageUrl.value
+          : this.coverImageUrl,
       title: data.title.present ? data.title.value : this.title,
       subtitle: data.subtitle.present ? data.subtitle.value : this.subtitle,
       city: data.city.present ? data.city.value : this.city,
@@ -1494,6 +1580,8 @@ class Work extends DataClass implements Insertable<Work> {
           ..write('id: $id, ')
           ..write('planId: $planId, ')
           ..write('bangumiId: $bangumiId, ')
+          ..write('bangumiSubjectType: $bangumiSubjectType, ')
+          ..write('coverImageUrl: $coverImageUrl, ')
           ..write('title: $title, ')
           ..write('subtitle: $subtitle, ')
           ..write('city: $city, ')
@@ -1503,8 +1591,17 @@ class Work extends DataClass implements Insertable<Work> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, planId, bangumiId, title, subtitle, city, source);
+  int get hashCode => Object.hash(
+    id,
+    planId,
+    bangumiId,
+    bangumiSubjectType,
+    coverImageUrl,
+    title,
+    subtitle,
+    city,
+    source,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1512,6 +1609,8 @@ class Work extends DataClass implements Insertable<Work> {
           other.id == this.id &&
           other.planId == this.planId &&
           other.bangumiId == this.bangumiId &&
+          other.bangumiSubjectType == this.bangumiSubjectType &&
+          other.coverImageUrl == this.coverImageUrl &&
           other.title == this.title &&
           other.subtitle == this.subtitle &&
           other.city == this.city &&
@@ -1522,6 +1621,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
   final Value<String> id;
   final Value<String> planId;
   final Value<int?> bangumiId;
+  final Value<String?> bangumiSubjectType;
+  final Value<String?> coverImageUrl;
   final Value<String> title;
   final Value<String> subtitle;
   final Value<String> city;
@@ -1531,6 +1632,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
     this.id = const Value.absent(),
     this.planId = const Value.absent(),
     this.bangumiId = const Value.absent(),
+    this.bangumiSubjectType = const Value.absent(),
+    this.coverImageUrl = const Value.absent(),
     this.title = const Value.absent(),
     this.subtitle = const Value.absent(),
     this.city = const Value.absent(),
@@ -1541,6 +1644,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
     required String id,
     required String planId,
     this.bangumiId = const Value.absent(),
+    this.bangumiSubjectType = const Value.absent(),
+    this.coverImageUrl = const Value.absent(),
     required String title,
     required String subtitle,
     required String city,
@@ -1556,6 +1661,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
     Expression<String>? id,
     Expression<String>? planId,
     Expression<int>? bangumiId,
+    Expression<String>? bangumiSubjectType,
+    Expression<String>? coverImageUrl,
     Expression<String>? title,
     Expression<String>? subtitle,
     Expression<String>? city,
@@ -1566,6 +1673,9 @@ class WorksCompanion extends UpdateCompanion<Work> {
       if (id != null) 'id': id,
       if (planId != null) 'plan_id': planId,
       if (bangumiId != null) 'bangumi_id': bangumiId,
+      if (bangumiSubjectType != null)
+        'bangumi_subject_type': bangumiSubjectType,
+      if (coverImageUrl != null) 'cover_image_url': coverImageUrl,
       if (title != null) 'title': title,
       if (subtitle != null) 'subtitle': subtitle,
       if (city != null) 'city': city,
@@ -1578,6 +1688,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
     Value<String>? id,
     Value<String>? planId,
     Value<int?>? bangumiId,
+    Value<String?>? bangumiSubjectType,
+    Value<String?>? coverImageUrl,
     Value<String>? title,
     Value<String>? subtitle,
     Value<String>? city,
@@ -1588,6 +1700,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
       id: id ?? this.id,
       planId: planId ?? this.planId,
       bangumiId: bangumiId ?? this.bangumiId,
+      bangumiSubjectType: bangumiSubjectType ?? this.bangumiSubjectType,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       title: title ?? this.title,
       subtitle: subtitle ?? this.subtitle,
       city: city ?? this.city,
@@ -1607,6 +1721,12 @@ class WorksCompanion extends UpdateCompanion<Work> {
     }
     if (bangumiId.present) {
       map['bangumi_id'] = Variable<int>(bangumiId.value);
+    }
+    if (bangumiSubjectType.present) {
+      map['bangumi_subject_type'] = Variable<String>(bangumiSubjectType.value);
+    }
+    if (coverImageUrl.present) {
+      map['cover_image_url'] = Variable<String>(coverImageUrl.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -1632,6 +1752,8 @@ class WorksCompanion extends UpdateCompanion<Work> {
           ..write('id: $id, ')
           ..write('planId: $planId, ')
           ..write('bangumiId: $bangumiId, ')
+          ..write('bangumiSubjectType: $bangumiSubjectType, ')
+          ..write('coverImageUrl: $coverImageUrl, ')
           ..write('title: $title, ')
           ..write('subtitle: $subtitle, ')
           ..write('city: $city, ')
@@ -6741,6 +6863,8 @@ typedef $$WorksTableCreateCompanionBuilder =
       required String id,
       required String planId,
       Value<int?> bangumiId,
+      Value<String?> bangumiSubjectType,
+      Value<String?> coverImageUrl,
       required String title,
       required String subtitle,
       required String city,
@@ -6752,6 +6876,8 @@ typedef $$WorksTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> planId,
       Value<int?> bangumiId,
+      Value<String?> bangumiSubjectType,
+      Value<String?> coverImageUrl,
       Value<String> title,
       Value<String> subtitle,
       Value<String> city,
@@ -6815,6 +6941,16 @@ class $$WorksTableFilterComposer extends Composer<_$AppDatabase, $WorksTable> {
 
   ColumnFilters<int> get bangumiId => $composableBuilder(
     column: $table.bangumiId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bangumiSubjectType => $composableBuilder(
+    column: $table.bangumiSubjectType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverImageUrl => $composableBuilder(
+    column: $table.coverImageUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6906,6 +7042,16 @@ class $$WorksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get bangumiSubjectType => $composableBuilder(
+    column: $table.bangumiSubjectType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coverImageUrl => $composableBuilder(
+    column: $table.coverImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -6964,6 +7110,16 @@ class $$WorksTableAnnotationComposer
 
   GeneratedColumn<int> get bangumiId =>
       $composableBuilder(column: $table.bangumiId, builder: (column) => column);
+
+  GeneratedColumn<String> get bangumiSubjectType => $composableBuilder(
+    column: $table.bangumiSubjectType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get coverImageUrl => $composableBuilder(
+    column: $table.coverImageUrl,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
@@ -7057,6 +7213,8 @@ class $$WorksTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> planId = const Value.absent(),
                 Value<int?> bangumiId = const Value.absent(),
+                Value<String?> bangumiSubjectType = const Value.absent(),
+                Value<String?> coverImageUrl = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> subtitle = const Value.absent(),
                 Value<String> city = const Value.absent(),
@@ -7066,6 +7224,8 @@ class $$WorksTableTableManager
                 id: id,
                 planId: planId,
                 bangumiId: bangumiId,
+                bangumiSubjectType: bangumiSubjectType,
+                coverImageUrl: coverImageUrl,
                 title: title,
                 subtitle: subtitle,
                 city: city,
@@ -7077,6 +7237,8 @@ class $$WorksTableTableManager
                 required String id,
                 required String planId,
                 Value<int?> bangumiId = const Value.absent(),
+                Value<String?> bangumiSubjectType = const Value.absent(),
+                Value<String?> coverImageUrl = const Value.absent(),
                 required String title,
                 required String subtitle,
                 required String city,
@@ -7086,6 +7248,8 @@ class $$WorksTableTableManager
                 id: id,
                 planId: planId,
                 bangumiId: bangumiId,
+                bangumiSubjectType: bangumiSubjectType,
+                coverImageUrl: coverImageUrl,
                 title: title,
                 subtitle: subtitle,
                 city: city,

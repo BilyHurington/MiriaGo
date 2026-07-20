@@ -1233,6 +1233,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             id: _storageId(planId, work.id),
             planId: planId,
             bangumiId: Value(work.bangumiId),
+            bangumiSubjectType: Value(work.bangumiSubjectType?.name),
+            coverImageUrl: Value(work.coverImageUrl),
             title: work.title,
             subtitle: work.subtitle,
             city: work.city,
@@ -1326,6 +1328,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         PilgrimageWork(
           id: workIdMap[work.id] ?? work.id,
           bangumiId: work.bangumiId,
+          bangumiSubjectType: work.bangumiSubjectType,
+          coverImageUrl: work.coverImageUrl,
           title: work.title,
           subtitle: work.subtitle,
           city: work.city,
@@ -1371,6 +1375,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           work: PilgrimageWork(
             id: workIdMap[point.work.id] ?? point.work.id,
             bangumiId: point.work.bangumiId,
+            bangumiSubjectType: point.work.bangumiSubjectType,
+            coverImageUrl: point.work.coverImageUrl,
             title: point.work.title,
             subtitle: point.work.subtitle,
             city: point.work.city,
@@ -1467,6 +1473,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return PilgrimageWork(
       id: _modelId(planId, row.id),
       bangumiId: row.bangumiId,
+      bangumiSubjectType: _bangumiSubjectTypeFromName(row.bangumiSubjectType),
+      coverImageUrl: row.coverImageUrl,
       title: row.title,
       subtitle: row.subtitle,
       city: row.city,
@@ -1531,6 +1539,18 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       (source) => source.name == name,
       orElse: () => WorkSource.manual,
     );
+  }
+
+  BangumiSubjectType? _bangumiSubjectTypeFromName(String? name) {
+    if (name == null) {
+      return null;
+    }
+    for (final type in BangumiSubjectType.values) {
+      if (type.name == name) {
+        return type;
+      }
+    }
+    return null;
   }
 
   PointSource _pointSourceFromName(String name) {

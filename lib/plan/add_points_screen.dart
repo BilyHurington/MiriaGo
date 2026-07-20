@@ -22,6 +22,7 @@ import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pilgrimage_work_dropdown.dart';
 import 'pilgrimage_models.dart';
+import 'pilgrimage_work_cover.dart';
 import 'reference_image_status.dart';
 import 'work_manager_screen.dart';
 
@@ -830,6 +831,35 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
     Navigator.of(context).pop(true);
   }
 
+  Future<void> _pasteLinkFromClipboard() async {
+    ClipboardData? data;
+    try {
+      data = await Clipboard.getData(Clipboard.kTextPlain);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showReplacingSnackBar(
+          const SnackBar(content: Text('无法读取剪贴板，请手动粘贴 Anitabi 链接。')),
+        );
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final text = data?.text?.trim() ?? '';
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showReplacingSnackBar(
+        const SnackBar(content: Text('剪贴板中没有可用的 Anitabi 链接。')),
+      );
+      return;
+    }
+    _linkController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _formKey.currentState?.validate();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -878,10 +908,10 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
                         letterSpacing: 0,
                       ),
                       helperText: ' ',
-                      suffixIcon: const Padding(
+                      suffixIcon: Padding(
                         padding: EdgeInsets.only(right: 6),
                         child: IconButton(
-                          onPressed: null,
+                          onPressed: _pasteLinkFromClipboard,
                           tooltip: '粘贴',
                           icon: Icon(Icons.content_paste_outlined, size: 20),
                         ),
@@ -2063,6 +2093,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     required: true,
                     prominent: true,
                     child: TextFormField(
+                      key: const ValueKey('point-form-name'),
                       controller: _nameController,
                       decoration: _boxedFormDecoration(hintText: '请输入点位名称'),
                       textInputAction: TextInputAction.next,
@@ -2110,6 +2141,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     label: '备注',
                     prominent: true,
                     child: TextFormField(
+                      key: const ValueKey('point-form-note'),
                       controller: _noteController,
                       decoration: _boxedFormDecoration(
                         hintText: '可选，填写闭店、翻修或拍摄建议等补充信息',
@@ -2146,6 +2178,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                           label: '纬度',
                           focusNode: _latitudeFocusNode,
                           child: TextFormField(
+                            key: const ValueKey('point-form-latitude'),
                             controller: _latitudeController,
                             focusNode: _latitudeFocusNode,
                             decoration: _coordinateInputDecoration(
@@ -2172,6 +2205,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                           label: '经度',
                           focusNode: _longitudeFocusNode,
                           child: TextFormField(
+                            key: const ValueKey('point-form-longitude'),
                             controller: _longitudeController,
                             focusNode: _longitudeFocusNode,
                             decoration: _coordinateInputDecoration(
@@ -2200,6 +2234,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
+                          key: const ValueKey('point-form-map-picker'),
                           onPressed: _isSaving ? null : _pickCoordinateFromMap,
                           style: OutlinedButton.styleFrom(
                             fixedSize: const Size.fromHeight(40),
@@ -2273,6 +2308,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
+                key: const ValueKey('point-form-save'),
                 onPressed: _isSaving ? null : _savePoint,
                 icon: _isSaving
                     ? const SizedBox(
@@ -2663,6 +2699,7 @@ class _LinkedWorksPanel extends StatelessWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
+              key: const ValueKey('add-points-work-manager'),
               onTap: onManage,
               child: Column(
                 children: [
@@ -2781,6 +2818,7 @@ class _LinkedWorksPanel extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _WorkCreationAction(
+                      key: const ValueKey('add-points-bangumi-work'),
                       icon: Icons.search_rounded,
                       title: '从Bangumi添加',
                       subtitle: '自动获取信息',
@@ -2796,6 +2834,7 @@ class _LinkedWorksPanel extends StatelessWidget {
                   ),
                   Expanded(
                     child: _WorkCreationAction(
+                      key: const ValueKey('add-points-manual-work'),
                       icon: Icons.add_rounded,
                       title: '手动添加作品',
                       subtitle: '未收录时使用',
@@ -2824,15 +2863,7 @@ class _LinkedWorkPreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 56,
-            height: 62,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.border),
-            ),
-          ),
+          PilgrimageWorkCover(work: work, width: 56, height: 60),
           const SizedBox(height: 4),
           Text(
             work.title,
@@ -2891,6 +2922,7 @@ class _WorkCreationAction extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    super.key,
   });
 
   final IconData icon;
@@ -3110,18 +3142,7 @@ class _WorkResultCardState extends State<_WorkResultCard> {
       ),
       child: Row(
         children: [
-          Semantics(
-            label: '作品封面预留',
-            child: Container(
-              width: 58,
-              height: 78,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: AppColors.border),
-              ),
-            ),
-          ),
+          PilgrimageWorkCover(work: work),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -3394,6 +3415,7 @@ class _QuickImportPanel extends StatelessWidget {
       color: AppColors.accent.withValues(alpha: 0.04),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
+        key: const ValueKey('add-points-anitabi-link'),
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -3544,6 +3566,7 @@ class _AddPointPanel extends StatelessWidget {
             ),
           ),
           _PointCreationAction(
+            key: const ValueKey('add-points-anitabi-map'),
             icon: Icons.map_outlined,
             title: '从作品地图导入点位',
             subtitle: '在作品地图上选择并导入点位',
@@ -3558,6 +3581,7 @@ class _AddPointPanel extends StatelessWidget {
             color: AppColors.border.withValues(alpha: 0.60),
           ),
           _PointCreationAction(
+            key: const ValueKey('add-points-manual-point'),
             icon: Icons.edit_location_alt_outlined,
             title: '手动添加点位',
             subtitle: '手动输入点位信息，逐个添加',
@@ -3578,6 +3602,7 @@ class _PointCreationAction extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     this.recommended = false,
+    super.key,
   });
 
   final IconData icon;
