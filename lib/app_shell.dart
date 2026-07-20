@@ -19,6 +19,7 @@ import 'plan_transfer/plan_import_file_stub.dart'
 import 'plan_transfer/plan_import_preview_screen.dart';
 import 'records/records_screen.dart';
 import 'settings/settings_screen.dart';
+import 'widgets/app_scaled_route.dart';
 
 class AppShell extends StatefulWidget {
   AppShell({PilgrimageRepository? repository, super.key})
@@ -105,10 +106,12 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _openAddPoints() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: _settings,
         builder: (_) => AddPointsScreen(
           plan: _planController?.plan,
           repository: widget.repository,
+          settings: _settings,
         ),
       ),
     );

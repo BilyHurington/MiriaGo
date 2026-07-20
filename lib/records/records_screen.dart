@@ -963,10 +963,6 @@ class _VisitRecordCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         _RecordChip(
-                          icon: Icons.grid_view_outlined,
-                          label: groupName,
-                        ),
-                        _RecordChip(
                           icon: Icons.schedule,
                           label: _formatCapturedAt(record.capturedAt),
                         ),

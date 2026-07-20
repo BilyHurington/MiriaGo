@@ -131,7 +131,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('计划备忘录'), findsOneWidget);
-    expect(find.text('还没有写计划备忘'), findsOneWidget);
+    expect(find.text('还没有计划备忘'), findsOneWidget);
+    expect(find.text('开始记录'), findsOneWidget);
 
     await tester.tap(find.byTooltip('编辑'));
     await tester.pumpAndSettle();

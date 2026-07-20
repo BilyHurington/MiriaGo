@@ -444,7 +444,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
                     ],
                   )
                 : memo.isEmpty
-                ? const _EmptyPlanMemo()
+                ? _EmptyPlanMemo(onStart: _startEditing)
                 : _PlanMemoMarkdownPreview(
                     data: _savedMemo,
                     onTapLink: _openMarkdownLink,
@@ -797,46 +797,201 @@ class _UnsupportedMarkdownImage extends StatelessWidget {
 }
 
 class _EmptyPlanMemo extends StatelessWidget {
-  const _EmptyPlanMemo();
+  const _EmptyPlanMemo({required this.onStart});
+
+  final VoidCallback onStart;
+
+  static const _suggestions = [
+    (
+      icon: Icons.directions_transit_outlined,
+      label: '交通安排',
+      detail: '如车次、换乘方案、出发时间等',
+    ),
+    (icon: Icons.hotel_outlined, label: '酒店预约', detail: '酒店地址、入住时间、联系方式等'),
+    (
+      icon: Icons.confirmation_number_outlined,
+      label: '活动门票',
+      detail: '活动门票、预约时间、注意事项等',
+    ),
+    (
+      icon: Icons.photo_camera_outlined,
+      label: '拍摄计划',
+      detail: '拍摄地点、时间、天气备选方案等',
+    ),
+    (
+      icon: Icons.notifications_none_rounded,
+      label: '注意事项',
+      detail: '携带物品、预算、当地注意事项等',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final guideWidth = (constraints.maxWidth * 0.84).clamp(0.0, 420.0);
+        return SingleChildScrollView(
+          child: SizedBox(
+            width: constraints.maxWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.sticky_note_2_outlined,
+                    color: AppColors.accentDark,
+                    size: 34,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '还没有计划备忘',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '记录本次巡礼的重要事项',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: guideWidth,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline_rounded,
+                              color: AppColors.accent,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              '可记录内容',
+                              style: TextStyle(
+                                color: AppColors.accentDark,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        for (
+                          var index = 0;
+                          index < _suggestions.length;
+                          index++
+                        ) ...[
+                          _MemoSuggestionItem(suggestion: _suggestions[index]),
+                          if (index < _suggestions.length - 1)
+                            const Divider(height: 1, indent: 42),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: guideWidth,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: onStart,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(46),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      icon: const Icon(Icons.edit_note_rounded, size: 20),
+                      label: const Text('开始记录'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MemoSuggestionItem extends StatelessWidget {
+  const _MemoSuggestionItem({required this.suggestion});
+
+  final ({IconData icon, String label, String detail}) suggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Row(
         children: [
           Container(
-            width: 72,
-            height: 72,
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.accent.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.sticky_note_2_outlined,
-              color: AppColors.accentDark,
-              size: 34,
-            ),
+            child: Icon(suggestion.icon, color: AppColors.accent, size: 18),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            '还没有写计划备忘',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '点击右上角编辑，记录交通、预约、补拍事项或其他准备内容。',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  suggestion.label,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  suggestion.detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

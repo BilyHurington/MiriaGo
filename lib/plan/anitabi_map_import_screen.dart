@@ -23,11 +23,14 @@ import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../widgets/app_scaled_route.dart';
 import '../utils/limited_concurrency.dart';
 import '../utils/selected_item_order.dart';
 import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
+import 'pilgrimage_work_dropdown.dart';
 import 'plan_group_manager_screen.dart';
+import 'work_manager_screen.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
   AnitabiMapImportScreen({
@@ -35,6 +38,7 @@ class AnitabiMapImportScreen extends StatefulWidget {
     required this.repository,
     this.initialBangumiId,
     this.initialPointId,
+    this.initialSettings,
     AnitabiClient? anitabiClient,
     super.key,
   }) : anitabiClient = anitabiClient ?? AnitabiClient();
@@ -43,6 +47,7 @@ class AnitabiMapImportScreen extends StatefulWidget {
   final PilgrimageRepository repository;
   final int? initialBangumiId;
   final String? initialPointId;
+  final AppSettings? initialSettings;
   final AnitabiClient anitabiClient;
 
   @override
@@ -59,7 +64,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   late final Set<String> _importedPointIds;
   late PilgrimagePlan _importedPlan = widget.plan;
   PilgrimageWork? _selectedWork;
-  AppSettings _settings = const AppSettings();
+  late AppSettings _settings = widget.initialSettings ?? const AppSettings();
   AnitabiBangumiLite? _lite;
   List<AnitabiPoint> _points = const [];
   AnitabiPoint? _selectedPoint;
@@ -179,6 +184,33 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     setState(() {
       _error = null;
     });
+  }
+
+  Future<void> _openWorkManager() async {
+    final didUpdate = await Navigator.of(context).push<bool>(
+      appScaledMaterialPageRoute<bool>(
+        settings: _settings,
+        builder: (_) => WorkManagerScreen(
+          plan: _importedPlan,
+          repository: widget.repository,
+          settings: _settings,
+        ),
+      ),
+    );
+    if (!mounted || didUpdate != true) {
+      return;
+    }
+
+    final plans = await widget.repository.loadPlans();
+    if (!mounted) {
+      return;
+    }
+    final updatedPlan = plans.firstWhere((plan) => plan.id == _importedPlan.id);
+    setState(() {
+      _replaceImportedPlan(updatedPlan);
+      _didUpdatePlan = true;
+    });
+    await _refreshAnitabiData();
   }
 
   Future<void> _loadPoints(PilgrimageWork work) async {
@@ -994,7 +1026,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   Future<void> _openGroupManager() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      appScaledMaterialPageRoute<bool>(
+        settings: _settings,
         builder: (_) => PlanGroupManagerScreen(
           plan: _importedPlan,
           repository: widget.repository,
@@ -1012,7 +1045,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       return;
     }
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      appScaledMaterialPageRoute<bool>(
+        settings: settings,
         builder: (_) => NearestGroupAssignScreen(
           plan: _importedPlan,
           settings: settings,
@@ -1184,22 +1218,11 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                   preferredSize: const Size.fromHeight(58),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: DropdownButtonFormField<PilgrimageWork>(
-                      initialValue: _selectedWork,
-                      decoration: const InputDecoration(labelText: '作品'),
-                      isExpanded: true,
-                      items: [
-                        for (final work in works)
-                          DropdownMenuItem<PilgrimageWork>(
-                            value: work,
-                            child: Text(
-                              work.displayBangumiSubjectType == null
-                                  ? work.title
-                                  : '${work.title} · ${work.displayBangumiSubjectType!.label}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
+                    child: PilgrimageWorkDropdown(
+                      works: works,
+                      value: _selectedWork,
+                      settings: _settings,
+                      omitScrollbarInsetWhenUnscrollable: true,
                       onChanged: _isImporting
                           ? null
                           : (work) {
@@ -1226,7 +1249,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
             }
 
             if (works.isEmpty) {
-              return const _EmptyImportState();
+              return _EmptyImportState(onOpenWorkManager: _openWorkManager);
             }
 
             if (!_isLoading &&
@@ -2241,22 +2264,154 @@ String? _anitabiThumbnailUrl(String? url) {
 }
 
 class _EmptyImportState extends StatelessWidget {
-  const _EmptyImportState();
+  const _EmptyImportState({required this.onOpenWorkManager});
+
+  final VoidCallback onOpenWorkManager;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          '当前计划还没有 Bangumi 作品。请先到作品管理添加 Bangumi 作品。',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-            letterSpacing: 0,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    '还没有作品',
+                    style: TextStyle(
+                      color: AppColors.accentDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const _ImportWorkGuideTimeline(),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onOpenWorkManager,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  icon: const Icon(Icons.movie_filter_outlined, size: 20),
+                  label: const Text('作品管理'),
+                ),
+              ),
+            ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _ImportWorkGuideTimeline extends StatelessWidget {
+  const _ImportWorkGuideTimeline();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        _ImportWorkGuideStep(
+          title: '从Bangumi导入',
+          body: '点击作品管理中的Bangumi按钮，搜索你想导入的作品并导入。之后你可以在这里直接查看对应作品在Anitabi上的点位。',
+          isLast: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _ImportWorkGuideStep extends StatelessWidget {
+  const _ImportWorkGuideStep({
+    required this.title,
+    required this.body,
+    this.isLast = false,
+  });
+
+  final String title;
+  final String body;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 18,
+            child: Stack(
+              children: [
+                if (!isLast)
+                  Positioned(
+                    left: 8,
+                    top: 10,
+                    bottom: 0,
+                    child: Container(width: 2, color: AppColors.border),
+                  ),
+                Positioned(
+                  left: 4,
+                  top: 5,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.35,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

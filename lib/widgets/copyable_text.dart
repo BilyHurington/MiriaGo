@@ -14,6 +14,7 @@ class CopyableText extends StatefulWidget {
     this.style,
     this.maxLines,
     this.overflow,
+    this.onTap,
     super.key,
   });
 
@@ -23,6 +24,7 @@ class CopyableText extends StatefulWidget {
   final TextStyle? style;
   final int? maxLines;
   final TextOverflow? overflow;
+  final VoidCallback? onTap;
 
   @override
   State<CopyableText> createState() => _CopyableTextState();
@@ -40,6 +42,7 @@ class _CopyableTextState extends State<CopyableText> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => hideActiveCopyOverlay(),
+      onTap: widget.onTap,
       onLongPress: _showCopyOverlay,
       child: Text(
         widget.text,

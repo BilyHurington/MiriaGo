@@ -21,34 +21,48 @@ class PointVisitRecordsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final resolvedPoint = controller.pointById(point.id) ?? point;
-        final records = controller.recordsForPoint(point.id);
+    return MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: appTextScaler(settings.fontScale)),
+      child: AppUiScaleView(
+        scale: settings.uiScale,
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final resolvedPoint = controller.pointById(point.id) ?? point;
+            final records = controller.recordsForPoint(point.id);
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('点位拍摄记录')),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              _PointRecordsHeader(point: resolvedPoint, count: records.length),
-              const SizedBox(height: 16),
-              if (records.isEmpty)
-                const _EmptyPointRecords()
-              else
-                for (final record in records) ...[
-                  _PointVisitRecordCard(
-                    record: record,
-                    onTap: () =>
-                        _openRecordDetail(context, record, resolvedPoint),
+            return Scaffold(
+              appBar: AppBar(title: const Text('点位拍摄记录')),
+              body: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                children: [
+                  _PointRecordsHeader(
+                    point: resolvedPoint,
+                    count: records.length,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
+                  if (records.isEmpty)
+                    const _EmptyPointRecords()
+                  else ...[
+                    const _PointRecordsListLabel(),
+                    const SizedBox(height: 8),
+                    for (final record in records) ...[
+                      _PointVisitRecordCard(
+                        record: record,
+                        onTap: () =>
+                            _openRecordDetail(context, record, resolvedPoint),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
                 ],
-            ],
-          ),
-        );
-      },
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -130,14 +144,31 @@ class _PointRecordsHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            '$count 条',
-            style: TextStyle(
-              color: AppColors.accentDark,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: AppColors.accentDark,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '条',
+                style: TextStyle(
+                  color: AppColors.accentDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -179,6 +210,80 @@ class _EmptyPointRecords extends StatelessWidget {
   }
 }
 
+class _PointRecordsListLabel extends StatelessWidget {
+  const _PointRecordsListLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.zero,
+      child: Row(
+        children: [
+          Icon(Icons.schedule, color: AppColors.accent, size: 15),
+          const SizedBox(width: 6),
+          const Text(
+            '拍摄记录',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordCapturedAt {
+  const _RecordCapturedAt({required this.date, required this.time});
+
+  final String date;
+  final String time;
+}
+
+class _RecordCapturedAtText extends StatelessWidget {
+  const _RecordCapturedAtText({required this.capturedAt});
+
+  final DateTime capturedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _formatCapturedAt(capturedAt);
+    return SizedBox(
+      width: 82,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value.time,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value.date,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PointVisitRecordCard extends StatelessWidget {
   const _PointVisitRecordCard({required this.record, required this.onTap});
 
@@ -197,54 +302,47 @@ class _PointVisitRecordCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 104,
-              height: 104,
-              child: VisitRecordPhoto(path: photoPath),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _formatCapturedAt(record.capturedAt),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _RecordMetaChip(
-                          icon: Icons.layers_outlined,
-                          label: record.referenceMode,
-                        ),
-                        if (record.hasColorGrading)
-                          const _RecordMetaChip(
-                            icon: Icons.auto_fix_high_outlined,
-                            label: '已调色',
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: 104, child: VisitRecordPhoto(path: photoPath)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RecordCapturedAtText(capturedAt: record.capturedAt),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _RecordMetaChip(
+                            icon: Icons.layers_outlined,
+                            label: record.referenceMode,
                           ),
-                      ],
-                    ),
-                  ],
+                          if (record.hasColorGrading)
+                            const _RecordMetaChip(
+                              icon: Icons.auto_fix_high_outlined,
+                              label: '已调色',
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(right: 10),
-              child: Icon(Icons.chevron_right, color: AppColors.textSecondary),
-            ),
-          ],
+              const Padding(
+                padding: EdgeInsets.only(right: 10),
+                child: Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -260,13 +358,15 @@ class _RecordMetaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, size: 14, color: AppColors.textSecondary),
           const SizedBox(width: 4),
@@ -276,6 +376,7 @@ class _RecordMetaChip extends StatelessWidget {
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
+              height: 1,
               letterSpacing: 0,
             ),
           ),
@@ -285,8 +386,10 @@ class _RecordMetaChip extends StatelessWidget {
   }
 }
 
-String _formatCapturedAt(DateTime value) {
+_RecordCapturedAt _formatCapturedAt(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
-  return '${value.year}-${twoDigits(value.month)}-${twoDigits(value.day)} '
-      '${twoDigits(value.hour)}:${twoDigits(value.minute)}';
+  return _RecordCapturedAt(
+    date: '${value.year}-${twoDigits(value.month)}-${twoDigits(value.day)}',
+    time: '${twoDigits(value.hour)}:${twoDigits(value.minute)}',
+  );
 }
