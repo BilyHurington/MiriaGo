@@ -99,6 +99,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         200,
       ),
       mapThumbnailConcurrentLoads: row.mapThumbnailConcurrentLoads.clamp(1, 30),
+      mapMarkerClusteringEnabled: row.mapMarkerClusteringEnabled,
+      mapMarkerClusterRadius: row.mapMarkerClusterRadius.clamp(32, 120),
+      mapMarkerClusterMaxZoom: row.mapMarkerClusterMaxZoom.clamp(10, 22),
     );
   }
 
@@ -976,6 +979,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             mapThumbnailConcurrentLoads: Value(
               settings.mapThumbnailConcurrentLoads.clamp(1, 30),
+            ),
+            mapMarkerClusteringEnabled: Value(
+              settings.mapMarkerClusteringEnabled,
+            ),
+            mapMarkerClusterRadius: Value(
+              settings.mapMarkerClusterRadius.clamp(32, 120),
+            ),
+            mapMarkerClusterMaxZoom: Value(
+              settings.mapMarkerClusterMaxZoom.clamp(10, 22),
             ),
           ),
         );

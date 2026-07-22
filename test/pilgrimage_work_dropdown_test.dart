@@ -58,6 +58,46 @@ void main() {
     return mouse;
   }
 
+  testWidgets('selected work text is vertically centered in the field', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 360,
+              child: PilgrimageWorkDropdown(
+                works: works,
+                value: works.first,
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final field = tester.widget<DropdownButtonFormField<PilgrimageWork>>(
+      find.byType(DropdownButtonFormField<PilgrimageWork>),
+    );
+    expect(
+      field.decoration.contentPadding,
+      const EdgeInsets.fromLTRB(14, 10, 4, 10),
+    );
+    expect(field.decoration.constraints, isNull);
+
+    final selectedTitleTransform = tester.widget<Transform>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('work-dropdown-selected-title')),
+            matching: find.byType(Transform),
+          )
+          .first,
+    );
+    expect(selectedTitleTransform.transform.storage[13], -1);
+  });
+
   testWidgets('unselected menu item content slides right while hovered', (
     tester,
   ) async {

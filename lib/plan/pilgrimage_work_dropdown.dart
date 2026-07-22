@@ -179,14 +179,22 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                work.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  letterSpacing: 0,
+              child: Transform.translate(
+                offset: Offset(0, widget.menuItem ? 0 : -1),
+                child: Text(
+                  work.title,
+                  key: ValueKey(
+                    widget.menuItem
+                        ? 'work-dropdown-menu-title'
+                        : 'work-dropdown-selected-title',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
             ),

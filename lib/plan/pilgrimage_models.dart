@@ -171,6 +171,9 @@ class AppSettings {
     this.customCameraAspectRatioHeight = 1,
     this.mapThumbnailVisibleThreshold = 40,
     this.mapThumbnailConcurrentLoads = 10,
+    this.mapMarkerClusteringEnabled = true,
+    this.mapMarkerClusterRadius = 64,
+    this.mapMarkerClusterMaxZoom = 18,
   });
 
   final double uiScale;
@@ -200,6 +203,9 @@ class AppSettings {
   final double customCameraAspectRatioHeight;
   final int mapThumbnailVisibleThreshold;
   final int mapThumbnailConcurrentLoads;
+  final bool mapMarkerClusteringEnabled;
+  final int mapMarkerClusterRadius;
+  final int mapMarkerClusterMaxZoom;
 
   AppSettings copyWith({
     double? uiScale,
@@ -229,6 +235,9 @@ class AppSettings {
     double? customCameraAspectRatioHeight,
     int? mapThumbnailVisibleThreshold,
     int? mapThumbnailConcurrentLoads,
+    bool? mapMarkerClusteringEnabled,
+    int? mapMarkerClusterRadius,
+    int? mapMarkerClusterMaxZoom,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -271,6 +280,12 @@ class AppSettings {
           mapThumbnailVisibleThreshold ?? this.mapThumbnailVisibleThreshold,
       mapThumbnailConcurrentLoads:
           mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
+      mapMarkerClusteringEnabled:
+          mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
+      mapMarkerClusterRadius:
+          mapMarkerClusterRadius ?? this.mapMarkerClusterRadius,
+      mapMarkerClusterMaxZoom:
+          mapMarkerClusterMaxZoom ?? this.mapMarkerClusterMaxZoom,
     );
   }
 }

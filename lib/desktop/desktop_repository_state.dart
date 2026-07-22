@@ -94,6 +94,9 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'customCameraAspectRatioHeight': settings.customCameraAspectRatioHeight,
     'mapThumbnailVisibleThreshold': settings.mapThumbnailVisibleThreshold,
     'mapThumbnailConcurrentLoads': settings.mapThumbnailConcurrentLoads,
+    'mapMarkerClusteringEnabled': settings.mapMarkerClusteringEnabled,
+    'mapMarkerClusterRadius': settings.mapMarkerClusterRadius,
+    'mapMarkerClusterMaxZoom': settings.mapMarkerClusterMaxZoom,
   };
 }
 
@@ -166,6 +169,10 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _intValue(json['mapThumbnailVisibleThreshold']) ?? 40,
     mapThumbnailConcurrentLoads:
         _intValue(json['mapThumbnailConcurrentLoads']) ?? 10,
+    mapMarkerClusteringEnabled:
+        _boolValue(json['mapMarkerClusteringEnabled']) ?? true,
+    mapMarkerClusterRadius: _intValue(json['mapMarkerClusterRadius']) ?? 64,
+    mapMarkerClusterMaxZoom: _intValue(json['mapMarkerClusterMaxZoom']) ?? 18,
   );
 }
 

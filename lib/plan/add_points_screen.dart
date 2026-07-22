@@ -133,6 +133,8 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
   @override
   Widget build(BuildContext context) {
     final currentPlan = _plan;
+    final hasBangumiWork =
+        currentPlan?.works.any((work) => work.bangumiId != null) ?? false;
 
     return PopScope(
       canPop: true,
@@ -169,8 +171,13 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
             ),
             const SizedBox(height: 12),
             _AddPointPanel(
-              enabled: currentPlan != null,
-              onMap: currentPlan == null
+              mapEnabled:
+                  currentPlan != null &&
+                  (currentPlan.points.isNotEmpty || hasBangumiWork),
+              manualEnabled: currentPlan != null,
+              onMap:
+                  currentPlan == null ||
+                      (currentPlan.points.isEmpty && !hasBangumiWork)
                   ? null
                   : () => _openAnitabiMapImport(context, currentPlan),
               onManual: currentPlan == null
@@ -1294,6 +1301,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
       });
       _titleController.clear();
       _subtitleController.clear();
+      _cityController.clear();
       ScaffoldMessenger.of(
         context,
       ).showReplacingSnackBar(SnackBar(content: Text('已添加「$title」。')));
@@ -1314,6 +1322,22 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
     }
   }
 
+  Future<void> _showFillingGuide() {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        clipBehavior: Clip.antiAlias,
+        child: AppScaledOverlayContent(
+          settings: widget.settings,
+          child: const _ManualWorkFillingGuideSheet(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -1330,6 +1354,27 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
           leading: BackButton(
             onPressed: () => Navigator.of(context).pop(_didAdd),
           ),
+          actions: [
+            TextButton.icon(
+              key: const ValueKey('manual-work-filling-guide'),
+              onPressed: _showFillingGuide,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.accentDark,
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              icon: const Icon(Icons.menu_book_outlined, size: 17),
+              label: const Text(
+                '填写指南',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
         ),
         body: Form(
           key: _formKey,
@@ -1471,6 +1516,405 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
     }
 
     return null;
+  }
+}
+
+class _ManualPointFillingGuideSheet extends StatelessWidget {
+  const _ManualPointFillingGuideSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
+
+    return ConstrainedBox(
+      key: const ValueKey('manual-point-guide-panel'),
+      constraints: BoxConstraints(maxWidth: 560, maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.add_location_alt_outlined,
+                  color: AppColors.accentDark,
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    '点位填写指南',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '重点记录现场可识别的信息，方便到达后快速确认位置、场景和拍摄条件。',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.45,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const _FillingGuideItem(
+              index: 1,
+              title: '所属作品',
+              badge: '必填',
+              body: '选择点位对应的作品。计划中还没有作品时，先填写作品名称、原名和主要地区。',
+              example: '轻音少女',
+            ),
+            const _FillingGuideItem(
+              index: 2,
+              title: '名称与位置说明',
+              badge: '必填',
+              body: '名称优先填写中文常用名；位置说明优先填写当地原语言的地标、建筑或店铺名称，方便现场核对。',
+              example: '东京国际会展中心 / 東京ビッグサイト',
+            ),
+            const _FillingGuideItem(
+              index: 3,
+              title: '场景标签与参考来源',
+              badge: '必填',
+              body: '场景标签只写集数、时间点或场景编号；参考来源填写该点位原来所在的平台，或原始上传者。',
+              example: 'EP 1 / 12:32\n示例：小红书@BilyHurington / Bilibili@麦块晓天',
+            ),
+            const _FillingGuideItem(
+              index: 4,
+              title: '备注',
+              badge: '选填',
+              body: '记录营业时间、闭店翻修、拍摄限制、推荐机位或其他到访前需要知道的信息。',
+              example: '2025年完成翻修；最佳拍摄时间为上午；周末游客较多；',
+            ),
+            const _FillingGuideItem(
+              index: 5,
+              title: '坐标与参考图',
+              badge: '坐标必填',
+              body: '优先从地图选择准确位置，也可粘贴纬度、经度。参考图建议使用能清楚辨认构图的原始画面。',
+              example: '35.008900, 135.771100',
+              isLast: true,
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.28),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.location_searching_outlined,
+                    size: 19,
+                    color: AppColors.accentDark,
+                  ),
+                  const SizedBox(width: 9),
+                  const Expanded(
+                    child: Text(
+                      '保存前建议核对地图标记是否落在正确建筑或道路一侧；坐标偏差会直接影响导航和现场查找。',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 12,
+                        height: 1.45,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualWorkFillingGuideSheet extends StatelessWidget {
+  const _ManualWorkFillingGuideSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
+
+    return ConstrainedBox(
+      key: const ValueKey('manual-work-guide-panel'),
+      constraints: BoxConstraints(maxWidth: 560, maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.menu_book_outlined,
+                  color: AppColors.accentDark,
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    '作品填写指南',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '填写作品本身的信息，点位名称、场景说明和具体地址请在添加点位时录入。',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.45,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const _FillingGuideItem(
+              index: 1,
+              title: '作品名称',
+              badge: '必填',
+              body: '填写常用中文译名或最容易辨认的名称，不要填写集数或具体场景名。',
+              example: '轻音少女',
+            ),
+            const _FillingGuideItem(
+              index: 2,
+              title: '作品原名',
+              badge: '选填',
+              body: '可填写官方日文、英文或其他原始标题；没有可靠信息时可以留空。',
+              example: 'けいおん！',
+            ),
+            const _FillingGuideItem(
+              index: 3,
+              title: '作品类型',
+              badge: '必填',
+              body: '选择最接近作品发行形式的类型，方便在作品列表中辨认和筛选。',
+              example: '动画',
+            ),
+            const _FillingGuideItem(
+              index: 4,
+              title: '主要地区',
+              badge: '选填',
+              body: '填写主要发生地或取景城市，可使用“城市 / 区域”的简洁格式；留空时沿用当前计划地区。',
+              example: '京都市 / 宇治市',
+              isLast: true,
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.28),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline,
+                    size: 19,
+                    color: AppColors.accentDark,
+                  ),
+                  const SizedBox(width: 9),
+                  const Expanded(
+                    child: Text(
+                      '保存作品后，表单会清空以便继续添加。作品不会自动生成点位，可随后使用“手动添加点位”录入巡礼地点。',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 12,
+                        height: 1.45,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FillingGuideItem extends StatelessWidget {
+  const _FillingGuideItem({
+    required this.index,
+    required this.title,
+    required this.badge,
+    required this.body,
+    required this.example,
+    this.isLast = false,
+  });
+
+  final int index;
+  final String title;
+  final String badge;
+  final String body;
+  final String example;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 32,
+            child: Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                if (!isLast)
+                  Positioned(
+                    top: 28,
+                    bottom: 0,
+                    child: Container(width: 2, color: AppColors.border),
+                  ),
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$index',
+                    style: TextStyle(
+                      color: AppColors.onAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: badge == '必填'
+                              ? AppColors.accent.withValues(alpha: 0.1)
+                              : AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badge,
+                          style: TextStyle(
+                            color: badge == '必填'
+                                ? AppColors.accentDark
+                                : AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '示例：$example',
+                    style: TextStyle(
+                      color: AppColors.accentDark,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1977,6 +2421,22 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     return LatLng(latitude, longitude);
   }
 
+  Future<void> _showPointFillingGuide() {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        clipBehavior: Clip.antiAlias,
+        child: AppScaledOverlayContent(
+          settings: widget.settings ?? const AppSettings(),
+          child: const _ManualPointFillingGuideSheet(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final workOptions = _workOptions;
@@ -2007,6 +2467,27 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               Navigator.of(context).pop(false);
             },
           ),
+          actions: [
+            TextButton.icon(
+              key: const ValueKey('manual-point-filling-guide'),
+              onPressed: _showPointFillingGuide,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.accentDark,
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              icon: const Icon(Icons.menu_book_outlined, size: 17),
+              label: const Text(
+                '填写指南',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
         ),
         body: Form(
           key: _formKey,
@@ -2095,7 +2576,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     child: TextFormField(
                       key: const ValueKey('point-form-name'),
                       controller: _nameController,
-                      decoration: _boxedFormDecoration(hintText: '请输入点位名称'),
+                      decoration: _boxedFormDecoration(hintText: '例如：东京国际会展中心'),
                       textInputAction: TextInputAction.next,
                       validator: _requiredText,
                     ),
@@ -2107,7 +2588,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     prominent: true,
                     child: TextFormField(
                       controller: _subtitleController,
-                      decoration: _boxedFormDecoration(hintText: '请输入位置说明'),
+                      decoration: _boxedFormDecoration(hintText: '例如：東京ビッグサイト'),
                       textInputAction: TextInputAction.next,
                       validator: _requiredText,
                     ),
@@ -2119,7 +2600,9 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     prominent: true,
                     child: TextFormField(
                       controller: _episodeController,
-                      decoration: _boxedFormDecoration(hintText: '请输入集数或场景标签'),
+                      decoration: _boxedFormDecoration(
+                        hintText: '例如：EP 1 / 12:32',
+                      ),
                       textInputAction: TextInputAction.next,
                       validator: _requiredText,
                     ),
@@ -2131,7 +2614,9 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     prominent: true,
                     child: TextFormField(
                       controller: _referenceController,
-                      decoration: _boxedFormDecoration(hintText: '请输入参考来源'),
+                      decoration: _boxedFormDecoration(
+                        hintText: '例如：小红书@BilyHurington / Bilibili@麦块晓天',
+                      ),
                       textInputAction: TextInputAction.next,
                       validator: _requiredText,
                     ),
@@ -2144,7 +2629,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       key: const ValueKey('point-form-note'),
                       controller: _noteController,
                       decoration: _boxedFormDecoration(
-                        hintText: '可选，填写闭店、翻修或拍摄建议等补充信息',
+                        hintText: '例如：2025年完成翻修；最佳拍摄时间为上午；周末游客较多',
                       ),
                       minLines: 4,
                       maxLines: 8,
@@ -2182,7 +2667,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                             controller: _latitudeController,
                             focusNode: _latitudeFocusNode,
                             decoration: _coordinateInputDecoration(
-                              hintText: '例如 34.8917',
+                              hintText: '例如：35.712576',
                             ),
                             style: const TextStyle(
                               color: AppColors.textPrimary,
@@ -2209,7 +2694,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                             controller: _longitudeController,
                             focusNode: _longitudeFocusNode,
                             decoration: _coordinateInputDecoration(
-                              hintText: '例如 135.8077',
+                              hintText: '例如：139.722166',
                             ),
                             style: const TextStyle(
                               color: AppColors.textPrimary,
@@ -3519,12 +4004,14 @@ class _QuickImportPanel extends StatelessWidget {
 
 class _AddPointPanel extends StatelessWidget {
   const _AddPointPanel({
-    required this.enabled,
+    required this.mapEnabled,
+    required this.manualEnabled,
     required this.onMap,
     required this.onManual,
   });
 
-  final bool enabled;
+  final bool mapEnabled;
+  final bool manualEnabled;
   final VoidCallback? onMap;
   final VoidCallback? onManual;
 
@@ -3571,7 +4058,7 @@ class _AddPointPanel extends StatelessWidget {
             title: '从作品地图导入点位',
             subtitle: '在作品地图上选择并导入点位',
             recommended: true,
-            enabled: enabled,
+            enabled: mapEnabled,
             onTap: onMap,
           ),
           Divider(
@@ -3585,7 +4072,7 @@ class _AddPointPanel extends StatelessWidget {
             icon: Icons.edit_location_alt_outlined,
             title: '手动添加点位',
             subtitle: '手动输入点位信息，逐个添加',
-            enabled: enabled,
+            enabled: manualEnabled,
             onTap: onManual,
           ),
         ],
@@ -3617,7 +4104,7 @@ class _PointCreationAction extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Material(
-        color: Colors.transparent,
+        color: enabled ? Colors.transparent : AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(7),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -3634,10 +4121,18 @@ class _PointCreationAction extends StatelessWidget {
                     height: 42,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.08),
+                      color: enabled
+                          ? AppColors.accent.withValues(alpha: 0.08)
+                          : AppColors.border.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(icon, color: AppColors.accent, size: 24),
+                    child: Icon(
+                      icon,
+                      color: enabled
+                          ? AppColors.accent
+                          : AppColors.textSecondary,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 11),
                   Expanded(
@@ -3652,8 +4147,10 @@ class _PointCreationAction extends StatelessWidget {
                                 title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                                style: TextStyle(
+                                  color: enabled
+                                      ? AppColors.textPrimary
+                                      : AppColors.textSecondary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0,
@@ -3668,15 +4165,19 @@ class _PointCreationAction extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.accent.withValues(
-                                    alpha: 0.10,
-                                  ),
+                                  color: enabled
+                                      ? AppColors.accent.withValues(alpha: 0.10)
+                                      : AppColors.border.withValues(
+                                          alpha: 0.30,
+                                        ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '推荐',
                                   style: TextStyle(
-                                    color: AppColors.accentDark,
+                                    color: enabled
+                                        ? AppColors.accentDark
+                                        : AppColors.textSecondary,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0,
@@ -3691,8 +4192,10 @@ class _PointCreationAction extends StatelessWidget {
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: AppColors.textSecondary.withValues(
+                              alpha: enabled ? 1 : 0.65,
+                            ),
                             fontSize: 13,
                             letterSpacing: 0,
                           ),

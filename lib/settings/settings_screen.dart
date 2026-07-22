@@ -1238,6 +1238,58 @@ class _MapSettingsPageState extends State<_MapSettingsPage> {
         ),
         const SizedBox(height: 12),
         _SettingsSection(
+          title: '地图点位聚合',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(
+                Icons.hub_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: const Text('自动聚合密集点位', style: _titleTextStyle),
+              subtitle: const Text(
+                '仅合并地图标记的显示；点位数据、选择和导入功能不受影响。',
+                style: _secondaryTextStyle,
+              ),
+              value: settings.mapMarkerClusteringEnabled,
+              onChanged: (value) {
+                _update(settings.copyWith(mapMarkerClusteringEnabled: value));
+              },
+            ),
+            if (settings.mapMarkerClusteringEnabled) ...[
+              const SizedBox(height: 8),
+              _NumberStepperSetting(
+                icon: Icons.blur_circular_outlined,
+                title: '聚合范围',
+                subtitle: '屏幕上相距较近的点位会合并为一个带数量的聚合标记。',
+                value: settings.mapMarkerClusterRadius,
+                min: 32,
+                max: 120,
+                step: 8,
+                valueLabel: '${settings.mapMarkerClusterRadius} px',
+                onChanged: (value) {
+                  _update(settings.copyWith(mapMarkerClusterRadius: value));
+                },
+              ),
+              const SizedBox(height: 12),
+              _NumberStepperSetting(
+                icon: Icons.zoom_in_map_outlined,
+                title: '停止聚合级别',
+                subtitle: '地图放大超过该级别后显示每个原始点位。',
+                value: settings.mapMarkerClusterMaxZoom,
+                min: 10,
+                max: 22,
+                step: 1,
+                valueLabel: '${settings.mapMarkerClusterMaxZoom} 级',
+                onChanged: (value) {
+                  _update(settings.copyWith(mapMarkerClusterMaxZoom: value));
+                },
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
           title: '地图缩略图',
           children: [
             _NumberStepperSetting(

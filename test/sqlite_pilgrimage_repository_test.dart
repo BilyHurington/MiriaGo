@@ -1037,6 +1037,9 @@ void main() {
         customCameraAspectRatioHeight: 9,
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
+        mapMarkerClusteringEnabled: false,
+        mapMarkerClusterRadius: 88,
+        mapMarkerClusterMaxZoom: 20,
       ),
     );
 
@@ -1073,6 +1076,9 @@ void main() {
     expect(settings.customCameraAspectRatioHeight, 9);
     expect(settings.mapThumbnailVisibleThreshold, 55);
     expect(settings.mapThumbnailConcurrentLoads, 12);
+    expect(settings.mapMarkerClusteringEnabled, isFalse);
+    expect(settings.mapMarkerClusterRadius, 88);
+    expect(settings.mapMarkerClusterMaxZoom, 20);
   });
 
   test(

@@ -23,6 +23,7 @@ import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import 'map_navigation_launcher.dart';
+import 'map_marker_clustering.dart';
 import 'map_tile_config.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -365,6 +366,47 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     ).showReplacingSnackBar(SnackBar(content: Text(message)));
   }
 
+  Marker _buildPointMarker({
+    required PilgrimagePoint point,
+    required PilgrimagePoint? selectedPoint,
+    required Set<String> thumbnailPointIds,
+    required List<PlanGroupBucket> groups,
+  }) {
+    final isSelected = point.id == selectedPoint?.id;
+    final showThumbnail =
+        _showThumbnailMarkers &&
+        (isSelected || thumbnailPointIds.contains(point.id));
+    return Marker(
+      key: ValueKey('plan-map-marker-${point.id}'),
+      point: point.position,
+      width: _showThumbnailMarkers ? (showThumbnail ? 84 : 24) : 44,
+      height: _showThumbnailMarkers ? (showThumbnail ? 82 : 24) : 44,
+      alignment: _showThumbnailMarkers
+          ? (showThumbnail ? Alignment.topCenter : Alignment.center)
+          : Alignment.center,
+      child: _showThumbnailMarkers
+          ? MapThumbnailMarker(
+              key: ValueKey('plan-map-thumbnail-marker-${point.id}'),
+              selected: isSelected,
+              imported: _controller.statusFor(point) == VisitStatus.completed,
+              showThumbnail: showThumbnail,
+              markerColor: mapColorForPoint(point, groups),
+              imageLoadLimiter: _thumbnailLoadLimiter,
+              localPath: point.referenceThumbnailPath,
+              imageUrl: hasRemoteReferenceImage(point)
+                  ? point.referenceImageUrl
+                  : null,
+              imageSource: widget.settings.anitabiImageSource,
+              onTap: () => _selectPoint(point),
+            )
+          : _PointMarker(
+              selected: isSelected,
+              status: _controller.statusFor(point),
+              onTap: () => _selectPoint(point),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final groups = planGroupBuckets(
@@ -428,63 +470,60 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
               ValueListenableBuilder<LatLngBounds?>(
                 valueListenable: _visibleBoundsNotifier,
                 builder: (context, visibleBounds, _) {
+                  final camera = MapCamera.of(context);
                   final thumbnailPointIds = _thumbnailPointIdsForCurrentView(
                     _controller.points,
                     visibleBounds,
                   );
+                  final clusteringEnabled =
+                      widget.settings.mapMarkerClusteringEnabled &&
+                      camera.zoom <= widget.settings.mapMarkerClusterMaxZoom;
+                  final markerClusters = clusteringEnabled
+                      ? clusterMapMarkers<PilgrimagePoint>(
+                          items: mapPoints,
+                          positionOf: (point) => point.position,
+                          camera: camera,
+                          radiusPixels: widget.settings.mapMarkerClusterRadius
+                              .toDouble(),
+                          keepSeparate: (point) =>
+                              point.id == selectedPoint?.id,
+                        )
+                      : [
+                          for (final point in mapPoints)
+                            MapMarkerCluster(
+                              items: [point],
+                              position: point.position,
+                            ),
+                        ];
                   return MarkerLayer(
                     markers: [
-                      for (final point in mapPoints)
-                        () {
-                          final isSelected = point.id == selectedPoint?.id;
-                          final showThumbnail =
-                              _showThumbnailMarkers &&
-                              (isSelected ||
-                                  thumbnailPointIds.contains(point.id));
-                          return Marker(
-                            key: ValueKey('plan-map-marker-${point.id}'),
-                            point: point.position,
-                            width: _showThumbnailMarkers
-                                ? (showThumbnail ? 84 : 24)
-                                : 44,
-                            height: _showThumbnailMarkers
-                                ? (showThumbnail ? 82 : 24)
-                                : 44,
-                            alignment: _showThumbnailMarkers
-                                ? (showThumbnail
-                                      ? Alignment.topCenter
-                                      : Alignment.center)
-                                : Alignment.center,
-                            child: _showThumbnailMarkers
-                                ? MapThumbnailMarker(
-                                    key: ValueKey(
-                                      'plan-map-thumbnail-marker-${point.id}',
-                                    ),
-                                    selected: isSelected,
-                                    imported:
-                                        _controller.statusFor(point) ==
-                                        VisitStatus.completed,
-                                    showThumbnail: showThumbnail,
-                                    markerColor: mapColorForPoint(
-                                      point,
-                                      groups,
-                                    ),
-                                    imageLoadLimiter: _thumbnailLoadLimiter,
-                                    localPath: point.referenceThumbnailPath,
-                                    imageUrl: hasRemoteReferenceImage(point)
-                                        ? point.referenceImageUrl
-                                        : null,
-                                    imageSource:
-                                        widget.settings.anitabiImageSource,
-                                    onTap: () => _selectPoint(point),
-                                  )
-                                : _PointMarker(
-                                    selected: isSelected,
-                                    status: _controller.statusFor(point),
-                                    onTap: () => _selectPoint(point),
-                                  ),
-                          );
-                        }(),
+                      for (final cluster in markerClusters)
+                        if (cluster.isCluster)
+                          Marker(
+                            key: ValueKey(
+                              'plan-map-cluster-${cluster.items.first.id}-${cluster.items.length}',
+                            ),
+                            point: cluster.position,
+                            width: 50,
+                            height: 50,
+                            child: MapMarkerClusterBadge(
+                              count: cluster.items.length,
+                              onTap: () => _mapController.move(
+                                cluster.position,
+                                nextClusterZoom(
+                                  camera,
+                                  widget.settings.mapMarkerClusterMaxZoom,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          _buildPointMarker(
+                            point: cluster.items.single,
+                            selectedPoint: selectedPoint,
+                            thumbnailPointIds: thumbnailPointIds,
+                            groups: groups,
+                          ),
                       if (_currentLocation != null)
                         Marker(
                           point: _currentLocation!,
