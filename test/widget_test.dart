@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:miriago/app_theme.dart';
 import 'package:miriago/main.dart';
 import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
@@ -484,6 +485,9 @@ void main() {
     expect(find.textContaining('新巡礼计划 2'), findsWidgets);
     expect(find.text('还没有点位'), findsOneWidget);
     expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('加作品'), findsOneWidget);
+    expect(find.text('选点位'), findsOneWidget);
+    expect(find.text('划片区'), findsOneWidget);
 
     await _openAddPointsFromEmptyPlan(tester);
 
@@ -493,6 +497,20 @@ void main() {
       find.byKey(const ValueKey('add-points-manual-point')),
       findsOneWidget,
     );
+    final mapImportInkWell = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const ValueKey('add-points-anitabi-map')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    final manualPointInkWell = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const ValueKey('add-points-manual-point')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(mapImportInkWell.onTap, isNull);
+    expect(manualPointInkWell.onTap, isNotNull);
   });
 
   testWidgets('creates a new plan from the plan manager', (tester) async {
@@ -501,11 +519,225 @@ void main() {
     await _openPlanMenu(tester);
     await tester.tap(find.text('切换计划'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '新建计划'));
+    expect(find.byKey(const ValueKey('current-plan-section')), findsNothing);
+    expect(find.byKey(const ValueKey('all-plans-section')), findsOneWidget);
+    final createButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '新建计划'),
+    );
+    expect(createButton.style?.backgroundColor?.resolve({}), AppColors.surface);
+    await tester.tap(find.widgetWithText(OutlinedButton, '新建计划'));
     await tester.pumpAndSettle();
 
-    expect(find.text('新巡礼计划 2'), findsOneWidget);
-    expect(find.textContaining('未设置区域'), findsOneWidget);
+    expect(find.text('新巡礼计划 2'), findsNWidgets(2));
+    expect(find.textContaining('未设置区域  /  0 个点位  /  0 部作品'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('plan-status-current')), findsNWidgets(2));
+    expect(find.text('可切换'), findsOneWidget);
+    expect(find.byKey(const ValueKey('current-plan-section')), findsNothing);
+    expect(find.byKey(const ValueKey('all-plans-section')), findsOneWidget);
+    expect(find.text('全部计划'), findsOneWidget);
+    expect(find.byTooltip('更多计划操作'), findsNWidgets(3));
+    expect(tester.getSize(find.byTooltip('更多计划操作').first), const Size(38, 34));
+    expect(find.text('导入导出'), findsNothing);
+    expect(find.byTooltip('编辑计划信息'), findsNWidgets(3));
+    expect(find.byTooltip('拖动排序（待接入）'), findsNWidgets(2));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Icon &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'plan-card-drag-handle-',
+            ),
+      ),
+      findsNWidgets(2),
+    );
+    expect(find.byTooltip('删除计划'), findsNothing);
+    expect(find.widgetWithText(TextButton, '切换'), findsNothing);
+    final editIcon = tester.widget<Icon>(
+      find
+          .descendant(
+            of: find.byTooltip('编辑计划信息').first,
+            matching: find.byIcon(Icons.edit_outlined),
+          )
+          .first,
+    );
+    expect(editIcon.size, 21);
+
+    final planCards = find.byWidgetPredicate(
+      (widget) =>
+          widget is Material &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('plan-card-'),
+    );
+    expect(planCards, findsNWidgets(3));
+    expect(tester.getSize(planCards.first).height, lessThan(150));
+    expect(tester.getSize(planCards.last).height, lessThan(150));
+    expect(tester.getSize(planCards.first).height, greaterThan(120));
+    expect(tester.getSize(planCards.last).height, greaterThan(120));
+    expect(
+      tester.getSize(planCards.first).height,
+      closeTo(tester.getSize(planCards.last).height, 0.1),
+    );
+    expect(
+      tester.widgetList<Material>(planCards).map((card) => card.color).toSet(),
+      {AppColors.surface},
+    );
+    final selectedAccents = find.byWidgetPredicate(
+      (widget) =>
+          widget is Positioned &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'plan-card-selected-accent-',
+          ),
+    );
+    expect(selectedAccents, findsNWidgets(2));
+    final selectedAccentRect = tester.getRect(selectedAccents.first);
+    final selectedCardRect = tester.getRect(planCards.first);
+    expect(selectedAccentRect.width, 3);
+    expect(selectedAccentRect.height, selectedCardRect.height - 18);
+    final editRect = tester.getRect(find.byTooltip('编辑计划信息').first);
+    final moreRect = tester.getRect(find.byTooltip('更多计划操作').first);
+    final dividerRect = tester.getRect(
+      find.descendant(of: planCards.first, matching: find.byType(Divider)),
+    );
+    expect(editRect.size, moreRect.size);
+    expect(editRect.right, lessThan(moreRect.left));
+    expect(editRect.center.dy, closeTo(moreRect.center.dy, 0.1));
+    expect(editRect.top - dividerRect.bottom, closeTo(4, 0.1));
+    expect(moreRect.top - dividerRect.bottom, closeTo(4, 0.1));
+    expect(selectedCardRect.bottom - editRect.bottom, closeTo(4, 0.1));
+    expect(selectedCardRect.bottom - moreRect.bottom, closeTo(4, 0.1));
+    final dragHandles = find.byWidgetPredicate(
+      (widget) =>
+          widget is Icon &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'plan-card-drag-handle-',
+          ),
+    );
+    expect(
+      find.descendant(of: planCards.first, matching: dragHandles),
+      findsNothing,
+    );
+
+    final planTitleTexts = find.descendant(
+      of: find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'plan-card-title-',
+            ),
+      ),
+      matching: find.byType(Text),
+    );
+    final planSummaryTexts = find.descendant(
+      of: find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'plan-card-summary-',
+            ),
+      ),
+      matching: find.byType(Text),
+    );
+    for (final text in tester.widgetList<Text>(planTitleTexts)) {
+      expect(text.style?.fontSize, 17);
+      expect(text.style?.color, AppColors.textPrimary);
+    }
+    for (final text in tester.widgetList<Text>(planSummaryTexts)) {
+      expect(text.style?.fontSize, 12.5);
+      expect(text.style?.color, AppColors.textSecondary);
+    }
+
+    expect(find.byKey(const ValueKey('plan-work-tags')), findsOneWidget);
+    expect(find.text('暂无作品'), findsNWidgets(2));
+    expect(
+      tester.widget<Text>(find.text('暂无作品').first).style?.color,
+      AppColors.textSecondary,
+    );
+    final workRows = find.byWidgetPredicate(
+      (widget) =>
+          widget is SizedBox &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'plan-card-work-row-',
+          ),
+    );
+    expect(workRows, findsNWidgets(3));
+    for (final workRow in workRows.evaluate()) {
+      expect(
+        tester.getSize(find.byElementPredicate((e) => e == workRow)).height,
+        18,
+      );
+    }
+    final titleRect = tester.getRect(find.text('新巡礼计划 2').first);
+    final summaryRect = tester.getRect(
+      find.textContaining('未设置区域  /  0 个点位  /  0 部作品').first,
+    );
+    final emptyWorkRowRect = tester.getRect(
+      find
+          .ancestor(
+            of: find.text('暂无作品').first,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is SizedBox &&
+                  widget.key is ValueKey<String> &&
+                  (widget.key! as ValueKey<String>).value.startsWith(
+                    'plan-card-work-row-',
+                  ),
+            ),
+          )
+          .first,
+    );
+    expect(summaryRect.top - titleRect.bottom, closeTo(5, 0.1));
+    expect(emptyWorkRowRect.top - summaryRect.bottom, closeTo(3, 0.1));
+    expect(titleRect.left, closeTo(summaryRect.left, 0.1));
+    expect(
+      tester.getRect(dragHandles.first).right,
+      lessThanOrEqualTo(tester.getRect(planTitleTexts.at(1)).left),
+    );
+
+    await tester.tap(find.byTooltip('更多计划操作').first);
+    await tester.pumpAndSettle();
+    expect(find.text('导入导出'), findsOneWidget);
+    expect(find.text('删除计划'), findsOneWidget);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('可切换'));
+    await tester.pumpAndSettle();
+    expect(find.text('切换计划'), findsNothing);
+  });
+
+  testWidgets('Bangumi work enables work-map import without existing points', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: 'Bangumi 空计划', area: '东京');
+    await repository.addWorkToPlan(
+      planId: plan.id,
+      work: const PilgrimageWork(
+        id: 'bangumi-work',
+        bangumiId: 12345,
+        title: '测试动画',
+        subtitle: 'Test Anime',
+        city: '东京',
+        source: WorkSource.bangumi,
+      ),
+    );
+    await tester.pumpWidget(MiriaGoApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    _invokeKeyedAction(tester, 'plan-add-points');
+    await tester.pumpAndSettle();
+
+    final mapImportInkWell = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const ValueKey('add-points-anitabi-map')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(mapImportInkWell.onTap, isNotNull);
   });
 
   testWidgets('adds a manual work to an empty plan', (tester) async {
@@ -517,6 +749,30 @@ void main() {
     _invokeKeyedAction(tester, 'work-manager-manual-work');
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey('manual-work-filling-guide')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('manual-work-filling-guide')),
+        matching: find.text('填写指南'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('manual-work-filling-guide')));
+    await tester.pumpAndSettle();
+    expect(find.text('作品填写指南'), findsOneWidget);
+    expect(find.text('示例：京都市 / 宇治市'), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('manual-work-guide-panel')))
+          .height,
+      lessThan(tester.view.physicalSize.height / tester.view.devicePixelRatio),
+    );
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), '原创短片');
     await tester.enterText(fields.at(1), 'Original');
@@ -525,6 +781,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('手动添加作品'), findsOneWidget);
+    expect(
+      tester.widget<TextFormField>(fields.at(2)).controller!.text,
+      isEmpty,
+    );
     await tester.pageBack();
     await tester.pumpAndSettle();
 
@@ -540,6 +800,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('备注'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('manual-point-filling-guide')),
+        matching: find.text('填写指南'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('manual-point-filling-guide')));
+    await tester.pumpAndSettle();
+    expect(find.text('点位填写指南'), findsOneWidget);
+    expect(
+      find.text('示例：EP 1 / 12:32\n小红书@BilyHurington / Bilibili@麦块晓天'),
+      findsOneWidget,
+    );
+    expect(find.text('示例：35.008900, 135.771100'), findsOneWidget);
+    expect(find.textContaining('名称优先填写中文常用名；位置说明优先填写当地原语言'), findsOneWidget);
+    expect(find.textContaining('参考来源填写该点位原来所在的平台，或原始上传者'), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('manual-point-guide-panel')))
+          .height,
+      lessThan(tester.view.physicalSize.height / tester.view.devicePixelRatio),
+    );
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == '例如：丰郷小学校旧校舍群',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == '例如：豊郷小学校旧校舎群、東京ビッグサイト',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == '例如：EP 1 / 12:32',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == '例如：Bilibili@麦块晓天',
+      ),
+      findsOneWidget,
+    );
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), '轻音少女');
@@ -549,6 +867,30 @@ void main() {
     await tester.enterText(fields.at(6), '手动录入');
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('point-form-latitude')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .decoration
+          ?.hintText,
+      '例如：35.712576',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('point-form-longitude')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .decoration
+          ?.hintText,
+      '例如：139.722166',
+    );
     await tester.enterText(
       find.byKey(const ValueKey('point-form-latitude')),
       '35.0089',
@@ -615,6 +957,14 @@ void main() {
     expect(updatedPlan.works, isEmpty);
     expect(anitabiClient.lookedUpPoints, contains((12345, 'point-1')));
     expect(anitabiClient.fetchedPointPids, contains(12345));
+    expect(find.text('详情'), findsNothing);
+    expect(find.text('导航'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('anitabi-point-card-point-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('坐标'), findsOneWidget);
+    Navigator.of(tester.element(find.text('坐标'))).pop();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('加入计划'));
     await tester.pumpAndSettle();

@@ -7,6 +7,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../map/map_marker_clustering.dart';
+import '../map/map_navigation_launcher.dart';
 import '../map/map_tile_config.dart';
 import '../widgets/snackbar_helper.dart';
 import '../data/anitabi_client.dart';
@@ -1167,6 +1169,50 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     });
   }
 
+  Marker _buildImportPointMarker({
+    required AnitabiPoint point,
+    required AnitabiPoint? selectedPoint,
+    required Set<String> thumbnailPointIds,
+  }) {
+    final imported = _importedPointIds.contains(
+      point.toPilgrimagePoint(_selectedWork!).id,
+    );
+    final isSelected = selectedPoint?.id == point.id;
+    final showThumbnail =
+        _showThumbnailMarkers &&
+        (isSelected || thumbnailPointIds.contains(point.id));
+    return Marker(
+      key: ValueKey('anitabi-import-marker-${point.id}'),
+      point: point.position,
+      width: _showThumbnailMarkers ? (showThumbnail ? 84 : 24) : 40,
+      height: _showThumbnailMarkers ? (showThumbnail ? 82 : 24) : 40,
+      alignment: _showThumbnailMarkers
+          ? (showThumbnail ? Alignment.topCenter : Alignment.center)
+          : Alignment.center,
+      child: _showThumbnailMarkers
+          ? MapThumbnailMarker(
+              key: ValueKey('anitabi-import-thumbnail-marker-${point.id}'),
+              selected: isSelected,
+              imported: imported,
+              showThumbnail: showThumbnail,
+              markerColor: imported
+                  ? AppColors.textSecondary
+                  : AppColors.accent,
+              imageLoadLimiter: _thumbnailLoadLimiter,
+              localPath: _importedPointFor(point)?.referenceThumbnailPath,
+              imageUrl: _anitabiThumbnailUrl(point.referenceImageUrl),
+              imageSource: _settings.anitabiImageSource,
+              tooltip: 'Anitabi 点位',
+              onTap: _isImporting ? null : () => _selectPoint(point),
+            )
+          : _ImportMarker(
+              selected: isSelected,
+              imported: imported,
+              onTap: _isImporting ? null : () => _selectPoint(point),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final works = _works;
@@ -1295,79 +1341,62 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                         ValueListenableBuilder<LatLngBounds?>(
                           valueListenable: _visibleBoundsNotifier,
                           builder: (context, visibleBounds, _) {
+                            final camera = MapCamera.of(context);
                             final thumbnailPointIds =
                                 _thumbnailPointIdsForCurrentView(
                                   visiblePoints,
                                   visibleBounds,
                                 );
+                            final clusteringEnabled =
+                                _settings.mapMarkerClusteringEnabled &&
+                                camera.zoom <=
+                                    _settings.mapMarkerClusterMaxZoom;
+                            final markerClusters = clusteringEnabled
+                                ? clusterMapMarkers<AnitabiPoint>(
+                                    items: mapPoints,
+                                    positionOf: (point) => point.position,
+                                    camera: camera,
+                                    radiusPixels: _settings
+                                        .mapMarkerClusterRadius
+                                        .toDouble(),
+                                    keepSeparate: (point) =>
+                                        point.id == selectedPoint?.id,
+                                  )
+                                : [
+                                    for (final point in mapPoints)
+                                      MapMarkerCluster(
+                                        items: [point],
+                                        position: point.position,
+                                      ),
+                                  ];
                             return MarkerLayer(
                               markers: [
-                                for (final point in mapPoints)
-                                  () {
-                                    final imported = _importedPointIds.contains(
-                                      point
-                                          .toPilgrimagePoint(_selectedWork!)
-                                          .id,
-                                    );
-                                    final isSelected =
-                                        selectedPoint?.id == point.id;
-                                    final showThumbnail =
-                                        _showThumbnailMarkers &&
-                                        (isSelected ||
-                                            thumbnailPointIds.contains(
-                                              point.id,
-                                            ));
-                                    return Marker(
+                                for (final cluster in markerClusters)
+                                  if (cluster.isCluster)
+                                    Marker(
                                       key: ValueKey(
-                                        'anitabi-import-marker-${point.id}',
+                                        'anitabi-import-cluster-${cluster.items.first.id}-${cluster.items.length}',
                                       ),
-                                      point: point.position,
-                                      width: _showThumbnailMarkers
-                                          ? (showThumbnail ? 84 : 24)
-                                          : 40,
-                                      height: _showThumbnailMarkers
-                                          ? (showThumbnail ? 82 : 24)
-                                          : 40,
-                                      alignment: _showThumbnailMarkers
-                                          ? (showThumbnail
-                                                ? Alignment.topCenter
-                                                : Alignment.center)
-                                          : Alignment.center,
-                                      child: _showThumbnailMarkers
-                                          ? MapThumbnailMarker(
-                                              key: ValueKey(
-                                                'anitabi-import-thumbnail-marker-${point.id}',
-                                              ),
-                                              selected: isSelected,
-                                              imported: imported,
-                                              showThumbnail: showThumbnail,
-                                              markerColor: imported
-                                                  ? AppColors.textSecondary
-                                                  : AppColors.accent,
-                                              imageLoadLimiter:
-                                                  _thumbnailLoadLimiter,
-                                              localPath: _importedPointFor(
-                                                point,
-                                              )?.referenceThumbnailPath,
-                                              imageUrl: _anitabiThumbnailUrl(
-                                                point.referenceImageUrl,
-                                              ),
-                                              imageSource:
-                                                  _settings.anitabiImageSource,
-                                              tooltip: 'Anitabi 点位',
-                                              onTap: _isImporting
-                                                  ? null
-                                                  : () => _selectPoint(point),
-                                            )
-                                          : _ImportMarker(
-                                              selected: isSelected,
-                                              imported: imported,
-                                              onTap: _isImporting
-                                                  ? null
-                                                  : () => _selectPoint(point),
-                                            ),
-                                    );
-                                  }(),
+                                      point: cluster.position,
+                                      width: 50,
+                                      height: 50,
+                                      child: MapMarkerClusterBadge(
+                                        count: cluster.items.length,
+                                        onTap: () => _mapController.move(
+                                          cluster.position,
+                                          nextClusterZoom(
+                                            camera,
+                                            _settings.mapMarkerClusterMaxZoom,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    _buildImportPointMarker(
+                                      point: cluster.items.single,
+                                      selectedPoint: selectedPoint,
+                                      thumbnailPointIds: thumbnailPointIds,
+                                    ),
                               ],
                             );
                           },
@@ -1443,6 +1472,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                                 });
                               },
                               importedPoint: _importedPointFor(selectedPoint),
+                              navigationPoint: selectedPoint.toPilgrimagePoint(
+                                _selectedWork!,
+                              ),
+                              navigationApp: _settings.navigationApp,
                               imported: _importedPointIds.contains(
                                 selectedPoint
                                     .toPilgrimagePoint(_selectedWork!)
@@ -1807,6 +1840,8 @@ class _AnitabiPointCard extends StatelessWidget {
     required this.repository,
     required this.onPlanUpdated,
     required this.importedPoint,
+    required this.navigationPoint,
+    required this.navigationApp,
     required this.imported,
     required this.isImporting,
     required this.onImport,
@@ -1817,6 +1852,8 @@ class _AnitabiPointCard extends StatelessWidget {
   final PilgrimageRepository repository;
   final ValueChanged<PilgrimagePlan> onPlanUpdated;
   final PilgrimagePoint? importedPoint;
+  final PilgrimagePoint navigationPoint;
+  final NavigationApp navigationApp;
   final bool imported;
   final bool isImporting;
   final VoidCallback onImport;
@@ -1853,124 +1890,157 @@ class _AnitabiPointCard extends StatelessWidget {
       );
     }
 
-    return Container(
-      margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+    Future<void> openNavigation() async {
+      final opened = await const MapNavigationLauncher().openWalking(
+        navigationPoint,
+        navigationApp,
+      );
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context).showReplacingSnackBar(
+          SnackBar(content: Text('无法打开${navigationApp.label}。')),
+        );
+      }
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+      child: Material(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Material(
-              color: AppColors.surfaceMuted,
-              child: InkWell(
-                onTap: fullImageUrl == null ? null : openFullImage,
-                child: SizedBox(
-                  width: 86,
-                  height: 86,
-                  child: importedPoint == null
-                      ? ReferenceThumbnail(
-                          localPath: localThumbnailPath,
-                          imageUrl: imageUrl,
-                          placeholder: const Icon(Icons.image_outlined),
-                        )
-                      : AutoCachingReferenceThumbnail(
-                          planId: planId,
-                          point: importedPoint!,
-                          repository: repository,
-                          onPlanUpdated: onPlanUpdated,
-                          placeholder: const Icon(Icons.image_outlined),
-                        ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('anitabi-point-card-${point.id}'),
+          onTap: openDetail,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CopyableText(
-                  text: point.name,
-                  copyLabel: '点位名称',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                CopyableText(
-                  text: '${point.subtitle} / ${point.episodeLabel}',
-                  copyText: _copySummary,
-                  copyLabel: '点位信息',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                CopyableText(
-                  text: point.origin,
-                  copyLabel: '来源',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    SizedBox(
-                      height: 40,
-                      child: OutlinedButton.icon(
-                        onPressed: openDetail,
-                        icon: const Icon(Icons.image_outlined, size: 17),
-                        label: const Text('详情'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Material(
+                    color: AppColors.surfaceMuted,
+                    child: InkWell(
+                      onTap: fullImageUrl == null ? null : openFullImage,
                       child: SizedBox(
-                        height: 40,
-                        child: FilledButton.icon(
-                          onPressed: imported || isImporting ? null : onImport,
-                          icon: Icon(
-                            imported
-                                ? Icons.check
-                                : Icons.add_location_alt_outlined,
-                            size: 18,
-                          ),
-                          label: Text(imported ? '已加入' : '加入计划'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                        ),
+                        width: 86,
+                        height: 86,
+                        child: importedPoint == null
+                            ? ReferenceThumbnail(
+                                localPath: localThumbnailPath,
+                                imageUrl: imageUrl,
+                                placeholder: const Icon(Icons.image_outlined),
+                              )
+                            : AutoCachingReferenceThumbnail(
+                                planId: planId,
+                                point: importedPoint!,
+                                repository: repository,
+                                onPlanUpdated: onPlanUpdated,
+                                placeholder: const Icon(Icons.image_outlined),
+                              ),
                       ),
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CopyableText(
+                        text: point.name,
+                        copyLabel: '点位名称',
+                        onTap: openDetail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      CopyableText(
+                        text: '${point.subtitle} / ${point.episodeLabel}',
+                        copyText: _copySummary,
+                        copyLabel: '点位信息',
+                        onTap: openDetail,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      CopyableText(
+                        text: point.origin,
+                        copyLabel: '来源',
+                        onTap: openDetail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 40,
+                            child: OutlinedButton.icon(
+                              onPressed: openNavigation,
+                              icon: const Icon(
+                                Icons.navigation_outlined,
+                                size: 17,
+                              ),
+                              label: const Text('导航'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SizedBox(
+                              height: 40,
+                              child: FilledButton.icon(
+                                onPressed: imported || isImporting
+                                    ? null
+                                    : onImport,
+                                icon: Icon(
+                                  imported
+                                      ? Icons.check
+                                      : Icons.add_location_alt_outlined,
+                                  size: 18,
+                                ),
+                                label: Text(imported ? '已加入' : '加入计划'),
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

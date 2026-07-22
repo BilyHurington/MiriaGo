@@ -780,6 +780,9 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
         1,
         30,
       ),
+      mapMarkerClusteringEnabled: settings.mapMarkerClusteringEnabled,
+      mapMarkerClusterRadius: settings.mapMarkerClusterRadius.clamp(32, 120),
+      mapMarkerClusterMaxZoom: settings.mapMarkerClusterMaxZoom.clamp(10, 22),
     );
   }
 

@@ -22,6 +22,9 @@ void main() {
         comparisonPilgrimName: 'BilyHurington',
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
+        mapMarkerClusteringEnabled: false,
+        mapMarkerClusterRadius: 88,
+        mapMarkerClusterMaxZoom: 20,
       ),
     );
     final source = repository.snapshot();
@@ -78,6 +81,9 @@ void main() {
     expect(decoded.settings.comparisonPilgrimName, 'BilyHurington');
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
+    expect(decoded.settings.mapMarkerClusteringEnabled, isFalse);
+    expect(decoded.settings.mapMarkerClusterRadius, 88);
+    expect(decoded.settings.mapMarkerClusterMaxZoom, 20);
     expect(decoded.plans.single.id, source.plans.single.id);
     expect(decoded.plans.single.memo, '桌面端备忘录');
     expect(

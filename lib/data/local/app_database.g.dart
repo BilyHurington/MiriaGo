@@ -4412,6 +4412,44 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant(10),
       );
+  static const VerificationMeta _mapMarkerClusteringEnabledMeta =
+      const VerificationMeta('mapMarkerClusteringEnabled');
+  @override
+  late final GeneratedColumn<bool> mapMarkerClusteringEnabled =
+      GeneratedColumn<bool>(
+        'map_marker_clustering_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("map_marker_clustering_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _mapMarkerClusterRadiusMeta =
+      const VerificationMeta('mapMarkerClusterRadius');
+  @override
+  late final GeneratedColumn<int> mapMarkerClusterRadius = GeneratedColumn<int>(
+    'map_marker_cluster_radius',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(64),
+  );
+  static const VerificationMeta _mapMarkerClusterMaxZoomMeta =
+      const VerificationMeta('mapMarkerClusterMaxZoom');
+  @override
+  late final GeneratedColumn<int> mapMarkerClusterMaxZoom =
+      GeneratedColumn<int>(
+        'map_marker_cluster_max_zoom',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(18),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4442,6 +4480,9 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     customCameraAspectRatioHeight,
     mapThumbnailVisibleThreshold,
     mapThumbnailConcurrentLoads,
+    mapMarkerClusteringEnabled,
+    mapMarkerClusterRadius,
+    mapMarkerClusterMaxZoom,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4694,6 +4735,33 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('map_marker_clustering_enabled')) {
+      context.handle(
+        _mapMarkerClusteringEnabledMeta,
+        mapMarkerClusteringEnabled.isAcceptableOrUnknown(
+          data['map_marker_clustering_enabled']!,
+          _mapMarkerClusteringEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('map_marker_cluster_radius')) {
+      context.handle(
+        _mapMarkerClusterRadiusMeta,
+        mapMarkerClusterRadius.isAcceptableOrUnknown(
+          data['map_marker_cluster_radius']!,
+          _mapMarkerClusterRadiusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('map_marker_cluster_max_zoom')) {
+      context.handle(
+        _mapMarkerClusterMaxZoomMeta,
+        mapMarkerClusterMaxZoom.isAcceptableOrUnknown(
+          data['map_marker_cluster_max_zoom']!,
+          _mapMarkerClusterMaxZoomMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4815,6 +4883,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.int,
         data['${effectivePrefix}map_thumbnail_concurrent_loads'],
       )!,
+      mapMarkerClusteringEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}map_marker_clustering_enabled'],
+      )!,
+      mapMarkerClusterRadius: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}map_marker_cluster_radius'],
+      )!,
+      mapMarkerClusterMaxZoom: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}map_marker_cluster_max_zoom'],
+      )!,
     );
   }
 
@@ -4854,6 +4934,9 @@ class AppSettingsEntry extends DataClass
   final double customCameraAspectRatioHeight;
   final int mapThumbnailVisibleThreshold;
   final int mapThumbnailConcurrentLoads;
+  final bool mapMarkerClusteringEnabled;
+  final int mapMarkerClusterRadius;
+  final int mapMarkerClusterMaxZoom;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -4883,6 +4966,9 @@ class AppSettingsEntry extends DataClass
     required this.customCameraAspectRatioHeight,
     required this.mapThumbnailVisibleThreshold,
     required this.mapThumbnailConcurrentLoads,
+    required this.mapMarkerClusteringEnabled,
+    required this.mapMarkerClusterRadius,
+    required this.mapMarkerClusterMaxZoom,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4935,6 +5021,11 @@ class AppSettingsEntry extends DataClass
     map['map_thumbnail_concurrent_loads'] = Variable<int>(
       mapThumbnailConcurrentLoads,
     );
+    map['map_marker_clustering_enabled'] = Variable<bool>(
+      mapMarkerClusteringEnabled,
+    );
+    map['map_marker_cluster_radius'] = Variable<int>(mapMarkerClusterRadius);
+    map['map_marker_cluster_max_zoom'] = Variable<int>(mapMarkerClusterMaxZoom);
     return map;
   }
 
@@ -4968,6 +5059,9 @@ class AppSettingsEntry extends DataClass
       customCameraAspectRatioHeight: Value(customCameraAspectRatioHeight),
       mapThumbnailVisibleThreshold: Value(mapThumbnailVisibleThreshold),
       mapThumbnailConcurrentLoads: Value(mapThumbnailConcurrentLoads),
+      mapMarkerClusteringEnabled: Value(mapMarkerClusteringEnabled),
+      mapMarkerClusterRadius: Value(mapMarkerClusterRadius),
+      mapMarkerClusterMaxZoom: Value(mapMarkerClusterMaxZoom),
     );
   }
 
@@ -5037,6 +5131,15 @@ class AppSettingsEntry extends DataClass
       mapThumbnailConcurrentLoads: serializer.fromJson<int>(
         json['mapThumbnailConcurrentLoads'],
       ),
+      mapMarkerClusteringEnabled: serializer.fromJson<bool>(
+        json['mapMarkerClusteringEnabled'],
+      ),
+      mapMarkerClusterRadius: serializer.fromJson<int>(
+        json['mapMarkerClusterRadius'],
+      ),
+      mapMarkerClusterMaxZoom: serializer.fromJson<int>(
+        json['mapMarkerClusterMaxZoom'],
+      ),
     );
   }
   @override
@@ -5091,6 +5194,13 @@ class AppSettingsEntry extends DataClass
       'mapThumbnailConcurrentLoads': serializer.toJson<int>(
         mapThumbnailConcurrentLoads,
       ),
+      'mapMarkerClusteringEnabled': serializer.toJson<bool>(
+        mapMarkerClusteringEnabled,
+      ),
+      'mapMarkerClusterRadius': serializer.toJson<int>(mapMarkerClusterRadius),
+      'mapMarkerClusterMaxZoom': serializer.toJson<int>(
+        mapMarkerClusterMaxZoom,
+      ),
     };
   }
 
@@ -5123,6 +5233,9 @@ class AppSettingsEntry extends DataClass
     double? customCameraAspectRatioHeight,
     int? mapThumbnailVisibleThreshold,
     int? mapThumbnailConcurrentLoads,
+    bool? mapMarkerClusteringEnabled,
+    int? mapMarkerClusterRadius,
+    int? mapMarkerClusterMaxZoom,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -5162,6 +5275,12 @@ class AppSettingsEntry extends DataClass
         mapThumbnailVisibleThreshold ?? this.mapThumbnailVisibleThreshold,
     mapThumbnailConcurrentLoads:
         mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
+    mapMarkerClusteringEnabled:
+        mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
+    mapMarkerClusterRadius:
+        mapMarkerClusterRadius ?? this.mapMarkerClusterRadius,
+    mapMarkerClusterMaxZoom:
+        mapMarkerClusterMaxZoom ?? this.mapMarkerClusterMaxZoom,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -5241,6 +5360,15 @@ class AppSettingsEntry extends DataClass
       mapThumbnailConcurrentLoads: data.mapThumbnailConcurrentLoads.present
           ? data.mapThumbnailConcurrentLoads.value
           : this.mapThumbnailConcurrentLoads,
+      mapMarkerClusteringEnabled: data.mapMarkerClusteringEnabled.present
+          ? data.mapMarkerClusteringEnabled.value
+          : this.mapMarkerClusteringEnabled,
+      mapMarkerClusterRadius: data.mapMarkerClusterRadius.present
+          ? data.mapMarkerClusterRadius.value
+          : this.mapMarkerClusterRadius,
+      mapMarkerClusterMaxZoom: data.mapMarkerClusterMaxZoom.present
+          ? data.mapMarkerClusterMaxZoom.value
+          : this.mapMarkerClusterMaxZoom,
     );
   }
 
@@ -5280,7 +5408,10 @@ class AppSettingsEntry extends DataClass
           ..write(
             'mapThumbnailVisibleThreshold: $mapThumbnailVisibleThreshold, ',
           )
-          ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads')
+          ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads, ')
+          ..write('mapMarkerClusteringEnabled: $mapMarkerClusteringEnabled, ')
+          ..write('mapMarkerClusterRadius: $mapMarkerClusterRadius, ')
+          ..write('mapMarkerClusterMaxZoom: $mapMarkerClusterMaxZoom')
           ..write(')'))
         .toString();
   }
@@ -5315,6 +5446,9 @@ class AppSettingsEntry extends DataClass
     customCameraAspectRatioHeight,
     mapThumbnailVisibleThreshold,
     mapThumbnailConcurrentLoads,
+    mapMarkerClusteringEnabled,
+    mapMarkerClusterRadius,
+    mapMarkerClusterMaxZoom,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -5353,7 +5487,10 @@ class AppSettingsEntry extends DataClass
           other.mapThumbnailVisibleThreshold ==
               this.mapThumbnailVisibleThreshold &&
           other.mapThumbnailConcurrentLoads ==
-              this.mapThumbnailConcurrentLoads);
+              this.mapThumbnailConcurrentLoads &&
+          other.mapMarkerClusteringEnabled == this.mapMarkerClusteringEnabled &&
+          other.mapMarkerClusterRadius == this.mapMarkerClusterRadius &&
+          other.mapMarkerClusterMaxZoom == this.mapMarkerClusterMaxZoom);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -5385,6 +5522,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<double> customCameraAspectRatioHeight;
   final Value<int> mapThumbnailVisibleThreshold;
   final Value<int> mapThumbnailConcurrentLoads;
+  final Value<bool> mapMarkerClusteringEnabled;
+  final Value<int> mapMarkerClusterRadius;
+  final Value<int> mapMarkerClusterMaxZoom;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -5415,6 +5555,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.customCameraAspectRatioHeight = const Value.absent(),
     this.mapThumbnailVisibleThreshold = const Value.absent(),
     this.mapThumbnailConcurrentLoads = const Value.absent(),
+    this.mapMarkerClusteringEnabled = const Value.absent(),
+    this.mapMarkerClusterRadius = const Value.absent(),
+    this.mapMarkerClusterMaxZoom = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -5446,6 +5589,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.customCameraAspectRatioHeight = const Value.absent(),
     this.mapThumbnailVisibleThreshold = const Value.absent(),
     this.mapThumbnailConcurrentLoads = const Value.absent(),
+    this.mapMarkerClusteringEnabled = const Value.absent(),
+    this.mapMarkerClusterRadius = const Value.absent(),
+    this.mapMarkerClusterMaxZoom = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -5477,6 +5623,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<double>? customCameraAspectRatioHeight,
     Expression<int>? mapThumbnailVisibleThreshold,
     Expression<int>? mapThumbnailConcurrentLoads,
+    Expression<bool>? mapMarkerClusteringEnabled,
+    Expression<int>? mapMarkerClusterRadius,
+    Expression<int>? mapMarkerClusterMaxZoom,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5524,6 +5673,12 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'map_thumbnail_visible_threshold': mapThumbnailVisibleThreshold,
       if (mapThumbnailConcurrentLoads != null)
         'map_thumbnail_concurrent_loads': mapThumbnailConcurrentLoads,
+      if (mapMarkerClusteringEnabled != null)
+        'map_marker_clustering_enabled': mapMarkerClusteringEnabled,
+      if (mapMarkerClusterRadius != null)
+        'map_marker_cluster_radius': mapMarkerClusterRadius,
+      if (mapMarkerClusterMaxZoom != null)
+        'map_marker_cluster_max_zoom': mapMarkerClusterMaxZoom,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5557,6 +5712,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<double>? customCameraAspectRatioHeight,
     Value<int>? mapThumbnailVisibleThreshold,
     Value<int>? mapThumbnailConcurrentLoads,
+    Value<bool>? mapMarkerClusteringEnabled,
+    Value<int>? mapMarkerClusterRadius,
+    Value<int>? mapMarkerClusterMaxZoom,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -5601,6 +5759,12 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           mapThumbnailVisibleThreshold ?? this.mapThumbnailVisibleThreshold,
       mapThumbnailConcurrentLoads:
           mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
+      mapMarkerClusteringEnabled:
+          mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
+      mapMarkerClusterRadius:
+          mapMarkerClusterRadius ?? this.mapMarkerClusterRadius,
+      mapMarkerClusterMaxZoom:
+          mapMarkerClusterMaxZoom ?? this.mapMarkerClusterMaxZoom,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5722,6 +5886,21 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         mapThumbnailConcurrentLoads.value,
       );
     }
+    if (mapMarkerClusteringEnabled.present) {
+      map['map_marker_clustering_enabled'] = Variable<bool>(
+        mapMarkerClusteringEnabled.value,
+      );
+    }
+    if (mapMarkerClusterRadius.present) {
+      map['map_marker_cluster_radius'] = Variable<int>(
+        mapMarkerClusterRadius.value,
+      );
+    }
+    if (mapMarkerClusterMaxZoom.present) {
+      map['map_marker_cluster_max_zoom'] = Variable<int>(
+        mapMarkerClusterMaxZoom.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5765,6 +5944,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
             'mapThumbnailVisibleThreshold: $mapThumbnailVisibleThreshold, ',
           )
           ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads, ')
+          ..write('mapMarkerClusteringEnabled: $mapMarkerClusteringEnabled, ')
+          ..write('mapMarkerClusterRadius: $mapMarkerClusterRadius, ')
+          ..write('mapMarkerClusterMaxZoom: $mapMarkerClusterMaxZoom, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8639,6 +8821,9 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<double> customCameraAspectRatioHeight,
       Value<int> mapThumbnailVisibleThreshold,
       Value<int> mapThumbnailConcurrentLoads,
+      Value<bool> mapMarkerClusteringEnabled,
+      Value<int> mapMarkerClusterRadius,
+      Value<int> mapMarkerClusterMaxZoom,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -8671,6 +8856,9 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<double> customCameraAspectRatioHeight,
       Value<int> mapThumbnailVisibleThreshold,
       Value<int> mapThumbnailConcurrentLoads,
+      Value<bool> mapMarkerClusteringEnabled,
+      Value<int> mapMarkerClusterRadius,
+      Value<int> mapMarkerClusterMaxZoom,
       Value<int> rowid,
     });
 
@@ -8820,6 +9008,21 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<int> get mapThumbnailConcurrentLoads => $composableBuilder(
     column: $table.mapThumbnailConcurrentLoads,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mapMarkerClusteringEnabled => $composableBuilder(
+    column: $table.mapMarkerClusteringEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mapMarkerClusterRadius => $composableBuilder(
+    column: $table.mapMarkerClusterRadius,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mapMarkerClusterMaxZoom => $composableBuilder(
+    column: $table.mapMarkerClusterMaxZoom,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8974,6 +9177,21 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.mapThumbnailConcurrentLoads,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get mapMarkerClusteringEnabled => $composableBuilder(
+    column: $table.mapMarkerClusteringEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mapMarkerClusterRadius => $composableBuilder(
+    column: $table.mapMarkerClusterRadius,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mapMarkerClusterMaxZoom => $composableBuilder(
+    column: $table.mapMarkerClusterMaxZoom,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -9118,6 +9336,21 @@ class $$AppSettingsEntriesTableAnnotationComposer
     column: $table.mapThumbnailConcurrentLoads,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get mapMarkerClusteringEnabled => $composableBuilder(
+    column: $table.mapMarkerClusteringEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get mapMarkerClusterRadius => $composableBuilder(
+    column: $table.mapMarkerClusterRadius,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get mapMarkerClusterMaxZoom => $composableBuilder(
+    column: $table.mapMarkerClusterMaxZoom,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsEntriesTableTableManager
@@ -9191,6 +9424,9 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<int> mapThumbnailVisibleThreshold = const Value.absent(),
                 Value<int> mapThumbnailConcurrentLoads = const Value.absent(),
+                Value<bool> mapMarkerClusteringEnabled = const Value.absent(),
+                Value<int> mapMarkerClusterRadius = const Value.absent(),
+                Value<int> mapMarkerClusterMaxZoom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -9221,6 +9457,9 @@ class $$AppSettingsEntriesTableTableManager
                 customCameraAspectRatioHeight: customCameraAspectRatioHeight,
                 mapThumbnailVisibleThreshold: mapThumbnailVisibleThreshold,
                 mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
+                mapMarkerClusteringEnabled: mapMarkerClusteringEnabled,
+                mapMarkerClusterRadius: mapMarkerClusterRadius,
+                mapMarkerClusterMaxZoom: mapMarkerClusterMaxZoom,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9256,6 +9495,9 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<int> mapThumbnailVisibleThreshold = const Value.absent(),
                 Value<int> mapThumbnailConcurrentLoads = const Value.absent(),
+                Value<bool> mapMarkerClusteringEnabled = const Value.absent(),
+                Value<int> mapMarkerClusterRadius = const Value.absent(),
+                Value<int> mapMarkerClusterMaxZoom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -9286,6 +9528,9 @@ class $$AppSettingsEntriesTableTableManager
                 customCameraAspectRatioHeight: customCameraAspectRatioHeight,
                 mapThumbnailVisibleThreshold: mapThumbnailVisibleThreshold,
                 mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
+                mapMarkerClusteringEnabled: mapMarkerClusteringEnabled,
+                mapMarkerClusterRadius: mapMarkerClusterRadius,
+                mapMarkerClusterMaxZoom: mapMarkerClusterMaxZoom,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

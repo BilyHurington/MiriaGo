@@ -149,6 +149,12 @@ class AppSettingsEntries extends Table {
       integer().withDefault(const Constant(40))();
   IntColumn get mapThumbnailConcurrentLoads =>
       integer().withDefault(const Constant(10))();
+  BoolColumn get mapMarkerClusteringEnabled =>
+      boolean().withDefault(const Constant(true))();
+  IntColumn get mapMarkerClusterRadius =>
+      integer().withDefault(const Constant(64))();
+  IntColumn get mapMarkerClusterMaxZoom =>
+      integer().withDefault(const Constant(18))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -161,7 +167,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -437,6 +443,29 @@ class AppDatabase extends _$AppDatabase {
           'cover_image_url',
           works,
           works.coverImageUrl,
+        );
+      }
+      if (from < 30) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'map_marker_clustering_enabled',
+          appSettingsEntries,
+          appSettingsEntries.mapMarkerClusteringEnabled,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'map_marker_cluster_radius',
+          appSettingsEntries,
+          appSettingsEntries.mapMarkerClusterRadius,
+        );
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'map_marker_cluster_max_zoom',
+          appSettingsEntries,
+          appSettingsEntries.mapMarkerClusterMaxZoom,
         );
       }
     },
