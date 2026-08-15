@@ -28,6 +28,7 @@ import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/app_scaled_route.dart';
+import '../widgets/app_back_button.dart';
 import '../utils/limited_concurrency.dart';
 import '../utils/selected_item_order.dart';
 import 'nearest_group_assign_screen.dart';
@@ -1431,6 +1432,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: appBackButtonIfCanPop(context),
           title: const Text('从作品地图导入'),
           actions: [
             Tooltip(

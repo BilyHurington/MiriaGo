@@ -34,6 +34,15 @@ void main() {
 
     expect(find.text('暂不删除'), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
+    final actionButtons = find.descendant(
+      of: find.byType(AppDialogActionRow),
+      matching: find.byType(FilledButton),
+    );
+    expect(actionButtons, findsNWidgets(2));
+    expect(
+      tester.getTopLeft(actionButtons.first).dy,
+      closeTo(tester.getTopLeft(actionButtons.last).dy, 0.1),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -74,6 +83,15 @@ void main() {
         )
         .singleWhere((box) => box.constraints.maxWidth == 420);
     expect(frame.constraints.maxHeight, 292);
+    final actionButtons = find.descendant(
+      of: find.byType(AppDialogActionRow),
+      matching: find.byType(FilledButton),
+    );
+    expect(actionButtons, findsNWidgets(2));
+    expect(
+      tester.getTopLeft(actionButtons.first).dy,
+      closeTo(tester.getTopLeft(actionButtons.last).dy, 0.1),
+    );
     expect(tester.takeException(), isNull);
   });
 }

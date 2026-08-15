@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import 'confirm_action_dialog.dart';
 
 class AppInputDialog extends StatelessWidget {
   const AppInputDialog({
@@ -50,29 +51,11 @@ class AppInputDialog extends StatelessWidget {
               const SizedBox(height: 18),
               Flexible(child: SingleChildScrollView(child: content)),
               const SizedBox(height: 16),
-              OverflowBar(
-                spacing: 6,
-                overflowSpacing: 8,
-                alignment: MainAxisAlignment.end,
-                overflowAlignment: OverflowBarAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                    ),
-                    child: Text(cancelLabel),
-                  ),
-                  FilledButton(
-                    onPressed: onConfirm,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 46),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      shape: const StadiumBorder(),
-                    ),
-                    child: Text(confirmLabel),
-                  ),
-                ],
+              AppDialogActionRow(
+                cancelLabel: cancelLabel,
+                confirmLabel: confirmLabel,
+                onCancel: () => Navigator.of(context).pop(),
+                onConfirm: onConfirm,
               ),
             ],
           ),

@@ -162,6 +162,62 @@ class AppTheme {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.16),
+        menuPadding: const EdgeInsets.symmetric(vertical: 4),
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        textStyle: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(AppColors.surface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(8),
+          shadowColor: WidgetStatePropertyAll(
+            Colors.black.withValues(alpha: 0.16),
+          ),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(vertical: 4),
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: AppColors.border),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ),
+      menuButtonTheme: MenuButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: const WidgetStatePropertyAll(AppColors.textPrimary),
+          minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 12),
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
+      ),
       sliderTheme: base.sliderTheme.copyWith(
         activeTrackColor: AppColors.accent,
         inactiveTrackColor: AppColors.border,

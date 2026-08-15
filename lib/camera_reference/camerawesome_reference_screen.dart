@@ -1444,7 +1444,8 @@ class _NativeCameraTopBar extends StatelessWidget {
       child: Row(
         children: [
           _CameraCircleButton(
-            tooltip: '返回',
+            tooltip: null,
+            semanticLabel: '返回',
             icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
@@ -1675,7 +1676,8 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
               _CameraCircleButton(
                 size: metrics.controlButtonSize,
                 iconSize: metrics.controlIconSize,
-                tooltip: '返回',
+                tooltip: null,
+                semanticLabel: '返回',
                 icon: Icons.arrow_back,
                 onPressed: onBack,
               ),
@@ -2454,7 +2456,8 @@ class _CameraTopBar extends StatelessWidget {
       child: Row(
         children: [
           _CameraCircleButton(
-            tooltip: '返回',
+            tooltip: null,
+            semanticLabel: '返回',
             icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
@@ -2655,6 +2658,7 @@ class _CameraCircleButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.text,
+    this.semanticLabel,
     this.size = 44,
     this.iconSize = 21,
   });
@@ -2663,6 +2667,7 @@ class _CameraCircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final String? text;
+  final String? semanticLabel;
   final double size;
   final double iconSize;
 
@@ -2681,7 +2686,18 @@ class _CameraCircleButton extends StatelessWidget {
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text),
+      icon: semanticLabel == null
+          ? _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text)
+          : Semantics(
+              label: semanticLabel,
+              child: ExcludeSemantics(
+                child: _CameraButtonIcon(
+                  icon: icon,
+                  iconSize: iconSize,
+                  text: text,
+                ),
+              ),
+            ),
     );
     return SizedBox.square(dimension: size, child: button);
   }
@@ -3727,9 +3743,8 @@ class _FallbackTopBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: '返回',
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back, semanticLabel: '返回'),
           ),
           Expanded(
             child: Text(

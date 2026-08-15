@@ -1055,55 +1055,62 @@ class _PointCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
           ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PointThumbnail(controller: controller, point: point),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _StatusBadge(status: status),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: CopyableText(
-                            text: point.name,
-                            copyLabel: '点位名称',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
+          GestureDetector(
+            key: ValueKey('map-point-card-content-${point.id}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onOpenDetail,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PointThumbnail(controller: controller, point: point),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _StatusBadge(status: status),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: CopyableText(
+                              text: point.name,
+                              copyLabel: '点位名称',
+                              onTap: onOpenDetail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
+                              ),
                             ),
                           ),
-                        ),
-                        if (recordCount > 0) ...[
-                          const SizedBox(width: 8),
-                          _MapRecordBadge(count: recordCount),
+                          if (recordCount > 0) ...[
+                            const SizedBox(width: 8),
+                            _MapRecordBadge(count: recordCount),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    CopyableText(
-                      text: _metaText,
-                      copyText: _copySummary,
-                      copyLabel: '点位信息',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        letterSpacing: 0,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      CopyableText(
+                        text: _metaText,
+                        copyText: _copySummary,
+                        copyLabel: '点位信息',
+                        onTap: onOpenDetail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1117,9 +1124,9 @@ class _PointCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton.outlined(
-                tooltip: '点位详情',
-                onPressed: onOpenDetail,
-                icon: const Icon(Icons.info_outline),
+                tooltip: '导航',
+                onPressed: onOpenNavigation,
+                icon: const Icon(Icons.near_me_outlined),
               ),
               const SizedBox(width: 4),
               IconButton.outlined(

@@ -130,6 +130,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       ),
       mapThumbnailConcurrentLoads: row.mapThumbnailConcurrentLoads.clamp(1, 30),
       showPlanGroupProgress: row.showPlanGroupProgress,
+      dismissPlanActionsOnOutsideTap: row.dismissPlanActionsOnOutsideTap,
       mapMarkerClusteringEnabled: row.mapMarkerClusteringEnabled,
       mapMarkerClusterRadius: row.mapMarkerClusterRadius.clamp(32, 120),
       mapMarkerClusterMaxZoom: row.mapMarkerClusterMaxZoom.clamp(10, 22),
@@ -1173,6 +1174,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.mapThumbnailConcurrentLoads.clamp(1, 30),
             ),
             showPlanGroupProgress: Value(settings.showPlanGroupProgress),
+            dismissPlanActionsOnOutsideTap: Value(
+              settings.dismissPlanActionsOnOutsideTap,
+            ),
             mapMarkerClusteringEnabled: Value(
               settings.mapMarkerClusteringEnabled,
             ),

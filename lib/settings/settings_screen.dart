@@ -18,6 +18,7 @@ import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 
@@ -103,22 +104,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        key: const ValueKey('settings-app-bar'),
+        toolbarHeight: kToolbarHeight,
         title: const Text(
           '设置',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
         ),
         actions: [
           IconButton(
+            key: const ValueKey('settings-reset-button'),
             tooltip: '恢复初始设置',
             onPressed: _confirmResetSettings,
             icon: const Icon(Icons.restart_alt_outlined),
           ),
+          const SizedBox(width: 16),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _SettingsCard(
+            key: const ValueKey('settings-appearance-card'),
             header: _SettingsCardHeader(
               icon: Icons.palette_outlined,
               title: '外观设置',
@@ -730,6 +736,33 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 value: settings.showPlanGroupProgress,
                 onChanged: (value) {
                   _update(settings.copyWith(showPlanGroupProgress: value));
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _AppearancePanel(
+            child: Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                key: const ValueKey(
+                  'dismiss-plan-actions-on-outside-tap-toggle',
+                ),
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(
+                  Icons.touch_app_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: const Text('点击空白收回计划操作', style: _titleTextStyle),
+                subtitle: const Text(
+                  '展开计划操作后，点击面板外的空白区域自动收回',
+                  style: _secondaryTextStyle,
+                ),
+                value: settings.dismissPlanActionsOnOutsideTap,
+                onChanged: (value) {
+                  _update(
+                    settings.copyWith(dismissPlanActionsOnOutsideTap: value),
+                  );
                 },
               ),
             ),
@@ -2163,7 +2196,10 @@ class _DetailScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: Text(title),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: children,
@@ -2240,7 +2276,11 @@ extension _ZoomStepSnap on double {
 }
 
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.header, this.children = const []});
+  const _SettingsCard({
+    required this.header,
+    this.children = const [],
+    super.key,
+  });
 
   final _SettingsCardHeader header;
   final List<Widget> children;

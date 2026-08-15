@@ -13,6 +13,7 @@ import '../records/visit_record_photo_stub.dart'
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/anitabi_network_image.dart';
 import '../widgets/reference_image_placeholder.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import '../widgets/reference_thumbnail_stub.dart'
@@ -234,7 +235,10 @@ class _VisitRecordConfirmationScreenState
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('确认记录')),
+        appBar: AppBar(
+          leading: appBackButtonIfCanPop(context),
+          title: const Text('确认记录'),
+        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [

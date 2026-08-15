@@ -66,6 +66,19 @@ void main() {
     expect(ungrouped.currentGroupId, 'ungrouped');
   });
 
+  test('persists plan action outside-tap preference', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+
+    await repository.saveAppSettings(
+      const AppSettings(dismissPlanActionsOnOutsideTap: false),
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.dismissPlanActionsOnOutsideTap, isFalse);
+  });
+
   test('persists work type and cover metadata', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -503,6 +516,49 @@ void main() {
       expect(
         (await repository.loadAppSettings()).photoLocationStrategy,
         PhotoLocationStrategy.waitOnConfirmation,
+      );
+    },
+  );
+
+  test(
+    'schema 38 to 39 adds plan action dismissal preference without data loss',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(name: '计划操作设置迁移', area: '东京');
+      await repository.saveAppSettings(
+        const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN dismiss_plan_actions_on_outside_tap',
+      );
+
+      await database.migration.onUpgrade(
+        database.createMigrator(),
+        38,
+        database.schemaVersion,
+      );
+
+      expect(
+        await _tableColumnNames(database, 'app_settings_entries'),
+        contains('dismiss_plan_actions_on_outside_tap'),
+      );
+      final migratedPlan = (await repository.loadPlans()).singleWhere(
+        (candidate) => candidate.id == plan.id,
+      );
+      final settings = await repository.loadAppSettings();
+      expect(migratedPlan.name, plan.name);
+      expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+      expect(settings.dismissPlanActionsOnOutsideTap, isTrue);
+
+      await repository.saveAppSettings(
+        settings.copyWith(dismissPlanActionsOnOutsideTap: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).dismissPlanActionsOnOutsideTap,
+        isFalse,
       );
     },
   );

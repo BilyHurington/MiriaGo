@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app_theme.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'pilgrimage_plan_controller.dart';
 
 class PlanMemoScreen extends StatefulWidget {
@@ -375,11 +376,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _handleBack,
-          ),
+          leading: AppBackButton(onPressed: _handleBack),
           title: const Text('计划备忘录'),
           actions: [
             if (_isEditing) ...[

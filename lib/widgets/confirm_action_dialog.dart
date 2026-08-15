@@ -121,37 +121,12 @@ class ConfirmActionDialog extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                OverflowBar(
-                  spacing: 10,
-                  overflowSpacing: 8,
-                  alignment: MainAxisAlignment.end,
-                  overflowAlignment: OverflowBarAlignment.end,
-                  children: [
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      style: FilledButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        backgroundColor: AppColors.surfaceMuted,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(cancelLabel),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: FilledButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: dangerColor,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(confirmLabel),
-                    ),
-                  ],
+                AppDialogActionRow(
+                  cancelLabel: cancelLabel,
+                  confirmLabel: confirmLabel,
+                  confirmColor: dangerColor,
+                  onCancel: () => Navigator.of(context).pop(false),
+                  onConfirm: () => Navigator.of(context).pop(true),
                 ),
               ],
             ),
@@ -247,32 +222,87 @@ class _StandardConfirmDialog extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                OverflowBar(
-                  spacing: 6,
-                  overflowSpacing: 8,
-                  alignment: MainAxisAlignment.end,
-                  overflowAlignment: OverflowBarAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(cancelLabel),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 46),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: const StadiumBorder(),
-                      ),
-                      child: Text(confirmLabel),
-                    ),
-                  ],
+                AppDialogActionRow(
+                  cancelLabel: cancelLabel,
+                  confirmLabel: confirmLabel,
+                  onCancel: () => Navigator.of(context).pop(false),
+                  onConfirm: () => Navigator.of(context).pop(true),
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class AppDialogActionRow extends StatelessWidget {
+  const AppDialogActionRow({
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.onCancel,
+    required this.onConfirm,
+    this.confirmColor,
+    super.key,
+  });
+
+  final String cancelLabel;
+  final String confirmLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+  final Color? confirmColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton(
+            onPressed: onCancel,
+            style: FilledButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              backgroundColor: AppColors.surfaceMuted,
+              minimumSize: const Size.fromHeight(48),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: _DialogActionLabel(cancelLabel),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton(
+            onPressed: onConfirm,
+            style: FilledButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: confirmColor ?? AppColors.accent,
+              minimumSize: const Size.fromHeight(48),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: _DialogActionLabel(confirmLabel),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogActionLabel extends StatelessWidget {
+  const _DialogActionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(label, maxLines: 1, softWrap: false),
     );
   }
 }

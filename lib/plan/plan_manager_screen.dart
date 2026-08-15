@@ -7,6 +7,7 @@ import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'pilgrimage_models.dart';
 
 Widget _cleanPlanReorderProxy(
@@ -290,6 +291,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: Text(_sorting ? '调整计划顺序' : '切换计划'),
         actions: [
           if (plans != null && plans.length > 1)

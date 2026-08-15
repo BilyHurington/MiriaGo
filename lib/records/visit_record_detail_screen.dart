@@ -15,6 +15,7 @@ import '../plan/reference_image_status.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/anitabi_network_image.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/reference_image_placeholder.dart';
@@ -61,6 +62,11 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 44,
+        leading: AppBackButton(
+          key: const ValueKey('record-detail-back-button'),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: const Text('记录详情'),
         actions: [
           IconButton(
