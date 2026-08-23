@@ -105,6 +105,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'mapThumbnailConcurrentLoads': settings.mapThumbnailConcurrentLoads,
     'showPlanGroupProgress': settings.showPlanGroupProgress,
     'dismissPlanActionsOnOutsideTap': settings.dismissPlanActionsOnOutsideTap,
+    'hideCompletedPointsOnMap': settings.hideCompletedPointsOnMap,
     'mapMarkerClusteringEnabled': settings.mapMarkerClusteringEnabled,
     'mapMarkerClusterRadius': settings.mapMarkerClusterRadius,
     'mapMarkerClusterMaxZoom': settings.mapMarkerClusterMaxZoom,
@@ -218,6 +219,8 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     showPlanGroupProgress: _boolValue(json['showPlanGroupProgress']) ?? true,
     dismissPlanActionsOnOutsideTap:
         _boolValue(json['dismissPlanActionsOnOutsideTap']) ?? true,
+    hideCompletedPointsOnMap:
+        _boolValue(json['hideCompletedPointsOnMap']) ?? true,
     mapMarkerClusteringEnabled:
         _boolValue(json['mapMarkerClusteringEnabled']) ?? true,
     mapMarkerClusterRadius: _intValue(json['mapMarkerClusterRadius']) ?? 40,

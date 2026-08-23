@@ -62,7 +62,6 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 44,
         leading: AppBackButton(
           key: const ValueKey('record-detail-back-button'),
           onPressed: () => Navigator.of(context).maybePop(),

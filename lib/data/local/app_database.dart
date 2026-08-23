@@ -172,6 +172,8 @@ class AppSettingsEntries extends Table {
       boolean().withDefault(const Constant(true))();
   BoolColumn get dismissPlanActionsOnOutsideTap =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get hideCompletedPointsOnMap =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get mapMarkerClusteringEnabled =>
       boolean().withDefault(const Constant(true))();
   IntColumn get mapMarkerClusterRadius =>
@@ -194,7 +196,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -635,6 +637,15 @@ class AppDatabase extends _$AppDatabase {
           'dismiss_plan_actions_on_outside_tap',
           appSettingsEntries,
           appSettingsEntries.dismissPlanActionsOnOutsideTap,
+        );
+      }
+      if (from < 40) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'hide_completed_points_on_map',
+          appSettingsEntries,
+          appSettingsEntries.hideCompletedPointsOnMap,
         );
       }
     },

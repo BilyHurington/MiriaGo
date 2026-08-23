@@ -319,6 +319,16 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     return visiblePoints.map((point) => point.id).toSet();
   }
 
+  bool _shouldShowPointOnMap(PilgrimagePoint point) {
+    if (!point.hasCoordinate) {
+      return false;
+    }
+    if (!widget.settings.hideCompletedPointsOnMap) {
+      return true;
+    }
+    return _controller.statusFor(point) != VisitStatus.completed;
+  }
+
   void _moveToCurrentTarget() {
     final currentPoint = _controller.currentPoint;
     if (currentPoint == null) {
@@ -507,7 +517,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
         ? _controller.currentPoint
         : null;
     final positionedPoints = _controller.points
-        .where((point) => point.hasCoordinate)
+        .where(_shouldShowPointOnMap)
         .toList(growable: false);
     final initialFocusPoint = (selectedPoint?.hasCoordinate ?? false)
         ? selectedPoint
@@ -527,7 +537,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     final overlapPoints = <PilgrimagePoint>[];
     for (final pointId in _overlapPointBrowser?.pointIds ?? const <String>[]) {
       final point = _controller.pointById(pointId);
-      if (point != null && point.hasCoordinate) {
+      if (point != null && _shouldShowPointOnMap(point)) {
         overlapPoints.add(point);
       }
     }
@@ -622,7 +632,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                               position: point.position,
                             ),
                           if (activeOverlapPointIds.isNotEmpty &&
-                              selectedPoint != null)
+                              selectedPoint != null &&
+                              _shouldShowPointOnMap(selectedPoint))
                             MapMarkerCluster(
                               items: [selectedPoint],
                               position: selectedPoint.position,
@@ -630,7 +641,8 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                         ];
                   if (clusteringEnabled &&
                       activeOverlapPointIds.isNotEmpty &&
-                      selectedPoint != null) {
+                      selectedPoint != null &&
+                      _shouldShowPointOnMap(selectedPoint)) {
                     markerClusters.add(
                       MapMarkerCluster(
                         items: [selectedPoint],

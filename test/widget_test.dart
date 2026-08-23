@@ -167,7 +167,6 @@ void main() {
     expect(find.text('宇治站附近'), findsWidgets);
     expect(find.text('默认计划'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
-    expect(find.textContaining('1 部作品'), findsOneWidget);
     final planTitle = tester.widget<Text>(
       find.descendant(of: find.byType(AppBar), matching: find.text('示例计划')),
     );
@@ -177,25 +176,8 @@ void main() {
       tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
       kToolbarHeight,
     );
-    final metaStrip = tester.widget<Padding>(
-      find.byKey(const ValueKey('plan-meta-strip')),
-    );
-    expect(metaStrip.padding, const EdgeInsets.fromLTRB(16, 0, 16, 8));
-    final metaText = tester.widget<Text>(
-      find.byKey(const ValueKey('plan-meta-text')),
-    );
-    expect(metaText.textAlign, TextAlign.left);
-    expect(
-      tester.getTopLeft(find.byKey(const ValueKey('plan-meta-text'))).dx,
-      closeTo(16, 0.1),
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('plan-meta-strip')),
-        matching: find.byIcon(Icons.movie_filter_outlined),
-      ),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-text')), findsNothing);
   });
 
   testWidgets('plan actions expand inline and keep five actions', (
@@ -213,8 +195,8 @@ void main() {
     expect(toggleButton, findsOneWidget);
     expect(tester.getSize(switchButton), tester.getSize(toggleButton));
     expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
-    expect(find.byKey(const ValueKey('plan-group-summary')), findsOneWidget);
-    expect(find.byKey(const ValueKey('plan-meta-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
     expect(
       find.descendant(
         of: switchButton,
@@ -304,8 +286,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
-    expect(find.byKey(const ValueKey('plan-group-summary')), findsOneWidget);
-    expect(find.byKey(const ValueKey('plan-meta-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
 
     await tester.tap(toggleButton);
     await tester.pumpAndSettle();
@@ -327,8 +309,8 @@ void main() {
       tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
       kToolbarHeight,
     );
-    expect(find.byKey(const ValueKey('plan-group-summary')), findsOneWidget);
-    expect(find.byKey(const ValueKey('plan-meta-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
     expect(
       find.descendant(
         of: toggleButton,
@@ -1202,7 +1184,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('记录详情'), findsOneWidget);
-    expect(tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight, 44);
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
+      kToolbarHeight,
+    );
     final backButton = tester.widget<IconButton>(
       find.descendant(
         of: find.byKey(const ValueKey('record-detail-back-button')),
@@ -1953,6 +1938,7 @@ void main() {
 
     expect(find.text('最大缩放倍率'), findsOneWidget);
     expect(find.text('地图标记大小'), findsOneWidget);
+    expect(find.text('隐藏已完成点位'), findsOneWidget);
     expect(find.text('片区范围半径'), findsOneWidget);
     expect(find.text('显示片区进度条'), findsNothing);
     expect(find.text('90%'), findsOneWidget);

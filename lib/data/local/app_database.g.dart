@@ -4590,6 +4590,21 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(true),
       );
+  static const VerificationMeta _hideCompletedPointsOnMapMeta =
+      const VerificationMeta('hideCompletedPointsOnMap');
+  @override
+  late final GeneratedColumn<bool> hideCompletedPointsOnMap =
+      GeneratedColumn<bool>(
+        'hide_completed_points_on_map',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("hide_completed_points_on_map" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   static const VerificationMeta _mapMarkerClusteringEnabledMeta =
       const VerificationMeta('mapMarkerClusteringEnabled');
   @override
@@ -4704,6 +4719,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     mapThumbnailConcurrentLoads,
     showPlanGroupProgress,
     dismissPlanActionsOnOutsideTap,
+    hideCompletedPointsOnMap,
     mapMarkerClusteringEnabled,
     mapMarkerClusterRadius,
     mapMarkerClusterMaxZoom,
@@ -5052,6 +5068,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('hide_completed_points_on_map')) {
+      context.handle(
+        _hideCompletedPointsOnMapMeta,
+        hideCompletedPointsOnMap.isAcceptableOrUnknown(
+          data['hide_completed_points_on_map']!,
+          _hideCompletedPointsOnMapMeta,
+        ),
+      );
+    }
     if (data.containsKey('map_marker_clustering_enabled')) {
       context.handle(
         _mapMarkerClusteringEnabledMeta,
@@ -5267,6 +5292,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}dismiss_plan_actions_on_outside_tap'],
       )!,
+      hideCompletedPointsOnMap: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}hide_completed_points_on_map'],
+      )!,
       mapMarkerClusteringEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}map_marker_clustering_enabled'],
@@ -5340,6 +5369,7 @@ class AppSettingsEntry extends DataClass
   final int mapThumbnailConcurrentLoads;
   final bool showPlanGroupProgress;
   final bool dismissPlanActionsOnOutsideTap;
+  final bool hideCompletedPointsOnMap;
   final bool mapMarkerClusteringEnabled;
   final int mapMarkerClusterRadius;
   final int mapMarkerClusterMaxZoom;
@@ -5385,6 +5415,7 @@ class AppSettingsEntry extends DataClass
     required this.mapThumbnailConcurrentLoads,
     required this.showPlanGroupProgress,
     required this.dismissPlanActionsOnOutsideTap,
+    required this.hideCompletedPointsOnMap,
     required this.mapMarkerClusteringEnabled,
     required this.mapMarkerClusterRadius,
     required this.mapMarkerClusterMaxZoom,
@@ -5465,6 +5496,9 @@ class AppSettingsEntry extends DataClass
     map['dismiss_plan_actions_on_outside_tap'] = Variable<bool>(
       dismissPlanActionsOnOutsideTap,
     );
+    map['hide_completed_points_on_map'] = Variable<bool>(
+      hideCompletedPointsOnMap,
+    );
     map['map_marker_clustering_enabled'] = Variable<bool>(
       mapMarkerClusteringEnabled,
     );
@@ -5518,6 +5552,7 @@ class AppSettingsEntry extends DataClass
       mapThumbnailConcurrentLoads: Value(mapThumbnailConcurrentLoads),
       showPlanGroupProgress: Value(showPlanGroupProgress),
       dismissPlanActionsOnOutsideTap: Value(dismissPlanActionsOnOutsideTap),
+      hideCompletedPointsOnMap: Value(hideCompletedPointsOnMap),
       mapMarkerClusteringEnabled: Value(mapMarkerClusteringEnabled),
       mapMarkerClusterRadius: Value(mapMarkerClusterRadius),
       mapMarkerClusterMaxZoom: Value(mapMarkerClusterMaxZoom),
@@ -5621,6 +5656,9 @@ class AppSettingsEntry extends DataClass
       dismissPlanActionsOnOutsideTap: serializer.fromJson<bool>(
         json['dismissPlanActionsOnOutsideTap'],
       ),
+      hideCompletedPointsOnMap: serializer.fromJson<bool>(
+        json['hideCompletedPointsOnMap'],
+      ),
       mapMarkerClusteringEnabled: serializer.fromJson<bool>(
         json['mapMarkerClusteringEnabled'],
       ),
@@ -5711,6 +5749,9 @@ class AppSettingsEntry extends DataClass
       'dismissPlanActionsOnOutsideTap': serializer.toJson<bool>(
         dismissPlanActionsOnOutsideTap,
       ),
+      'hideCompletedPointsOnMap': serializer.toJson<bool>(
+        hideCompletedPointsOnMap,
+      ),
       'mapMarkerClusteringEnabled': serializer.toJson<bool>(
         mapMarkerClusteringEnabled,
       ),
@@ -5765,6 +5806,7 @@ class AppSettingsEntry extends DataClass
     int? mapThumbnailConcurrentLoads,
     bool? showPlanGroupProgress,
     bool? dismissPlanActionsOnOutsideTap,
+    bool? hideCompletedPointsOnMap,
     bool? mapMarkerClusteringEnabled,
     int? mapMarkerClusterRadius,
     int? mapMarkerClusterMaxZoom,
@@ -5826,6 +5868,8 @@ class AppSettingsEntry extends DataClass
     showPlanGroupProgress: showPlanGroupProgress ?? this.showPlanGroupProgress,
     dismissPlanActionsOnOutsideTap:
         dismissPlanActionsOnOutsideTap ?? this.dismissPlanActionsOnOutsideTap,
+    hideCompletedPointsOnMap:
+        hideCompletedPointsOnMap ?? this.hideCompletedPointsOnMap,
     mapMarkerClusteringEnabled:
         mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
     mapMarkerClusterRadius:
@@ -5947,6 +5991,9 @@ class AppSettingsEntry extends DataClass
           data.dismissPlanActionsOnOutsideTap.present
           ? data.dismissPlanActionsOnOutsideTap.value
           : this.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap: data.hideCompletedPointsOnMap.present
+          ? data.hideCompletedPointsOnMap.value
+          : this.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled: data.mapMarkerClusteringEnabled.present
           ? data.mapMarkerClusteringEnabled.value
           : this.mapMarkerClusteringEnabled,
@@ -6019,6 +6066,7 @@ class AppSettingsEntry extends DataClass
           ..write(
             'dismissPlanActionsOnOutsideTap: $dismissPlanActionsOnOutsideTap, ',
           )
+          ..write('hideCompletedPointsOnMap: $hideCompletedPointsOnMap, ')
           ..write('mapMarkerClusteringEnabled: $mapMarkerClusteringEnabled, ')
           ..write('mapMarkerClusterRadius: $mapMarkerClusterRadius, ')
           ..write('mapMarkerClusterMaxZoom: $mapMarkerClusterMaxZoom, ')
@@ -6069,6 +6117,7 @@ class AppSettingsEntry extends DataClass
     mapThumbnailConcurrentLoads,
     showPlanGroupProgress,
     dismissPlanActionsOnOutsideTap,
+    hideCompletedPointsOnMap,
     mapMarkerClusteringEnabled,
     mapMarkerClusterRadius,
     mapMarkerClusterMaxZoom,
@@ -6127,6 +6176,7 @@ class AppSettingsEntry extends DataClass
           other.showPlanGroupProgress == this.showPlanGroupProgress &&
           other.dismissPlanActionsOnOutsideTap ==
               this.dismissPlanActionsOnOutsideTap &&
+          other.hideCompletedPointsOnMap == this.hideCompletedPointsOnMap &&
           other.mapMarkerClusteringEnabled == this.mapMarkerClusteringEnabled &&
           other.mapMarkerClusterRadius == this.mapMarkerClusterRadius &&
           other.mapMarkerClusterMaxZoom == this.mapMarkerClusterMaxZoom &&
@@ -6174,6 +6224,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<int> mapThumbnailConcurrentLoads;
   final Value<bool> showPlanGroupProgress;
   final Value<bool> dismissPlanActionsOnOutsideTap;
+  final Value<bool> hideCompletedPointsOnMap;
   final Value<bool> mapMarkerClusteringEnabled;
   final Value<int> mapMarkerClusterRadius;
   final Value<int> mapMarkerClusterMaxZoom;
@@ -6220,6 +6271,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapThumbnailConcurrentLoads = const Value.absent(),
     this.showPlanGroupProgress = const Value.absent(),
     this.dismissPlanActionsOnOutsideTap = const Value.absent(),
+    this.hideCompletedPointsOnMap = const Value.absent(),
     this.mapMarkerClusteringEnabled = const Value.absent(),
     this.mapMarkerClusterRadius = const Value.absent(),
     this.mapMarkerClusterMaxZoom = const Value.absent(),
@@ -6267,6 +6319,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapThumbnailConcurrentLoads = const Value.absent(),
     this.showPlanGroupProgress = const Value.absent(),
     this.dismissPlanActionsOnOutsideTap = const Value.absent(),
+    this.hideCompletedPointsOnMap = const Value.absent(),
     this.mapMarkerClusteringEnabled = const Value.absent(),
     this.mapMarkerClusterRadius = const Value.absent(),
     this.mapMarkerClusterMaxZoom = const Value.absent(),
@@ -6314,6 +6367,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<int>? mapThumbnailConcurrentLoads,
     Expression<bool>? showPlanGroupProgress,
     Expression<bool>? dismissPlanActionsOnOutsideTap,
+    Expression<bool>? hideCompletedPointsOnMap,
     Expression<bool>? mapMarkerClusteringEnabled,
     Expression<int>? mapMarkerClusterRadius,
     Expression<int>? mapMarkerClusterMaxZoom,
@@ -6386,6 +6440,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'show_plan_group_progress': showPlanGroupProgress,
       if (dismissPlanActionsOnOutsideTap != null)
         'dismiss_plan_actions_on_outside_tap': dismissPlanActionsOnOutsideTap,
+      if (hideCompletedPointsOnMap != null)
+        'hide_completed_points_on_map': hideCompletedPointsOnMap,
       if (mapMarkerClusteringEnabled != null)
         'map_marker_clustering_enabled': mapMarkerClusteringEnabled,
       if (mapMarkerClusterRadius != null)
@@ -6439,6 +6495,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<int>? mapThumbnailConcurrentLoads,
     Value<bool>? showPlanGroupProgress,
     Value<bool>? dismissPlanActionsOnOutsideTap,
+    Value<bool>? hideCompletedPointsOnMap,
     Value<bool>? mapMarkerClusteringEnabled,
     Value<int>? mapMarkerClusterRadius,
     Value<int>? mapMarkerClusterMaxZoom,
@@ -6507,6 +6564,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           showPlanGroupProgress ?? this.showPlanGroupProgress,
       dismissPlanActionsOnOutsideTap:
           dismissPlanActionsOnOutsideTap ?? this.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap:
+          hideCompletedPointsOnMap ?? this.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled:
           mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
       mapMarkerClusterRadius:
@@ -6684,6 +6743,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         dismissPlanActionsOnOutsideTap.value,
       );
     }
+    if (hideCompletedPointsOnMap.present) {
+      map['hide_completed_points_on_map'] = Variable<bool>(
+        hideCompletedPointsOnMap.value,
+      );
+    }
     if (mapMarkerClusteringEnabled.present) {
       map['map_marker_clustering_enabled'] = Variable<bool>(
         mapMarkerClusteringEnabled.value,
@@ -6767,6 +6831,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write(
             'dismissPlanActionsOnOutsideTap: $dismissPlanActionsOnOutsideTap, ',
           )
+          ..write('hideCompletedPointsOnMap: $hideCompletedPointsOnMap, ')
           ..write('mapMarkerClusteringEnabled: $mapMarkerClusteringEnabled, ')
           ..write('mapMarkerClusterRadius: $mapMarkerClusterRadius, ')
           ..write('mapMarkerClusterMaxZoom: $mapMarkerClusterMaxZoom, ')
@@ -9678,6 +9743,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<int> mapThumbnailConcurrentLoads,
       Value<bool> showPlanGroupProgress,
       Value<bool> dismissPlanActionsOnOutsideTap,
+      Value<bool> hideCompletedPointsOnMap,
       Value<bool> mapMarkerClusteringEnabled,
       Value<int> mapMarkerClusterRadius,
       Value<int> mapMarkerClusterMaxZoom,
@@ -9726,6 +9792,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<int> mapThumbnailConcurrentLoads,
       Value<bool> showPlanGroupProgress,
       Value<bool> dismissPlanActionsOnOutsideTap,
+      Value<bool> hideCompletedPointsOnMap,
       Value<bool> mapMarkerClusteringEnabled,
       Value<int> mapMarkerClusterRadius,
       Value<int> mapMarkerClusterMaxZoom,
@@ -9931,6 +9998,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<bool> get dismissPlanActionsOnOutsideTap => $composableBuilder(
     column: $table.dismissPlanActionsOnOutsideTap,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hideCompletedPointsOnMap => $composableBuilder(
+    column: $table.hideCompletedPointsOnMap,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10168,6 +10240,11 @@ class $$AppSettingsEntriesTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
+  ColumnOrderings<bool> get hideCompletedPointsOnMap => $composableBuilder(
+    column: $table.hideCompletedPointsOnMap,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get mapMarkerClusteringEnabled => $composableBuilder(
     column: $table.mapMarkerClusteringEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -10394,6 +10471,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
         builder: (column) => column,
       );
 
+  GeneratedColumn<bool> get hideCompletedPointsOnMap => $composableBuilder(
+    column: $table.hideCompletedPointsOnMap,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get mapMarkerClusteringEnabled => $composableBuilder(
     column: $table.mapMarkerClusteringEnabled,
     builder: (column) => column,
@@ -10509,6 +10591,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> showPlanGroupProgress = const Value.absent(),
                 Value<bool> dismissPlanActionsOnOutsideTap =
                     const Value.absent(),
+                Value<bool> hideCompletedPointsOnMap = const Value.absent(),
                 Value<bool> mapMarkerClusteringEnabled = const Value.absent(),
                 Value<int> mapMarkerClusterRadius = const Value.absent(),
                 Value<int> mapMarkerClusterMaxZoom = const Value.absent(),
@@ -10555,6 +10638,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
                 showPlanGroupProgress: showPlanGroupProgress,
                 dismissPlanActionsOnOutsideTap: dismissPlanActionsOnOutsideTap,
+                hideCompletedPointsOnMap: hideCompletedPointsOnMap,
                 mapMarkerClusteringEnabled: mapMarkerClusteringEnabled,
                 mapMarkerClusterRadius: mapMarkerClusterRadius,
                 mapMarkerClusterMaxZoom: mapMarkerClusterMaxZoom,
@@ -10609,6 +10693,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> showPlanGroupProgress = const Value.absent(),
                 Value<bool> dismissPlanActionsOnOutsideTap =
                     const Value.absent(),
+                Value<bool> hideCompletedPointsOnMap = const Value.absent(),
                 Value<bool> mapMarkerClusteringEnabled = const Value.absent(),
                 Value<int> mapMarkerClusterRadius = const Value.absent(),
                 Value<int> mapMarkerClusterMaxZoom = const Value.absent(),
@@ -10655,6 +10740,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
                 showPlanGroupProgress: showPlanGroupProgress,
                 dismissPlanActionsOnOutsideTap: dismissPlanActionsOnOutsideTap,
+                hideCompletedPointsOnMap: hideCompletedPointsOnMap,
                 mapMarkerClusteringEnabled: mapMarkerClusteringEnabled,
                 mapMarkerClusterRadius: mapMarkerClusterRadius,
                 mapMarkerClusterMaxZoom: mapMarkerClusterMaxZoom,

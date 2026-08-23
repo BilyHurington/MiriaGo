@@ -59,7 +59,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     return Scaffold(
       appBar: AppBar(
         key: const ValueKey('records-app-bar'),
-        toolbarHeight: kToolbarHeight,
+        toolbarHeight: AppTheme.appBarHeight,
         title: const Text(
           '记录',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),

@@ -36,7 +36,6 @@ class PointVisitRecordsScreen extends StatelessWidget {
 
             return Scaffold(
               appBar: AppBar(
-                toolbarHeight: 44,
                 leading: appBackButtonIfCanPop(context),
                 title: const Text('点位拍摄记录'),
               ),

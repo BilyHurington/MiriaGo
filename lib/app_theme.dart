@@ -84,6 +84,8 @@ class AppColors {
 class AppTheme {
   const AppTheme._();
 
+  static const double appBarHeight = kToolbarHeight;
+
   static ThemeData light({
     AppThemePalette palette = AppThemePalette.classicGreen,
     int customAccentValue = 0xFF16C6A8,
@@ -115,6 +117,7 @@ class AppTheme {
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        toolbarHeight: AppTheme.appBarHeight,
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,

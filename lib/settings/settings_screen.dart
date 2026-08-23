@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         key: const ValueKey('settings-app-bar'),
-        toolbarHeight: kToolbarHeight,
+        toolbarHeight: AppTheme.appBarHeight,
         title: const Text(
           '设置',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
@@ -1549,10 +1549,10 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
         _SettingsSection(
           title: 'Anitabi 服务地址',
           children: [
-            _MapUrlRow(
+            _AnitabiServiceEntryRow(
               key: const ValueKey('anitabi-service-settings-entry'),
-              icon: Icons.dns_outlined,
-              label: '主站、静态数据、API 与图片服务',
+              siteUrl: settings.anitabiSiteBaseUrl,
+              usingDefaults: _usesDefaultAnitabiService(settings),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => _AnitabiServiceSettingsPage(
@@ -1750,6 +1750,27 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
         _SettingsSection(
           title: '地图标记',
           children: [
+            Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                key: const ValueKey('hide-completed-points-on-map-toggle'),
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(
+                  Icons.visibility_off_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: const Text('隐藏已完成点位', style: _titleTextStyle),
+                subtitle: const Text(
+                  '在地图页不显示已标记完成的点位。关闭后仍可在地图上看到全部点位。',
+                  style: _secondaryTextStyle,
+                ),
+                value: settings.hideCompletedPointsOnMap,
+                onChanged: (value) {
+                  _update(settings.copyWith(hideCompletedPointsOnMap: value));
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3836,6 +3857,67 @@ class _SettingsDivider extends StatelessWidget {
   }
 }
 
+class _AnitabiServiceEntryRow extends StatelessWidget {
+  const _AnitabiServiceEntryRow({
+    super.key,
+    required this.siteUrl,
+    required this.usingDefaults,
+    required this.onTap,
+  });
+
+  final String siteUrl;
+  final bool usingDefaults;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.dns_outlined, color: AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    siteUrl,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    usingDefaults ? '使用默认地址，点击管理全部服务' : '已自定义，点击管理全部服务',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _secondaryTextStyle,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MapUrlRow extends StatelessWidget {
   const _MapUrlRow({
     super.key,
@@ -4261,6 +4343,15 @@ String _mapProviderHint(MapTileProvider provider) {
     MapTileProvider.customXyz => '\u74e6\u7247\u6a21\u677f',
     MapTileProvider.customMapLibreStyle => '\u6837\u5f0f URL',
   };
+}
+
+bool _usesDefaultAnitabiService(AppSettings settings) {
+  return settings.anitabiSiteBaseUrl == defaultAnitabiSiteBaseUrl &&
+      settings.anitabiStaticDataBaseUrl == defaultAnitabiStaticDataBaseUrl &&
+      settings.anitabiApiBaseUrl == defaultAnitabiApiBaseUrl &&
+      settings.anitabiOfficialImageBaseUrl ==
+          defaultAnitabiOfficialImageBaseUrl &&
+      settings.anitabiMirrorImageBaseUrl == defaultAnitabiMirrorImageBaseUrl;
 }
 
 String _anitabiImageSourceLabel(AnitabiImageSource source) {

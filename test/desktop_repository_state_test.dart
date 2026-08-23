@@ -50,6 +50,7 @@ void main() {
         mapThumbnailConcurrentLoads: 12,
         showPlanGroupProgress: false,
         dismissPlanActionsOnOutsideTap: false,
+        hideCompletedPointsOnMap: false,
         mapMarkerClusteringEnabled: false,
         mapMarkerClusterRadius: 88,
         mapMarkerClusterMaxZoom: 20,
@@ -144,6 +145,7 @@ void main() {
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
     expect(decoded.settings.showPlanGroupProgress, isFalse);
+    expect(decoded.settings.hideCompletedPointsOnMap, isFalse);
     expect(decoded.settings.mapMarkerClusteringEnabled, isFalse);
     expect(decoded.settings.mapMarkerClusterRadius, 88);
     expect(decoded.settings.mapMarkerClusterMaxZoom, 20);

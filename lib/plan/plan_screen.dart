@@ -308,6 +308,7 @@ class _PlanScreenState extends State<PlanScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: kToolbarHeight,
+        actionsPadding: EdgeInsets.zero,
         title: Text(
           plan.name,
           maxLines: 1,
@@ -365,7 +366,6 @@ class _PlanScreenState extends State<PlanScreen> {
                 ),
               )
             else ...[
-              if (!_showMap && !_showPlanActions) _PlanMetaStrip(plan: plan),
               _PlanActionsReveal(
                 expanded: _showPlanActions,
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -402,10 +402,8 @@ class _PlanScreenState extends State<PlanScreen> {
                 onCreateGroup: () => _createGroupFromPointDetail(context),
               ),
               _PlanGroupControls(
-                plan: plan,
                 group: selectedGroup,
                 showMap: _showMap,
-                showGroupSummary: !_showPlanActions,
                 sortMode: _sortMode,
                 sortDescending: _sortDescending,
                 mapHeightRatio: _mapHeightRatio,
@@ -1017,10 +1015,8 @@ class _GroupSwitcher extends StatelessWidget {
 
 class _PlanGroupControls extends StatelessWidget {
   const _PlanGroupControls({
-    required this.plan,
     required this.group,
     required this.showMap,
-    required this.showGroupSummary,
     required this.sortMode,
     required this.sortDescending,
     required this.mapHeightRatio,
@@ -1038,10 +1034,8 @@ class _PlanGroupControls extends StatelessWidget {
     required this.onSelectPoint,
   });
 
-  final PilgrimagePlan plan;
   final PlanGroupBucket group;
   final bool showMap;
-  final bool showGroupSummary;
   final PointSortMode sortMode;
   final bool sortDescending;
   final double mapHeightRatio;
@@ -1078,10 +1072,6 @@ class _PlanGroupControls extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
       child: Column(
         children: [
-          if (!showMap && showGroupSummary) ...[
-            _GroupSummary(group: group),
-            const SizedBox(height: 12),
-          ],
           Row(
             children: [
               Expanded(
@@ -1124,109 +1114,6 @@ class _PlanGroupControls extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _GroupSummary extends StatelessWidget {
-  const _GroupSummary({required this.group});
-
-  final PlanGroupBucket group;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      key: const ValueKey('plan-group-summary'),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  group.isUngrouped
-                      ? Icons.inventory_2_outlined
-                      : Icons.flag_outlined,
-                  color: AppColors.accentDark,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    group.anchorLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                _GroupMetric(label: '点位', value: '${group.points.length}'),
-                _GroupMetric(label: '完成', value: '${group.completedCount}'),
-                _GroupMetric(label: '模式', value: group.orderModeLabel),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupMetric extends StatelessWidget {
-  const _GroupMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1964,43 +1851,6 @@ class _WorkHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  String _workCountText(PilgrimagePlan plan) {
-    final count = plan.works.isNotEmpty
-        ? plan.works.length
-        : plan.points.map((point) => point.work.id).toSet().length;
-    return '$count 部作品';
-  }
-}
-
-class _PlanMetaStrip extends StatelessWidget {
-  const _PlanMetaStrip({required this.plan});
-
-  final PilgrimagePlan plan;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const ValueKey('plan-meta-strip'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: SizedBox(
-        width: double.infinity,
-        child: Text(
-          '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
-          key: const ValueKey('plan-meta-text'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.left,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
-        ),
       ),
     );
   }
