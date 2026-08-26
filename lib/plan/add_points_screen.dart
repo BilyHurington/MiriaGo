@@ -20,7 +20,6 @@ import '../widgets/reference_thumbnail_stub.dart'
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/app_scaled_route.dart';
 import '../widgets/app_back_button.dart';
-import '../widgets/input_dialog.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pilgrimage_work_dropdown.dart';
@@ -47,6 +46,44 @@ InputDecoration stableInputDecoration({
 double _guideDialogHeight(BuildContext context, double contentHeight) {
   final viewportLimit = MediaQuery.sizeOf(context).height * 0.72;
   return viewportLimit < contentHeight ? viewportLimit : contentHeight;
+}
+
+Future<void> _pasteCoordinateFromClipboardInto({
+  required BuildContext context,
+  required TextEditingController latitudeController,
+  required TextEditingController longitudeController,
+  required VoidCallback onFilled,
+}) async {
+  LatLng? coordinate;
+  try {
+    coordinate = await parseClipboardCoordinate();
+  } on Object {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '无法读取剪贴板。',
+      );
+    }
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+  if (coordinate == null) {
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.warning,
+      title: '剪贴板中没有有效坐标。',
+    );
+    return;
+  }
+  final parsed = coordinate;
+  latitudeController.text = parsed.latitude.toStringAsFixed(6);
+  longitudeController.text = parsed.longitude.toStringAsFixed(6);
+  onFilled();
+  ScaffoldMessenger.of(context).showStatusSnack(
+    kind: AppStatusBannerKind.success,
+    title: '已填入坐标。',
+  );
 }
 
 InputDecoration _boxedFormDecoration({
@@ -2254,22 +2291,13 @@ class _QuickManualPointFormScreenState
     });
   }
 
-  Future<void> _pasteCoordinateFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (!mounted) {
-      return;
-    }
-    final coordinate = parseCoordinateText(data?.text ?? '');
-    if (coordinate == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '剪贴板中没有有效坐标。');
-      return;
-    }
-    setState(() {
-      _latitudeController.text = coordinate.latitude.toStringAsFixed(6);
-      _longitudeController.text = coordinate.longitude.toStringAsFixed(6);
-    });
+  Future<void> _pasteCoordinateFromClipboard() {
+    return _pasteCoordinateFromClipboardInto(
+      context: context,
+      latitudeController: _latitudeController,
+      longitudeController: _longitudeController,
+      onFilled: () => setState(() {}),
+    );
   }
 
   Future<void> _showFillingGuide() {
@@ -2541,7 +2569,8 @@ class _QuickManualPointFormScreenState
                       width: 44,
                       height: 40,
                       child: IconButton.outlined(
-                        tooltip: '粘贴剪切板坐标',
+                        key: const ValueKey('quick-point-paste-coordinate'),
+                        tooltip: '粘贴剪贴板坐标',
                         onPressed: _pasteCoordinateFromClipboard,
                         style: IconButton.styleFrom(
                           foregroundColor: AppColors.textPrimary,
@@ -2946,91 +2975,13 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     });
   }
 
-  Future<void> _pasteCoordinateFromClipboard() async {
-    String clipboardText = '';
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      clipboardText = data?.text ?? '';
-    } on Object {
-      clipboardText = '';
-    }
-
-    var coordinate = parseCoordinateText(clipboardText);
-    if (coordinate == null && mounted) {
-      final manualText = await _showCoordinatePasteDialog();
-      if (!mounted || manualText == null) {
-        return;
-      }
-      coordinate = parseCoordinateText(manualText);
-    }
-
-    if (!mounted) {
-      return;
-    }
-    if (coordinate == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '剪切板中没有可识别的坐标。');
-      return;
-    }
-    final parsedCoordinate = coordinate;
-
-    setState(() {
-      _latitudeController.text = parsedCoordinate.latitude.toStringAsFixed(6);
-      _longitudeController.text = parsedCoordinate.longitude.toStringAsFixed(6);
-    });
-    ScaffoldMessenger.of(
-      context,
-    ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已填入坐标。');
-  }
-
-  Future<String?> _showCoordinatePasteDialog() async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final result = await showDialog<String>(
+  Future<void> _pasteCoordinateFromClipboard() {
+    return _pasteCoordinateFromClipboardInto(
       context: context,
-      builder: (dialogContext) {
-        return AppInputDialog(
-          title: '粘贴坐标',
-          content: Form(
-            key: formKey,
-            child: AppDialogField(
-              label: '坐标文本',
-              child: TextFormField(
-                onTapOutside: dismissKeyboardOnTapOutside,
-                controller: controller,
-                autofocus: true,
-                minLines: 2,
-                maxLines: 3,
-                decoration: appDialogInputDecoration(
-                  hintText: '例如 35.712576, 139.722166',
-                ),
-                validator: (value) {
-                  if (parseCoordinateText(value ?? '') == null) {
-                    return '请输入可识别的坐标';
-                  }
-                  return null;
-                },
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) {
-                  if (formKey.currentState?.validate() ?? false) {
-                    Navigator.of(dialogContext).pop(controller.text);
-                  }
-                },
-              ),
-            ),
-          ),
-          confirmLabel: '填入',
-          onConfirm: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.of(dialogContext).pop(controller.text);
-            }
-          },
-        );
-      },
+      latitudeController: _latitudeController,
+      longitudeController: _longitudeController,
+      onFilled: () => setState(() {}),
     );
-    controller.dispose();
-    return result;
   }
 
   void _removeReferenceImage() {
@@ -3417,7 +3368,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                         width: 44,
                         height: 40,
                         child: IconButton.outlined(
-                          tooltip: '粘贴剪切板坐标',
+                          key: const ValueKey('point-form-paste-coordinate'),
+                          tooltip: '粘贴剪贴板坐标',
                           onPressed: _isSaving
                               ? null
                               : _pasteCoordinateFromClipboard,

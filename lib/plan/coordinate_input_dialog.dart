@@ -54,7 +54,16 @@ class _CoordinateInputDialogState extends State<_CoordinateInputDialog> {
   }
 
   Future<void> _pasteFromClipboard() async {
-    final coordinate = await parseClipboardCoordinate();
+    LatLng? coordinate;
+    try {
+      coordinate = await parseClipboardCoordinate();
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorText = '无法读取剪贴板。');
+      return;
+    }
     if (!mounted) {
       return;
     }
@@ -62,10 +71,11 @@ class _CoordinateInputDialogState extends State<_CoordinateInputDialog> {
       setState(() => _errorText = '剪贴板中没有可识别的坐标。');
       return;
     }
+    final parsed = coordinate;
     setState(() {
       _errorText = null;
-      _latitudeController.text = coordinate.latitude.toStringAsFixed(6);
-      _longitudeController.text = coordinate.longitude.toStringAsFixed(6);
+      _latitudeController.text = parsed.latitude.toStringAsFixed(6);
+      _longitudeController.text = parsed.longitude.toStringAsFixed(6);
     });
   }
 

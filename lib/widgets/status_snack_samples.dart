@@ -213,6 +213,10 @@ const statusSnackDebugSamples = <StatusSnackSample>[
   ),
   StatusSnackSample(
     kind: AppStatusBannerKind.warning,
+    title: '无法读取剪贴板。',
+  ),
+  StatusSnackSample(
+    kind: AppStatusBannerKind.warning,
     title: '剪贴板中没有有效坐标。',
   ),
   StatusSnackSample(

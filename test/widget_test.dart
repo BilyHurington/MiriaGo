@@ -58,6 +58,10 @@ void _invokeKeyedAction(WidgetTester tester, String key) {
     widget.onPressed!();
     return;
   }
+  if (widget is IconButton) {
+    widget.onPressed!();
+    return;
+  }
   if (widget is InkWell) {
     widget.onTap!();
     return;
@@ -2519,6 +2523,64 @@ void main() {
     expect(updatedPlan.currentPointId, initialPlan.currentPointId);
   });
 
+  testWidgets('quick manual point paste fills coordinates without a dialog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
+    await tester.pumpAndSettle();
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('添加点位').last);
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'add-points-quick-manual-point');
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '35.712576, 139.722166');
+
+    _invokeKeyedAction(tester, 'quick-point-paste-coordinate');
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('quick-point-latitude')),
+          )
+          .controller
+          ?.text,
+      '35.712576',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('quick-point-longitude')),
+          )
+          .controller
+          ?.text,
+      '139.722166',
+    );
+    expect(find.text('粘贴坐标'), findsNothing);
+    expect(find.textContaining('已填入坐标'), findsOneWidget);
+  });
+
+  testWidgets('quick manual point paste explains empty clipboard', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
+    await tester.pumpAndSettle();
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('添加点位').last);
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'add-points-quick-manual-point');
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '');
+
+    _invokeKeyedAction(tester, 'quick-point-paste-coordinate');
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('剪贴板中没有有效坐标'), findsOneWidget);
+    expect(find.text('粘贴坐标'), findsNothing);
+  });
+
   testWidgets('creates a new plan from the plan manager', (tester) async {
     final repository = SamplePilgrimageRepository();
     await tester.pumpWidget(MiriaGoApp(repository: repository));
@@ -3172,6 +3234,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('点击地图任意位置设置点位坐标'), findsOneWidget);
     expect(find.textContaining('点击地图可继续调整位置'), findsNothing);
+  });
+
+  testWidgets('manual point paste fills coordinates without a dialog', (
+    tester,
+  ) async {
+    await _pumpAppWithEmptyPlan(tester);
+
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-manual-point');
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '35.008900, 135.771100');
+
+    _invokeKeyedAction(tester, 'point-form-paste-coordinate');
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('point-form-latitude')),
+          )
+          .controller
+          ?.text,
+      '35.008900',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('point-form-longitude')),
+          )
+          .controller
+          ?.text,
+      '135.771100',
+    );
+    expect(find.text('粘贴坐标'), findsNothing);
+    expect(find.textContaining('已填入坐标'), findsOneWidget);
   });
 
   testWidgets('Anitabi link import adds missing work on import', (
