@@ -4,6 +4,7 @@ import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/snackbar_helper.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_config_editor.dart';
 import 'comparison_exporter_stub.dart'
@@ -162,7 +163,10 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       setState(() => _exporting = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_failureMessage(result))));
+      ).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: _failureMessage(result),
+      );
     }
   }
 
@@ -222,7 +226,7 @@ class _SheetFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),

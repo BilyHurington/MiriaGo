@@ -42,7 +42,7 @@ class PilgrimageWorkCover extends StatelessWidget {
                 loadingBuilder: (context, child, progress) {
                   return progress == null
                       ? child
-                      : const ColoredBox(color: AppColors.surfaceMuted);
+                      : ColoredBox(color: AppColors.surfaceMuted);
                 },
                 errorBuilder: (context, error, stackTrace) {
                   return const _WorkCoverFallback();
@@ -58,7 +58,7 @@ class _WorkCoverFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Icon(
         Icons.movie_filter_outlined,
         size: 22,

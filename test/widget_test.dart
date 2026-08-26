@@ -167,6 +167,17 @@ void main() {
     expect(find.text('宇治站附近'), findsWidgets);
     expect(find.text('默认计划'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
+    expect(find.text('吹响吧！上低音号'), findsWidgets);
+    expect(find.textContaining('あじろぎの道'), findsNothing);
+    expect(find.text('已拍 2'), findsNothing);
+    expect(find.byKey(const ValueKey('plan-point-shot-badge')), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('plan-point-shot-badge')),
+        matching: find.text('2'),
+      ),
+      findsNothing,
+    );
     final planTitle = tester.widget<Text>(
       find.descendant(of: find.byType(AppBar), matching: find.text('示例计划')),
     );
@@ -319,6 +330,43 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('plan action subtitles hide on a narrow screen', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
+    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('计划备忘录'), findsOneWidget);
+    expect(find.text('加入巡礼场景'), findsNothing);
+    expect(find.text('整理片区点位'), findsNothing);
+    expect(find.text('保存完整图片'), findsNothing);
+    expect(find.text('记录行程要点'), findsNothing);
+    expect(find.text('备份迁移计划'), findsNothing);
+  });
+
+  testWidgets('plan action subtitles stay visible on a wider screen', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
+    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('加入巡礼场景'), findsOneWidget);
+    expect(find.text('计划备忘录'), findsOneWidget);
+    expect(find.text('记录行程要点'), findsOneWidget);
   });
 
   testWidgets('plan actions can ignore taps outside the panel', (tester) async {
@@ -748,15 +796,11 @@ void main() {
         const ValueKey('records-group-surface-sample-group-uji-station'),
       ),
     );
-    final groupDividerRect = tester.getRect(
-      find.byKey(const ValueKey('records-group-divider')).first,
-    );
     final firstRecordRect = tester.getRect(
       find.byKey(const ValueKey('record-card-sample-record-jr-uji-01')),
     );
-    expect(groupDividerRect.width, closeTo(groupSurfaceRect.width - 20, 0.1));
-    expect(groupDividerRect.left, greaterThan(groupSurfaceRect.left));
-    expect(firstRecordRect.top - groupDividerRect.bottom, closeTo(4, 0.1));
+    expect(find.byKey(const ValueKey('records-group-divider')), findsNothing);
+    expect(firstRecordRect.top - groupSurfaceRect.bottom, closeTo(4, 0.1));
     expect(
       find.ancestor(
         of: find.byKey(
@@ -1250,6 +1294,9 @@ void main() {
 
     await tester.tap(find.byTooltip('编辑'));
     await tester.pumpAndSettle();
+    expect(find.text('备忘录内容'), findsOneWidget);
+    expect(find.text('取消'), findsNothing);
+    expect(find.text('可以记录交通、预约、补拍事项、同行安排等。'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '第一天先去宇治站，下午整理补拍点。');
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
@@ -1537,6 +1584,15 @@ void main() {
     expect(find.text('井用机前步行道'), findsWidgets);
     expect(find.text('吹响吧！上低音号 / EP 1 / 2:08'), findsOneWidget);
     expect(find.textContaining('あじろぎの道 / 34.'), findsNothing);
+    expect(find.text('已拍 2'), findsNothing);
+    expect(find.byKey(const ValueKey('map-point-shot-badge')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byTooltip('拍摄参考'),
+        matching: find.byKey(const ValueKey('map-point-shot-badge')),
+      ),
+      findsOneWidget,
+    );
     expect(
       tester
           .widgetList<PolygonLayer>(find.byType(PolygonLayer))
@@ -1581,6 +1637,146 @@ void main() {
     },
   );
 
+  testWidgets('map large navigation button opens in-app navigation ui', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.byIcon(Icons.map_outlined).last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('map-in-app-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('navigation-route-confirm-screen')),
+      findsOneWidget,
+    );
+    expect(find.text('确认路线'), findsOneWidget);
+    expect(find.text('串联整个片区导航'), findsOneWidget);
+    expect(find.text('仅导航到选中点'), findsOneWidget);
+    expect(find.textContaining('点击即按顺序连接'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-route-confirm-zone')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsOneWidget,
+    );
+    expect(find.text('片区'), findsOneWidget);
+    expect(find.text('宇治站附近'), findsOneWidget);
+    expect(find.textContaining('井用机前步行道'), findsOneWidget);
+    expect(find.text('到达'), findsOneWidget);
+    expect(find.text('小时'), findsOneWidget);
+    expect(find.text('公里'), findsOneWidget);
+    expect(find.text('17 分钟'), findsNothing);
+    expect(find.text('结束路线'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('结束路线'), findsOneWidget);
+    expect(find.text('全部点位'), findsOneWidget);
+    expect(find.text('详细信息'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-all-stops')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-all-stops-sheet')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('宇治桥'), findsOneWidget);
+    expect(find.textContaining('下一个:'), findsNothing);
+    expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
+
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey('in-app-navigation-all-stops-sheet')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-end-route')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('map-in-app-navigation-button')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('map navigation can start only the selected point', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.byIcon(Icons.map_outlined).last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('map-in-app-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-route-confirm-point')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('终点: 井用机前步行道'), findsOneWidget);
+    expect(find.textContaining('下一个:'), findsNothing);
+  });
+
+  testWidgets('plan point detail navigation opens in-app navigation ui', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.text('井用机前步行道').first);
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'point-detail-in-app-navigation-button');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('navigation-route-confirm-screen')),
+      findsOneWidget,
+    );
+    expect(find.text('串联整个片区导航'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-route-confirm-zone')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('井用机前步行道'), findsOneWidget);
+    expect(find.byType(PointDetailSheet), findsNothing);
+  });
+
   testWidgets('plan map marker opens detail after selecting the point', (
     tester,
   ) async {
@@ -1611,9 +1807,100 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('管理计划'), findsOneWidget);
-    expect(find.textContaining('关键点'), findsWidgets);
+    expect(find.byKey(const ValueKey('point-manager-group-switcher')), findsOneWidget);
+    expect(
+      tester.widget(find.byKey(const ValueKey('point-manager-group-switcher'))),
+      isA<FilledButton>(),
+    );
+    expect(find.text('宇治站附近'), findsOneWidget);
+    expect(find.byKey(const ValueKey('point-manager-anchor-row')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-anchor-row')),
+        matching: find.text('关键点：JR 宇治站'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-anchor-row')))
+          .height,
+      40,
+    );
+    expect(find.text('更改'), findsOneWidget);
     expect(find.text('无序'), findsWidgets);
     expect(find.text('井用机前步行道'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+        matching: find.text('6'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+        matching: find.text('点位'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+              matching: find.text('6'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      14,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+              matching: find.text('点位'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      10,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-completed')),
+        matching: find.text('0'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-completed')),
+        matching: find.text('完成'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('关键点 · JR 宇治站'), findsNothing);
+    expect(find.text('1 / 7'), findsNothing);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-count-chip-points')))
+          .height,
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-order-button')))
+          .height,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('point-manager-order-button')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-order-menu')))
+          .width,
+      124,
+    );
   });
 
   testWidgets('plan manager reuses plan region drawers', (tester) async {
@@ -1631,7 +1918,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, '宇治站附近'));
+    await tester.tap(find.byKey(const ValueKey('point-manager-group-switcher')));
     await tester.pumpAndSettle();
     expect(find.text('选择区域'), findsOneWidget);
     expect(
@@ -1753,7 +2040,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('新建片区'));
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsOneWidget);
+    expect(find.byIcon(Icons.account_tree_outlined), findsNothing);
+    expect(find.text('未分配点位'), findsOneWidget);
+    expect(find.textContaining('个点位等待整理'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('plan-group-create-fab')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('创建'));
     await tester.pumpAndSettle();
@@ -1776,6 +2068,16 @@ void main() {
 
     expect(find.text('片区名不能为空'), findsNothing);
     expect(find.text('新片区'), findsOneWidget);
+    expect(find.text('未设置关键点'), findsOneWidget);
+    expect(find.text('空'), findsOneWidget);
+    expect(find.text('无序'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('片区操作'));
+    await tester.pumpAndSettle();
+    expect(find.text('重命名'), findsOneWidget);
+    expect(find.text('设置关键点'), findsOneWidget);
+    expect(find.text('切换为手动排序'), findsOneWidget);
+    expect(find.text('删除片区'), findsOneWidget);
   });
 
   testWidgets('hides desktop launcher status outside web builds', (
@@ -2003,6 +2305,16 @@ void main() {
       find.byKey(const ValueKey('anitabi-service-restore-defaults')),
       findsOneWidget,
     );
+    expect(find.text('连接测试'), findsNothing);
+    expect(find.text('主站地址'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('anitabi-service-restore-defaults')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('将把全部 Anitabi 服务地址恢复为官方默认值。'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
 
     Navigator.of(tester.element(find.text('Anitabi 服务地址').first)).pop();
     await tester.pumpAndSettle();
@@ -2016,6 +2328,45 @@ void main() {
     expect(find.text('地图标记大小'), findsNothing);
     expect(find.text('片区范围半径'), findsNothing);
     expect(find.text('自动聚合密集点位'), findsNothing);
+  });
+
+  testWidgets('appearance settings can switch app theme mode', (tester) async {
+    final repository = SamplePilgrimageRepository();
+    await tester.pumpWidget(MiriaGoApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+    expect(find.text('主题模式'), findsOneWidget);
+    expect(find.text('主题色'), findsOneWidget);
+    expect(find.text('浅色'), findsWidgets);
+
+    await tester.tap(find.text('外观设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('影响应用整体浅色或深色显示'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('appearance-theme-mode-dark')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('appearance-theme-mode-dark')));
+    await tester.pumpAndSettle();
+
+    expect((await repository.loadAppSettings()).themeMode, AppThemeMode.dark);
+    expect(AppColors.isDark, isTrue);
+    expect(
+      Theme.of(tester.element(find.text('外观设置').first)).brightness,
+      Brightness.dark,
+    );
+    Navigator.of(tester.element(find.text('外观设置').first)).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('深色'), findsWidgets);
+    expect(
+      Theme.of(
+        tester.element(find.byKey(const ValueKey('settings-app-bar'))),
+      ).scaffoldBackgroundColor,
+      AppColors.background,
+    );
   });
 
   testWidgets('custom theme palette updates the hex color', (tester) async {
@@ -2086,6 +2437,21 @@ void main() {
     expect(find.text('请先通过 Bangumi 搜索添加作品'), findsOneWidget);
     expect(quickManualPointInkWell.onTap, isNull);
     expect(manualPointInkWell.onTap, isNotNull);
+  });
+
+  testWidgets('empty map guide splits title and supporting copy', (tester) async {
+    await _pumpAppWithEmptyPlan(tester);
+
+    await tester.tap(find.text('地图').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前计划还没有点位'), findsOneWidget);
+    expect(find.text('添加点位后会在地图上显示标记。'), findsOneWidget);
+    expect(find.text('当前计划还没有点位。添加点位后会在地图上显示标记。'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('map-empty-card'))).height,
+      lessThan(120),
+    );
   });
 
   testWidgets('quick manual point page keeps only the lightweight fields', (
@@ -2529,7 +2895,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect((await repository.loadPlans()).map((plan) => plan.id), originalIds);
-    expect(find.text('保存计划顺序失败，已恢复原来的顺序。'), findsOneWidget);
+    expect(find.text('保存计划顺序失败，已恢复原来的顺序'), findsOneWidget);
     final cardKeys = tester
         .widgetList<Padding>(
           find.byWidgetPredicate(
@@ -2661,7 +3027,7 @@ void main() {
       tester.widget<TextFormField>(fields.at(2)).controller!.text,
       isEmpty,
     );
-    await tester.pageBack();
+    await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 
     expect(find.text('原创短片'), findsOneWidget);

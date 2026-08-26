@@ -16,6 +16,35 @@ void main() {
     expect(decoded!.settings.dismissPlanActionsOnOutsideTap, isFalse);
   });
 
+  test('desktop persists appearance theme mode', () {
+    final repository = SamplePilgrimageRepository(
+      settings: const AppSettings(themeMode: AppThemeMode.dark),
+    );
+    final encoded = encodeDesktopRepositoryState(repository.snapshot());
+
+    final decoded = decodeDesktopRepositoryState(encoded);
+
+    expect(decoded, isNotNull);
+    expect(decoded!.settings.themeMode, AppThemeMode.dark);
+  });
+
+  test('desktop persists sample uji-station zone chain', () {
+    final encoded = encodeDesktopRepositoryState(
+      SamplePilgrimageRepository().snapshot(),
+    );
+
+    final decoded = decodeDesktopRepositoryState(encoded);
+    final chain = _ujiStationChain(decoded!.plans.single);
+
+    expect(decoded.plans.single.currentGroupId, 'sample-group-uji-station');
+    expect(chain.map((point) => point.name), _ujiStationChainNames);
+    expect(chain.map((point) => point.groupOrderIndex), [0, 1, 2, 4, 5, 6]);
+    expect(
+      chain.map((point) => point.groupId),
+      everyElement('sample-group-uji-station'),
+    );
+  });
+
   test('desktop repository state round-trips sample data', () async {
     final repository = SamplePilgrimageRepository();
     await repository.saveAppSettings(
@@ -23,6 +52,7 @@ void main() {
         uiScale: 1.25,
         cameraCaptureAspectRatio: CameraPhotoAspectRatio.landscape16x9,
         photoLocationStrategy: PhotoLocationStrategy.waitOnConfirmation,
+        themeMode: AppThemeMode.dark,
         themePalette: AppThemePalette.miriaYellow,
         mapTileProvider: MapTileProvider.customMapLibreStyle,
         openFreeMapStyle: OpenFreeMapStyle.fiord,
@@ -89,6 +119,7 @@ void main() {
     expect(decoded!.activePlanId, source.activePlanId);
     expect(decoded.settings.uiScale, 1.0);
     expect(decoded.settings.dismissPlanActionsOnOutsideTap, isFalse);
+    expect(decoded.settings.themeMode, AppThemeMode.dark);
     expect(
       decoded.settings.cameraCaptureAspectRatio,
       CameraPhotoAspectRatio.landscape16x9,
@@ -252,4 +283,23 @@ void main() {
     expect(point.work.title, '未知作品');
     expect(point.work.title, isNot('不应该被绑定的作品'));
   });
+}
+
+const _ujiStationChainNames = [
+  '井用机前步行道',
+  '宇治桥',
+  'JR 宇治站',
+  '宇治文化中心 停车场',
+  '宇治川河畔',
+  '京阪宇治站前',
+];
+
+List<PilgrimagePoint> _ujiStationChain(PilgrimagePlan plan) {
+  return [
+    for (final point in plan.points)
+      if (point.groupId == 'sample-group-uji-station') point,
+  ]..sort(
+    (left, right) =>
+        (left.groupOrderIndex ?? 0).compareTo(right.groupOrderIndex ?? 0),
+  );
 }

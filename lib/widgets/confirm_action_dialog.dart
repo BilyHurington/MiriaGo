@@ -27,6 +27,22 @@ Future<bool> showConfirmActionDialog(
   return confirmed == true;
 }
 
+Future<void> showInfoActionDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = '知道了',
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => InfoActionDialog(
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+    ),
+  );
+}
+
 class ConfirmActionDialog extends StatelessWidget {
   const ConfirmActionDialog({
     required this.title,
@@ -81,7 +97,7 @@ class ConfirmActionDialog extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -137,6 +153,66 @@ class ConfirmActionDialog extends StatelessWidget {
   }
 }
 
+class InfoActionDialog extends StatelessWidget {
+  const InfoActionDialog({
+    required this.title,
+    required this.message,
+    this.confirmLabel = '知道了',
+    super.key,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = _availableDialogHeight(context);
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _EmphasizedMessage(message, emphasizedValues: const []),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: _DialogActionLabel(confirmLabel),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StandardConfirmDialog extends StatelessWidget {
   const _StandardConfirmDialog({
     required this.title,
@@ -174,7 +250,7 @@ class _StandardConfirmDialog extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -329,7 +405,7 @@ class _EmphasizedMessage extends StatelessWidget {
             .toSet()
             .toList()
           ..sort((a, b) => b.length.compareTo(a.length));
-    final baseStyle = const TextStyle(
+    final baseStyle = TextStyle(
       color: AppColors.textSecondary,
       fontSize: 14,
       height: 1.55,
@@ -349,7 +425,7 @@ class _EmphasizedMessage extends StatelessWidget {
       spans.add(
         TextSpan(
           text: match.group(0),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),

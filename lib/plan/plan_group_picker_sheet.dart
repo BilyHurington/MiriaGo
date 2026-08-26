@@ -51,7 +51,7 @@ Future<void> showPlanGroupPickerSheet({
                             const SizedBox(height: 3),
                             Text(
                               '共 ${pickerGroups.length} 个区域',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -253,7 +253,7 @@ class _PlanGroupPickerTile extends StatelessWidget {
                               group.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -265,7 +265,7 @@ class _PlanGroupPickerTile extends StatelessWidget {
                               group.anchorLabel,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 12,
                                 letterSpacing: 0,
@@ -388,7 +388,7 @@ Future<String?> showPlanGroupSelectionSheet({
                         const SizedBox(height: 3),
                         Text(
                           subtitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -414,7 +414,7 @@ Future<String?> showPlanGroupSelectionSheet({
                     ),
                   ),
                   if (onCreateOption != null) ...[
-                    const Divider(height: 1, color: AppColors.border),
+                    Divider(height: 1, color: AppColors.border),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                       child: Material(

@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 
 LatLng? parseCoordinateText(String input) {
@@ -12,6 +13,15 @@ LatLng? parseCoordinateText(String input) {
   }
 
   return _parseDmsCoordinate(normalized);
+}
+
+Future<LatLng?> parseClipboardCoordinate() async {
+  try {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    return parseCoordinateText(data?.text ?? '');
+  } on Object {
+    return null;
+  }
 }
 
 String _normalizeCoordinateText(String input) {

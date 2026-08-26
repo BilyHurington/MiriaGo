@@ -16,14 +16,18 @@ import '../records/comparison_export_config.dart';
 import '../records/comparison_export_config_editor.dart';
 import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
-import '../widgets/copyable_text.dart';
-import '../widgets/confirm_action_dialog.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/app_scaled_route.dart';
+import '../widgets/app_status_banner.dart';
+import '../widgets/confirm_action_dialog.dart';
+import '../widgets/copyable_text.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/status_snack_samples.dart';
 
-bool get _showFutureThemeModeSettings => false;
 bool get _showFutureCacheCleanupSettings => false;
+bool get _showSnackDebugSettings => false;
+bool get _showDebugPhotoLocationSettings => false;
 bool get _shouldShowMobileGallerySettings {
   if (kIsWeb) {
     return false;
@@ -31,6 +35,11 @@ bool get _shouldShowMobileGallerySettings {
   return defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
 }
+
+bool get _shouldShowPhotoLocationSettings =>
+    kDebugMode ||
+    _showDebugPhotoLocationSettings ||
+    _shouldShowMobileGallerySettings;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -103,6 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = widget.settings;
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         key: const ValueKey('settings-app-bar'),
         toolbarHeight: AppTheme.appBarHeight,
@@ -128,7 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             header: _SettingsCardHeader(
               icon: Icons.palette_outlined,
               title: '外观设置',
-              subtitle: '主题色、缩放、显示等',
+              subtitle: '主题色、深浅色、缩放、显示等',
               onTap: () => _pushDetail(
                 _AppearanceSettingsPage(
                   settings: settings,
@@ -155,9 +165,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   _SummaryTile(
-                    icon: Icons.zoom_out_map_outlined,
-                    title: '页面缩放',
-                    value: '${(settings.uiScale * 100).round()}%',
+                    icon: Icons.dark_mode_outlined,
+                    title: '主题模式',
+                    value: settings.themeMode.label,
                     onTap: () => _pushDetail(
                       _AppearanceSettingsPage(
                         settings: settings,
@@ -213,8 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              if (_shouldShowMobileGallerySettings) ...[
-                const _SettingsDivider(),
+              if (_shouldShowMobileGallerySettings)
                 _SummarySwitchTile(
                   icon: Icons.cloud_upload_outlined,
                   title: '照片备份',
@@ -226,7 +235,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -322,6 +330,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          if (_showSnackDebugSettings) ...[
+            const SizedBox(height: 12),
+            _SettingsCard(
+              key: const ValueKey('settings-snack-debug-card'),
+              header: _SettingsCardHeader(
+                icon: Icons.notifications_outlined,
+                title: 'Snack 调试',
+                subtitle: '预览当前全部提示条',
+                onTap: () => _pushDetail(const _SnackDebugSettingsPage()),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -362,7 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('已恢复初始设置')));
+      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已恢复初始设置');
     }
     await clearComparisonExportConfig();
   }
@@ -463,6 +483,10 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
   }
 
   void _update(AppSettings settings) {
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: MediaQuery.platformBrightnessOf(context),
+    );
     setState(() {
       _settings = settings;
     });
@@ -499,13 +523,15 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
     final settings = _settings;
     final uiScale = settings.uiScale.clamp(0.8, 1.0);
     final fontScale = settings.fontScale.clamp(0.8, 1.2);
-    AppColors.palette = settings.themePalette;
-    AppColors.customAccentValue = settings.customThemeColorValue;
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: MediaQuery.platformBrightnessOf(context),
+    );
 
     return Theme(
-      data: AppTheme.light(
-        palette: settings.themePalette,
-        customAccentValue: settings.customThemeColorValue,
+      data: appThemeFor(
+        settings,
+        platformBrightness: MediaQuery.platformBrightnessOf(context),
       ),
       child: _ScaledDetailScaffold(
         title: '\u5916\u89c2\u8bbe\u7f6e',
@@ -517,9 +543,57 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const _InlineSectionTitle(
-                  title: '\u4e3b\u9898\u8272',
-                  subtitle: '\u5f71\u54cd\u5e94\u7528\u6574\u4f53\u914d\u8272',
+                  title: '主题模式',
+                  subtitle: '影响应用整体浅色或深色显示',
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ModeButton(
+                        key: const ValueKey('appearance-theme-mode-light'),
+                        icon: Icons.wb_sunny_outlined,
+                        label: '浅色',
+                        selected: settings.themeMode == AppThemeMode.light,
+                        onTap: () {
+                          _update(
+                            settings.copyWith(themeMode: AppThemeMode.light),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ModeButton(
+                        key: const ValueKey('appearance-theme-mode-dark'),
+                        icon: Icons.dark_mode_outlined,
+                        label: '深色',
+                        selected: settings.themeMode == AppThemeMode.dark,
+                        onTap: () {
+                          _update(
+                            settings.copyWith(themeMode: AppThemeMode.dark),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ModeButton(
+                        key: const ValueKey('appearance-theme-mode-system'),
+                        icon: Icons.phone_iphone_outlined,
+                        label: '跟随系统',
+                        selected: settings.themeMode == AppThemeMode.system,
+                        onTap: () {
+                          _update(
+                            settings.copyWith(themeMode: AppThemeMode.system),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                const _InlineSectionTitle(title: '主题色', subtitle: '影响应用整体配色'),
                 const SizedBox(height: 16),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -571,56 +645,6 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                     ],
                   ),
                 ),
-                if (_showFutureThemeModeSettings) ...[
-                  const SizedBox(height: 22),
-                  const Text(
-                    '\u4e3b\u9898\u6a21\u5f0f',
-                    style: _titleTextStyle,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ModeButton(
-                          icon: Icons.wb_sunny_outlined,
-                          label: '\u6d45\u8272\u6a21\u5f0f',
-                          selected: settings.themeMode == AppThemeMode.light,
-                          onTap: () {
-                            _update(
-                              settings.copyWith(themeMode: AppThemeMode.light),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ModeButton(
-                          icon: Icons.dark_mode_outlined,
-                          label: '\u6df1\u8272\u6a21\u5f0f',
-                          selected: settings.themeMode == AppThemeMode.dark,
-                          onTap: () {
-                            _update(
-                              settings.copyWith(themeMode: AppThemeMode.dark),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ModeButton(
-                          icon: Icons.phone_iphone_outlined,
-                          label: '\u8ddf\u968f\u7cfb\u7edf',
-                          selected: settings.themeMode == AppThemeMode.system,
-                          onTap: () {
-                            _update(
-                              settings.copyWith(themeMode: AppThemeMode.system),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -631,13 +655,13 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.fit_screen_outlined,
                       color: AppColors.textSecondary,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         '\u9875\u9762\u7f29\u653e',
                         style: _titleTextStyle,
@@ -655,8 +679,8 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Padding(
-                  padding: EdgeInsets.only(left: 28, right: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 28, right: 8),
                   child: Text(
                     '\u8c03\u6574\u754c\u9762\u6574\u4f53\u5927\u5c0f\uff08\u4e0d\u5f71\u54cd\u53c2\u8003\u56fe\uff09',
                     style: _captionTextStyle,
@@ -677,7 +701,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    const Text('Aa', style: _titleTextStyle),
+                    Text('Aa', style: _titleTextStyle),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Row(
@@ -724,12 +748,12 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
               child: SwitchListTile(
                 key: const ValueKey('plan-group-progress-toggle'),
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.linear_scale_outlined,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('显示片区进度条', style: _titleTextStyle),
-                subtitle: const Text(
+                title: Text('显示片区进度条', style: _titleTextStyle),
+                subtitle: Text(
                   '在片区选择弹窗中显示未完成片区的进度背景；完成后仅显示对勾。',
                   style: _secondaryTextStyle,
                 ),
@@ -749,12 +773,12 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                   'dismiss-plan-actions-on-outside-tap-toggle',
                 ),
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.touch_app_outlined,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('点击空白收回计划操作', style: _titleTextStyle),
-                subtitle: const Text(
+                title: Text('点击空白收回计划操作', style: _titleTextStyle),
+                subtitle: Text(
                   '展开计划操作后，点击面板外的空白区域自动收回',
                   style: _secondaryTextStyle,
                 ),
@@ -866,7 +890,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
           title: '\u62cd\u6444\u56fe\u7247\u6bd4\u4f8b',
           titleSpacing: 6,
           children: [
-            const Text(
+            Text(
               '\u81ea\u52a8\u4f1a\u4f18\u5148\u8ddf\u968f\u53c2\u8003\u56fe\u6bd4\u4f8b\uff1b\u9009\u62e9\u56fa\u5b9a\u6bd4\u4f8b\u540e\u4f1a\u6309\u8be5\u6bd4\u4f8b\u62cd\u6444\u3002',
               style: _secondaryTextStyle,
             ),
@@ -901,7 +925,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
           title: '\u65e0\u53c2\u8003\u56fe\u65f6\u6bd4\u4f8b',
           titleSpacing: 6,
           children: [
-            const Text(
+            Text(
               '\u62cd\u6444\u56fe\u7247\u6bd4\u4f8b\u4e3a\u81ea\u52a8\u3001\u4e14\u6ca1\u6709\u53c2\u8003\u56fe\u53ef\u5bf9\u9f50\u65f6\u4f7f\u7528\u3002',
               style: _secondaryTextStyle,
             ),
@@ -995,26 +1019,15 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
             ),
           ],
         ),
-        if (_shouldShowMobileGallerySettings) ...[
+        if (_shouldShowPhotoLocationSettings) ...[
           const SizedBox(height: 12),
           _SettingsSection(
             title: '照片定位信息',
+            titleSpacing: 6,
             children: [
-              DropdownButtonFormField<PhotoLocationStrategy>(
-                initialValue: settings.photoLocationStrategy,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                  labelText: '定位写入策略',
-                ),
-                items: PhotoLocationStrategy.values
-                    .map(
-                      (strategy) => DropdownMenuItem(
-                        value: strategy,
-                        child: Text(strategy.label),
-                      ),
-                    )
-                    .toList(growable: false),
+              _PhotoLocationStrategyDropdown(
+                value: settings.photoLocationStrategy,
+                settings: settings,
                 onChanged: (strategy) {
                   if (strategy != null) {
                     _update(settings.copyWith(photoLocationStrategy: strategy));
@@ -1030,21 +1043,20 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
               ),
             ],
           ),
+        ],
+        if (_shouldShowMobileGallerySettings) ...[
           const SizedBox(height: 12),
           _SettingsSection(
             title: '照片备份',
             children: [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.cloud_upload_outlined,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('保存巡礼照片到相册', style: _titleTextStyle),
-                subtitle: const Text(
-                  '保存记录时同时备份一张巡礼照片。',
-                  style: _secondaryTextStyle,
-                ),
+                title: Text('保存巡礼照片到相册', style: _titleTextStyle),
+                subtitle: Text('保存记录时同时备份一张巡礼照片。', style: _secondaryTextStyle),
                 value: settings.saveVisitPhotoToGallery,
                 onChanged: (value) {
                   _update(settings.copyWith(saveVisitPhotoToGallery: value));
@@ -1066,6 +1078,251 @@ String _photoLocationStrategyDescription(PhotoLocationStrategy strategy) {
       '拍摄时优先使用设备最近的有效定位；没有可用定位时尝试获取一次。',
     PhotoLocationStrategy.waitOnConfirmation => '拍摄后在确认记录页面获取新定位，完成或失败后再允许保存。',
   };
+}
+
+String _photoLocationStrategyBadge(PhotoLocationStrategy strategy) {
+  return switch (strategy) {
+    PhotoLocationStrategy.askOnFirstCapture => '询问',
+    PhotoLocationStrategy.disabled => '关闭',
+    PhotoLocationStrategy.useRecentLocation => '最近',
+    PhotoLocationStrategy.waitOnConfirmation => '推荐',
+  };
+}
+
+String _photoLocationStrategyMenuLabel(PhotoLocationStrategy strategy) {
+  return switch (strategy) {
+    PhotoLocationStrategy.waitOnConfirmation => '确认记录时获取定位',
+    _ => strategy.label,
+  };
+}
+
+class _PhotoLocationStrategyDropdown extends StatelessWidget {
+  const _PhotoLocationStrategyDropdown({
+    required this.value,
+    required this.settings,
+    required this.onChanged,
+  });
+
+  final PhotoLocationStrategy value;
+  final AppSettings settings;
+  final ValueChanged<PhotoLocationStrategy?> onChanged;
+
+  static const _strategies = PhotoLocationStrategy.values;
+  static const _maxItemsWithoutScrollbar = 7;
+
+  @override
+  Widget build(BuildContext context) {
+    final omitScrollbarInset = _strategies.length <= _maxItemsWithoutScrollbar;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        highlightColor: AppColors.accent.withValues(alpha: 0.075),
+        splashColor: Colors.transparent,
+      ),
+      child: DropdownButtonFormField<PhotoLocationStrategy>(
+        key: ValueKey(value),
+        initialValue: value,
+        decoration: _decoration(),
+        isExpanded: true,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(8),
+        dropdownColor: AppColors.surface,
+        itemHeight: null,
+        menuMaxHeight: appScaledOverlayExtent(settings, 360),
+        icon: const Padding(
+          padding: EdgeInsets.only(right: 8),
+          child: Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+        ),
+        selectedItemBuilder: (context) => [
+          for (final strategy in _strategies)
+            _PhotoLocationStrategyDropdownItem(strategy: strategy),
+        ],
+        items: [
+          for (final strategy in _strategies)
+            DropdownMenuItem<PhotoLocationStrategy>(
+              value: strategy,
+              child: SizedBox(
+                height: appScaledOverlayExtent(settings, 48),
+                child: AppScaledOverlayContent(
+                  settings: settings,
+                  child: _PhotoLocationStrategyDropdownItem(
+                    strategy: strategy,
+                    selected: strategy == value,
+                    menuItem: true,
+                    omitScrollbarInset: omitScrollbarInset,
+                  ),
+                ),
+              ),
+            ),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  InputDecoration _decoration() {
+    return InputDecoration(
+      isDense: true,
+      filled: true,
+      fillColor: AppColors.surface,
+      hoverColor: AppColors.accent.withValues(alpha: 0.035),
+      contentPadding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: AppColors.border, width: 1.4),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: AppColors.accent, width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
+    );
+  }
+}
+
+class _PhotoLocationStrategyDropdownItem extends StatefulWidget {
+  const _PhotoLocationStrategyDropdownItem({
+    required this.strategy,
+    this.selected = false,
+    this.menuItem = false,
+    this.omitScrollbarInset = false,
+  });
+
+  final PhotoLocationStrategy strategy;
+  final bool selected;
+  final bool menuItem;
+  final bool omitScrollbarInset;
+
+  @override
+  State<_PhotoLocationStrategyDropdownItem> createState() =>
+      _PhotoLocationStrategyDropdownItemState();
+}
+
+class _PhotoLocationStrategyDropdownItemState
+    extends State<_PhotoLocationStrategyDropdownItem> {
+  static const _hoverOffset = 12.0;
+  static const _menuTrailingInset = 10.0;
+  static const _menuBackgroundTrailingInset = 6.0;
+
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final strategy = widget.strategy;
+    final selected = widget.selected;
+    final reserveScrollbarSpace = widget.menuItem && !widget.omitScrollbarInset;
+
+    final item = SizedBox(
+      width: double.infinity,
+      height: widget.menuItem ? double.infinity : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.centerLeft,
+        transform: Matrix4.translationValues(
+          _hovered && !selected ? _hoverOffset : 0,
+          0,
+          0,
+        ),
+        transformAlignment: Alignment.centerLeft,
+        padding: EdgeInsets.only(
+          right: reserveScrollbarSpace ? _menuTrailingInset : 0,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.42),
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                _photoLocationStrategyBadge(strategy),
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Transform.translate(
+                offset: Offset(0, widget.menuItem ? 0 : -1),
+                child: Text(
+                  _photoLocationStrategyMenuLabel(strategy),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.check_circle, color: AppColors.accent, size: 18),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    final content = SizedBox(
+      width: double.infinity,
+      height: widget.menuItem ? double.infinity : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        fit: widget.menuItem ? StackFit.expand : StackFit.loose,
+        children: [
+          Positioned(
+            left: -8,
+            top: 6,
+            right: reserveScrollbarSpace ? _menuBackgroundTrailingInset : -8,
+            bottom: 6,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(
+                  alpha: selected ? 0.1 : (_hovered ? 0.05 : 0),
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+          item,
+        ],
+      ),
+    );
+
+    return MouseRegion(
+      onEnter: widget.menuItem && !selected
+          ? (_) => setState(() => _hovered = true)
+          : null,
+      onExit: widget.menuItem && !selected
+          ? (_) => setState(() => _hovered = false)
+          : null,
+      child: content,
+    );
+  }
 }
 
 class _AnitabiServiceSettingsPage extends StatefulWidget {
@@ -1135,17 +1392,17 @@ class _AnitabiServiceSettingsPageState
     });
     final config = _config;
     final probes = <String, Uri>{
-      '主站': config.siteUri('/'),
-      '静态数据': config.staticDataUri('g.json'),
+      '主站地址': config.siteUri('/'),
+      '静态地图数据': config.staticDataUri('g.json'),
       '数据 API': config.apiUri('bangumi/115908/lite'),
-      '官方图片': Uri.parse(
+      '官方图片服务': Uri.parse(
         config.officialImageUrl(
           Uri.parse(
             'https://image.anitabi.cn/points/115908/qys7fu.jpg?plan=h160',
           ),
         ),
       ),
-      '备用图片': Uri.parse(
+      '备用图片服务': Uri.parse(
         config.mirrorImageUrl(
           Uri.parse(
             'https://image.anitabi.cn/points/115908/qys7fu.jpg?plan=h160',
@@ -1189,7 +1446,18 @@ class _AnitabiServiceSettingsPageState
     }
   }
 
-  void _restoreDefaults() {
+  Future<void> _restoreDefaults() async {
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '恢复默认地址',
+      message: '将把全部 Anitabi 服务地址恢复为官方默认值。',
+      confirmLabel: '恢复默认',
+      notice: '当前自定义地址不会被保留',
+      emphasizedValues: const ['全部 Anitabi 服务地址'],
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
     _update(
       _settings.copyWith(
         anitabiSiteBaseUrl: defaultAnitabiSiteBaseUrl,
@@ -1204,6 +1472,57 @@ class _AnitabiServiceSettingsPageState
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
+    final services =
+        <
+          ({
+            Key key,
+            IconData icon,
+            String title,
+            String value,
+            ValueChanged<String> onSaved,
+          })
+        >[
+          (
+            key: const ValueKey('anitabi-site-base-url'),
+            icon: Icons.public_outlined,
+            title: '主站地址',
+            value: settings.anitabiSiteBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiSiteBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-static-data-base-url'),
+            icon: Icons.data_object_outlined,
+            title: '静态地图数据',
+            value: settings.anitabiStaticDataBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiStaticDataBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-api-base-url'),
+            icon: Icons.api_outlined,
+            title: '数据 API',
+            value: settings.anitabiApiBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiApiBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-official-image-base-url'),
+            icon: Icons.image_outlined,
+            title: '官方图片服务',
+            value: settings.anitabiOfficialImageBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiOfficialImageBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-mirror-image-base-url'),
+            icon: Icons.cloud_outlined,
+            title: '备用图片服务',
+            value: settings.anitabiMirrorImageBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiMirrorImageBaseUrl: value)),
+          ),
+        ];
     return _ScaledDetailScaffold(
       title: 'Anitabi 服务地址',
       uiScale: settings.uiScale,
@@ -1211,62 +1530,28 @@ class _AnitabiServiceSettingsPageState
       children: [
         _SettingsSection(
           title: '服务地址',
+          titleSpacing: 4,
           children: [
-            _serviceRow(
-              key: const ValueKey('anitabi-site-base-url'),
-              icon: Icons.public_outlined,
-              title: '主站地址',
-              value: settings.anitabiSiteBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiSiteBaseUrl: value)),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-static-data-base-url'),
-              icon: Icons.data_object_outlined,
-              title: '静态地图数据',
-              value: settings.anitabiStaticDataBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiStaticDataBaseUrl: value)),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-api-base-url'),
-              icon: Icons.api_outlined,
-              title: '数据 API',
-              value: settings.anitabiApiBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiApiBaseUrl: value)),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-official-image-base-url'),
-              icon: Icons.image_outlined,
-              title: '官方图片服务',
-              value: settings.anitabiOfficialImageBaseUrl,
-              onSaved: (value) => _update(
-                settings.copyWith(anitabiOfficialImageBaseUrl: value),
+            for (var index = 0; index < services.length; index += 1) ...[
+              if (index > 0)
+                Divider(height: 1, thickness: 1, color: AppColors.border),
+              _AnitabiServiceRow(
+                key: services[index].key,
+                icon: services[index].icon,
+                title: services[index].title,
+                url: services[index].value,
+                status: _testResults[services[index].title],
+                testing:
+                    _testing &&
+                    !_testResults.containsKey(services[index].title),
+                onTap: () => _edit(
+                  title: services[index].title,
+                  value: services[index].value,
+                  onSaved: services[index].onSaved,
+                ),
               ),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-mirror-image-base-url'),
-              icon: Icons.cloud_outlined,
-              title: '备用图片服务',
-              value: settings.anitabiMirrorImageBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiMirrorImageBaseUrl: value)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SettingsSection(
-          title: '连接测试',
-          children: [
-            for (final entry in _testResults.entries)
-              _InfoRow(
-                icon: entry.value.startsWith('连接成功')
-                    ? Icons.check_circle_outline
-                    : Icons.error_outline,
-                text: '${entry.key}：${entry.value}',
-              ),
-            if (_testResults.isNotEmpty) const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -1294,24 +1579,6 @@ class _AnitabiServiceSettingsPageState
           ],
         ),
       ],
-    );
-  }
-
-  Widget _serviceRow({
-    required Key key,
-    required IconData icon,
-    required String title,
-    required String value,
-    required ValueChanged<String> onSaved,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: _MapUrlRow(
-        key: key,
-        icon: icon,
-        label: '$title\n$value',
-        onTap: () => _edit(title: title, value: value, onSaved: onSaved),
-      ),
     );
   }
 }
@@ -1564,10 +1831,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              '服务域名变化时可单独调整，不会改写计划中的标准图片链接。',
-              style: _secondaryTextStyle,
-            ),
+            Text('服务域名变化时可单独调整，不会改写计划中的标准图片链接。', style: _secondaryTextStyle),
           ],
         ),
         const SizedBox(height: 12),
@@ -1674,7 +1938,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.zoom_in_outlined,
                   color: AppColors.textSecondary,
                   size: 22,
@@ -1686,7 +1950,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text('最大缩放倍率', style: _titleTextStyle),
                           ),
                           Text(
@@ -1701,10 +1965,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      const Text(
-                        '控制所有地图能够放大的最大级别。',
-                        style: _secondaryTextStyle,
-                      ),
+                      Text('控制所有地图能够放大的最大级别。', style: _secondaryTextStyle),
                       Slider(
                         key: const ValueKey('map-max-zoom-slider'),
                         min: 16,
@@ -1726,7 +1987,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                           );
                         },
                       ),
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1755,12 +2016,12 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               child: SwitchListTile(
                 key: const ValueKey('hide-completed-points-on-map-toggle'),
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.visibility_off_outlined,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('隐藏已完成点位', style: _titleTextStyle),
-                subtitle: const Text(
+                title: Text('隐藏已完成点位', style: _titleTextStyle),
+                subtitle: Text(
                   '在地图页不显示已标记完成的点位。关闭后仍可在地图上看到全部点位。',
                   style: _secondaryTextStyle,
                 ),
@@ -1774,7 +2035,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.location_on_outlined,
                   color: AppColors.textSecondary,
                   size: 22,
@@ -1784,9 +2045,9 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('地图标记大小', style: _titleTextStyle),
+                      Text('地图标记大小', style: _titleTextStyle),
                       const SizedBox(height: 3),
-                      const Text(
+                      Text(
                         '统一调整点位、缩略图、聚合标记、当前位置和片区关键点的大小。',
                         style: _secondaryTextStyle,
                       ),
@@ -1835,12 +2096,12 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               color: Colors.transparent,
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
+                secondary: Icon(
                   Icons.hub_outlined,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('自动聚合密集点位', style: _titleTextStyle),
-                subtitle: const Text(
+                title: Text('自动聚合密集点位', style: _titleTextStyle),
+                subtitle: Text(
                   '仅合并地图标记的显示；点位数据、选择和导入功能不受影响。',
                   style: _secondaryTextStyle,
                 ),
@@ -1901,7 +2162,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               },
             ),
             const SizedBox(height: 8),
-            const Text('阈值为 0 时不会在地图上显示缩略图。', style: _secondaryTextStyle),
+            Text('阈值为 0 时不会在地图上显示缩略图。', style: _secondaryTextStyle),
           ],
         ),
       ],
@@ -2060,9 +2321,10 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
   }
 
   void _showCachePlaceholder() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('清除缓存功能尚未接入，仅展示界面。')));
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.warning,
+      title: '清除缓存功能尚未接入，仅展示界面。',
+    );
   }
 }
 
@@ -2106,6 +2368,72 @@ class _DesktopSettingsPage extends StatelessWidget {
   }
 }
 
+class _SnackDebugSettingsPage extends StatelessWidget {
+  const _SnackDebugSettingsPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return _DetailScaffold(
+      title: 'Snack 调试',
+      children: [
+        Text(
+          '当前应用里会用到的提示条样式，按进行中 / 成功 / 警告 / 失败排列。',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.4,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 14),
+        for (final sample in statusSnackDebugSamples) ...[
+          AppStatusBanner(
+            kind: sample.kind,
+            title: sample.title,
+            subtitle: sample.subtitle,
+            actionLabel: sample.actionLabel,
+            icon: sample.icon,
+            subtitleWidget: sample.hasProgress
+                ? AppStatusBannerProgressLine(
+                    countLabel:
+                        '${sample.progressProcessed} / ${sample.progressTotal}',
+                    percentLabel:
+                        '${((sample.progressProcessed! / sample.progressTotal!) * 100).round()}%',
+                    value: sample.progressProcessed! / sample.progressTotal!,
+                  )
+                : null,
+            footer: sample.footer == null
+                ? null
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 15,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          sample.footer!,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            height: 1.3,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
 class _AboutSettingsPage extends StatelessWidget {
   const _AboutSettingsPage({required this.appVersionLabel});
 
@@ -2123,7 +2451,7 @@ class _AboutSettingsPage extends StatelessWidget {
               children: [
                 const _AppIconMark(),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2217,6 +2545,7 @@ class _DetailScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: appBackButtonIfCanPop(context),
         title: Text(title),
@@ -2296,6 +2625,30 @@ extension _ZoomStepSnap on double {
   double snapToZoomStep() => (this * 10).round() / 10;
 }
 
+class _SettingsChrome extends StatelessWidget {
+  const _SettingsChrome({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: scheme.outline),
+      ),
+      child: padding == null ? child : Padding(padding: padding!, child: child),
+    );
+  }
+}
+
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({
     required this.header,
@@ -2308,17 +2661,18 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
+    final outline = Theme.of(context).colorScheme.outline;
+    return _SettingsChrome(
       child: Column(
         children: [
           header,
-          if (children.isNotEmpty) ...[const _SettingsDivider(), ...children],
+          for (final child in children) ...[
+            ColoredBox(
+              color: outline,
+              child: const SizedBox(height: 1, width: double.infinity),
+            ),
+            child,
+          ],
         ],
       ),
     );
@@ -2340,30 +2694,37 @@ class _SettingsCardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.textSecondary, size: 30),
+            Icon(icon, color: scheme.onSurfaceVariant, size: 30),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: _cardTitleTextStyle),
+                  Text(
+                    title,
+                    style: _cardTitleTextStyle.copyWith(
+                      color: scheme.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: 3),
-                  Text(subtitle, style: _secondaryTextStyle),
+                  Text(
+                    subtitle,
+                    style: _secondaryTextStyle.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textSecondary,
-              size: 30,
-            ),
+            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant, size: 30),
           ],
         ),
       ),
@@ -2378,25 +2739,21 @@ class _SummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tiles = <Widget>[];
-    for (var index = 0; index < children.length; index += 1) {
-      tiles.add(
-        Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: index == children.length - 1
-                  ? null
-                  : const Border(right: BorderSide(color: Color(0xFFE8ECF1))),
-            ),
-            child: children[index],
-          ),
-        ),
-      );
-    }
-
+    final outline = Theme.of(context).colorScheme.outline;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: tiles),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var index = 0; index < children.length; index += 1) ...[
+              if (index > 0)
+                ColoredBox(color: outline, child: const SizedBox(width: 1)),
+              Expanded(child: children[index]),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2425,7 +2782,12 @@ class _SummaryTile extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            swatch ?? Icon(icon, color: AppColors.textSecondary, size: 28),
+            swatch ??
+                Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 28,
+                ),
             const SizedBox(width: 10),
             Flexible(
               child: Column(
@@ -2436,7 +2798,9 @@ class _SummaryTile extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: _titleTextStyle,
+                    style: _titleTextStyle.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -2514,21 +2878,16 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _SettingsChrome(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (showTitle) ...[
             Text(
               title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0,
@@ -2558,7 +2917,7 @@ class _SettingsSubheading extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w900,
@@ -2638,7 +2997,7 @@ class _NumberStepperSetting extends StatelessWidget {
                 valueLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -2685,7 +3044,7 @@ class _NumberStepperIconButton extends StatelessWidget {
           disabledForegroundColor: AppColors.textSecondary.withValues(
             alpha: 0.5,
           ),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         icon: Icon(icon, size: 18),
@@ -2875,6 +3234,7 @@ class _CustomAspectRatioDialog extends StatefulWidget {
 class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
   late final TextEditingController _widthController;
   late final TextEditingController _heightController;
+  String? _errorText;
 
   @override
   void initState() {
@@ -2898,11 +3258,7 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
     final width = double.tryParse(_widthController.text.trim());
     final height = double.tryParse(_heightController.text.trim());
     if (width == null || height == null || width <= 0 || height <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('\u8bf7\u8f93\u5165\u6709\u6548\u6bd4\u4f8b'),
-        ),
-      );
+      setState(() => _errorText = '请输入有效比例');
       return;
     }
     Navigator.of(context).pop((width: width, height: height));
@@ -2912,6 +3268,7 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
   Widget build(BuildContext context) {
     return AppInputDialog(
       title: '\u81ea\u5b9a\u4e49\u6bd4\u4f8b',
+      errorText: _errorText,
       content: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -2921,6 +3278,11 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
               child: TextField(
                 onTapOutside: dismissKeyboardOnTapOutside,
                 controller: _widthController,
+                onChanged: (_) {
+                  if (_errorText != null) {
+                    setState(() => _errorText = null);
+                  }
+                },
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -2941,6 +3303,11 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
               child: TextField(
                 onTapOutside: dismissKeyboardOnTapOutside,
                 controller: _heightController,
+                onChanged: (_) {
+                  if (_errorText != null) {
+                    setState(() => _errorText = null);
+                  }
+                },
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -3055,22 +3422,7 @@ class _AppearancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
+    return _SettingsChrome(padding: const EdgeInsets.all(14), child: child);
   }
 }
 
@@ -3082,12 +3434,18 @@ class _InlineSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title, style: _titleTextStyle),
+        Text(title, style: _titleTextStyle.copyWith(color: scheme.onSurface)),
         const SizedBox(width: 10),
-        Flexible(child: Text(subtitle, style: _captionTextStyle)),
+        Flexible(
+          child: Text(
+            subtitle,
+            style: _captionTextStyle.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
       ],
     );
   }
@@ -3203,8 +3561,7 @@ class _ThemeColorButton extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
+          Container(
             width: selected ? 42 : 38,
             height: selected ? 42 : 38,
             padding: const EdgeInsets.all(4),
@@ -3258,6 +3615,7 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _hexController;
   late Color _color;
+  String? _errorText;
 
   @override
   void initState() {
@@ -3296,11 +3654,7 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
     final name = _nameController.text.trim();
     final color = _colorFromHex(_hexController.text) ?? _color;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('\u8bf7\u8f93\u5165\u989c\u8272\u540d\u79f0'),
-        ),
-      );
+      setState(() => _errorText = '请输入颜色名称');
       return;
     }
     Navigator.of(
@@ -3312,6 +3666,7 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
   Widget build(BuildContext context) {
     return AppInputDialog(
       title: '\u81ea\u5b9a\u4e49\u4e3b\u9898\u8272',
+      errorText: _errorText,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -3341,6 +3696,11 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
             child: TextField(
               onTapOutside: dismissKeyboardOnTapOutside,
               controller: _nameController,
+              onChanged: (_) {
+                if (_errorText != null) {
+                  setState(() => _errorText = null);
+                }
+              },
               decoration: appDialogInputDecoration(),
             ),
           ),
@@ -3614,6 +3974,7 @@ class _ModeButton extends StatelessWidget {
     required this.label,
     this.selected = false,
     this.onTap,
+    super.key,
   });
 
   final IconData icon;
@@ -3623,43 +3984,42 @@ class _ModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final border = selected ? AppColors.accent : scheme.outline;
+    final foreground = selected ? AppColors.accent : scheme.onSurfaceVariant;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
-      child: Container(
-        height: 40,
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: selected
               ? AppColors.accent.withValues(alpha: 0.08)
-              : AppColors.surface,
+              : scheme.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
-          ),
+          border: Border.all(color: border),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: selected ? AppColors.accent : AppColors.textSecondary,
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? AppColors.accent : AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+        child: SizedBox(
+          height: 40,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: foreground, size: 18),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -3692,7 +4052,7 @@ class _ScaleStepper extends StatelessWidget {
           Container(
             width: 72,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border.symmetric(
                 vertical: BorderSide(color: AppColors.border),
               ),
@@ -3848,13 +4208,107 @@ class _FontSizeButton extends StatelessWidget {
   }
 }
 
-class _SettingsDivider extends StatelessWidget {
-  const _SettingsDivider();
+class _AnitabiServiceRow extends StatelessWidget {
+  const _AnitabiServiceRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.url,
+    required this.onTap,
+    this.status,
+    this.testing = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String url;
+  final VoidCallback onTap;
+  final String? status;
+  final bool testing;
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, thickness: 1, color: Color(0xFFE8ECF1));
+    final compactStatus = status == null
+        ? null
+        : _compactAnitabiProbeStatus(status!);
+    final succeeded = status?.startsWith('连接成功') ?? false;
+    final statusColor = succeeded ? AppColors.accent : AppColors.error;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.accent, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _secondaryTextStyle,
+                  ),
+                ],
+              ),
+            ),
+            if (testing) ...[
+              const SizedBox(width: 8),
+              const SizedBox.square(
+                dimension: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ] else if (compactStatus != null) ...[
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 108),
+                child: Text(
+                  compactStatus,
+                  key: ValueKey('anitabi-service-status-$title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 22),
+          ],
+        ),
+      ),
+    );
   }
+}
+
+String _compactAnitabiProbeStatus(String result) {
+  if (result.startsWith('连接成功')) {
+    final match = RegExp(r'(\d+)\s*ms').firstMatch(result);
+    if (match != null) {
+      return '成功 · ${match.group(1)}ms';
+    }
+    return '成功';
+  }
+  return '失败';
 }
 
 class _AnitabiServiceEntryRow extends StatelessWidget {
@@ -3878,7 +4332,7 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            const Icon(Icons.dns_outlined, color: AppColors.textSecondary),
+            Icon(Icons.dns_outlined, color: AppColors.textSecondary),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -3888,7 +4342,7 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
                     siteUrl,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -3906,11 +4360,7 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textSecondary,
-              size: 22,
-            ),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 22),
           ],
         ),
       ),
@@ -3920,7 +4370,6 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
 
 class _MapUrlRow extends StatelessWidget {
   const _MapUrlRow({
-    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
@@ -3950,11 +4399,7 @@ class _MapUrlRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Icon(
-              Icons.edit_outlined,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            Icon(Icons.edit_outlined, color: AppColors.textSecondary, size: 20),
           ],
         ),
       ),
@@ -4507,8 +4952,7 @@ class _ThemeSwatch extends StatelessWidget {
         customColorValue ?? AppColors.customAccentValue,
       ),
     };
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
+    return Container(
       width: selected ? 42 : 38,
       height: selected ? 42 : 38,
       padding: const EdgeInsets.all(4),
@@ -4553,34 +4997,31 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-const _cardTitleTextStyle = TextStyle(
+TextStyle get _cardTitleTextStyle => TextStyle(
   color: AppColors.textPrimary,
   fontSize: 16,
   fontWeight: FontWeight.w900,
   letterSpacing: 0,
 );
 
-const _titleTextStyle = TextStyle(
+TextStyle get _titleTextStyle => TextStyle(
   color: AppColors.textPrimary,
   fontSize: 15,
   fontWeight: FontWeight.w800,
   letterSpacing: 0,
 );
 
-const _secondaryTextStyle = TextStyle(
-  color: AppColors.textSecondary,
-  fontSize: 13,
-  letterSpacing: 0,
-);
+TextStyle get _secondaryTextStyle =>
+    TextStyle(color: AppColors.textSecondary, fontSize: 13, letterSpacing: 0);
 
-const _captionTextStyle = TextStyle(
+TextStyle get _captionTextStyle => TextStyle(
   color: AppColors.textSecondary,
   fontSize: 12,
   fontWeight: FontWeight.w700,
   letterSpacing: 0,
 );
 
-const _secondaryParagraphTextStyle = TextStyle(
+TextStyle get _secondaryParagraphTextStyle => TextStyle(
   color: AppColors.textSecondary,
   fontSize: 13,
   height: 1.45,

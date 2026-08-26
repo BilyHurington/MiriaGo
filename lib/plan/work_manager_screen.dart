@@ -157,7 +157,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('作品删除失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '作品删除失败');
       return false;
     }
   }
@@ -217,7 +217,7 @@ class _AddWorkPanel extends StatelessWidget {
                 onTap: onBangumi,
               ),
             ),
-            const VerticalDivider(
+            VerticalDivider(
               width: 9,
               indent: 8,
               endIndent: 8,
@@ -290,7 +290,7 @@ class _AddWorkAction extends StatelessWidget {
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
                           letterSpacing: 0,
@@ -416,7 +416,7 @@ class _WorkManageCardState extends State<_WorkManageCard> {
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
             constraints: const BoxConstraints(minWidth: 148, maxWidth: 180),
             style: IconButton.styleFrom(
@@ -430,11 +430,11 @@ class _WorkManageCardState extends State<_WorkManageCard> {
             ),
             onSelected: (_) => widget.onDelete(),
             itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                key: ValueKey('work-action-delete'),
+              PopupMenuItem<String>(
+                key: const ValueKey('work-action-delete'),
                 value: 'delete',
                 height: 44,
-                padding: EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
                     Icon(
@@ -442,7 +442,7 @@ class _WorkManageCardState extends State<_WorkManageCard> {
                       size: 18,
                       color: AppColors.error,
                     ),
-                    SizedBox(width: 9),
+                    const SizedBox(width: 9),
                     Text(
                       '删除作品',
                       style: TextStyle(
@@ -640,7 +640,7 @@ class _WorkOnboardingStep extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -650,7 +650,7 @@ class _WorkOnboardingStep extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.35,
