@@ -4,9 +4,11 @@ import 'package:image_picker/image_picker.dart';
 import '../app_theme.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
+import '../map/navigation_route_confirm_screen.dart';
 import '../widgets/snackbar_helper.dart';
 import '../map/map_navigation_launcher.dart';
 import '../plan/pilgrimage_models.dart';
+import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/plan_group_picker_sheet.dart';
 import '../plan/plan_group_utils.dart';
 import '../records/visit_record_photo_stub.dart'
@@ -38,6 +40,8 @@ class PointDetailSheet extends StatelessWidget {
     this.onEditPoint,
     this.navigationApp = NavigationApp.googleMaps,
     this.navigationLauncher = const MapNavigationLauncher(),
+    this.settings = const AppSettings(),
+    this.planController,
     super.key,
   });
 
@@ -63,6 +67,8 @@ class PointDetailSheet extends StatelessWidget {
   final VoidCallback? onEditPoint;
   final NavigationApp navigationApp;
   final MapNavigationLauncher navigationLauncher;
+  final AppSettings settings;
+  final PilgrimagePlanController? planController;
 
   static Future<void> show(
     BuildContext context, {
@@ -87,6 +93,8 @@ class PointDetailSheet extends StatelessWidget {
     ValueChanged<PilgrimageVisitRecord>? onOpenRecord,
     VoidCallback? onEditPoint,
     NavigationApp navigationApp = NavigationApp.googleMaps,
+    AppSettings settings = const AppSettings(),
+    PilgrimagePlanController? planController,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -111,6 +119,8 @@ class PointDetailSheet extends StatelessWidget {
           onOpenRecord: onOpenRecord,
           onEditPoint: onEditPoint,
           navigationApp: navigationApp,
+          settings: settings,
+          planController: planController,
         );
       },
     );
@@ -124,16 +134,19 @@ class PointDetailSheet extends StatelessWidget {
       return;
     }
 
-    messenger.showReplacingSnackBar(
-      const SnackBar(content: Text('正在替换参考图...')),
+    messenger.showStatusSnack(
+      kind: AppStatusBannerKind.running,
+      title: '正在替换参考图...',
+      icon: Icons.swap_horiz_outlined,
     );
     final stored = await storeUserReferenceImage(
       sourcePath: picked.path,
       pointId: point.id,
     );
     if (stored == null || !context.mounted) {
-      messenger.showReplacingSnackBar(
-        const SnackBar(content: Text('参考图替换失败，请稍后重试。')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '参考图替换失败，请稍后重试。',
       );
       return;
     }
@@ -143,17 +156,25 @@ class PointDetailSheet extends StatelessWidget {
       return;
     }
 
-    messenger.showReplacingSnackBar(const SnackBar(content: Text('已替换参考图')));
+    messenger.showStatusSnack(kind: AppStatusBannerKind.success, title: '已替换参考图');
     navigator.pop();
   }
 
-  Future<void> _openNavigation(BuildContext context) async {
-    final opened = await navigationLauncher.openWalking(point, navigationApp);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        SnackBar(content: Text('无法打开${navigationApp.label}。')),
-      );
+  Future<void> _openInAppNavigation(BuildContext context) async {
+    if (!point.hasCoordinate) {
+      return;
     }
+    final navigator = Navigator.of(context);
+    final tour = inAppNavigationTourFor(point: point, buckets: groupBuckets);
+    final route = NavigationRouteConfirmScreen.route(
+      point: point,
+      settings: settings,
+      groupName: tour.groupName,
+      stops: tour.stops,
+      planController: planController,
+    );
+    navigator.pop();
+    await navigator.push<void>(route);
   }
 
   Future<void> _showMoveGroupSheet(BuildContext context) async {
@@ -252,7 +273,7 @@ class PointDetailSheet extends StatelessWidget {
                             '${point.work.title} / ${point.subtitle}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
                               letterSpacing: 0,
@@ -350,7 +371,7 @@ class PointDetailSheet extends StatelessWidget {
                   scope: actionScope,
                   status: status,
                   onOpenNavigation: point.hasCoordinate
-                      ? () => _openNavigation(context)
+                      ? () => _openInAppNavigation(context)
                       : null,
                   onOpenCamera: onOpenCamera == null
                       ? null
@@ -463,6 +484,7 @@ class _PointDetailActions extends StatelessWidget {
     final primaryActions = <Widget>[
       Expanded(
         child: FilledButton.icon(
+          key: const ValueKey('point-detail-in-app-navigation-button'),
           onPressed: onOpenNavigation,
           icon: const Icon(Icons.near_me_outlined, size: 18),
           label: Text(onOpenNavigation == null ? '坐标待补充' : '导航'),
@@ -633,13 +655,13 @@ class _GroupInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(
+        Icon(
           Icons.grid_view_outlined,
           color: AppColors.textSecondary,
           size: 19,
         ),
         const SizedBox(width: 8),
-        const SizedBox(
+        SizedBox(
           width: 42,
           child: Text(
             '片区',
@@ -659,7 +681,7 @@ class _GroupInfoRow extends StatelessWidget {
               CopyableText(
                 text: groupName,
                 copyLabel: '片区',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
                   letterSpacing: 0,
@@ -669,7 +691,7 @@ class _GroupInfoRow extends StatelessWidget {
               CopyableText(
                 text: anchorLabel,
                 copyLabel: '片区关键点',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   letterSpacing: 0,
@@ -761,7 +783,7 @@ class _InfoRow extends StatelessWidget {
           width: 42,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -774,7 +796,7 @@ class _InfoRow extends StatelessWidget {
           child: CopyableText(
             text: value,
             copyLabel: label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
               letterSpacing: 0,
@@ -806,7 +828,7 @@ class _PointRecordsPreview extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.collections_bookmark_outlined,
               color: AppColors.textSecondary,
               size: 18,
@@ -857,7 +879,7 @@ class _PointRecordsPreview extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,

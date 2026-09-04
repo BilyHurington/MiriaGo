@@ -292,7 +292,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     if (count == 0) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('当前距离内没有可分配点位')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '当前距离内没有可分配点位');
       return;
     }
     final confirmed = await showConfirmActionDialog(
@@ -333,7 +333,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(SnackBar(content: Text('已分配 $count 个点位')));
+      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已分配 $count 个点位');
     } catch (_) {
       if (!mounted) {
         return;
@@ -343,7 +343,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('最近分配失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '最近分配失败');
     }
   }
 
@@ -356,7 +356,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       onOpenCamera: () {
         ScaffoldMessenger.of(
           context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('请先完成片区分配')));
+        ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '请先完成片区分配');
       },
       onComplete: () {},
       onReplaceReference: _replaceReferenceImage,
@@ -365,6 +365,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       groupBuckets: planGroupBuckets(_plan, _plan.completedPointIds),
       onMoveToGroup: _movePointToGroup,
       navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
     );
   }
 
@@ -729,7 +730,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('片区创建失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '片区创建失败');
     }
   }
 
@@ -742,13 +743,13 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
     if (targetGroup == null) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('请先创建片区')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '请先创建片区');
       return;
     }
     if (points.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('框选范围内没有未分组点位')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '框选范围内没有未分组点位');
       return;
     }
     final confirmed = await showConfirmActionDialog(
@@ -782,8 +783,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
         _didUpdate = true;
         _isSaving = false;
       });
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        SnackBar(content: Text('已分配 ${points.length} 个点位')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已分配 ${points.length} 个点位',
       );
     } catch (_) {
       if (!mounted) {
@@ -794,7 +796,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('框选分配失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '框选分配失败');
     }
   }
 
@@ -807,7 +809,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       onOpenCamera: () {
         ScaffoldMessenger.of(
           context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('请先完成片区分配')));
+        ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '请先完成片区分配');
       },
       onComplete: () {},
       onReplaceReference: _replaceReferenceImage,
@@ -816,6 +818,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       groupBuckets: planGroupBuckets(_plan, _plan.completedPointIds),
       onMoveToGroup: _movePointToGroup,
       navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
     );
   }
 
@@ -896,14 +899,12 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
           alignmentOffset: const Offset(0, 2),
           style: MenuStyle(
             padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-            backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
+            backgroundColor: WidgetStatePropertyAll(AppColors.surface),
             elevation: const WidgetStatePropertyAll(8),
             shadowColor: WidgetStatePropertyAll(
               AppColors.textPrimary.withValues(alpha: 0.16),
             ),
-            side: const WidgetStatePropertyAll(
-              BorderSide(color: AppColors.border),
-            ),
+            side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
             shape: const WidgetStatePropertyAll(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(
@@ -917,7 +918,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
             return Material(
               color: AppColors.surface,
               shape: RoundedRectangleBorder(
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
                 borderRadius: BorderRadius.vertical(
                   top: const Radius.circular(8),
                   bottom: Radius.circular(_isOpen ? 4 : 8),
@@ -995,7 +996,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                           ),
                           Text(
                             '共 ${widget.groups.length} 个片区',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12,
                               letterSpacing: 0,
@@ -1081,7 +1082,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                         ),
                       ),
                     ),
-                    const Divider(
+                    Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
@@ -1271,7 +1272,7 @@ class _BoxAssignPanel extends StatelessWidget {
                     '已框选 $selectedCount / 待分配 $ungroupedCount',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -1394,7 +1395,7 @@ class _NearestAssignPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '未分组点位会分配到距离最近、且在最大距离范围内的片区关键点。',
               style: TextStyle(
                 color: AppColors.textSecondary,
@@ -1475,7 +1476,7 @@ class _NearestAssignPointCard extends StatelessWidget {
                           : '${nearestGroup!.name} · ${_formatDistance(distanceMeters ?? 0)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
                         letterSpacing: 0,
@@ -1521,7 +1522,7 @@ class _NearestAssignHintCard extends StatelessWidget {
                 ? '请先在片区管理中设置关键点'
                 : '未分组 $ungroupedCount 个 · 点击地图点位查看详情',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w700,
               letterSpacing: 0,

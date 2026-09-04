@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 export 'widgets/keyboard_dismiss_on_tap.dart' show dismissKeyboardOnTapOutside;
 
@@ -9,13 +10,38 @@ class AppColors {
 
   static AppThemePalette palette = AppThemePalette.classicGreen;
   static int customAccentValue = 0xFF16C6A8;
+  static Brightness brightness = Brightness.light;
 
-  static const background = Color(0xFFF7F8FA);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceMuted = Color(0xFFEEF1F4);
-  static const textPrimary = Color(0xFF111827);
-  static const textSecondary = Color(0xFF5B6472);
-  static const border = Color(0xFFD8DEE6);
+  static bool get isDark => brightness == Brightness.dark;
+
+  static const _lightBackground = Color(0xFFF7F8FA);
+  static const _darkBackground = Color(0xFF121417);
+  static const _lightSurface = Color(0xFFFFFFFF);
+  static const _darkSurface = Color(0xFF1C1C1E);
+  static const _lightSurfaceMuted = Color(0xFFEEF1F4);
+  static const _darkSurfaceMuted = Color(0xFF1C1C1E);
+  static const _lightTextPrimary = Color(0xFF111827);
+  static const _darkTextPrimary = Color(0xFFF3F4F6);
+  static const _lightTextSecondary = Color(0xFF5B6472);
+  static const _darkTextSecondary = Color(0xFF9CA3AF);
+  static const _lightBorder = Color(0xFFD8DEE6);
+  static const _darkBorder = Color(0xFF2C2C2E);
+  static const _lightWarning = Color(0xFFC87900);
+  static const _darkWarning = Color(0xFFE0A33A);
+  static const _lightError = Color(0xFFC2413A);
+  static const _darkError = Color(0xFFE56A64);
+
+  static Color get background => isDark ? _darkBackground : _lightBackground;
+  static Color get surface => isDark ? _darkSurface : _lightSurface;
+  static Color get surfaceMuted =>
+      isDark ? _darkSurfaceMuted : _lightSurfaceMuted;
+  static Color get textPrimary => isDark ? _darkTextPrimary : _lightTextPrimary;
+  static Color get textSecondary =>
+      isDark ? _darkTextSecondary : _lightTextSecondary;
+  static Color get border => isDark ? _darkBorder : _lightBorder;
+  static Color get warning => isDark ? _darkWarning : _lightWarning;
+  static Color get error => isDark ? _darkError : _lightError;
+
   static const miriaYellow = Color(0xFFFFCE00);
   static const miriaYellowDark = Color(0xFFB77C00);
   static const classicGreen = Color(0xFF0F8B8D);
@@ -30,12 +56,13 @@ class AppColors {
   static const graphiteDark = Color(0xFF000000);
   static const aurora = Color(0xFF16C6A8);
   static const auroraDark = Color(0xFF0A7E83);
-  static const warning = Color(0xFFC87900);
-  static const error = Color(0xFFC2413A);
   static const cameraDarkSurface = Color(0xFF101418);
   static const cameraDarkOverlay = Color(0xFF171C21);
 
   static Color get accent {
+    if (isDark && palette == AppThemePalette.graphite) {
+      return const Color(0xFFD1D5DB);
+    }
     return switch (palette) {
       AppThemePalette.classicGreen => classicGreen,
       AppThemePalette.deepBlue => deepBlue,
@@ -48,6 +75,9 @@ class AppColors {
   }
 
   static Color get accentDark {
+    if (isDark && palette == AppThemePalette.graphite) {
+      return const Color(0xFF9CA3AF);
+    }
     return switch (palette) {
       AppThemePalette.classicGreen => classicGreenDark,
       AppThemePalette.deepBlue => deepBlueDark,
@@ -65,8 +95,8 @@ class AppColors {
       AppThemePalette.deepBlue => Colors.white,
       AppThemePalette.cherryPink => Colors.white,
       AppThemePalette.twilightPurple => Colors.white,
-      AppThemePalette.miriaYellow => textPrimary,
-      AppThemePalette.graphite => Colors.white,
+      AppThemePalette.miriaYellow => _lightTextPrimary,
+      AppThemePalette.graphite => isDark ? _lightTextPrimary : Colors.white,
       AppThemePalette.aurora => _foregroundFor(Color(customAccentValue)),
     };
   }
@@ -77,7 +107,29 @@ class AppColors {
   }
 
   static Color _foregroundFor(Color color) {
-    return color.computeLuminance() > 0.55 ? textPrimary : Colors.white;
+    return color.computeLuminance() > 0.55 ? _lightTextPrimary : Colors.white;
+  }
+}
+
+/// Settings chrome uses a 1px *gap* over a filled [AppColors.border] parent
+/// instead of a 1px stroke. Flutter web rasterizes horizontal (and rotated)
+/// hairlines as near-white lines.
+class AppHairline extends StatelessWidget {
+  const AppHairline({super.key, this.color, this.axis = Axis.horizontal});
+
+  final Color? color;
+  final Axis axis;
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = color ?? AppColors.border;
+    if (axis == Axis.vertical) {
+      return ColoredBox(color: lineColor, child: const SizedBox(width: 1));
+    }
+    return ColoredBox(
+      color: lineColor,
+      child: const SizedBox(height: 1, width: double.infinity),
+    );
   }
 }
 
@@ -90,10 +142,34 @@ class AppTheme {
     AppThemePalette palette = AppThemePalette.classicGreen,
     int customAccentValue = 0xFF16C6A8,
   }) {
+    return of(
+      brightness: Brightness.light,
+      palette: palette,
+      customAccentValue: customAccentValue,
+    );
+  }
+
+  static ThemeData dark({
+    AppThemePalette palette = AppThemePalette.classicGreen,
+    int customAccentValue = 0xFF16C6A8,
+  }) {
+    return of(
+      brightness: Brightness.dark,
+      palette: palette,
+      customAccentValue: customAccentValue,
+    );
+  }
+
+  static ThemeData of({
+    required Brightness brightness,
+    AppThemePalette palette = AppThemePalette.classicGreen,
+    int customAccentValue = 0xFF16C6A8,
+  }) {
+    AppColors.brightness = brightness;
     AppColors.palette = palette;
     AppColors.customAccentValue = customAccentValue;
     final colorScheme = ColorScheme(
-      brightness: Brightness.light,
+      brightness: brightness,
       primary: AppColors.accent,
       onPrimary: AppColors.onAccent,
       secondary: AppColors.accentDark,
@@ -102,23 +178,37 @@ class AppTheme {
       onError: Colors.white,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
+      onSurfaceVariant: AppColors.textSecondary,
+      outline: AppColors.border,
+      outlineVariant: AppColors.border,
+      surfaceContainerLowest: AppColors.background,
+      surfaceContainerLow: AppColors.surface,
+      surfaceContainer: AppColors.surface,
+      surfaceContainerHigh: AppColors.surfaceMuted,
+      surfaceContainerHighest: AppColors.surfaceMuted,
+      inverseSurface: AppColors.textPrimary,
+      onInverseSurface: AppColors.background,
+      inversePrimary: AppColors.accentDark,
     );
 
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
+      brightness: brightness,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
       fontFamily: null,
     );
 
     return base.copyWith(
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         toolbarHeight: AppTheme.appBarHeight,
         centerTitle: false,
+        systemOverlayStyle: brightness == Brightness.dark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 20,
@@ -126,10 +216,16 @@ class AppTheme {
           letterSpacing: 0,
         ),
       ),
+      iconTheme: IconThemeData(color: AppColors.textPrimary),
+      listTileTheme: ListTileThemeData(
+        iconColor: AppColors.textSecondary,
+        textColor: AppColors.textPrimary,
+      ),
       textTheme: base.textTheme.apply(
         bodyColor: AppColors.textPrimary,
         displayColor: AppColors.textPrimary,
       ),
+      dividerColor: AppColors.border,
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.accent,
@@ -149,7 +245,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           minimumSize: const Size(44, 44),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: const TextStyle(
             fontSize: 15,
@@ -174,9 +270,9 @@ class AppTheme {
         position: PopupMenuPosition.under,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
@@ -194,9 +290,7 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(vertical: 4),
           ),
-          side: const WidgetStatePropertyAll(
-            BorderSide(color: AppColors.border),
-          ),
+          side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
@@ -204,7 +298,7 @@ class AppTheme {
       ),
       menuButtonTheme: MenuButtonThemeData(
         style: ButtonStyle(
-          foregroundColor: const WidgetStatePropertyAll(AppColors.textPrimary),
+          foregroundColor: WidgetStatePropertyAll(AppColors.textPrimary),
           minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 12),
@@ -228,13 +322,27 @@ class AppTheme {
         overlayColor: AppColors.accent.withValues(alpha: 0.12),
       ),
       snackBarTheme: const SnackBarThemeData(
-        backgroundColor: AppColors.cameraDarkOverlay,
-        contentTextStyle: TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          letterSpacing: 0,
-        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         behavior: SnackBarBehavior.floating,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.accent,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerTheme: DividerThemeData(
+        color: AppColors.border,
+        space: 1,
+        thickness: 1,
       ),
     );
   }
@@ -249,6 +357,47 @@ TextScaler appTextScaler(double fontScale) {
 double appUiScaler(double uiScale) {
   final clampedScale = uiScale.clamp(0.8, 1.0);
   return 1 + (clampedScale - 1) * 0.72;
+}
+
+Brightness resolvedAppBrightness(
+  AppSettings settings, {
+  required Brightness platformBrightness,
+}) {
+  return switch (settings.themeMode) {
+    AppThemeMode.light => Brightness.light,
+    AppThemeMode.dark => Brightness.dark,
+    AppThemeMode.system => platformBrightness,
+  };
+}
+
+ThemeData appThemeFor(
+  AppSettings settings, {
+  required Brightness platformBrightness,
+}) {
+  return AppTheme.of(
+    brightness: resolvedAppBrightness(
+      settings,
+      platformBrightness: platformBrightness,
+    ),
+    palette: settings.themePalette,
+    customAccentValue: settings.customThemeColorValue,
+  );
+}
+
+void applyAppColorsFromSettings(
+  AppSettings settings, {
+  required Brightness platformBrightness,
+}) {
+  AppColors.brightness = resolvedAppBrightness(
+    settings,
+    platformBrightness: platformBrightness,
+  );
+  AppColors.palette = settings.themePalette;
+  AppColors.customAccentValue = settings.customThemeColorValue;
+}
+
+Brightness currentPlatformBrightness() {
+  return WidgetsBinding.instance.platformDispatcher.platformBrightness;
 }
 
 class AppUiScaleView extends StatelessWidget {
@@ -315,7 +464,7 @@ class AppButtonStyles {
       minimumSize: compactSize,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.standard,
-      side: const BorderSide(color: AppColors.border),
+      side: BorderSide(color: AppColors.border),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }

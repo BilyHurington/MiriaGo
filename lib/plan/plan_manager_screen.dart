@@ -96,7 +96,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('切换计划失败，请稍后重试。')));
+        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '切换计划失败，请稍后重试。');
       }
     }
     if (!mounted) {
@@ -123,7 +123,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     if (plans == null || plans.length <= 1) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('至少需要保留一个计划')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '至少需要保留一个计划');
       return;
     }
 
@@ -232,8 +232,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        SnackBar(content: Text('已复制「${duplicatedPlan.name}」')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已复制「${duplicatedPlan.name}」',
       );
     } catch (_) {
       if (!mounted) {
@@ -241,7 +242,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('复制计划失败，请稍后重试。')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '复制计划失败，请稍后重试。');
     }
   }
 
@@ -275,8 +276,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
         return;
       }
       setState(() => _plans = previousPlans);
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        const SnackBar(content: Text('保存计划顺序失败，已恢复原来的顺序。')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '保存计划顺序失败，已恢复原来的顺序。',
       );
     } finally {
       if (mounted) {
@@ -433,7 +435,7 @@ class _PlanSectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 7),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 13,
           height: 1.15,
@@ -551,7 +553,7 @@ class _PlanCardState extends State<_PlanCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         onTap: selected ? null : widget.onSwitch,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 17,
                           height: 1.15,
@@ -573,7 +575,7 @@ class _PlanCardState extends State<_PlanCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         onTap: selected ? null : widget.onSwitch,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12.5,
                           height: 1.15,
@@ -593,7 +595,7 @@ class _PlanCardState extends State<_PlanCard> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   '暂无作品',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 11,
                                     height: 1,
@@ -866,7 +868,7 @@ class _PlanActionsMenuPanel extends StatelessWidget {
                     icon: Icons.copy_outlined,
                     onPressed: onDuplicate,
                   ),
-                  const Divider(height: 17, color: AppColors.border),
+                  Divider(height: 17, color: AppColors.border),
                   _PlanMenuActionItem(
                     actionKey: const ValueKey('plan-menu-action-delete'),
                     label: '删除计划',
@@ -1082,7 +1084,7 @@ class _PlanWorkTags extends StatelessWidget {
         if (remainingCount > 0)
           Text(
             '+$remainingCount',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
               height: 1,
@@ -1143,7 +1145,7 @@ class _PlanWorkTag extends StatelessWidget {
               work.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 11,
                 height: 1,

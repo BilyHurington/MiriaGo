@@ -96,7 +96,19 @@ enum AppThemePalette {
   }
 }
 
-enum AppThemeMode { light, dark, system }
+enum AppThemeMode {
+  light,
+  dark,
+  system;
+
+  String get label {
+    return switch (this) {
+      AppThemeMode.light => '浅色',
+      AppThemeMode.dark => '深色',
+      AppThemeMode.system => '跟随系统',
+    };
+  }
+}
 
 extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {

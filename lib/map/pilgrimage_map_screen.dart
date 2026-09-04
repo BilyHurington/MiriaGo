@@ -23,6 +23,7 @@ import '../widgets/image_viewer_screen.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
+import 'navigation_route_confirm_screen.dart';
 import 'map_navigation_launcher.dart';
 import 'map_marker_clustering.dart';
 import 'map_tile_config.dart';
@@ -122,12 +123,25 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     }
   }
 
-  Future<void> _openNavigation(PilgrimagePoint point) async {
+  Future<void> _openExternalNavigation(PilgrimagePoint point) async {
     final app = widget.settings.navigationApp;
     final opened = await _navigationLauncher.openWalking(point, app);
     if (!opened) {
       _showSnackBar('无法打开${app.label}。');
     }
+  }
+
+  void _openInAppNavigation(PilgrimagePoint point) {
+    NavigationRouteConfirmScreen.openForPoint(
+      context,
+      point: point,
+      settings: widget.settings,
+      buckets: planGroupBuckets(
+        _controller.plan,
+        _controller.completedPointIds,
+      ),
+      planController: _controller,
+    );
   }
 
   void _selectPoint(
@@ -332,7 +346,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   void _moveToCurrentTarget() {
     final currentPoint = _controller.currentPoint;
     if (currentPoint == null) {
-      _showSnackBar('当前计划还没有点位。');
+      _showSnackBar('当前计划还没有点位。', kind: AppStatusBannerKind.warning);
       return;
     }
 
@@ -380,13 +394,15 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
       onOpenRecord: _openRecordDetail,
       onEditPoint: () => _editPoint(point),
       navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
+      planController: _controller,
     );
   }
 
   Future<void> _editPoint(PilgrimagePoint point) async {
     final repository = _controller.repository;
     if (repository == null) {
-      _showSnackBar('当前环境无法编辑点位。');
+      _showSnackBar('当前环境无法编辑点位。', kind: AppStatusBannerKind.warning);
       return;
     }
     final updated = await EditPointScreen.open(
@@ -431,14 +447,15 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
     );
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(
+    String message, {
+    AppStatusBannerKind kind = AppStatusBannerKind.error,
+  }) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showStatusSnack(kind: kind, title: message);
   }
 
   Marker _buildPointMarker({
@@ -810,8 +827,11 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                         ? () => _setCurrentPoint(selectedPoint)
                         : null,
                     onOpenDetail: () => _showPointDetail(selectedPoint),
-                    onOpenNavigation: selectedPoint.hasCoordinate
-                        ? () => _openNavigation(selectedPoint)
+                    onOpenInAppNavigation: selectedPoint.hasCoordinate
+                        ? () => _openInAppNavigation(selectedPoint)
+                        : null,
+                    onOpenExternalNavigation: selectedPoint.hasCoordinate
+                        ? () => _openExternalNavigation(selectedPoint)
                         : null,
                     onOpenCamera: () => _openCamera(selectedPoint),
                     onComplete: () =>
@@ -1009,7 +1029,8 @@ class _PointCard extends StatelessWidget {
     required this.recordCount,
     required this.onSetCurrent,
     required this.onOpenDetail,
-    required this.onOpenNavigation,
+    required this.onOpenInAppNavigation,
+    required this.onOpenExternalNavigation,
     required this.onOpenCamera,
     required this.onComplete,
     this.overlapPointIndex,
@@ -1024,7 +1045,8 @@ class _PointCard extends StatelessWidget {
   final int recordCount;
   final VoidCallback? onSetCurrent;
   final VoidCallback onOpenDetail;
-  final VoidCallback? onOpenNavigation;
+  final VoidCallback? onOpenInAppNavigation;
+  final VoidCallback? onOpenExternalNavigation;
   final VoidCallback onOpenCamera;
   final VoidCallback onComplete;
   final int? overlapPointIndex;
@@ -1060,7 +1082,7 @@ class _PointCard extends StatelessWidget {
               onPrevious: onPreviousOverlapPoint!,
               onNext: onNextOverlapPoint!,
             ),
-            const Divider(
+            Divider(
               key: ValueKey('map-overlap-point-divider'),
               height: 1,
               color: AppColors.border,
@@ -1098,10 +1120,6 @@ class _PointCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (recordCount > 0) ...[
-                            const SizedBox(width: 8),
-                            _MapRecordBadge(count: recordCount),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1112,7 +1130,7 @@ class _PointCard extends StatelessWidget {
                         onTap: onOpenDetail,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 13,
                           letterSpacing: 0,
@@ -1129,22 +1147,39 @@ class _PointCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: onOpenNavigation,
+                  key: const ValueKey('map-in-app-navigation-button'),
+                  onPressed: onOpenInAppNavigation,
                   icon: const Icon(Icons.near_me_outlined, size: 18),
                   label: Text(point.hasCoordinate ? '导航' : '坐标待补充'),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton.outlined(
-                tooltip: '导航',
-                onPressed: onOpenNavigation,
+                key: const ValueKey('map-external-navigation-button'),
+                tooltip: '打开外部地图',
+                onPressed: onOpenExternalNavigation,
                 icon: const Icon(Icons.near_me_outlined),
               ),
               const SizedBox(width: 4),
               IconButton.outlined(
                 tooltip: '拍摄参考',
                 onPressed: onOpenCamera,
-                icon: const Icon(Icons.photo_camera_outlined),
+                icon: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Center(child: Icon(Icons.photo_camera_outlined)),
+                      if (recordCount > 0)
+                        const Positioned(
+                          top: -5,
+                          right: -5,
+                          child: _MapRecordBadge(),
+                        ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(width: 4),
               if (status == VisitStatus.completed)
@@ -1247,37 +1282,31 @@ class _PointThumbnail extends StatelessWidget {
 }
 
 class _MapRecordBadge extends StatelessWidget {
-  const _MapRecordBadge({required this.count});
-
-  final int count;
+  const _MapRecordBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      key: const ValueKey('map-point-shot-badge'),
+      width: 16,
+      height: 16,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 15,
-            color: AppColors.accentDark,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            '已拍 $count',
-            style: TextStyle(
-              color: AppColors.accentDark,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
         ],
+      ),
+      child: Icon(
+        Icons.photo_library_outlined,
+        size: 10,
+        color: AppColors.accentDark,
       ),
     );
   }
@@ -1291,6 +1320,7 @@ class _EmptyMapCard extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Container(
+      key: const ValueKey('map-empty-card'),
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1299,17 +1329,35 @@ class _EmptyMapCard extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.map_outlined, color: AppColors.accent),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              '当前计划还没有点位。添加点位后会在地图上显示标记。',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                letterSpacing: 0,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '当前计划还没有点位',
+                  style: TextStyle(
+                    color: AppColors.accentDark,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '添加点位后会在地图上显示标记。',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

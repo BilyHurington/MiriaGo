@@ -54,7 +54,7 @@ class ReferenceImagePlaceholder extends StatelessWidget {
                     Text(
                       label,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,

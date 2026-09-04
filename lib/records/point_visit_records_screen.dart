@@ -138,7 +138,7 @@ class _PointRecordsHeader extends StatelessWidget {
                   '${point.work.title} / ${point.displayEpisodeLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     letterSpacing: 0,
@@ -192,7 +192,7 @@ class _EmptyPointRecords extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(
             Icons.photo_library_outlined,
@@ -225,7 +225,7 @@ class _PointRecordsListLabel extends StatelessWidget {
         children: [
           Icon(Icons.schedule, color: AppColors.accent, size: 15),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             '拍摄记录',
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -275,7 +275,7 @@ class _RecordCapturedAtText extends StatelessWidget {
             value.date,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -301,7 +301,7 @@ class _PointVisitRecordCard extends StatelessWidget {
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -338,7 +338,7 @@ class _PointVisitRecordCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(right: 10),
                 child: Icon(
                   Icons.chevron_right,
@@ -376,7 +376,7 @@ class _RecordMetaChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,

@@ -3,8 +3,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
@@ -20,7 +23,11 @@ import 'plan_group_utils.dart';
 import 'plan_memo_screen.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
+import 'reference_cache_progress_dialog.dart';
 import 'reference_full_cache_runner.dart';
+import 'reference_image_status.dart';
+
+const _planActionSubtitleMinPanelWidth = 380.0;
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({
@@ -59,7 +66,6 @@ class _PlanScreenState extends State<PlanScreen> {
   bool _showVirtualLocation = false;
   bool _isLocating = false;
   bool _isCachingFullReferences = false;
-  ReferenceFullCacheProgress? _fullReferenceCacheProgress;
   double _mapHeightRatio = 0.42;
   LatLng? _currentLocation;
   final _pointListController = ScrollController();
@@ -441,6 +447,7 @@ class _PlanScreenState extends State<PlanScreen> {
                     for (final point in displayPoints) ...[
                       _PlanPointTile(
                         key: _pointTileKey(point.id),
+                        controller: controller,
                         point: point,
                         status: controller.statusFor(point),
                         recordCount: controller
@@ -515,6 +522,8 @@ class _PlanScreenState extends State<PlanScreen> {
       onOpenRecord: (record) => _openRecordDetail(context, record),
       onEditPoint: () => _editPoint(context, point),
       navigationApp: settings.navigationApp,
+      settings: settings,
+      planController: controller,
     );
   }
 
@@ -609,13 +618,12 @@ class _PlanScreenState extends State<PlanScreen> {
 
   Future<void> _handleReferenceCachePressed() async {
     if (_isCachingFullReferences) {
-      _showSnackBar(_fullReferenceCacheProgress?.label ?? '正在缓存完整参考图...');
       return;
     }
 
     final points = pointsNeedingFullReferenceCache(controller.points);
     if (points.isEmpty) {
-      _showSnackBar('当前计划没有需要缓存的参考图');
+      _showSnackBar('当前计划没有需要缓存的参考图', kind: AppStatusBannerKind.warning);
       return;
     }
 
@@ -635,56 +643,44 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   Future<void> _cacheFullReferenceImages() async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_isCachingFullReferences) {
       return;
     }
     setState(() {
       _isCachingFullReferences = true;
-      _fullReferenceCacheProgress = null;
     });
-    messenger.showReplacingSnackBar(
-      const SnackBar(content: Text('已开始缓存完整参考图')),
-    );
     try {
-      await cacheFullReferenceImages(
-        plan: controller.plan,
-        repository: widget.repository,
-        onPlanUpdated: controller.replacePlan,
-        imageSource: settings.anitabiImageSource,
-        maxConcurrent: settings.mapThumbnailConcurrentLoads,
-        onProgress: (progress) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _fullReferenceCacheProgress = progress;
-          });
+      await showReferenceCacheProgressDialog(
+        context: context,
+        run: (onProgress) {
+          return cacheFullReferenceImages(
+            plan: controller.plan,
+            repository: widget.repository,
+            onPlanUpdated: controller.replacePlan,
+            imageSource: settings.anitabiImageSource,
+            maxConcurrent: settings.mapThumbnailConcurrentLoads,
+            onProgress: onProgress,
+          );
         },
       );
     } finally {
       if (mounted) {
-        final progress = _fullReferenceCacheProgress;
         setState(() {
           _isCachingFullReferences = false;
         });
-        if (progress != null) {
-          messenger.showReplacingSnackBar(
-            SnackBar(content: Text(progress.label)),
-          );
-        }
       }
     }
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(
+    String message, {
+    AppStatusBannerKind kind = AppStatusBannerKind.error,
+  }) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showStatusSnack(kind: kind, title: message);
   }
 }
 
@@ -771,90 +767,112 @@ class _PlanActionsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('plan-actions-panel'),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _PlanActionItem(
-                    key: const ValueKey('plan-action-add-points'),
-                    icon: const Icon(Icons.add_location_alt_outlined, size: 20),
-                    title: '添加点位',
-                    subtitle: '加入巡礼场景',
-                    onTap: onAddPoints,
-                  ),
-                ),
-                const _PlanActionDivider(),
-                Expanded(
-                  child: _PlanActionItem(
-                    key: const ValueKey('plan-action-manage-points'),
-                    icon: const Icon(Icons.tune_outlined, size: 20),
-                    title: '管理计划',
-                    subtitle: '整理片区点位',
-                    onTap: onManagePoints,
-                  ),
-                ),
-              ],
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSubtitles =
+            constraints.maxWidth >= _planActionSubtitleMinPanelWidth;
+        return Container(
+          key: const ValueKey('plan-actions-panel'),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
           ),
-          const Divider(height: 1, thickness: 1, color: AppColors.border),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _PlanActionItem(
-                    key: const ValueKey('plan-action-cache-references'),
-                    icon: isCachingReferences
-                        ? const SizedBox.square(
-                            dimension: 19,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(
-                            Icons.download_for_offline_outlined,
-                            size: 20,
-                          ),
-                    title: '缓存参考图',
-                    subtitle: '保存完整图片',
-                    onTap: onCacheReferences,
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _PlanActionItem(
+                        key: const ValueKey('plan-action-add-points'),
+                        icon: const Icon(
+                          Icons.add_location_alt_outlined,
+                          size: 20,
+                        ),
+                        title: '添加点位',
+                        subtitle: '加入巡礼场景',
+                        showSubtitle: showSubtitles,
+                        onTap: onAddPoints,
+                      ),
+                    ),
+                    const _PlanActionDivider(),
+                    Expanded(
+                      child: _PlanActionItem(
+                        key: const ValueKey('plan-action-manage-points'),
+                        icon: const Icon(Icons.tune_outlined, size: 20),
+                        title: '管理计划',
+                        subtitle: '整理片区点位',
+                        showSubtitle: showSubtitles,
+                        onTap: onManagePoints,
+                      ),
+                    ),
+                  ],
                 ),
-                const _PlanActionDivider(),
-                Expanded(
-                  child: _PlanActionItem(
-                    key: const ValueKey('plan-action-memo'),
-                    icon: const Icon(Icons.sticky_note_2_outlined, size: 20),
-                    title: '计划备忘录',
-                    subtitle: '记录行程要点',
-                    onTap: onOpenMemo,
-                  ),
+              ),
+              const AppHairline(),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _PlanActionItem(
+                        key: const ValueKey('plan-action-cache-references'),
+                        icon: isCachingReferences
+                            ? const SizedBox.square(
+                                dimension: 19,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.download_for_offline_outlined,
+                                size: 20,
+                              ),
+                        title: '缓存参考图',
+                        subtitle: '保存完整图片',
+                        showSubtitle: showSubtitles,
+                        onTap: onCacheReferences,
+                      ),
+                    ),
+                    const _PlanActionDivider(),
+                    Expanded(
+                      child: _PlanActionItem(
+                        key: const ValueKey('plan-action-memo'),
+                        icon: const Icon(
+                          Icons.sticky_note_2_outlined,
+                          size: 20,
+                        ),
+                        title: '计划备忘录',
+                        subtitle: '记录行程要点',
+                        showSubtitle: showSubtitles,
+                        onTap: onOpenMemo,
+                      ),
+                    ),
+                    const _PlanActionDivider(),
+                    Expanded(
+                      child: _PlanActionItem(
+                        key: const ValueKey('plan-action-import-export'),
+                        icon: const Icon(
+                          Icons.import_export_outlined,
+                          size: 20,
+                        ),
+                        title: '导入导出',
+                        subtitle: '备份迁移计划',
+                        showSubtitle: showSubtitles,
+                        onTap: onImportExport,
+                      ),
+                    ),
+                  ],
                 ),
-                const _PlanActionDivider(),
-                Expanded(
-                  child: _PlanActionItem(
-                    key: const ValueKey('plan-action-import-export'),
-                    icon: const Icon(Icons.import_export_outlined, size: 20),
-                    title: '导入导出',
-                    subtitle: '备份迁移计划',
-                    onTap: onImportExport,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -864,6 +882,7 @@ class _PlanActionItem extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.showSubtitle,
     required this.onTap,
     super.key,
   });
@@ -871,6 +890,7 @@ class _PlanActionItem extends StatelessWidget {
   final Widget icon;
   final String title;
   final String subtitle;
+  final bool showSubtitle;
   final VoidCallback onTap;
 
   @override
@@ -897,27 +917,29 @@ class _PlanActionItem extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        maxLines: 1,
+                        maxLines: showSubtitle ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0,
+                      if (showSubtitle) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -979,7 +1001,7 @@ class _GroupSwitcher extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.surface,
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
               ),
               child: Text(
                 group.name,
@@ -1196,7 +1218,7 @@ class _SortOrderControl extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(
+            SizedBox(
               height: 24,
               child: VerticalDivider(width: 1, color: AppColors.border),
             ),
@@ -1458,7 +1480,7 @@ class _MapCompactSummary extends StatelessWidget {
           '${group.anchorLabel} · ${group.completedCount}/${group.points.length} 完成 · ${group.orderModeLabel}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -1762,7 +1784,7 @@ class _OnboardingStep extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -1774,7 +1796,7 @@ class _OnboardingStep extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.35,
@@ -1841,7 +1863,7 @@ class _WorkHeader extends StatelessWidget {
                   '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     letterSpacing: 0,
@@ -1865,6 +1887,7 @@ class _WorkHeader extends StatelessWidget {
 
 class _PlanPointTile extends StatelessWidget {
   const _PlanPointTile({
+    required this.controller,
     required this.point,
     required this.status,
     required this.recordCount,
@@ -1875,6 +1898,7 @@ class _PlanPointTile extends StatelessWidget {
     super.key,
   });
 
+  final PilgrimagePlanController controller;
   final PilgrimagePoint point;
   final VisitStatus status;
   final int recordCount;
@@ -1901,46 +1925,44 @@ class _PlanPointTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 42,
+                  height: 42,
                   color: colors.background,
-                  borderRadius: BorderRadius.circular(8),
+                  child: _PlanPointThumbnail(
+                    controller: controller,
+                    point: point,
+                    placeholder: Icon(
+                      colors.icon,
+                      color: colors.foreground,
+                      size: 22,
+                    ),
+                  ),
                 ),
-                child: Icon(colors.icon, color: colors.foreground, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            point.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        if (recordCount > 0) ...[
-                          const SizedBox(width: 8),
-                          _PointRecordBadge(count: recordCount),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
                     Text(
-                      '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
+                      point.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      point.work.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         letterSpacing: 0,
@@ -1948,11 +1970,6 @@ class _PlanPointTile extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: '拍摄参考',
-                onPressed: onOpenCamera,
-                icon: const Icon(Icons.photo_camera_outlined),
               ),
               IconButton(
                 tooltip: status == VisitStatus.completed ? '撤回打卡' : '完成',
@@ -1963,6 +1980,26 @@ class _PlanPointTile extends StatelessWidget {
                   status == VisitStatus.completed
                       ? Icons.restart_alt
                       : Icons.check_outlined,
+                ),
+              ),
+              IconButton(
+                tooltip: '拍摄参考',
+                onPressed: onOpenCamera,
+                icon: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Center(child: Icon(Icons.photo_camera_outlined)),
+                      if (recordCount > 0)
+                        const Positioned(
+                          top: -5,
+                          right: -5,
+                          child: _PointRecordBadge(),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1996,38 +2033,66 @@ class _PlanPointTile extends StatelessWidget {
   }
 }
 
-class _PointRecordBadge extends StatelessWidget {
-  const _PointRecordBadge({required this.count});
+class _PlanPointThumbnail extends StatelessWidget {
+  const _PlanPointThumbnail({
+    required this.controller,
+    required this.point,
+    required this.placeholder,
+  });
 
-  final int count;
+  final PilgrimagePlanController controller;
+  final PilgrimagePoint point;
+  final Widget placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final repository = controller.repository;
+    final remoteImageUrl = hasRemoteReferenceImage(point)
+        ? point.referenceImageUrl
+        : null;
+    if (repository == null) {
+      return ReferenceThumbnail(
+        localPath: point.referenceThumbnailPath,
+        imageUrl: remoteImageUrl,
+        placeholder: placeholder,
+      );
+    }
+    return AutoCachingReferenceThumbnail(
+      planId: controller.plan.id,
+      point: point,
+      repository: repository,
+      onPlanUpdated: controller.replacePlan,
+      placeholder: placeholder,
+    );
+  }
+}
+
+class _PointRecordBadge extends StatelessWidget {
+  const _PointRecordBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      key: const ValueKey('plan-point-shot-badge'),
+      width: 16,
+      height: 16,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 13,
-            color: AppColors.accentDark,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '已拍 $count',
-            style: TextStyle(
-              color: AppColors.accentDark,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
         ],
+      ),
+      child: Icon(
+        Icons.photo_library_outlined,
+        size: 10,
+        color: AppColors.accentDark,
       ),
     );
   }

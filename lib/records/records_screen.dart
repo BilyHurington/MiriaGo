@@ -505,7 +505,7 @@ class _RecordFilters extends StatelessWidget {
               onPressed: onOpenScopeFilters,
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.surface,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
               ),
               icon: const Icon(Icons.tune),
             ),
@@ -635,7 +635,7 @@ class _RecordScopeFilterSheetState extends State<_RecordScopeFilterSheet> {
               Text(
                 '已选：作品 ${_workIds?.length ?? 0} · 片区 ${_groupIds?.length ?? 0}',
                 key: const ValueKey('records-scope-summary'),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -703,7 +703,7 @@ class _RecordScopeEntry extends StatelessWidget {
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -728,7 +728,7 @@ class _RecordScopeEntry extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                Icon(Icons.chevron_right, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -852,7 +852,7 @@ class _RecordScopeOptionSheetState extends State<_RecordScopeOptionSheet> {
             ),
             Expanded(
               child: widget.options.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         '暂无可筛选项',
                         style: TextStyle(color: AppColors.textSecondary),
@@ -1039,7 +1039,7 @@ class _RecordScopeOptionTileState extends State<_RecordScopeOptionTile> {
                             widget.option.label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 14,
                               letterSpacing: 0,
@@ -1052,10 +1052,7 @@ class _RecordScopeOptionTileState extends State<_RecordScopeOptionTile> {
                           onChanged: (value) =>
                               widget.onChanged(value ?? false),
                           shape: const CircleBorder(),
-                          side: const BorderSide(
-                            color: AppColors.border,
-                            width: 1.5,
-                          ),
+                          side: BorderSide(color: AppColors.border, width: 1.5),
                           visualDensity: VisualDensity.compact,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
@@ -1108,12 +1105,12 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
       alignmentOffset: const Offset(0, 4),
       style: MenuStyle(
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
+        backgroundColor: WidgetStatePropertyAll(AppColors.surface),
         elevation: const WidgetStatePropertyAll(8),
         shadowColor: WidgetStatePropertyAll(
           AppColors.textPrimary.withValues(alpha: 0.14),
         ),
-        side: const WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
+        side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
         shape: const WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -1128,7 +1125,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
             color: AppColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -1413,7 +1410,7 @@ class _RecordsSectionHeader extends StatelessWidget {
         ),
         Text(
           suffix,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -1529,7 +1526,7 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                                 section.subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -1576,15 +1573,6 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                           size: 24,
                         ),
                       ],
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Divider(
-                      key: ValueKey('records-group-divider'),
-                      color: AppColors.border,
-                      height: 1,
-                      thickness: 1,
                     ),
                   ),
                 ],
@@ -1649,7 +1637,7 @@ class _RecordsSummary extends StatelessWidget {
                       children: [
                         TextSpan(
                           text: ' / ${controller.totalCount}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -1709,7 +1697,7 @@ class _RecordsDashboardMetric extends StatelessWidget {
       children: [
         Text.rich(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 20,
             height: 1,
@@ -1720,7 +1708,7 @@ class _RecordsDashboardMetric extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             height: 1,
@@ -1762,9 +1750,10 @@ class _VisitRecordCard extends StatelessWidget {
     return Material(
       key: ValueKey('record-card-${record.id}'),
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(8),
-      elevation: 1,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: AppColors.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -1804,7 +1793,7 @@ class _VisitRecordCard extends StatelessWidget {
                         key: ValueKey('record-meta-text-${record.id}'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                           height: 1,
@@ -1816,7 +1805,7 @@ class _VisitRecordCard extends StatelessWidget {
                       Row(
                         key: ValueKey('record-captured-row-${record.id}'),
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.schedule_outlined,
                             size: 15,
                             color: AppColors.textSecondary,
@@ -1824,7 +1813,7 @@ class _VisitRecordCard extends StatelessWidget {
                           const SizedBox(width: 5),
                           Text(
                             _formatCapturedAt(record.capturedAt),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -1836,7 +1825,7 @@ class _VisitRecordCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
                   color: AppColors.textSecondary,
                   size: 25,
@@ -1905,7 +1894,7 @@ class _EmptyRecords extends StatelessWidget {
                   title,
                   key: const ValueKey('records-empty-title'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
@@ -1917,7 +1906,7 @@ class _EmptyRecords extends StatelessWidget {
                   description,
                   key: const ValueKey('records-empty-description'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     height: 1.5,

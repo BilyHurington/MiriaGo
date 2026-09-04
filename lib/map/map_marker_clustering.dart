@@ -207,7 +207,7 @@ class MapOverlapPointPager extends StatelessWidget {
             '重合点位  ${currentIndex + 1} / $total',
             textAlign: TextAlign.center,
             maxLines: 1,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w700,

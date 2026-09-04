@@ -79,6 +79,97 @@ void main() {
     expect(settings.dismissPlanActionsOnOutsideTap, isFalse);
   });
 
+  test('persists appearance theme mode', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+
+    await repository.saveAppSettings(
+      const AppSettings(themeMode: AppThemeMode.dark),
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.themeMode, AppThemeMode.dark);
+  });
+
+  test(
+    'seeds and persists uji-station zone chain across repository instances',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+
+      expect(plan.currentGroupId, 'sample-group-uji-station');
+      expect(
+        _ujiStationChain(plan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      expect(_ujiStationChain(plan).map((point) => point.groupOrderIndex), [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+      ]);
+
+      final reloaded = SqlitePilgrimageRepository(database: database);
+      final reloadedPlan = await reloaded.loadActivePlan();
+      expect(
+        _ujiStationChain(reloadedPlan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+    },
+  );
+
+  test(
+    'sqlite file persists theme mode and uji-station chain after reopen',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_sqlite_persist_',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final file = File(p.join(tempDirectory.path, 'seichi_junrei.sqlite'));
+
+      final database = AppDatabase(NativeDatabase(file));
+      final repository = SqlitePilgrimageRepository(database: database);
+      await repository.saveAppSettings(
+        const AppSettings(themeMode: AppThemeMode.system),
+      );
+      final seeded = await repository.loadActivePlan();
+      expect(
+        _ujiStationChain(seeded).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      await database.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      final reloaded = SqlitePilgrimageRepository(database: reopened);
+      final settings = await reloaded.loadAppSettings();
+      final plan = await reloaded.loadActivePlan();
+
+      expect(settings.themeMode, AppThemeMode.system);
+      expect(
+        _ujiStationChain(plan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      expect(_ujiStationChain(plan).map((point) => point.groupOrderIndex), [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+      ]);
+    },
+  );
+
   test('persists work type and cover metadata', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -2444,4 +2535,23 @@ Future<void> _insertLegacyPoint(
           sortOrder: Value(sortOrder),
         ),
       );
+}
+
+const _ujiStationChainNames = [
+  '井用机前步行道',
+  '宇治桥',
+  'JR 宇治站',
+  '宇治文化中心 停车场',
+  '宇治川河畔',
+  '京阪宇治站前',
+];
+
+List<PilgrimagePoint> _ujiStationChain(PilgrimagePlan plan) {
+  return [
+    for (final point in plan.points)
+      if (point.groupId == 'sample-group-uji-station') point,
+  ]..sort(
+    (left, right) =>
+        (left.groupOrderIndex ?? 0).compareTo(right.groupOrderIndex ?? 0),
+  );
 }
