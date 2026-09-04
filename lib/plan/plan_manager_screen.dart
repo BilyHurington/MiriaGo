@@ -94,9 +94,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       switched = true;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '切换计划失败，请稍后重试。');
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '切换计划失败，请稍后重试。',
+        );
       }
     }
     if (!mounted) {
@@ -240,9 +241,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '复制计划失败，请稍后重试。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '复制计划失败，请稍后重试。',
+      );
     }
   }
 

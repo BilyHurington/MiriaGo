@@ -286,9 +286,10 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   void _exportComparison(BuildContext context, PilgrimagePoint? resolvedPoint) {
     final capturedPath = resolveVisitRecordDisplayPhotoPath(_record);
     if (capturedPath == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '巡礼图不可用，无法导出对比图片。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '巡礼图不可用，无法导出对比图片。',
+      );
       return;
     }
 
@@ -318,9 +319,10 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 
     final repository = widget.controller.repository;
     if (repository == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '当前平台暂不支持保存导出偏好。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '当前平台暂不支持保存导出偏好。',
+      );
       return;
     }
 

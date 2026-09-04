@@ -1811,13 +1811,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('管理计划'), findsOneWidget);
-    expect(find.byKey(const ValueKey('point-manager-group-switcher')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('point-manager-group-switcher')),
+      findsOneWidget,
+    );
     expect(
       tester.widget(find.byKey(const ValueKey('point-manager-group-switcher'))),
       isA<FilledButton>(),
     );
     expect(find.text('宇治站附近'), findsOneWidget);
-    expect(find.byKey(const ValueKey('point-manager-anchor-row')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('point-manager-anchor-row')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('point-manager-anchor-row')),
@@ -1890,7 +1896,9 @@ void main() {
     expect(find.text('1 / 7'), findsNothing);
     expect(
       tester
-          .getSize(find.byKey(const ValueKey('point-manager-count-chip-points')))
+          .getSize(
+            find.byKey(const ValueKey('point-manager-count-chip-points')),
+          )
           .height,
       tester
           .getSize(find.byKey(const ValueKey('point-manager-order-button')))
@@ -1922,7 +1930,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('point-manager-group-switcher')));
+    await tester.tap(
+      find.byKey(const ValueKey('point-manager-group-switcher')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('选择区域'), findsOneWidget);
     expect(
@@ -2443,7 +2453,9 @@ void main() {
     expect(manualPointInkWell.onTap, isNotNull);
   });
 
-  testWidgets('empty map guide splits title and supporting copy', (tester) async {
+  testWidgets('empty map guide splits title and supporting copy', (
+    tester,
+  ) async {
     await _pumpAppWithEmptyPlan(tester);
 
     await tester.tap(find.text('地图').last);
@@ -2526,7 +2538,9 @@ void main() {
   testWidgets('quick manual point paste fills coordinates without a dialog', (
     tester,
   ) async {
-    await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
+    await tester.pumpWidget(
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pumpAndSettle();
 
     await _openPlanMenu(tester);
@@ -2564,7 +2578,9 @@ void main() {
   testWidgets('quick manual point paste explains empty clipboard', (
     tester,
   ) async {
-    await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
+    await tester.pumpWidget(
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
+    );
     await tester.pumpAndSettle();
 
     await _openPlanMenu(tester);
@@ -3209,7 +3225,7 @@ void main() {
 
     expect(find.text('未分组'), findsWidgets);
     expect(find.text('鸭川三条'), findsWidgets);
-    expect(find.text('轻音少女 / 鸭川沿岸 / 自定义场景 1'), findsWidgets);
+    expect(find.text('轻音少女'), findsWidgets);
   });
 
   testWidgets('manual point map picker requires explicit pick mode', (

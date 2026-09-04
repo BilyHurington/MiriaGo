@@ -50,7 +50,6 @@ class PlanGroupManagerScreen extends StatefulWidget {
 class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   late PilgrimagePlan _plan = widget.plan;
   var _isSaving = false;
-  var _didUpdate = false;
 
   List<PilgrimagePlanGroup> get _groups {
     return [..._plan.groups]
@@ -109,7 +108,7 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverReorderableList(
                 itemCount: groups.length,
-                onReorder: _reorderGroups,
+                onReorderItem: _reorderGroups,
                 proxyDecorator: _cleanReorderProxy,
                 itemBuilder: (context, index) {
                   final group = groups[index];
@@ -344,7 +343,6 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
       }
       setState(() {
         _plan = updatedPlan;
-        _didUpdate = true;
         _isSaving = false;
       });
     } catch (_) {
@@ -638,9 +636,7 @@ class _PlanGroupCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            hasAnchor
-                                ? '关键点 · ${group.anchorName}'
-                                : '未设置关键点',
+                            hasAnchor ? '关键点 · ${group.anchorName}' : '未设置关键点',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -653,8 +649,7 @@ class _PlanGroupCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         _GroupMetaChip(
                           label: orderLabel,
-                          accent:
-                              group.orderMode == PlanGroupOrderMode.manual,
+                          accent: group.orderMode == PlanGroupOrderMode.manual,
                         ),
                       ],
                     ),
@@ -868,10 +863,7 @@ class _UngroupedGroupCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),

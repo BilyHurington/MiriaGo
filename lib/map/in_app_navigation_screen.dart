@@ -602,81 +602,82 @@ class _InstructionBanner extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                  SizedBox(
-                    height: 72,
-                    child: PageView.builder(
-                      key: const ValueKey('in-app-navigation-steps'),
-                      controller: controller,
-                      onPageChanged: onIndexChanged,
-                      itemCount: steps.length,
-                      itemBuilder: (context, pageIndex) {
-                        final step = steps[pageIndex];
-                        return Row(
-                          children: [
-                            Icon(
-                              step.icon,
-                              size: 52,
-                              color: chrome.primaryText,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    step.distanceLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: chrome.primaryText,
-                                      fontSize: 34,
-                                      height: 1.05,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0,
-                                    ),
+                      SizedBox(
+                        height: 72,
+                        child: PageView.builder(
+                          key: const ValueKey('in-app-navigation-steps'),
+                          controller: controller,
+                          onPageChanged: onIndexChanged,
+                          itemCount: steps.length,
+                          itemBuilder: (context, pageIndex) {
+                            final step = steps[pageIndex];
+                            return Row(
+                              children: [
+                                Icon(
+                                  step.icon,
+                                  size: 52,
+                                  color: chrome.primaryText,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        step.distanceLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: chrome.primaryText,
+                                          fontSize: 34,
+                                          height: 1.05,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        step.instruction,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: chrome.primaryText,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    step.instruction,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: chrome.primaryText,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0,
-                                    ),
-                                  ),
-                                ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < steps.length; i++)
+                            Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: i == index
+                                    ? chrome.primaryText
+                                    : chrome.inactiveDot,
                               ),
                             ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 0; i < steps.length; i++)
-                        Container(
-                          width: 6,
-                          height: 6,
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i == index
-                                ? chrome.primaryText
-                                : chrome.inactiveDot,
-                          ),
-                        ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
               ],
             ),
           ),
@@ -975,7 +976,6 @@ class _GroupNameRow extends StatelessWidget {
     required this.chrome,
     required this.name,
     this.centered = false,
-    super.key,
   });
 
   final _NavigationChrome chrome;

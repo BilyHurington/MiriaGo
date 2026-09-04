@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_status_banner.dart';
 
 export 'app_status_banner.dart'
-    show
-        AppStatusBannerKind,
-        appStatusSnackBar,
-        appStatusSnackDuration;
+    show AppStatusBannerKind, appStatusSnackBar, appStatusSnackDuration;
 
 extension ShowReplacingSnackBar on ScaffoldMessengerState {
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>

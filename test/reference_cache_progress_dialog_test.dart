@@ -34,11 +34,11 @@ void main() {
     expect(find.text('正在缓存参考图...'), findsOneWidget);
     expect(find.text('8 / 18'), findsOneWidget);
     expect(find.text('44%'), findsOneWidget);
-    expect(find.byKey(const ValueKey('reference-cache-progress-bar')), findsOneWidget);
     expect(
-      find.text('提示：缓存过程中请保持网络连接，避免切换页面或锁屏。'),
+      find.byKey(const ValueKey('reference-cache-progress-bar')),
       findsOneWidget,
     );
+    expect(find.text('提示：缓存过程中请保持网络连接，避免切换页面或锁屏。'), findsOneWidget);
     expect(find.text('重试失败'), findsNothing);
     expect(find.byIcon(Icons.close), findsNothing);
   });

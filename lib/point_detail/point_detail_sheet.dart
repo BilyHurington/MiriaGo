@@ -156,7 +156,10 @@ class PointDetailSheet extends StatelessWidget {
       return;
     }
 
-    messenger.showStatusSnack(kind: AppStatusBannerKind.success, title: '已替换参考图');
+    messenger.showStatusSnack(
+      kind: AppStatusBannerKind.success,
+      title: '已替换参考图',
+    );
     navigator.pop();
   }
 

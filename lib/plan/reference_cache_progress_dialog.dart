@@ -90,10 +90,7 @@ Future<void> showReferenceCacheBannerDebugPreview(BuildContext context) {
 }
 
 class ReferenceCacheProgressDialog extends StatefulWidget {
-  const ReferenceCacheProgressDialog({
-    required this.run,
-    super.key,
-  });
+  const ReferenceCacheProgressDialog({required this.run, super.key});
 
   final Future<void> Function(
     void Function(ReferenceFullCacheProgress progress) onProgress,
@@ -236,9 +233,7 @@ class _CacheBannerCard extends StatelessWidget {
     return AppStatusBanner(
       key: bannerKey,
       kind: kind,
-      icon: status == _CacheDialogStatus.running
-          ? Icons.cached_outlined
-          : null,
+      icon: status == _CacheDialogStatus.running ? Icons.cached_outlined : null,
       title: _titleFor(status),
       subtitle: status == _CacheDialogStatus.running
           ? null

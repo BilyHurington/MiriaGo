@@ -290,9 +290,10 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       (total, ids) => total + ids.length,
     );
     if (count == 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '当前距离内没有可分配点位');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '当前距离内没有可分配点位',
+      );
       return;
     }
     final confirmed = await showConfirmActionDialog(
@@ -331,9 +332,10 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
         _didUpdate = true;
         _isSaving = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已分配 $count 个点位');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已分配 $count 个点位',
+      );
     } catch (_) {
       if (!mounted) {
         return;
@@ -747,9 +749,10 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       return;
     }
     if (points.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '框选范围内没有未分组点位');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '框选范围内没有未分组点位',
+      );
       return;
     }
     final confirmed = await showConfirmActionDialog(

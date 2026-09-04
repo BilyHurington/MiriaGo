@@ -148,11 +148,7 @@ class ImageViewerScreen extends StatelessWidget {
     try {
       final imageBytes = await _resolveImageBytes(sheetContext);
       if (imageBytes == null || imageBytes.isEmpty) {
-        _showSnackBar(
-          messenger,
-          '图片读取失败',
-          kind: AppStatusBannerKind.error,
-        );
+        _showSnackBar(messenger, '图片读取失败', kind: AppStatusBannerKind.error);
         return;
       }
       final extension = _preferredExtension();

@@ -93,8 +93,6 @@ Future<void> showStatusBannerOverlay({
   final navExtra = scaffold?.bottomNavigationBar == null
       ? 0.0
       : (NavigationBarTheme.of(context).height ?? 80);
-  Timer? autoClose;
-
   await showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -102,19 +100,16 @@ Future<void> showStatusBannerOverlay({
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 180),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      autoClose ??= Timer(appStatusSnackDuration, () {
-        if (dialogContext.mounted) {
-          Navigator.of(dialogContext).pop();
-        }
-      });
-      return SafeArea(
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + navExtra),
-            child: SizedBox(
-              width: double.infinity,
-              child: builder(dialogContext),
+      return _AutoClosingStatusOverlay(
+        child: SafeArea(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + navExtra),
+              child: SizedBox(
+                width: double.infinity,
+                child: builder(dialogContext),
+              ),
             ),
           ),
         ),
@@ -138,7 +133,39 @@ Future<void> showStatusBannerOverlay({
       );
     },
   );
-  autoClose?.cancel();
+}
+
+class _AutoClosingStatusOverlay extends StatefulWidget {
+  const _AutoClosingStatusOverlay({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_AutoClosingStatusOverlay> createState() =>
+      _AutoClosingStatusOverlayState();
+}
+
+class _AutoClosingStatusOverlayState extends State<_AutoClosingStatusOverlay> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(appStatusSnackDuration, () {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 Future<void> showPlanExportBannerDebugPreview(BuildContext context) {
@@ -220,7 +247,9 @@ class AppStatusBanner extends StatelessWidget {
     return Material(
       color: palette.background,
       elevation: kind == AppStatusBannerKind.running ? 8 : 2,
-      shadowColor: Colors.black.withValues(alpha: AppColors.isDark ? 0.45 : 0.18),
+      shadowColor: Colors.black.withValues(
+        alpha: AppColors.isDark ? 0.45 : 0.18,
+      ),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),

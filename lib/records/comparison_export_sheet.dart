@@ -161,9 +161,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       ImageViewerScreen.show(context, filePath: result.path);
     } else {
       setState(() => _exporting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(
+      ScaffoldMessenger.of(context).showStatusSnack(
         kind: AppStatusBannerKind.error,
         title: _failureMessage(result),
       );

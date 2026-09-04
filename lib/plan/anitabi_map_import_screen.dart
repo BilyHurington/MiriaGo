@@ -846,9 +846,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Future<void> _importSelectedBoxPoints() async {
     final points = _pointsInSelection();
     if (points.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '框选范围内没有可添加点位');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '框选范围内没有可添加点位',
+      );
       return;
     }
 
@@ -991,8 +992,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
             lastProgressSnackBarAt = now;
             messenger.showStatusSnack(
               kind: AppStatusBannerKind.running,
-              title:
-                  '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+              title: '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
               icon: Icons.photo_library_outlined,
               duration: const Duration(milliseconds: 1200),
             );
@@ -1036,10 +1036,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showStatusSnack(
-        kind: AppStatusBannerKind.error,
-        title: failureMessage,
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: failureMessage);
       return;
     } finally {
       if (mounted) {
@@ -1164,9 +1163,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '点位分配失败，请稍后重试。');
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '点位分配失败，请稍后重试。',
+        );
       }
     }
   }
@@ -1211,9 +1211,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           .firstOrNull;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '片区创建失败，请稍后重试。');
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '片区创建失败，请稍后重试。',
+        );
       }
       return null;
     }

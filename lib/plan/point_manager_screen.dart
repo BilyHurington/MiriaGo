@@ -2111,11 +2111,6 @@ class _GroupAnchorSelection {
     required this.pointId,
   });
 
-  const _GroupAnchorSelection.clear()
-    : name = null,
-      position = null,
-      pointId = null;
-
   final String? name;
   final LatLng? position;
   final String? pointId;

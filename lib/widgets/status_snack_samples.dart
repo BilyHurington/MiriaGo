@@ -96,66 +96,24 @@ const statusSnackDebugSamples = <StatusSnackSample>[
     title: 'My Maps CSV 已导出',
     subtitle: '已通过系统分享送出',
   ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已恢复初始设置',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '计划备忘录已保存',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已复制「宇治一日」',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已添加「声之形」。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已填入坐标。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已分配 6 个点位',
-  ),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已恢复初始设置'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '计划备忘录已保存'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已复制「宇治一日」'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已添加「声之形」。'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已填入坐标。'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已分配 6 个点位'),
   StatusSnackSample(
     kind: AppStatusBannerKind.success,
     title: '已将 3 个点位分配到「宇治站附近」',
   ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已替换参考图',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已保存到相册',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '图片已保存',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已还原为原图',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已生成自动调色参数',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已保存调色结果',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '已导入计划「宇治一日」',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.success,
-    title: '记录已保存，并备份到相册',
-  ),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已替换参考图'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已保存到相册'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '图片已保存'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已还原为原图'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已生成自动调色参数'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已保存调色结果'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '已导入计划「宇治一日」'),
+  StatusSnackSample(kind: AppStatusBannerKind.success, title: '记录已保存，并备份到相册'),
   StatusSnackSample(
     kind: AppStatusBannerKind.success,
     title: '已保存并标记完成，下一个：平等院',
@@ -175,50 +133,17 @@ const statusSnackDebugSamples = <StatusSnackSample>[
     kind: AppStatusBannerKind.warning,
     title: '已导入计划「宇治一日」，部分资源未恢复',
   ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '当前计划没有需要缓存的参考图',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '当前计划还没有点位。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '当前环境无法编辑点位。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '至少需要保留一个计划',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '当前距离内没有可分配点位',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '请先完成片区分配',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '请先创建片区',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '框选范围内没有未分组点位',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '框选范围内没有可添加点位',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '无法读取剪贴板。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '剪贴板中没有有效坐标。',
-  ),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '当前计划没有需要缓存的参考图'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '当前计划还没有点位。'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '当前环境无法编辑点位。'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '至少需要保留一个计划'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '当前距离内没有可分配点位'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '请先完成片区分配'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '请先创建片区'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '框选范围内没有未分组点位'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '框选范围内没有可添加点位'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '无法读取剪贴板。'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '剪贴板中没有有效坐标。'),
   StatusSnackSample(
     kind: AppStatusBannerKind.warning,
     title: '无法读取剪贴板，请手动粘贴 Anitabi 链接。',
@@ -239,18 +164,9 @@ const statusSnackDebugSamples = <StatusSnackSample>[
     kind: AppStatusBannerKind.warning,
     title: '当前平台暂不支持保存导出偏好。',
   ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '没有可用于自动调色的参考图',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '请先自动匹配色调',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.warning,
-    title: '链接格式不正确',
-  ),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '没有可用于自动调色的参考图'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '请先自动匹配色调'),
+  StatusSnackSample(kind: AppStatusBannerKind.warning, title: '链接格式不正确'),
   StatusSnackSample(
     kind: AppStatusBannerKind.warning,
     title: '手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。',
@@ -278,100 +194,31 @@ const statusSnackDebugSamples = <StatusSnackSample>[
     title: '导出失败',
     subtitle: '请稍后重试',
   ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '导入文件读取失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '计划文件导入失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '导入失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '定位失败，请检查权限和定位服务。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '片区创建失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '点位保存失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '作品添加失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '参考图读取失败，请重新选择。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '参考图替换失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '计划备忘录保存失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '切换计划失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '复制计划失败，请稍后重试。',
-  ),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '导入文件读取失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '计划文件导入失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '导入失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '定位失败，请检查权限和定位服务。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '片区创建失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '点位保存失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '作品添加失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '参考图读取失败，请重新选择。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '参考图替换失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '计划备忘录保存失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '切换计划失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '复制计划失败，请稍后重试。'),
   StatusSnackSample(
     kind: AppStatusBannerKind.error,
     title: '保存计划顺序失败，已恢复原来的顺序。',
   ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '作品删除失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '照片导入失败，请重新选择。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '图片读取失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '保存失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '巡礼图读取失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '自动调色失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '无法打开链接',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '无法打开 Google 地图。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '点位分配失败，请稍后重试。',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '最近分配失败',
-  ),
-  StatusSnackSample(
-    kind: AppStatusBannerKind.error,
-    title: '框选分配失败',
-  ),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '作品删除失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '照片导入失败，请重新选择。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '图片读取失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '保存失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '巡礼图读取失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '自动调色失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '无法打开链接'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '无法打开 Google 地图。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '点位分配失败，请稍后重试。'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '最近分配失败'),
+  StatusSnackSample(kind: AppStatusBannerKind.error, title: '框选分配失败'),
 ];

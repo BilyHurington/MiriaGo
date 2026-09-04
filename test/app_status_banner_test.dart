@@ -29,18 +29,14 @@ void main() {
         .toList();
     expect(running, isNotEmpty);
     expect(running.every((sample) => sample.icon != null), isTrue);
-    expect(
-      running.map((sample) => sample.icon).toSet().length,
-      9,
-    );
+    expect(running.map((sample) => sample.icon).toSet().length, 9);
     expect(
       running.any((sample) => sample.icon == Icons.download_rounded),
       isFalse,
     );
 
-    IconData? iconFor(String title) => running
-        .firstWhere((sample) => sample.title == title)
-        .icon;
+    IconData? iconFor(String title) =>
+        running.firstWhere((sample) => sample.title == title).icon;
     expect(iconFor('正在导出...'), Icons.ios_share_outlined);
     expect(iconFor('已取消导出'), Icons.cancel_outlined);
     expect(iconFor('正在缓存参考图...'), Icons.cached_outlined);
@@ -106,15 +102,14 @@ void main() {
   test('single-sentence status titles drop the trailing period', () {
     expect(statusBannerSentence('已添加「声之形」。'), '已添加「声之形」');
     expect(statusBannerSentence('已填入坐标。'), '已填入坐标');
-    expect(
-      statusBannerSentence('保存计划顺序失败，已恢复原来的顺序。'),
-      '保存计划顺序失败，已恢复原来的顺序',
-    );
+    expect(statusBannerSentence('保存计划顺序失败，已恢复原来的顺序。'), '保存计划顺序失败，已恢复原来的顺序');
     expect(statusBannerSentence('数据包已导出'), '数据包已导出');
     expect(statusBannerSentence('失败。请稍后重试。'), '失败。请稍后重试。');
   });
 
-  testWidgets('single-sentence snack hides the trailing period', (tester) async {
+  testWidgets('single-sentence snack hides the trailing period', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),

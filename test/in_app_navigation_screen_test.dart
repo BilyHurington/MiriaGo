@@ -146,7 +146,9 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const ValueKey('in-app-navigation-arrive-debug')));
+    await tester.tap(
+      find.byKey(const ValueKey('in-app-navigation-arrive-debug')),
+    );
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('in-app-navigation-arrive-debug-sheet')),
@@ -308,7 +310,9 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('in-app-navigation-arrive-debug')));
+    await tester.tap(
+      find.byKey(const ValueKey('in-app-navigation-arrive-debug')),
+    );
     await tester.pumpAndSettle();
 
     expect(

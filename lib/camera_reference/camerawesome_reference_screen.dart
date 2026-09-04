@@ -200,9 +200,10 @@ class _CamerawesomeReferenceScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '照片导入失败，请重新选择。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '照片导入失败，请重新选择。',
+      );
       await _restoreCameraOrientation(landscape: restoreLandscape);
       return;
     }
@@ -379,9 +380,7 @@ class _CamerawesomeReferenceScreenState
       return null;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showStatusSnack(
+        ScaffoldMessenger.of(context).showStatusSnack(
           kind: AppStatusBannerKind.warning,
           title: '定位获取失败，本次照片不记录定位。',
         );

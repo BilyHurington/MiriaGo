@@ -59,10 +59,9 @@ Future<void> _pasteCoordinateFromClipboardInto({
     coordinate = await parseClipboardCoordinate();
   } on Object {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showStatusSnack(
-        kind: AppStatusBannerKind.warning,
-        title: '无法读取剪贴板。',
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '无法读取剪贴板。');
     }
     return;
   }
@@ -70,20 +69,18 @@ Future<void> _pasteCoordinateFromClipboardInto({
     return;
   }
   if (coordinate == null) {
-    ScaffoldMessenger.of(context).showStatusSnack(
-      kind: AppStatusBannerKind.warning,
-      title: '剪贴板中没有有效坐标。',
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '剪贴板中没有有效坐标。');
     return;
   }
   final parsed = coordinate;
   latitudeController.text = parsed.latitude.toStringAsFixed(6);
   longitudeController.text = parsed.longitude.toStringAsFixed(6);
   onFilled();
-  ScaffoldMessenger.of(context).showStatusSnack(
-    kind: AppStatusBannerKind.success,
-    title: '已填入坐标。',
-  );
+  ScaffoldMessenger.of(
+    context,
+  ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已填入坐标。');
 }
 
 InputDecoration _boxedFormDecoration({
@@ -404,9 +401,10 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       await widget.repository.addPointToPlan(planId: plan.id, point: point);
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '点位保存失败，请稍后重试。');
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '点位保存失败，请稍后重试。',
+        );
       }
       return;
     }
@@ -557,17 +555,19 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
         _didAdd = true;
         _addedWorkIds.add(work.id);
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已添加「${work.title}」。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已添加「${work.title}」。',
+      );
     } catch (_) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '作品添加失败，请稍后重试。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '作品添加失败，请稍后重试。',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -1468,17 +1468,19 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
       _titleController.clear();
       _subtitleController.clear();
       _cityController.clear();
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已添加「$title」。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已添加「$title」。',
+      );
     } catch (_) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '作品保存失败，请稍后重试。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '作品保存失败，请稍后重试。',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -2889,9 +2891,10 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '点位保存失败，请稍后重试。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '点位保存失败，请稍后重试。',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -2931,9 +2934,10 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '参考图读取失败，请重新选择。');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '参考图读取失败，请重新选择。',
+      );
       return;
     }
 
