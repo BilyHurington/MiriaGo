@@ -28,6 +28,7 @@ import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/app_scaled_route.dart';
+import '../widgets/app_back_button.dart';
 import '../utils/limited_concurrency.dart';
 import '../utils/selected_item_order.dart';
 import 'nearest_group_assign_screen.dart';
@@ -169,8 +170,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   Future<void> _refreshAnitabiData() async {
     widget.anitabiClient.clearStaticCache();
-    ScaffoldMessenger.of(context).showReplacingSnackBar(
-      const SnackBar(content: Text('正在清除缓存并重新加载 Anitabi 点位...')),
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.running,
+      title: '正在清除缓存并重新加载 Anitabi 点位...',
+      icon: Icons.cleaning_services_outlined,
     );
 
     final initialBangumiId = widget.initialBangumiId;
@@ -294,8 +297,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   void _showManualWorkMessage() {
-    ScaffoldMessenger.of(context).showReplacingSnackBar(
-      const SnackBar(content: Text('手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。')),
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.warning,
+      title: '手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。',
     );
   }
 
@@ -844,7 +848,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     if (points.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('框选范围内没有可添加点位')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '框选范围内没有可添加点位');
       return;
     }
 
@@ -895,8 +899,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     var shouldShowOrganizeGuide = false;
     try {
       final messenger = ScaffoldMessenger.of(context);
-      messenger.showReplacingSnackBar(
-        SnackBar(content: Text('正在导入 ${pilgrimagePoints.length} 个点位...')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.running,
+        title: '正在导入 ${pilgrimagePoints.length} 个点位...',
+        icon: Icons.add_location_alt_outlined,
       );
       var importedPlan = pilgrimagePoints.length == 1
           ? await widget.repository.addPointToPlan(
@@ -983,13 +989,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                   const Duration(milliseconds: 450);
           if (shouldShowProgressSnackBar) {
             lastProgressSnackBarAt = now;
-            messenger.showReplacingSnackBar(
-              SnackBar(
-                duration: const Duration(milliseconds: 1200),
-                content: Text(
+            messenger.showStatusSnack(
+              kind: AppStatusBannerKind.running,
+              title:
                   '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
-                ),
-              ),
+              icon: Icons.photo_library_outlined,
+              duration: const Duration(milliseconds: 1200),
             );
           }
         },
@@ -1015,14 +1020,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           _isBoxSelecting = false;
         }
       });
-      messenger.showReplacingSnackBar(
-        SnackBar(
-          content: Text(
-            cacheFailed == 0
-                ? successMessage
-                : '已导入 ${pilgrimagePoints.length} 个点位，缩略图缓存 $cached/${pilgrimagePoints.length}，其余稍后会自动补齐。',
-          ),
-        ),
+      messenger.showStatusSnack(
+        kind: cacheFailed == 0
+            ? AppStatusBannerKind.success
+            : AppStatusBannerKind.warning,
+        title: cacheFailed == 0
+            ? successMessage
+            : '已导入 ${pilgrimagePoints.length} 个点位，缩略图缓存 $cached/${pilgrimagePoints.length}，其余稍后会自动补齐。',
       );
       shouldShowOrganizeGuide = pilgrimagePoints.length > 1;
     } catch (error, stackTrace) {
@@ -1032,9 +1036,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: failureMessage,
+      );
       return;
     } finally {
       if (mounted) {
@@ -1054,8 +1059,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       debugPrint('Failed to organize imported Anitabi points: $error');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
-        ScaffoldMessenger.of(context).showReplacingSnackBar(
-          const SnackBar(content: Text('点位已导入，但整理流程打开失败，可以稍后在计划中调整片区。')),
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.warning,
+          title: '点位已导入，但整理流程打开失败，可以稍后在计划中调整片区。',
         );
       }
     }
@@ -1152,14 +1158,15 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     .map((group) => group.name)
                     .firstOrNull ??
                 '所选片区';
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        SnackBar(content: Text('已将 ${pointIds.length} 个点位分配到「$groupName」')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已将 ${pointIds.length} 个点位分配到「$groupName」',
       );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('点位分配失败，请稍后重试。')));
+        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '点位分配失败，请稍后重试。');
       }
     }
   }
@@ -1206,7 +1213,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('片区创建失败，请稍后重试。')));
+        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '片区创建失败，请稍后重试。');
       }
       return null;
     }
@@ -1431,6 +1438,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: appBackButtonIfCanPop(context),
           title: const Text('从作品地图导入'),
           actions: [
             Tooltip(
@@ -1888,7 +1896,7 @@ class _ImportOrganizeDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 '整理刚导入的点位',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -1904,7 +1912,7 @@ class _ImportOrganizeDialog extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '$importedCount 个点位',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1912,7 +1920,7 @@ class _ImportOrganizeDialog extends StatelessWidget {
                     const TextSpan(text: '，并暂时放在未分组。可以直接分配到片区，或按最近关键点快速分配。'),
                   ],
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
                   height: 1.55,
@@ -2112,7 +2120,7 @@ class _ImportSummary extends StatelessWidget {
                       ? '正在加载 Anitabi 点位'
                       : importProgress?.label ??
                             '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -2321,8 +2329,9 @@ class _AnitabiPointCard extends StatelessWidget {
         navigationApp,
       );
       if (!opened && context.mounted) {
-        ScaffoldMessenger.of(context).showReplacingSnackBar(
-          SnackBar(content: Text('无法打开${navigationApp.label}。')),
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '无法打开${navigationApp.label}。',
         );
       }
     }
@@ -2333,7 +2342,7 @@ class _AnitabiPointCard extends StatelessWidget {
         color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -2349,7 +2358,7 @@ class _AnitabiPointCard extends StatelessWidget {
                   onNext: onNextOverlapPoint!,
                 ),
               ),
-              const Divider(
+              Divider(
                 key: ValueKey('anitabi-import-overlap-point-divider'),
                 height: 1,
                 indent: 14,
@@ -2421,7 +2430,7 @@ class _AnitabiPointCard extends StatelessWidget {
                             onTap: openDetail,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12,
                               letterSpacing: 0,
@@ -2434,7 +2443,7 @@ class _AnitabiPointCard extends StatelessWidget {
                             onTap: openDetail,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12,
                               letterSpacing: 0,
@@ -2698,7 +2707,7 @@ class _AnitabiDetailInfoLine extends StatelessWidget {
           width: 38,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -2711,7 +2720,7 @@ class _AnitabiDetailInfoLine extends StatelessWidget {
           child: CopyableText(
             text: value,
             copyLabel: label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
               letterSpacing: 0,
@@ -2912,7 +2921,7 @@ class _ImportWorkGuideStep extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -2922,7 +2931,7 @@ class _ImportWorkGuideStep extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.35,
@@ -2944,7 +2953,7 @@ class _ManualWorkImportState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Text(
@@ -2975,7 +2984,7 @@ class _NoAnitabiPointsState extends StatelessWidget {
         child: Text(
           '「$workTitle」暂无可导入的 Anitabi 点位。',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 14,
             height: 1.45,
@@ -2992,7 +3001,7 @@ class _ImportLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Column(
@@ -3050,7 +3059,7 @@ class _ImportErrorState extends StatelessWidget {
             Text(
               detail,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 letterSpacing: 0,

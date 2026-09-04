@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../widgets/app_back_button.dart';
+import '../widgets/snackbar_helper.dart';
 import 'plan_import_asset_restore.dart';
 import 'plan_import_package.dart';
 
@@ -32,7 +34,10 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('导入内容')),
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: const Text('导入内容'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -92,7 +97,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
                   warning,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,
@@ -139,14 +144,13 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            restored.warnings.isEmpty
-                ? '已导入计划「${importedPlan.name}」'
-                : '已导入计划「${importedPlan.name}」，部分资源未恢复',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: restored.warnings.isEmpty
+            ? AppStatusBannerKind.success
+            : AppStatusBannerKind.warning,
+        title: restored.warnings.isEmpty
+            ? '已导入计划「${importedPlan.name}」'
+            : '已导入计划「${importedPlan.name}」，部分资源未恢复',
       );
       Navigator.of(context).pop(true);
     } catch (_) {
@@ -155,7 +159,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('导入失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '导入失败');
     } finally {
       if (mounted) {
         setState(() => _importing = false);
@@ -225,7 +229,7 @@ class _PackageHeader extends StatelessWidget {
                   '${importPackage.versionLabel} / ${importPackage.sourceName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,
@@ -286,7 +290,7 @@ class _StatChip extends StatelessWidget {
       ),
       child: Text(
         '$label $value',
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w700,
           fontSize: 12,
@@ -330,7 +334,7 @@ class _SectionTitle extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   letterSpacing: 0,
@@ -391,7 +395,7 @@ class _ImportOptionTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,

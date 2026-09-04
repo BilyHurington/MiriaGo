@@ -7,6 +7,7 @@ import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/app_scaled_route.dart';
+import '../widgets/app_back_button.dart';
 import 'add_points_screen.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_work_cover.dart';
@@ -49,10 +50,8 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
           ),
           title: const Text('作品管理'),
         ),
@@ -116,7 +115,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
     }
   }
 
-  Future<void> _confirmDeleteWork(PilgrimageWork work) async {
+  Future<bool> _confirmDeleteWork(PilgrimageWork work) async {
     final pointCount = _plan.points
         .where((point) => point.work.id == work.id)
         .length;
@@ -131,7 +130,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
       emphasizedValues: [work.title],
     );
     if (!confirmed || !mounted) {
-      return;
+      return false;
     }
 
     setState(() => _isSaving = true);
@@ -141,7 +140,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
         workId: work.id,
       );
       if (!mounted) {
-        return;
+        return false;
       }
 
       setState(() {
@@ -149,15 +148,17 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
         _didUpdate = true;
         _isSaving = false;
       });
+      return true;
     } catch (_) {
       if (!mounted) {
-        return;
+        return false;
       }
 
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('作品删除失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '作品删除失败');
+      return false;
     }
   }
 
@@ -216,7 +217,7 @@ class _AddWorkPanel extends StatelessWidget {
                 onTap: onBangumi,
               ),
             ),
-            const VerticalDivider(
+            VerticalDivider(
               width: 9,
               indent: 8,
               endIndent: 8,
@@ -289,7 +290,7 @@ class _AddWorkAction extends StatelessWidget {
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
                           letterSpacing: 0,
@@ -338,7 +339,6 @@ class _WorkManageCardState extends State<_WorkManageCard> {
         !subtitle.startsWith('Bangumi #') &&
         subtitle != 'Manual Work' &&
         subtitle != '暂无作品原名';
-    final isBangumiWork = work.bangumiId != null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -392,40 +392,99 @@ class _WorkManageCardState extends State<_WorkManageCard> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (work.displayBangumiSubjectType != null)
-                      _WorkManageBadge(
-                        label: work.displayBangumiSubjectType!.label,
-                      ),
-                    _WorkManageBadge(
-                      label: isBangumiWork ? 'Bangumi' : '手动添加',
-                      emphasized: isBangumiWork,
-                    ),
-                    _WorkManageBadge(label: '$pointCount 个点位'),
-                  ],
+                _WorkBadges(
+                  key: ValueKey('work-manage-badges-${work.id}'),
+                  work: work,
+                  pointCount: pointCount,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: widget.disabled ? null : widget.onDelete,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(88, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              foregroundColor: Colors.redAccent,
-              side: BorderSide(
-                color: widget.disabled
-                    ? AppColors.border
-                    : Colors.redAccent.withValues(alpha: 0.65),
+          PopupMenuButton<String>(
+            key: ValueKey('work-manage-more-${work.id}'),
+            tooltip: '更多操作',
+            enabled: !widget.disabled,
+            icon: const Icon(Icons.more_horiz),
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            position: PopupMenuPosition.under,
+            offset: const Offset(0, 6),
+            elevation: 8,
+            shadowColor: Colors.black.withValues(alpha: 0.16),
+            color: AppColors.surface,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: AppColors.border),
+            ),
+            constraints: const BoxConstraints(minWidth: 148, maxWidth: 180),
+            style: IconButton.styleFrom(
+              minimumSize: const Size.square(34),
+              maximumSize: const Size.square(34),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
-            child: const Text('删除'),
+            onSelected: (_) => widget.onDelete(),
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                key: const ValueKey('work-action-delete'),
+                value: 'delete',
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: AppColors.error,
+                    ),
+                    const SizedBox(width: 9),
+                    Text(
+                      '删除作品',
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkBadges extends StatelessWidget {
+  const _WorkBadges({required this.work, required this.pointCount, super.key});
+
+  final PilgrimageWork work;
+  final int pointCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBangumiWork = work.bangumiId != null;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          if (work.displayBangumiSubjectType != null) ...[
+            _WorkManageBadge(label: work.displayBangumiSubjectType!.label),
+            const SizedBox(width: 6),
+          ],
+          _WorkManageBadge(
+            label: isBangumiWork ? 'Bangumi' : '手动添加',
+            emphasized: isBangumiWork,
+          ),
+          const SizedBox(width: 6),
+          _WorkManageBadge(label: '$pointCount 个点位'),
         ],
       ),
     );
@@ -455,6 +514,8 @@ class _WorkManageBadge extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        softWrap: false,
         style: TextStyle(
           color: emphasized ? AppColors.accentDark : AppColors.textSecondary,
           fontSize: 11,
@@ -579,7 +640,7 @@ class _WorkOnboardingStep extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -589,7 +650,7 @@ class _WorkOnboardingStep extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.35,

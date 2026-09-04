@@ -11,7 +11,10 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
+import '../widgets/confirm_action_dialog.dart';
 import 'color_adjustment.dart';
+import 'color_grading_parameter_summary.dart';
 import 'color_grading_params.dart';
 import 'graded_photo_storage_stub.dart'
     if (dart.library.io) 'graded_photo_storage_io.dart';
@@ -155,12 +158,16 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     final reference = _referenceBytes;
     final messenger = ScaffoldMessenger.of(context);
     if (captured == null) {
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('巡礼图读取失败')));
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '巡礼图读取失败',
+      );
       return;
     }
     if (reference == null) {
-      messenger.showReplacingSnackBar(
-        const SnackBar(content: Text('没有可用于自动调色的参考图')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '没有可用于自动调色的参考图',
       );
       return;
     }
@@ -190,8 +197,11 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       }
     });
 
-    messenger.showReplacingSnackBar(
-      SnackBar(content: Text(result == null ? '自动调色失败' : '已生成自动调色参数')),
+    messenger.showStatusSnack(
+      kind: result == null
+          ? AppStatusBannerKind.error
+          : AppStatusBannerKind.success,
+      title: result == null ? '自动调色失败' : '已生成自动调色参数',
     );
   }
 
@@ -212,13 +222,17 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       }
 
       setState(() => _saving = false);
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('已还原为原图')));
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已还原为原图',
+      );
       Navigator.of(context).pop(updated);
       return;
     }
     if (targetParams == null) {
-      messenger.showReplacingSnackBar(
-        const SnackBar(content: Text('请先自动匹配色调')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '请先自动匹配色调',
       );
       return;
     }
@@ -234,7 +248,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
         return;
       }
       setState(() => _saving = false);
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('保存失败')));
+      messenger.showStatusSnack(kind: AppStatusBannerKind.error, title: '保存失败');
       return;
     }
 
@@ -252,7 +266,10 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     }
 
     setState(() => _saving = false);
-    messenger.showReplacingSnackBar(const SnackBar(content: Text('已保存调色结果')));
+    messenger.showStatusSnack(
+      kind: AppStatusBannerKind.success,
+      title: '已保存调色结果',
+    );
     Navigator.of(context).pop(updated);
   }
 
@@ -267,12 +284,32 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     });
   }
 
+  Future<void> _confirmReset() async {
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '重置调色',
+      message: '将清除当前调色，恢复为原图。',
+      confirmLabel: '重置',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    _reset();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('自动调色'),
-        actions: [TextButton(onPressed: _reset, child: const Text('重置'))],
+        actions: [
+          IconButton(
+            tooltip: '重置',
+            onPressed: _confirmReset,
+            icon: const Icon(Icons.restart_alt),
+          ),
+        ],
       ),
       body: _buildBody(context),
     );
@@ -347,7 +384,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
             onChanged: (value) => setState(() => _intensity = value),
           ),
           const SizedBox(height: 12),
-          _ParameterSummary(activeParams: _activeParams),
+          ColorGradingParameterSummary(activeParams: _activeParams),
         ],
         const SizedBox(height: 12),
         _SavePanel(saving: _saving, onSave: _save),
@@ -575,7 +612,7 @@ class _ScorePanel extends StatelessWidget {
                 Expanded(
                   child: Text(
                     hasSavedParams ? '已恢复上次调色参数' : '自动匹配后可保存调色结果',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -600,13 +637,13 @@ class _ScorePanel extends StatelessWidget {
                 Row(
                   children: [
                     _ScoreValue(label: '原图', score: beforeScore!),
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward,
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
                     _ScoreValue(label: '当前', score: currentToneScore ?? 0),
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward,
                       size: 18,
                       color: AppColors.textSecondary,
@@ -642,7 +679,7 @@ class _ScoreValue extends StatelessWidget {
           ),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -709,185 +746,6 @@ class _IntensityControl extends StatelessWidget {
   }
 }
 
-class _ParameterSummary extends StatelessWidget {
-  const _ParameterSummary({required this.activeParams});
-
-  final ColorGradingParams activeParams;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '调色参数',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => _showParameterSheet(context),
-                icon: const Icon(Icons.tune, size: 18),
-                label: const Text('查看'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '显示当前调色强度下实际生效的参数。',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showParameterSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      builder: (context) => _ParameterSheet(activeParams: activeParams),
-    );
-  }
-}
-
-class _ParameterSheet extends StatelessWidget {
-  const _ParameterSheet({required this.activeParams});
-
-  final ColorGradingParams activeParams;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_ParameterItem>[
-      _ParameterItem('亮度', activeParams.brightness, -0.25, 0.25),
-      _ParameterItem('曝光', activeParams.exposure, -1.0, 1.0),
-      _ParameterItem('对比度', activeParams.contrast, 0.7, 1.4),
-      _ParameterItem('饱和度', activeParams.saturation, 0.5, 1.6),
-      _ParameterItem('色温', activeParams.temperature, -1.0, 1.0),
-      _ParameterItem('色调', activeParams.tint, -1.0, 1.0),
-      _ParameterItem('高光', activeParams.highlights, -1.0, 1.0),
-      _ParameterItem('阴影', activeParams.shadows, -1.0, 1.0),
-      _ParameterItem('红暗部曲线', activeParams.redShadowCurve, -1.0, 1.0),
-      _ParameterItem('红中间调曲线', activeParams.redMidCurve, -1.0, 1.0),
-      _ParameterItem('红高光曲线', activeParams.redHighlightCurve, -1.0, 1.0),
-      _ParameterItem('绿暗部曲线', activeParams.greenShadowCurve, -1.0, 1.0),
-      _ParameterItem('绿中间调曲线', activeParams.greenMidCurve, -1.0, 1.0),
-      _ParameterItem('绿高光曲线', activeParams.greenHighlightCurve, -1.0, 1.0),
-      _ParameterItem('蓝暗部曲线', activeParams.blueShadowCurve, -1.0, 1.0),
-      _ParameterItem('蓝中间调曲线', activeParams.blueMidCurve, -1.0, 1.0),
-      _ParameterItem('蓝高光曲线', activeParams.blueHighlightCurve, -1.0, 1.0),
-    ];
-
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.74,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          itemCount: items.length + 1,
-          separatorBuilder: (_, index) => index == 0
-              ? const SizedBox(height: 10)
-              : const Divider(height: 18),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return const Text(
-                '调色参数',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              );
-            }
-            return _ParameterRow(item: items[index - 1]);
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _ParameterItem {
-  const _ParameterItem(this.label, this.value, this.min, this.max);
-
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-}
-
-class _ParameterRow extends StatelessWidget {
-  const _ParameterRow({required this.item});
-
-  final _ParameterItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final activeT = ((item.value - item.min) / (item.max - item.min))
-        .clamp(0.0, 1.0)
-        .toDouble();
-    final activeText = item.value.toStringAsFixed(3);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                item.label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
-              ),
-            ),
-            Text(
-              activeText,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: activeT,
-            minHeight: 7,
-            backgroundColor: AppColors.surfaceMuted,
-            color: AppColors.accent,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SavePanel extends StatelessWidget {
   const _SavePanel({required this.saving, required this.onSave});
 
@@ -915,7 +773,7 @@ class _SavePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             '保存后记录详情和导出会使用调色后的图片，原图和调色参数会保留。',
             style: TextStyle(
               color: AppColors.textSecondary,

@@ -15,12 +15,16 @@ import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
+import '../widgets/clear_anchor_selection_button.dart';
 import 'add_points_screen.dart';
 import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_picker_sheet.dart';
 import 'plan_group_manager_screen.dart';
 import 'plan_group_utils.dart';
+import 'coordinate_input_dialog.dart';
+import 'reference_cache_progress_dialog.dart';
 import 'reference_full_cache_runner.dart';
 import 'reference_image_status.dart';
 
@@ -72,17 +76,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   List<PlanGroupBucket> get _groups =>
       planGroupBuckets(_plan, _plan.completedPointIds);
 
-  int get _actualGroupCount =>
-      _groups.where((group) => !group.isUngrouped).length;
-
-  int _actualGroupNumber(PlanGroupBucket group) {
-    if (group.isUngrouped) {
-      return 0;
-    }
-    final groups = _groups.where((group) => !group.isUngrouped).toList();
-    return groups.indexWhere((candidate) => candidate.id == group.id) + 1;
-  }
-
   PlanGroupBucket? get _selectedGroup {
     final groups = _groups;
     if (groups.isEmpty) {
@@ -111,10 +104,8 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
           ),
           title: Text(
             _selectionMode ? '已选 ${_selectedPointIds.length}' : '管理计划',
@@ -188,7 +179,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Widget _buildGroupPage(PlanGroupBucket group) {
-    final bottomPadding = _selectionMode ? 104.0 : 24.0;
+    final bottomPadding = _selectionMode ? 120.0 : 24.0;
     final canManualReorder =
         !group.isUngrouped &&
         group.group?.orderMode == PlanGroupOrderMode.manual &&
@@ -197,17 +188,14 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: _PlanManagerHeader(
-        plan: _plan,
         group: group,
         groupIndex: _selectedGroupIndex,
-        groupNumber: _actualGroupNumber(group),
-        groupCount: _actualGroupCount,
         selectionMode: _selectionMode,
         onPreviousGroup: _previousGroup,
         onNextGroup: _nextGroup,
         onGroupTap: () => _showGroupSheet(_groups),
         onAnchorTap: () => _showAnchorSheet(group),
-        onOrderTap: () => _showOrderModeSheet(group),
+        onOrderModeChanged: (mode) => _setGroupOrderMode(group, mode),
         onNearestAssign: _openNearestAssign,
         onBoxAssign: _openBoxAssign,
       ),
@@ -232,7 +220,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                   child: _PointManagerTile(
                     index: index,
                     point: point,
-                    groupName: group.name,
                     status: _statusFor(point),
                     isBusy: _isSaving,
                     selectionMode: false,
@@ -269,7 +256,6 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                 child: _PointManagerTile(
                   index: index,
                   point: point,
-                  groupName: group.name,
                   status: _statusFor(point),
                   isBusy: _isSaving,
                   selectionMode: _selectionMode,
@@ -347,7 +333,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   }
 
   Future<void> _openGroupManager() async {
-    await Navigator.of(context).push<bool>(
+    final selectedGroupId = await Navigator.of(context).push<String?>(
       MaterialPageRoute(
         builder: (_) =>
             PlanGroupManagerScreen(plan: _plan, repository: widget.repository),
@@ -363,7 +349,12 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     setState(() {
       _plan = updatedPlan;
       final groups = _groups;
-      if (_selectedGroupIndex >= groups.length) {
+      if (selectedGroupId != null) {
+        final index = groups.indexWhere((group) => group.id == selectedGroupId);
+        if (index >= 0) {
+          _selectedGroupIndex = index;
+        }
+      } else if (_selectedGroupIndex >= groups.length) {
         _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
       }
       _didUpdate = true;
@@ -473,7 +464,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
           .firstOrNull;
     } catch (_) {
       if (mounted) {
-        _showInfo('片区创建失败，请稍后重试。');
+        _showInfo('片区创建失败，请稍后重试。', kind: AppStatusBannerKind.error);
       }
       return null;
     }
@@ -516,57 +507,19 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     );
   }
 
-  Future<void> _showOrderModeSheet(PlanGroupBucket group) {
-    if (group.isUngrouped) {
+  Future<void> _setGroupOrderMode(
+    PlanGroupBucket group,
+    PlanGroupOrderMode mode,
+  ) async {
+    if (group.isUngrouped || group.group == null) {
       return _showInfo('未分配点位不需要排序方式。');
     }
-    if (group.group == null) {
-      return _showInfo('片区不存在。');
+    if (group.group!.orderMode == mode) {
+      return;
     }
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        final mode = group.group?.orderMode ?? PlanGroupOrderMode.unordered;
-        return SafeArea(
-          top: false,
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            children: [
-              const _SheetTitle(title: '片区内顺序'),
-              _OrderModeTile(
-                title: '无序',
-                selected: mode == PlanGroupOrderMode.unordered,
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await _updateGroup(
-                    _copyGroup(
-                      group.group!,
-                      orderMode: PlanGroupOrderMode.unordered,
-                    ),
-                    failureMessage: '排序方式保存失败',
-                  );
-                },
-              ),
-              _OrderModeTile(
-                title: '手动排序',
-                selected: mode == PlanGroupOrderMode.manual,
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await _updateGroup(
-                    _copyGroup(
-                      group.group!,
-                      orderMode: PlanGroupOrderMode.manual,
-                    ),
-                    failureMessage: '排序方式保存失败',
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
+    await _updateGroup(
+      _copyGroup(group.group!, orderMode: mode),
+      failureMessage: '排序方式保存失败',
     );
   }
 
@@ -679,6 +632,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       onCreateGroup: _createGroupFromPicker,
       onEditPoint: () => _editPoint(currentPoint),
       navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
     );
   }
 
@@ -848,8 +802,9 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       context,
       title: '删除点位',
       message: '将从计划中删除「${point.name}」。',
-      confirmLabel: '删除',
+      confirmLabel: '删除点位',
       destructive: true,
+      notice: '删除后无法撤销',
       emphasizedValues: [point.name],
     );
     if (!confirmed || !mounted) {
@@ -991,7 +946,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: failureMessage);
     }
   }
 
@@ -1027,12 +982,11 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: failureMessage);
     }
   }
 
   Future<void> _cacheFullReferenceImages() async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_isCachingFullReferences) {
       return;
     }
@@ -1040,51 +994,48 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       _isCachingFullReferences = true;
       _fullReferenceCacheProgress = null;
     });
-    messenger.showReplacingSnackBar(
-      const SnackBar(content: Text('已开始缓存完整参考图')),
-    );
     try {
-      await cacheFullReferenceImages(
-        plan: _plan,
-        repository: widget.repository,
-        imageSource: widget.settings.anitabiImageSource,
-        maxConcurrent: widget.settings.mapThumbnailConcurrentLoads,
-        onPlanUpdated: (plan) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _plan = plan;
-            _didUpdate = true;
-          });
-        },
-        onProgress: (progress) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _fullReferenceCacheProgress = progress;
-          });
+      await showReferenceCacheProgressDialog(
+        context: context,
+        run: (onProgress) {
+          return cacheFullReferenceImages(
+            plan: _plan,
+            repository: widget.repository,
+            imageSource: widget.settings.anitabiImageSource,
+            maxConcurrent: widget.settings.mapThumbnailConcurrentLoads,
+            onPlanUpdated: (plan) {
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _plan = plan;
+                _didUpdate = true;
+              });
+            },
+            onProgress: (progress) {
+              onProgress(progress);
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _fullReferenceCacheProgress = progress;
+              });
+            },
+          );
         },
       );
     } finally {
       if (mounted) {
-        final progress = _fullReferenceCacheProgress;
         setState(() {
           _isCachingFullReferences = false;
         });
-        if (progress != null) {
-          messenger.showReplacingSnackBar(
-            SnackBar(content: Text(progress.label)),
-          );
-        }
       }
     }
   }
 
   Future<void> _handleReferenceCachePressed() async {
     if (_isCachingFullReferences) {
-      return _showInfo(_fullReferenceCacheProgress?.label ?? '正在缓存完整参考图...');
+      return;
     }
     final points = pointsNeedingFullReferenceCache(_plan.points);
     if (points.isEmpty) {
@@ -1103,13 +1054,14 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     }
   }
 
-  Future<void> _showInfo(String message) async {
+  Future<void> _showInfo(
+    String message, {
+    AppStatusBannerKind kind = AppStatusBannerKind.warning,
+  }) async {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showStatusSnack(kind: kind, title: message);
   }
 }
 
@@ -1170,124 +1122,212 @@ class _PointManagerCreateGroupDialogState
 
 class _PlanManagerHeader extends StatelessWidget {
   const _PlanManagerHeader({
-    required this.plan,
     required this.group,
     required this.groupIndex,
-    required this.groupNumber,
-    required this.groupCount,
     required this.selectionMode,
     required this.onPreviousGroup,
     required this.onNextGroup,
     required this.onGroupTap,
     required this.onAnchorTap,
-    required this.onOrderTap,
+    required this.onOrderModeChanged,
     required this.onNearestAssign,
     required this.onBoxAssign,
   });
 
-  final PilgrimagePlan plan;
   final PlanGroupBucket group;
   final int groupIndex;
-  final int groupNumber;
-  final int groupCount;
   final bool selectionMode;
   final VoidCallback onPreviousGroup;
   final VoidCallback onNextGroup;
   final VoidCallback onGroupTap;
   final VoidCallback onAnchorTap;
-  final VoidCallback onOrderTap;
+  final ValueChanged<PlanGroupOrderMode> onOrderModeChanged;
   final Future<void> Function() onNearestAssign;
   final Future<void> Function() onBoxAssign;
 
   @override
   Widget build(BuildContext context) {
-    final orderLabel = group.group?.orderMode == PlanGroupOrderMode.manual
-        ? '手动排序'
-        : '无序';
-    final anchorLabel = group.group?.anchorName ?? '未设置';
+    final anchorName = group.group?.anchorName?.trim();
+    final hasAnchor = anchorName != null && anchorName.isNotEmpty;
+    final anchorText = hasAnchor ? '关键点：$anchorName' : '关键点：未设置';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: '上一个片区',
-                  onPressed: selectionMode ? null : onPreviousGroup,
-                  icon: const Icon(Icons.chevron_left),
-                ),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: selectionMode ? null : onGroupTap,
-                    icon: Icon(
-                      group.isUngrouped
-                          ? Icons.inbox_outlined
-                          : Icons.folder_outlined,
-                      size: 18,
-                    ),
-                    label: Text(
-                      group.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: '上一个片区',
+                onPressed: selectionMode ? null : onPreviousGroup,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: FilledButton.tonal(
+                  key: const ValueKey('point-manager-group-switcher'),
+                  onPressed: selectionMode ? null : onGroupTap,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.surface,
+                    foregroundColor: AppColors.textPrimary,
+                    side: BorderSide(color: AppColors.border),
+                  ),
+                  child: Text(
+                    group.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                IconButton(
-                  tooltip: '下一个片区',
-                  onPressed: selectionMode ? null : onNextGroup,
-                  icon: const Icon(Icons.chevron_right),
-                ),
+              ),
+              IconButton(
+                tooltip: '下一个片区',
+                onPressed: selectionMode ? null : onNextGroup,
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Material(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: AppColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!group.isUngrouped) ...[
+                  InkWell(
+                    key: const ValueKey('point-manager-anchor-row'),
+                    onTap: selectionMode ? null : onAnchorTap,
+                    child: SizedBox(
+                      height: 40,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+                        child: Row(
+                          children: [
+                            Icon(Icons.flag, size: 18, color: AppColors.accent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                anchorText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.accent,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '更改',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _HeaderCountChip(
+                          key: const ValueKey(
+                            'point-manager-count-chip-points',
+                          ),
+                          count: group.points.length,
+                          unit: '点位',
+                        ),
+                        const SizedBox(width: 6),
+                        _HeaderCountChip(
+                          key: const ValueKey(
+                            'point-manager-count-chip-completed',
+                          ),
+                          count: group.completedCount,
+                          unit: '完成',
+                        ),
+                        const SizedBox(width: 8),
+                        _GroupOrderModeButton(
+                          mode:
+                              group.group?.orderMode ??
+                              PlanGroupOrderMode.unordered,
+                          enabled: !selectionMode,
+                          onSelected: onOrderModeChanged,
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    child: Column(
+                      children: [
+                        _UngroupedWaitLabel(count: group.points.length),
+                        const SizedBox(height: 10),
+                        _UngroupedActionRow(
+                          onNearestAssign: onNearestAssign,
+                          onBoxAssign: onBoxAssign,
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              group.isUngrouped
-                  ? '${group.points.length} 个点位等待整理'
-                  : '${group.points.length} 个点位 · 已完成 ${group.completedCount} · $groupNumber/$groupCount',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (group.isUngrouped)
-              _UngroupedActionRow(
-                onNearestAssign: onNearestAssign,
-                onBoxAssign: onBoxAssign,
-              )
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: _HeaderPillButton(
-                      icon: Icons.flag_outlined,
-                      label: '关键点：$anchorLabel',
-                      onTap: selectionMode ? null : onAnchorTap,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _HeaderPillButton(
-                    icon: Icons.sort_outlined,
-                    label: orderLabel,
-                    onTap: selectionMode ? null : onOrderTap,
-                  ),
-                ],
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _UngroupedWaitLabel extends StatelessWidget {
+  const _UngroupedWaitLabel({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey('point-manager-ungrouped-wait'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          '$count',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+            height: 1,
+          ),
+        ),
+        Text(
+          ' 个点位等待整理',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+            height: 1,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1325,6 +1365,70 @@ class _UngroupedActionRow extends StatelessWidget {
   }
 }
 
+const _planManagerHeaderActionHeight = 32.0;
+
+ButtonStyle get _planManagerHeaderActionStyle {
+  return OutlinedButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    minimumSize: const Size(0, _planManagerHeaderActionHeight),
+    maximumSize: const Size(double.infinity, _planManagerHeaderActionHeight),
+    fixedSize: const Size.fromHeight(_planManagerHeaderActionHeight),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+  );
+}
+
+class _HeaderCountChip extends StatelessWidget {
+  const _HeaderCountChip({required this.count, required this.unit, super.key});
+
+  final int count;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _planManagerHeaderActionHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HeaderPillButton extends StatelessWidget {
   const _HeaderPillButton({
     required this.icon,
@@ -1338,14 +1442,191 @@ class _HeaderPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
+    return OutlinedButton(
       onPressed: onTap,
-      icon: Icon(icon, size: 17),
-      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        minimumSize: const Size(0, 38),
+      style: _planManagerHeaderActionStyle,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _GroupOrderModeButton extends StatefulWidget {
+  const _GroupOrderModeButton({
+    required this.mode,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final PlanGroupOrderMode mode;
+  final bool enabled;
+  final ValueChanged<PlanGroupOrderMode> onSelected;
+
+  @override
+  State<_GroupOrderModeButton> createState() => _GroupOrderModeButtonState();
+}
+
+class _GroupOrderModeButtonState extends State<_GroupOrderModeButton> {
+  var _isOpen = false;
+
+  static const _options = [
+    (PlanGroupOrderMode.unordered, '无序', 'unordered'),
+    (PlanGroupOrderMode.manual, '手动排序', 'manual'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final currentLabel = _options
+        .firstWhere((option) => option.$1 == widget.mode)
+        .$2;
+    return MenuAnchor(
+      key: const ValueKey('point-manager-order-menu-anchor'),
+      onOpen: () => setState(() => _isOpen = true),
+      onClose: () => setState(() => _isOpen = false),
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        backgroundColor: WidgetStatePropertyAll(AppColors.surface),
+        elevation: const WidgetStatePropertyAll(8),
+        shadowColor: WidgetStatePropertyAll(
+          AppColors.textPrimary.withValues(alpha: 0.14),
+        ),
+        side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
+        minimumSize: const WidgetStatePropertyAll(Size.zero),
+        maximumSize: const WidgetStatePropertyAll(Size(124, double.infinity)),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+        ),
+      ),
+      builder: (context, controller, child) {
+        return Tooltip(
+          message: '片区内顺序',
+          child: OutlinedButton(
+            key: const ValueKey('point-manager-order-button'),
+            onPressed: widget.enabled
+                ? () {
+                    if (controller.isOpen) {
+                      controller.close();
+                    } else {
+                      controller.open();
+                    }
+                  }
+                : null,
+            style: _planManagerHeaderActionStyle,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.swap_vert,
+                  size: 16,
+                  color: widget.enabled
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  currentLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  _isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 16,
+                  color: widget.enabled
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      menuChildren: [
+        SizedBox(
+          key: const ValueKey('point-manager-order-menu'),
+          width: 124,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(8, 10, 8, 6),
+                  child: Text(
+                    '片区内顺序',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                for (final option in _options)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: MenuItemButton(
+                      key: ValueKey('point-manager-order-option-${option.$3}'),
+                      onPressed: () => widget.onSelected(option.$1),
+                      leadingIcon: option.$1 == widget.mode
+                          ? Icon(Icons.check, color: accentColor, size: 18)
+                          : const SizedBox(width: 18),
+                      style: ButtonStyle(
+                        minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        backgroundColor: WidgetStatePropertyAll(
+                          option.$1 == widget.mode
+                              ? accentColor.withValues(alpha: 0.09)
+                              : Colors.transparent,
+                        ),
+                        foregroundColor: WidgetStatePropertyAll(
+                          option.$1 == widget.mode
+                              ? accentColor
+                              : AppColors.textPrimary,
+                        ),
+                        overlayColor: WidgetStateProperty.resolveWith((states) {
+                          if (option.$1 == widget.mode) {
+                            return Colors.transparent;
+                          }
+                          return states.contains(WidgetState.hovered)
+                              ? accentColor.withValues(alpha: 0.035)
+                              : Colors.transparent;
+                        }),
+                        shape: WidgetStatePropertyAll(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        option.$2,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1354,7 +1635,6 @@ class _PointManagerTile extends StatelessWidget {
   const _PointManagerTile({
     required this.index,
     required this.point,
-    required this.groupName,
     required this.status,
     required this.isBusy,
     required this.selectionMode,
@@ -1372,7 +1652,6 @@ class _PointManagerTile extends StatelessWidget {
 
   final int index;
   final PilgrimagePoint point;
-  final String groupName;
   final VisitStatus status;
   final bool isBusy;
   final bool selectionMode;
@@ -1395,7 +1674,7 @@ class _PointManagerTile extends StatelessWidget {
       VisitStatus.pending => AppColors.accentDark,
     };
     final statusText = switch (status) {
-      VisitStatus.current => '当前',
+      VisitStatus.current => '当前目标',
       VisitStatus.completed => '已完成',
       VisitStatus.pending => '待访问',
     };
@@ -1438,7 +1717,7 @@ class _PointManagerTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 17,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                       ),
@@ -1448,7 +1727,7 @@ class _PointManagerTile extends StatelessWidget {
                       '${point.work.title} / ${point.subtitle}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         letterSpacing: 0,
@@ -1466,19 +1745,7 @@ class _PointManagerTile extends StatelessWidget {
                             letterSpacing: 0,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            groupName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
+                        const Spacer(),
                         _CacheStatusPill(point: point),
                       ],
                     ),
@@ -1490,6 +1757,18 @@ class _PointManagerTile extends StatelessWidget {
                   key: ValueKey('point-manager-actions-${point.id}'),
                   tooltip: '点位操作',
                   enabled: !isBusy,
+                  icon: const Icon(Icons.more_vert),
+                  position: PopupMenuPosition.under,
+                  offset: const Offset(0, 6),
+                  elevation: 8,
+                  shadowColor: Colors.black.withValues(alpha: 0.16),
+                  color: AppColors.surface,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: AppColors.border),
+                  ),
+                  constraints: const BoxConstraints(minWidth: 0, maxWidth: 128),
                   onSelected: (value) {
                     switch (value) {
                       case 'move':
@@ -1505,25 +1784,88 @@ class _PointManagerTile extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'move', child: Text('移动到片区')),
+                    PopupMenuItem(
+                      value: 'move',
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: const _PointActionRow(
+                        icon: Icons.drive_file_move_outlined,
+                        label: '移动到片区',
+                      ),
+                    ),
                     if (status != VisitStatus.current)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'current',
-                        child: Text('设为当前'),
+                        height: 42,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: const _PointActionRow(
+                          icon: Icons.flag_outlined,
+                          label: '设为当前目标',
+                        ),
                       ),
                     PopupMenuItem(
                       value: 'complete',
-                      child: Text(
-                        status == VisitStatus.completed ? '取消完成' : '标记完成',
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: _PointActionRow(
+                        icon: status == VisitStatus.completed
+                            ? Icons.restart_alt
+                            : Icons.check_outlined,
+                        label: status == VisitStatus.completed
+                            ? '取消完成'
+                            : '标记完成',
                       ),
                     ),
-                    const PopupMenuItem(value: 'delete', child: Text('删除点位')),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'delete',
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: const _PointActionRow(
+                        icon: Icons.delete_outline,
+                        label: '删除点位',
+                        destructive: true,
+                      ),
+                    ),
                   ],
                 ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PointActionRow extends StatelessWidget {
+  const _PointActionRow({
+    required this.icon,
+    required this.label,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? AppColors.error : AppColors.textPrimary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1613,7 +1955,7 @@ class _PointLeadingControl extends StatelessWidget {
     return ReorderableDragStartListener(
       index: index,
       enabled: !isBusy,
-      child: const SizedBox(
+      child: SizedBox(
         width: 42,
         child: Center(
           child: Icon(Icons.drag_indicator, color: AppColors.textSecondary),
@@ -1651,110 +1993,112 @@ class _BatchActionBar extends StatelessWidget {
     final hasSelection = selectedCount > 0;
     return SafeArea(
       top: false,
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Material(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+          elevation: 8,
+          shadowColor: Colors.black.withValues(alpha: 0.16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: allSelected ? '清空' : '全选',
+                  onPressed: isBusy
+                      ? null
+                      : allSelected
+                      ? onClear
+                      : onSelectAll,
+                  icon: Icon(
+                    allSelected
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                  ),
+                ),
+                Text(
+                  '$selectedCount',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const Spacer(),
+                _BatchActionButton(
+                  icon: Icons.drive_file_move_outlined,
+                  label: '移动',
+                  onPressed: isBusy || !hasSelection ? null : onMove,
+                ),
+                _BatchActionButton(
+                  icon: Icons.check_outlined,
+                  label: '完成',
+                  onPressed: isBusy || !hasSelection ? null : onComplete,
+                ),
+                _BatchActionButton(
+                  icon: Icons.restart_alt,
+                  label: '重置',
+                  onPressed: isBusy || !hasSelection ? null : onReopen,
+                ),
+                _BatchActionButton(
+                  icon: Icons.delete_outline,
+                  label: '删除',
+                  color: AppColors.error,
+                  onPressed: isBusy || !hasSelection ? null : onDelete,
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: allSelected ? '清空' : '全选',
-              onPressed: isBusy
-                  ? null
-                  : allSelected
-                  ? onClear
-                  : onSelectAll,
-              icon: Icon(
-                allSelected ? Icons.check_box : Icons.check_box_outline_blank,
-              ),
-            ),
-            Text(
-              '$selectedCount',
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const Spacer(),
-            IconButton(
-              tooltip: '移动片区',
-              onPressed: isBusy || !hasSelection ? null : onMove,
-              icon: const Icon(Icons.drive_file_move_outlined),
-            ),
-            IconButton(
-              tooltip: '标记完成',
-              onPressed: isBusy || !hasSelection ? null : onComplete,
-              icon: const Icon(Icons.check_outlined),
-            ),
-            IconButton(
-              tooltip: '重置',
-              onPressed: isBusy || !hasSelection ? null : onReopen,
-              icon: const Icon(Icons.restart_alt),
-            ),
-            IconButton(
-              tooltip: '删除',
-              onPressed: isBusy || !hasSelection ? null : onDelete,
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetTitle extends StatelessWidget {
-  const _SheetTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0,
+          ),
         ),
       ),
     );
   }
 }
 
-class _OrderModeTile extends StatelessWidget {
-  const _OrderModeTile({
-    required this.title,
-    required this.selected,
-    required this.onTap,
+class _BatchActionButton extends StatelessWidget {
+  const _BatchActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.color,
   });
 
-  final String title;
-  final bool selected;
-  final VoidCallback onTap;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-          color: selected ? AppColors.accent : AppColors.textSecondary,
+    final enabled = onPressed != null;
+    final foreground = enabled
+        ? (color ?? AppColors.textPrimary)
+        : AppColors.textSecondary;
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: foreground),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
         ),
-        title: Text(title),
-        onTap: onTap,
       ),
     );
   }
@@ -1831,12 +2175,13 @@ class _GroupAnchorMapPickerScreenState
 
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('选择关键点'),
         actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(const _GroupAnchorSelection.clear()),
-            child: const Text('清除'),
+          ClearAnchorSelectionButton(
+            onPressed: _selectedPoint == null && _manualPosition == null
+                ? null
+                : _confirmClearSelection,
           ),
         ],
       ),
@@ -1973,6 +2318,23 @@ class _GroupAnchorMapPickerScreenState
     return LatLng(latitude, longitude);
   }
 
+  Future<void> _confirmClearSelection() async {
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '清除选点',
+      message: '将清除当前选择的关键点，可继续在本页重新选择。',
+      confirmLabel: '清除选点',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() {
+      _selectedPoint = null;
+      _manualPosition = null;
+      _manualPickMode = false;
+    });
+  }
+
   void _selectPoint(PilgrimagePoint point) {
     setState(() {
       _selectedPoint = point;
@@ -1985,66 +2347,10 @@ class _GroupAnchorMapPickerScreenState
   Future<void> _showCoordinateInput() async {
     final current =
         _manualPosition ?? _selectedPoint?.position ?? _pointsCenter;
-    final latitudeController = TextEditingController(
-      text: current.latitude.toStringAsFixed(6),
-    );
-    final longitudeController = TextEditingController(
-      text: current.longitude.toStringAsFixed(6),
-    );
-    final result = await showDialog<LatLng>(
+    final result = await showCoordinateInputDialog(
       context: context,
-      builder: (context) {
-        return AppInputDialog(
-          title: '输入经纬度',
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppDialogField(
-                label: '纬度',
-                child: TextField(
-                  onTapOutside: dismissKeyboardOnTapOutside,
-                  controller: latitudeController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    signed: true,
-                    decimal: true,
-                  ),
-                  decoration: appDialogInputDecoration(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppDialogField(
-                label: '经度',
-                child: TextField(
-                  onTapOutside: dismissKeyboardOnTapOutside,
-                  controller: longitudeController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    signed: true,
-                    decimal: true,
-                  ),
-                  decoration: appDialogInputDecoration(),
-                ),
-              ),
-            ],
-          ),
-          confirmLabel: '确定',
-          onConfirm: () {
-            final latitude = double.tryParse(latitudeController.text.trim());
-            final longitude = double.tryParse(longitudeController.text.trim());
-            if (latitude == null ||
-                longitude == null ||
-                latitude < -90 ||
-                latitude > 90 ||
-                longitude < -180 ||
-                longitude > 180) {
-              return;
-            }
-            Navigator.of(context).pop(LatLng(latitude, longitude));
-          },
-        );
-      },
+      current: current,
     );
-    latitudeController.dispose();
-    longitudeController.dispose();
     if (result == null || !mounted) {
       return;
     }
@@ -2209,7 +2515,7 @@ class _AnchorSelectionCard extends StatelessWidget {
                       : '$subtitle\n${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,
@@ -2231,7 +2537,7 @@ class _EmptyPlanManager extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         '还没有可以管理的点位',
         style: TextStyle(

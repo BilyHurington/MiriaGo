@@ -18,16 +18,21 @@ import 'plan_transfer/incoming_plan_file.dart';
 import 'plan_transfer/plan_import_file_stub.dart'
     if (dart.library.io) 'plan_transfer/plan_import_file_io.dart';
 import 'plan_transfer/plan_import_preview_screen.dart';
+import 'widgets/snackbar_helper.dart';
 import 'records/records_screen.dart';
 import 'records/comparison_export_config_migration.dart';
 import 'settings/settings_screen.dart';
 import 'widgets/app_scaled_route.dart';
 
 class AppShell extends StatefulWidget {
-  AppShell({PilgrimageRepository? repository, super.key})
-    : repository = repository ?? SamplePilgrimageRepository();
+  AppShell({
+    PilgrimageRepository? repository,
+    this.onSettingsChanged,
+    super.key,
+  }) : repository = repository ?? SamplePilgrimageRepository();
 
   final PilgrimageRepository repository;
+  final ValueChanged<AppSettings>? onSettingsChanged;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -70,6 +75,7 @@ class _AppShellState extends State<AppShell> {
       }
 
       _applyAnitabiServiceConfig(settings);
+      _publishSettingsAfterLoad(settings);
       _planController?.dispose();
       setState(() {
         _planController = PilgrimagePlanController(
@@ -170,10 +176,28 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _saveSettings(AppSettings settings) async {
     _applyAnitabiServiceConfig(settings);
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: currentPlatformBrightness(),
+    );
+    widget.onSettingsChanged?.call(settings);
     setState(() {
       _settings = settings;
     });
     await widget.repository.saveAppSettings(settings);
+  }
+
+  void _publishSettingsAfterLoad(AppSettings settings) {
+    final callback = widget.onSettingsChanged;
+    if (callback == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      callback(settings);
+    });
   }
 
   void _applyAnitabiServiceConfig(AppSettings settings) {
@@ -218,18 +242,31 @@ class _AppShellState extends State<AppShell> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('计划文件导入失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '计划文件导入失败');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = _planController;
-    AppColors.palette = _settings.themePalette;
-    AppColors.customAccentValue = _settings.customThemeColorValue;
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+    applyAppColorsFromSettings(
+      _settings,
+      platformBrightness: platformBrightness,
+    );
+    final brightness = resolvedAppBrightness(
+      _settings,
+      platformBrightness: platformBrightness,
+    );
 
     if (controller == null) {
-      return _PlanLoadState(error: _loadError, onRetry: _loadActivePlan);
+      return Theme(
+        data: appThemeFor(
+          _settings,
+          platformBrightness: MediaQuery.platformBrightnessOf(context),
+        ),
+        child: _PlanLoadState(error: _loadError, onRetry: _loadActivePlan),
+      );
     }
 
     return ListenableBuilder(
@@ -244,11 +281,13 @@ class _AppShellState extends State<AppShell> {
             child: AppUiScaleView(
               scale: _settings.uiScale,
               child: Theme(
-                data: AppTheme.light(
+                data: AppTheme.of(
+                  brightness: brightness,
                   palette: _settings.themePalette,
                   customAccentValue: _settings.customThemeColorValue,
                 ),
                 child: Scaffold(
+                  backgroundColor: AppColors.background,
                   body: IndexedStack(
                     index: _selectedIndex,
                     children: [
@@ -262,9 +301,12 @@ class _AppShellState extends State<AppShell> {
                         onOpenPointManager: _openPointManager,
                         onOpenImportExport: _openImportExport,
                       ),
-                      PilgrimageMapScreen(
-                        controller: controller,
-                        settings: _settings,
+                      TickerMode(
+                        enabled: _selectedIndex == 1,
+                        child: PilgrimageMapScreen(
+                          controller: controller,
+                          settings: _settings,
+                        ),
                       ),
                       RecordsScreen(
                         controller: controller,
@@ -285,13 +327,11 @@ class _AppShellState extends State<AppShell> {
                           return IconThemeData(color: AppColors.onAccent);
                         }
 
-                        return const IconThemeData(
-                          color: AppColors.textPrimary,
-                        );
+                        return IconThemeData(color: AppColors.textPrimary);
                       }),
                       labelTextStyle: WidgetStateProperty.resolveWith((states) {
                         if (states.contains(WidgetState.selected)) {
-                          return const TextStyle(
+                          return TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -299,7 +339,7 @@ class _AppShellState extends State<AppShell> {
                           );
                         }
 
-                        return const TextStyle(
+                        return TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -388,7 +428,7 @@ class _PlanLoadState extends StatelessWidget {
               Text(
                 hasError ? '请稍后重试。' : '准备今日点位和当前目标。',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
                   letterSpacing: 0,
@@ -399,7 +439,7 @@ class _PlanLoadState extends StatelessWidget {
                 SelectableText(
                   error.toString(),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.error,
                     fontSize: 12,
                     letterSpacing: 0,

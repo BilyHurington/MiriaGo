@@ -18,6 +18,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/reference_image_status.dart';
 import '../records/visit_record_file_ops_stub.dart'
     if (dart.library.io) '../records/visit_record_file_ops_io.dart';
+import '../widgets/snackbar_helper.dart';
 import '../widgets/anitabi_network_image.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -31,6 +32,7 @@ import 'camera_zoom_capabilities.dart';
 import 'gallery_capture_time_stub.dart'
     if (dart.library.io) 'gallery_capture_time_io.dart';
 import 'photo_location.dart';
+import 'photo_location_choice_sheet.dart';
 import 'reference_image_bytes_stub.dart'
     if (dart.library.io) 'reference_image_bytes_io.dart'
     as reference_image_bytes;
@@ -200,7 +202,7 @@ class _CamerawesomeReferenceScreenState
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('照片导入失败，请重新选择。')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '照片导入失败，请重新选择。');
       await _restoreCameraOrientation(landscape: restoreLandscape);
       return;
     }
@@ -342,40 +344,8 @@ class _CamerawesomeReferenceScreenState
     final selected = await showModalBottomSheet<PhotoLocationStrategy>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('是否在巡礼照片中记录定位？'),
-              subtitle: Text('以后可以在“拍摄设置”中修改。不会使用点位坐标代替实际定位。'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.history_toggle_off_outlined),
-              title: const Text('使用最近一次定位'),
-              subtitle: const Text('优先快速写入近期有效定位，没有时获取一次。'),
-              onTap: () => Navigator.of(
-                context,
-              ).pop(PhotoLocationStrategy.useRecentLocation),
-            ),
-            ListTile(
-              leading: const Icon(Icons.my_location_outlined),
-              title: const Text('确认记录时获取定位（推荐）'),
-              subtitle: const Text('拍摄后在确认页面等待新定位，适合需要更准确位置时。'),
-              onTap: () => Navigator.of(
-                context,
-              ).pop(PhotoLocationStrategy.waitOnConfirmation),
-            ),
-            ListTile(
-              leading: const Icon(Icons.location_off_outlined),
-              title: const Text('不记录定位'),
-              onTap: () =>
-                  Navigator.of(context).pop(PhotoLocationStrategy.disabled),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      builder: (context) => const PhotoLocationChoiceSheet(),
     );
     if (selected == null || !mounted) {
       return null;
@@ -401,10 +371,9 @@ class _CamerawesomeReferenceScreenState
       return await resolveRecentPhotoLocation();
     } on CurrentLocationException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${currentLocationFailureMessage(error)}本次照片不记录定位。'),
-          ),
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.warning,
+          title: '${currentLocationFailureMessage(error)}本次照片不记录定位。',
         );
       }
       return null;
@@ -412,7 +381,10 @@ class _CamerawesomeReferenceScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('定位获取失败，本次照片不记录定位。')));
+        ).showStatusSnack(
+          kind: AppStatusBannerKind.warning,
+          title: '定位获取失败，本次照片不记录定位。',
+        );
       }
       return null;
     }
@@ -504,8 +476,10 @@ class _CamerawesomeReferenceScreenState
               onOpacityChanged: (value) => _overlayOpacity.value = value,
               onCapture: () async {
                 if (_shouldWaitForReferenceAspectRatio(reference)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('正在读取参考图比例，请稍后拍摄。')),
+                  ScaffoldMessenger.of(context).showStatusSnack(
+                    kind: AppStatusBannerKind.running,
+                    title: '正在读取参考图比例，请稍后拍摄。',
+                    icon: Icons.aspect_ratio_outlined,
                   );
                   return;
                 }
@@ -1444,7 +1418,8 @@ class _NativeCameraTopBar extends StatelessWidget {
       child: Row(
         children: [
           _CameraCircleButton(
-            tooltip: '返回',
+            tooltip: null,
+            semanticLabel: '返回',
             icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
@@ -1675,7 +1650,8 @@ class _NativeLandscapeLeftRail extends StatelessWidget {
               _CameraCircleButton(
                 size: metrics.controlButtonSize,
                 iconSize: metrics.controlIconSize,
-                tooltip: '返回',
+                tooltip: null,
+                semanticLabel: '返回',
                 icon: Icons.arrow_back,
                 onPressed: onBack,
               ),
@@ -2454,7 +2430,8 @@ class _CameraTopBar extends StatelessWidget {
       child: Row(
         children: [
           _CameraCircleButton(
-            tooltip: '返回',
+            tooltip: null,
+            semanticLabel: '返回',
             icon: Icons.arrow_back,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
@@ -2655,6 +2632,7 @@ class _CameraCircleButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.text,
+    this.semanticLabel,
     this.size = 44,
     this.iconSize = 21,
   });
@@ -2663,6 +2641,7 @@ class _CameraCircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final String? text;
+  final String? semanticLabel;
   final double size;
   final double iconSize;
 
@@ -2681,7 +2660,18 @@ class _CameraCircleButton extends StatelessWidget {
         shape: const CircleBorder(),
       ),
       onPressed: onPressed,
-      icon: _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text),
+      icon: semanticLabel == null
+          ? _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text)
+          : Semantics(
+              label: semanticLabel,
+              child: ExcludeSemantics(
+                child: _CameraButtonIcon(
+                  icon: icon,
+                  iconSize: iconSize,
+                  text: text,
+                ),
+              ),
+            ),
     );
     return SizedBox.square(dimension: size, child: button);
   }
@@ -3727,9 +3717,8 @@ class _FallbackTopBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: '返回',
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back, semanticLabel: '返回'),
           ),
           Expanded(
             child: Text(

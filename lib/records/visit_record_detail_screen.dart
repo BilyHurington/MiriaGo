@@ -15,8 +15,10 @@ import '../plan/reference_image_status.dart';
 import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/anitabi_network_image.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_image_placeholder.dart';
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
@@ -61,6 +63,11 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: AppTheme.appBarHeight,
+        leading: AppBackButton(
+          key: const ValueKey('record-detail-back-button'),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: const Text('记录详情'),
         actions: [
           IconButton(
@@ -151,6 +158,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       onOpenRecords: () => _openPointRecords(point),
       onOpenRecord: _openRelatedRecord,
       navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
     );
   }
 
@@ -227,17 +235,14 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
                             ? ConfirmActionDialog.dangerColor
                             : Colors.transparent;
                       }),
-                      side: const BorderSide(
-                        color: AppColors.border,
-                        width: 1.5,
-                      ),
+                      side: BorderSide(color: AppColors.border, width: 1.5),
                       onChanged: (value) =>
                           setState(() => deleteFiles = value ?? false),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       '同时删除照片文件',
                       style: TextStyle(
                         color: AppColors.textPrimary,
@@ -283,7 +288,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
     if (capturedPath == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('巡礼图不可用，无法导出对比图片。')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '巡礼图不可用，无法导出对比图片。');
       return;
     }
 
@@ -315,7 +320,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
     if (repository == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('当前平台暂不支持保存导出偏好。')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '当前平台暂不支持保存导出偏好。');
       return;
     }
 
@@ -516,7 +521,7 @@ class _RecordImageTile extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -587,7 +592,7 @@ class _OrphanRecordNotice extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(Icons.link_off_outlined, color: AppColors.warning, size: 19),
           SizedBox(width: 8),
@@ -653,7 +658,7 @@ class _RecordInfoDashboard extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           subtitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
                             letterSpacing: 0,
@@ -664,7 +669,7 @@ class _RecordInfoDashboard extends StatelessWidget {
                   ),
                   if (onHeaderTap != null) ...[
                     const SizedBox(width: 12),
-                    const Icon(
+                    Icon(
                       Icons.chevron_right,
                       color: AppColors.textSecondary,
                       size: 24,
@@ -738,7 +743,7 @@ class _RecordActionPanel extends StatelessWidget {
                 onTap: onColorGrading,
               ),
             ),
-            const VerticalDivider(
+            VerticalDivider(
               width: 9,
               indent: 8,
               endIndent: 8,
@@ -797,7 +802,7 @@ class _RecordAction extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -809,7 +814,7 @@ class _RecordAction extends StatelessWidget {
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
                           letterSpacing: 0,
@@ -849,7 +854,7 @@ class _DetailRow extends StatelessWidget {
           width: 70,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -862,7 +867,7 @@ class _DetailRow extends StatelessWidget {
           child: CopyableText(
             text: value,
             copyLabel: label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
               letterSpacing: 0,

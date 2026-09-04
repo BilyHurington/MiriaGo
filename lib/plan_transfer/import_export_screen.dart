@@ -8,6 +8,7 @@ import '../platform/platform_flags_stub.dart'
 import '../plan/pilgrimage_models.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'my_maps_csv_export.dart';
 import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
@@ -68,11 +69,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
-            onPressed: _handleBack,
-            icon: const Icon(Icons.arrow_back),
-          ),
+          leading: AppBackButton(onPressed: _handleBack),
           title: const Text('导入导出'),
         ),
         body: ListView(
@@ -157,7 +154,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     if (_exporting) {
       _exportGeneration++;
       setState(() => _exporting = false);
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+      messenger.showReplacingSnackBar(
+        appStatusSnackBar(
+          kind: AppStatusBannerKind.running,
+          title: '已取消导出',
+          icon: Icons.cancel_outlined,
+        ),
+      );
     }
     Navigator.of(context).pop();
   }
@@ -214,8 +217,9 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (!mounted) {
         return;
       }
-      messenger.showReplacingSnackBar(
-        const SnackBar(content: Text('导入文件读取失败')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '导入文件读取失败',
       );
     } finally {
       if (mounted) {
@@ -225,21 +229,12 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   }
 
   Future<void> _showExternalIosImportHelp() async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('从其他 App 打开 .sjhplan'),
-        content: const Text(
+    await showInfoActionDialog(
+      context,
+      title: '从其他 App 打开 .sjhplan',
+      message:
           '请在文件、聊天、浏览器下载页、网盘或其他保存位置找到 .sjhplan 文件，然后点开文件，或使用分享/更多菜单选择 MiriaGo。\n\n'
           'MiriaGo 收到文件后会自动进入导入预览页面。若列表里没有 MiriaGo，可以先把文件保存到“文件”App，再长按文件选择分享或打开方式。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('知道了'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -411,24 +406,40 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final generation = ++_exportGeneration;
     setState(() => _exporting = true);
-    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在导出...')));
+    messenger.showReplacingSnackBar(
+      appStatusSnackBar(
+        kind: AppStatusBannerKind.running,
+        title: '正在导出...',
+        icon: Icons.ios_share_outlined,
+      ),
+    );
     try {
       final result = await action(generation);
       if (!_isCurrentExport(generation)) {
         return;
       }
       if (result.delivery.action == PlanExportDeliveryAction.canceled) {
-        messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+        messenger.showReplacingSnackBar(
+          appStatusSnackBar(
+            kind: AppStatusBannerKind.running,
+            title: '已取消导出',
+            icon: Icons.cancel_outlined,
+          ),
+        );
         return;
       }
-      messenger.showReplacingSnackBar(
-        SnackBar(content: Text(result.successMessage(successMessage))),
-      );
+      messenger.showReplacingSnackBar(result.statusSnackBar(successMessage));
     } on PlanExportCanceledException {
       if (!_isCurrentExport(generation)) {
         return;
       }
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+      messenger.showReplacingSnackBar(
+        appStatusSnackBar(
+          kind: AppStatusBannerKind.running,
+          title: '已取消导出',
+          icon: Icons.cancel_outlined,
+        ),
+      );
     } on _ExportAbortedException {
       return;
     } catch (error, stackTrace) {
@@ -437,7 +448,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (!_isCurrentExport(generation)) {
         return;
       }
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('导出失败')));
+      messenger.showReplacingSnackBar(
+        appStatusSnackBar(
+          kind: AppStatusBannerKind.error,
+          title: '导出失败',
+          subtitle: '请稍后重试',
+        ),
+      );
     } finally {
       if (_isCurrentExport(generation)) {
         setState(() => _exporting = false);
@@ -465,15 +482,24 @@ class _PlanExportRunResult {
   final List<String> warnings;
   final Map<String, int> warningCounts;
 
-  String successMessage(String fallback) {
+  SnackBar statusSnackBar(String title) {
     if (warnings.isEmpty) {
-      return fallback;
+      return appStatusSnackBar(
+        kind: AppStatusBannerKind.success,
+        title: title,
+        subtitle: switch (delivery.action) {
+          PlanExportDeliveryAction.saved => '已保存到本地',
+          PlanExportDeliveryAction.shared => '已通过系统分享送出',
+          PlanExportDeliveryAction.canceled => null,
+        },
+      );
     }
     final summary = _warningSummary(warningCounts);
-    if (summary.isEmpty) {
-      return '$fallback，部分资源未能加入';
-    }
-    return '$fallback，$summary';
+    return appStatusSnackBar(
+      kind: AppStatusBannerKind.warning,
+      title: title,
+      subtitle: summary.isEmpty ? '部分资源未能加入' : summary,
+    );
   }
 }
 
@@ -544,7 +570,7 @@ class _PlanExportSummary extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   '${plan.groups.length} 个片区 / ${plan.points.length} 个点位',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     letterSpacing: 0,
@@ -592,7 +618,7 @@ class _SectionTitle extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   letterSpacing: 0,
@@ -720,7 +746,7 @@ class _ExportSizeEstimateRow extends StatelessWidget {
         Expanded(
           child: Text(
             estimating ? '正在估算数据包大小...' : estimate?.label ?? '预计数据包大小：暂时无法估算',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -786,7 +812,7 @@ class _ActionTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         letterSpacing: 0,

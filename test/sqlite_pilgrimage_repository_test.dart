@@ -66,6 +66,110 @@ void main() {
     expect(ungrouped.currentGroupId, 'ungrouped');
   });
 
+  test('persists plan action outside-tap preference', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+
+    await repository.saveAppSettings(
+      const AppSettings(dismissPlanActionsOnOutsideTap: false),
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.dismissPlanActionsOnOutsideTap, isFalse);
+  });
+
+  test('persists appearance theme mode', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+
+    await repository.saveAppSettings(
+      const AppSettings(themeMode: AppThemeMode.dark),
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.themeMode, AppThemeMode.dark);
+  });
+
+  test(
+    'seeds and persists uji-station zone chain across repository instances',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+
+      expect(plan.currentGroupId, 'sample-group-uji-station');
+      expect(
+        _ujiStationChain(plan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      expect(_ujiStationChain(plan).map((point) => point.groupOrderIndex), [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+      ]);
+
+      final reloaded = SqlitePilgrimageRepository(database: database);
+      final reloadedPlan = await reloaded.loadActivePlan();
+      expect(
+        _ujiStationChain(reloadedPlan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+    },
+  );
+
+  test(
+    'sqlite file persists theme mode and uji-station chain after reopen',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_sqlite_persist_',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final file = File(p.join(tempDirectory.path, 'seichi_junrei.sqlite'));
+
+      final database = AppDatabase(NativeDatabase(file));
+      final repository = SqlitePilgrimageRepository(database: database);
+      await repository.saveAppSettings(
+        const AppSettings(themeMode: AppThemeMode.system),
+      );
+      final seeded = await repository.loadActivePlan();
+      expect(
+        _ujiStationChain(seeded).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      await database.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      final reloaded = SqlitePilgrimageRepository(database: reopened);
+      final settings = await reloaded.loadAppSettings();
+      final plan = await reloaded.loadActivePlan();
+
+      expect(settings.themeMode, AppThemeMode.system);
+      expect(
+        _ujiStationChain(plan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      expect(_ujiStationChain(plan).map((point) => point.groupOrderIndex), [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+      ]);
+    },
+  );
+
   test('persists work type and cover metadata', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -220,6 +324,7 @@ void main() {
     expect(migratedPlan.name, plan.name);
     expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
     expect(settings.mapMarkerClusteringEnabled, isTrue);
+    expect(settings.hideCompletedPointsOnMap, isTrue);
     expect(settings.mapMarkerClusterRadius, 40);
     expect(settings.mapMarkerClusterMaxZoom, 21);
   });
@@ -503,6 +608,92 @@ void main() {
       expect(
         (await repository.loadAppSettings()).photoLocationStrategy,
         PhotoLocationStrategy.waitOnConfirmation,
+      );
+    },
+  );
+
+  test(
+    'schema 38 to 39 adds plan action dismissal preference without data loss',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(name: '计划操作设置迁移', area: '东京');
+      await repository.saveAppSettings(
+        const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN dismiss_plan_actions_on_outside_tap',
+      );
+
+      await database.migration.onUpgrade(
+        database.createMigrator(),
+        38,
+        database.schemaVersion,
+      );
+
+      expect(
+        await _tableColumnNames(database, 'app_settings_entries'),
+        contains('dismiss_plan_actions_on_outside_tap'),
+      );
+      final migratedPlan = (await repository.loadPlans()).singleWhere(
+        (candidate) => candidate.id == plan.id,
+      );
+      final settings = await repository.loadAppSettings();
+      expect(migratedPlan.name, plan.name);
+      expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+      expect(settings.dismissPlanActionsOnOutsideTap, isTrue);
+
+      await repository.saveAppSettings(
+        settings.copyWith(dismissPlanActionsOnOutsideTap: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).dismissPlanActionsOnOutsideTap,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'schema 39 to 40 adds hide completed map points preference without data loss',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(name: '隐藏完成点位迁移', area: '东京');
+      await repository.saveAppSettings(
+        const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN hide_completed_points_on_map',
+      );
+
+      await database.migration.onUpgrade(
+        database.createMigrator(),
+        39,
+        database.schemaVersion,
+      );
+
+      expect(
+        await _tableColumnNames(database, 'app_settings_entries'),
+        contains('hide_completed_points_on_map'),
+      );
+      final migratedPlan = (await repository.loadPlans()).singleWhere(
+        (candidate) => candidate.id == plan.id,
+      );
+      final settings = await repository.loadAppSettings();
+      expect(migratedPlan.name, plan.name);
+      expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+      expect(settings.hideCompletedPointsOnMap, isTrue);
+
+      await repository.saveAppSettings(
+        settings.copyWith(hideCompletedPointsOnMap: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).hideCompletedPointsOnMap,
+        isFalse,
       );
     },
   );
@@ -1640,6 +1831,7 @@ void main() {
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
         showPlanGroupProgress: false,
+        hideCompletedPointsOnMap: false,
         mapMarkerClusteringEnabled: false,
         mapMarkerClusterRadius: 88,
         mapMarkerClusterMaxZoom: 20,
@@ -1693,6 +1885,7 @@ void main() {
     expect(settings.mapThumbnailVisibleThreshold, 55);
     expect(settings.mapThumbnailConcurrentLoads, 12);
     expect(settings.showPlanGroupProgress, isFalse);
+    expect(settings.hideCompletedPointsOnMap, isFalse);
     expect(settings.mapMarkerClusteringEnabled, isFalse);
     expect(settings.mapMarkerClusterRadius, 88);
     expect(settings.mapMarkerClusterMaxZoom, 20);
@@ -2342,4 +2535,23 @@ Future<void> _insertLegacyPoint(
           sortOrder: Value(sortOrder),
         ),
       );
+}
+
+const _ujiStationChainNames = [
+  '井用机前步行道',
+  '宇治桥',
+  'JR 宇治站',
+  '宇治文化中心 停车场',
+  '宇治川河畔',
+  '京阪宇治站前',
+];
+
+List<PilgrimagePoint> _ujiStationChain(PilgrimagePlan plan) {
+  return [
+    for (final point in plan.points)
+      if (point.groupId == 'sample-group-uji-station') point,
+  ]..sort(
+    (left, right) =>
+        (left.groupOrderIndex ?? 0).compareTo(right.groupOrderIndex ?? 0),
+  );
 }

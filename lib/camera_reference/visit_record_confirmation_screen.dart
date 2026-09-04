@@ -13,6 +13,7 @@ import '../records/visit_record_photo_stub.dart'
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/anitabi_network_image.dart';
 import '../widgets/reference_image_placeholder.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import '../widgets/reference_thumbnail_stub.dart'
@@ -22,6 +23,7 @@ import 'camera_storage_stub.dart'
     if (dart.library.io) 'camera_storage_io.dart'
     as camera_storage;
 import 'photo_location.dart';
+import 'photo_location_status_panel.dart';
 import '../map/current_location_resolver.dart';
 
 enum VisitRecordConfirmationResult { saved, completed }
@@ -214,7 +216,7 @@ class _VisitRecordConfirmationScreenState
     );
     ScaffoldMessenger.of(
       context,
-    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+    ).showStatusSnack(kind: AppStatusBannerKind.success, title: message);
     if (completePoint) {
       Navigator.of(context).pop(VisitRecordConfirmationResult.completed);
     } else {
@@ -228,13 +230,18 @@ class _VisitRecordConfirmationScreenState
       canPop: !_saving,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _saving) {
-          ScaffoldMessenger.of(
-            context,
-          ).showReplacingSnackBar(const SnackBar(content: Text('正在保存记录，请稍候。')));
+          ScaffoldMessenger.of(context).showStatusSnack(
+            kind: AppStatusBannerKind.running,
+            title: '正在保存记录，请稍候。',
+            icon: Icons.save_outlined,
+          );
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('确认记录')),
+        appBar: AppBar(
+          leading: appBackButtonIfCanPop(context),
+          title: const Text('确认记录'),
+        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
@@ -249,7 +256,7 @@ class _VisitRecordConfirmationScreenState
             const SizedBox(height: 4),
             Text(
               '${widget.point.work.title} / ${widget.point.displayEpisodeLabel}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
                 letterSpacing: 0,
@@ -266,7 +273,7 @@ class _VisitRecordConfirmationScreenState
             _InfoPanel(referenceMode: widget.referenceMode),
             if (_locationStatus != null) ...[
               const SizedBox(height: 12),
-              _PhotoLocationStatusPanel(
+              PhotoLocationStatusPanel(
                 label: _locationStatus!,
                 loading: _locating,
                 onSkip: _locating
@@ -384,8 +391,9 @@ Future<void> _showGallerySaveSheet(
   final success = await saveImageToGallery(photoPath);
   if (!context.mounted) return;
 
-  ScaffoldMessenger.of(context).showReplacingSnackBar(
-    SnackBar(content: Text(success ? '已保存到相册' : '保存失败，请稍后重试。')),
+  ScaffoldMessenger.of(context).showStatusSnack(
+    kind: success ? AppStatusBannerKind.success : AppStatusBannerKind.error,
+    title: success ? '已保存到相册' : '保存失败，请稍后重试。',
   );
 }
 
@@ -466,7 +474,7 @@ class _ImageCompareTile extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -556,9 +564,9 @@ class _InfoPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.layers_outlined, color: AppColors.textSecondary),
+          Icon(Icons.layers_outlined, color: AppColors.textSecondary),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             '参考模式',
             style: TextStyle(
               color: AppColors.textSecondary,
@@ -607,7 +615,7 @@ class _SavingProgressPanel extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -615,60 +623,6 @@ class _SavingProgressPanel extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoLocationStatusPanel extends StatelessWidget {
-  const _PhotoLocationStatusPanel({
-    required this.label,
-    required this.loading,
-    this.onSkip,
-  });
-
-  final String label;
-  final bool loading;
-  final VoidCallback? onSkip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          if (loading)
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            const Icon(
-              Icons.location_on_outlined,
-              size: 18,
-              color: AppColors.textSecondary,
-            ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-          if (onSkip != null)
-            TextButton(onPressed: onSkip, child: const Text('跳过')),
         ],
       ),
     );

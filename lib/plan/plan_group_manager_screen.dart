@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/app_scaled_route.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
@@ -70,14 +71,12 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
         if (didPop) {
           return;
         }
-        Navigator.of(context).pop(_didUpdate);
+        Navigator.of(context).pop<String?>(null);
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
-            onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
+          leading: AppBackButton(
+            onPressed: () => Navigator.of(context).pop<String?>(null),
           ),
           title: const Text('片区管理'),
           actions: [
@@ -92,49 +91,63 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
               ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: _CreateGroupFab(
           onPressed: _isSaving ? null : _createGroup,
-          icon: const Icon(Icons.add),
-          label: const Text('新建片区'),
         ),
-        body: ReorderableListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-          header: _PlanGroupManagerHeader(
-            plan: _plan,
-            groupCount: groups.length,
-          ),
-          itemCount: groups.length + 1,
-          buildDefaultDragHandles: false,
-          proxyDecorator: _cleanReorderProxy,
-          onReorderItem: _reorderGroups,
-          itemBuilder: (context, index) {
-            if (index == groups.length) {
-              return Padding(
-                key: const ValueKey('ungrouped'),
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _UngroupedGroupCard(pointCount: _ungroupedCount),
-              );
-            }
-
-            final group = groups[index];
-            final pointCount = _plan.points
-                .where((point) => point.groupId == group.id)
-                .length;
-            return Padding(
-              key: ValueKey(group.id),
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _PlanGroupCard(
-                index: index,
-                group: group,
-                pointCount: pointCount,
-                isBusy: _isSaving,
-                onRename: () => _renameGroup(group),
-                onSetAnchor: () => _setGroupAnchor(group),
-                onToggleOrderMode: () => _toggleOrderMode(group),
-                onDelete: () => _confirmDeleteGroup(group, pointCount),
+        body: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: _PlanGroupManagerHeader(
+                  plan: _plan,
+                  groupCount: groups.length,
+                ),
               ),
-            );
-          },
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverReorderableList(
+                itemCount: groups.length,
+                onReorder: _reorderGroups,
+                proxyDecorator: _cleanReorderProxy,
+                itemBuilder: (context, index) {
+                  final group = groups[index];
+                  final pointCount = _plan.points
+                      .where((point) => point.groupId == group.id)
+                      .length;
+                  return Padding(
+                    key: ValueKey(group.id),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _PlanGroupCard(
+                      index: index,
+                      group: group,
+                      pointCount: pointCount,
+                      isBusy: _isSaving,
+                      onOpen: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(group.id),
+                      onRename: () => _renameGroup(group),
+                      onSetAnchor: () => _setGroupAnchor(group),
+                      onToggleOrderMode: () => _toggleOrderMode(group),
+                      onDelete: () => _confirmDeleteGroup(group, pointCount),
+                    ),
+                  );
+                },
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+              sliver: SliverToBoxAdapter(
+                child: _UngroupedGroupCard(
+                  pointCount: _ungroupedCount,
+                  onOpen: _isSaving
+                      ? null
+                      : () => Navigator.of(context).pop('ungrouped'),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -285,11 +298,18 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
 
   Future<void> _reorderGroups(int oldIndex, int newIndex) async {
     final groups = _groups;
-    if (_isSaving || oldIndex >= groups.length || newIndex > groups.length) {
+    if (_isSaving || oldIndex >= groups.length) {
+      return;
+    }
+    var targetIndex = newIndex;
+    if (targetIndex > oldIndex) {
+      targetIndex -= 1;
+    }
+    if (targetIndex < 0 || targetIndex > groups.length) {
       return;
     }
     final group = groups.removeAt(oldIndex);
-    groups.insert(newIndex, group);
+    groups.insert(targetIndex.clamp(0, groups.length), group);
 
     await _savePlanChange(
       action: () async {
@@ -336,7 +356,7 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: failureMessage);
     }
   }
 
@@ -449,6 +469,45 @@ class _CreatePlanGroupDialogState extends State<_CreatePlanGroupDialog> {
   }
 }
 
+class _CreateGroupFab extends StatelessWidget {
+  const _CreateGroupFab({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          sizeConstraints: BoxConstraints.tightFor(width: 64, height: 64),
+          shape: CircleBorder(),
+        ),
+      ),
+      child: FloatingActionButton(
+        key: const ValueKey('plan-group-create-fab'),
+        onPressed: onPressed,
+        tooltip: '新建片区',
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, size: 24),
+            SizedBox(height: 2),
+            Text(
+              '新建',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PlanGroupManagerHeader extends StatelessWidget {
   const _PlanGroupManagerHeader({required this.plan, required this.groupCount});
 
@@ -458,46 +517,32 @@ class _PlanGroupManagerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.account_tree_outlined, color: AppColors.accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plan.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '$groupCount 个片区 · ${plan.points.length} 个点位',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
+      key: const ValueKey('plan-group-summary'),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            plan.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$groupCount 个片区 · ${plan.points.length} 个点位',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -509,6 +554,7 @@ class _PlanGroupCard extends StatelessWidget {
     required this.group,
     required this.pointCount,
     required this.isBusy,
+    required this.onOpen,
     required this.onRename,
     required this.onSetAnchor,
     required this.onToggleOrderMode,
@@ -519,6 +565,7 @@ class _PlanGroupCard extends StatelessWidget {
   final PilgrimagePlanGroup group;
   final int pointCount;
   final bool isBusy;
+  final VoidCallback? onOpen;
   final VoidCallback onRename;
   final VoidCallback onSetAnchor;
   final VoidCallback onToggleOrderMode;
@@ -526,140 +573,308 @@ class _PlanGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isEmpty = pointCount == 0;
     final orderLabel = group.orderMode == PlanGroupOrderMode.manual
         ? '手动排序'
         : '无序';
-    final anchorLabel = group.anchorName ?? '未设置关键点';
+    final hasAnchor =
+        group.anchorName != null && group.anchorName!.trim().isNotEmpty;
+    final surface = isEmpty ? AppColors.surfaceMuted : AppColors.surface;
 
     return Material(
-      color: AppColors.surface,
+      color: surface,
       borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 12, 6, 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            ReorderableDragStartListener(
-              index: index,
-              enabled: !isBusy,
-              child: const SizedBox(
-                width: 42,
-                child: Icon(
-                  Icons.drag_indicator,
-                  color: AppColors.textSecondary,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 12, 6, 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              ReorderableDragStartListener(
+                index: index,
+                enabled: !isBusy,
+                child: SizedBox(
+                  width: 42,
+                  child: Icon(
+                    Icons.drag_indicator,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    group.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            group.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                              color: isEmpty
+                                  ? AppColors.textSecondary
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isEmpty) ...[
+                          const SizedBox(width: 6),
+                          const _GroupMetaChip(label: '空', muted: true),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            hasAnchor
+                                ? '关键点 · ${group.anchorName}'
+                                : '未设置关键点',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _GroupMetaChip(
+                          label: orderLabel,
+                          accent:
+                              group.orderMode == PlanGroupOrderMode.manual,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                key: ValueKey('plan-group-actions-${group.id}'),
+                tooltip: '片区操作',
+                enabled: !isBusy,
+                icon: const Icon(Icons.more_vert),
+                position: PopupMenuPosition.under,
+                offset: const Offset(0, 6),
+                elevation: 8,
+                shadowColor: Colors.black.withValues(alpha: 0.16),
+                color: AppColors.surface,
+                surfaceTintColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: AppColors.border),
+                ),
+                constraints: const BoxConstraints(minWidth: 0, maxWidth: 148),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'rename':
+                      onRename();
+                    case 'anchor':
+                      onSetAnchor();
+                    case 'order':
+                      onToggleOrderMode();
+                    case 'delete':
+                      onDelete();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'rename',
+                    height: 42,
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: _GroupActionRow(
+                      icon: Icons.edit_outlined,
+                      label: '重命名',
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    '$pointCount 点位 · $anchorLabel · $orderLabel',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      letterSpacing: 0,
+                  const PopupMenuItem(
+                    value: 'anchor',
+                    height: 42,
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: _GroupActionRow(
+                      icon: Icons.flag_outlined,
+                      label: '设置关键点',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'order',
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _GroupActionRow(
+                      icon: Icons.sort_outlined,
+                      label: group.orderMode == PlanGroupOrderMode.manual
+                          ? '切换为无序'
+                          : '切换为手动排序',
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    height: 42,
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: _GroupActionRow(
+                      icon: Icons.delete_outline,
+                      label: '删除片区',
+                      destructive: true,
                     ),
                   ),
                 ],
               ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: '片区操作',
-              enabled: !isBusy,
-              onSelected: (value) {
-                switch (value) {
-                  case 'rename':
-                    onRename();
-                  case 'anchor':
-                    onSetAnchor();
-                  case 'order':
-                    onToggleOrderMode();
-                  case 'delete':
-                    onDelete();
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'rename', child: Text('重命名')),
-                const PopupMenuItem(value: 'anchor', child: Text('设置关键点')),
-                PopupMenuItem(
-                  value: 'order',
-                  child: Text(
-                    group.orderMode == PlanGroupOrderMode.manual
-                        ? '切换为无序'
-                        : '切换为手动排序',
-                  ),
-                ),
-                const PopupMenuItem(value: 'delete', child: Text('删除片区')),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _UngroupedGroupCard extends StatelessWidget {
-  const _UngroupedGroupCard({required this.pointCount});
+class _GroupMetaChip extends StatelessWidget {
+  const _GroupMetaChip({
+    required this.label,
+    this.muted = false,
+    this.accent = false,
+  });
 
-  final int pointCount;
+  final String label;
+  final bool muted;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
+    final color = accent
+        ? AppColors.accent
+        : muted
+        ? AppColors.textSecondary
+        : AppColors.textSecondary;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.inbox_outlined, color: AppColors.textSecondary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '未分配点位',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$pointCount 个点位等待整理',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupActionRow extends StatelessWidget {
+  const _GroupActionRow({
+    required this.icon,
+    required this.label,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? AppColors.error : AppColors.textPrimary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _UngroupedGroupCard extends StatelessWidget {
+  const _UngroupedGroupCard({required this.pointCount, required this.onOpen});
+
+  final int pointCount;
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPoints = pointCount > 0;
+    return Material(
+      key: const ValueKey('ungrouped'),
+      color: AppColors.surfaceMuted,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.inbox_outlined, color: AppColors.textSecondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '未分配点位',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$pointCount 个点位等待整理',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: hasPoints
+                            ? AppColors.accent
+                            : AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: hasPoints
+                            ? FontWeight.w800
+                            : FontWeight.w500,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

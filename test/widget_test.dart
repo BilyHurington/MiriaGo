@@ -19,11 +19,13 @@ import 'package:miriago/plan/nearest_group_assign_screen.dart';
 import 'package:miriago/plan/plan_group_manager_screen.dart';
 import 'package:miriago/plan/plan_manager_screen.dart';
 import 'package:miriago/plan/point_manager_screen.dart';
+import 'package:miriago/plan/work_manager_screen.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan/pilgrimage_plan_controller.dart';
 import 'package:miriago/records/records_screen.dart';
 import 'package:miriago/records/comparison_export_config.dart';
 import 'package:miriago/widgets/constrained_menu_anchor.dart';
+import 'package:miriago/widgets/confirm_action_dialog.dart';
 import 'package:miriago/widgets/input_dialog.dart';
 import 'package:miriago/widgets/reference_image_placeholder.dart';
 
@@ -40,7 +42,7 @@ Future<void> _pumpAppWithEmptyPlan(WidgetTester tester) async {
 }
 
 Future<void> _openPlanMenu(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('计划操作').first);
+  await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
   await tester.pumpAndSettle();
 }
 
@@ -53,6 +55,10 @@ void _invokeKeyedAction(WidgetTester tester, String key) {
   final finder = find.byKey(ValueKey(key));
   final widget = tester.widget(finder);
   if (widget is ButtonStyleButton) {
+    widget.onPressed!();
+    return;
+  }
+  if (widget is IconButton) {
     widget.onPressed!();
     return;
   }
@@ -165,7 +171,245 @@ void main() {
     expect(find.text('宇治站附近'), findsWidgets);
     expect(find.text('默认计划'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
-    expect(find.textContaining('1 部作品'), findsOneWidget);
+    expect(find.text('吹响吧！上低音号'), findsWidgets);
+    expect(find.textContaining('あじろぎの道'), findsNothing);
+    expect(find.text('已拍 2'), findsNothing);
+    expect(find.byKey(const ValueKey('plan-point-shot-badge')), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('plan-point-shot-badge')),
+        matching: find.text('2'),
+      ),
+      findsNothing,
+    );
+    final planTitle = tester.widget<Text>(
+      find.descendant(of: find.byType(AppBar), matching: find.text('示例计划')),
+    );
+    expect(planTitle.style?.fontSize, 20);
+    expect(planTitle.style?.fontWeight, FontWeight.w900);
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
+      kToolbarHeight,
+    );
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-text')), findsNothing);
+  });
+
+  testWidgets('plan actions expand inline and keep five actions', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    final switchButton = find.byKey(const ValueKey('plan-switch-button'));
+    final toggleButton = find.byKey(const ValueKey('plan-actions-toggle'));
+    final collapsedAppBarRect = tester.getRect(find.byType(AppBar));
+    final collapsedToggleRect = tester.getRect(toggleButton);
+    expect(switchButton, findsOneWidget);
+    expect(toggleButton, findsOneWidget);
+    expect(tester.getSize(switchButton), tester.getSize(toggleButton));
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+    expect(
+      find.descendant(
+        of: switchButton,
+        matching: find.byIcon(Icons.swap_horiz),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: toggleButton,
+        matching: find.byIcon(Icons.expand_more),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(toggleButton);
+    await tester.pumpAndSettle();
+
+    final panel = find.byKey(const ValueKey('plan-actions-panel'));
+    expect(panel, findsOneWidget);
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
+      kToolbarHeight,
+    );
+    expect(tester.getRect(find.byType(AppBar)), collapsedAppBarRect);
+    expect(tester.getRect(toggleButton), collapsedToggleRect);
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+    expect(
+      find.descendant(
+        of: toggleButton,
+        matching: find.byIcon(Icons.expand_less),
+      ),
+      findsOneWidget,
+    );
+    for (final key in const [
+      'plan-action-cache-references',
+      'plan-action-add-points',
+      'plan-action-manage-points',
+      'plan-action-memo',
+      'plan-action-import-export',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsOneWidget);
+    }
+    expect(
+      tester.getBottomLeft(panel).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byKey(const ValueKey('plan-group-switcher'))).dy,
+      ),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('plan-action-cache-references')),
+        matching: find.byIcon(Icons.download_for_offline_outlined),
+      ),
+      findsOneWidget,
+    );
+
+    final addPointsRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-add-points')),
+    );
+    final managePointsRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-manage-points')),
+    );
+    final cacheReferencesRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-cache-references')),
+    );
+    expect(addPointsRect.top, closeTo(managePointsRect.top, 0.1));
+    expect(addPointsRect.bottom, closeTo(managePointsRect.bottom, 0.1));
+    expect(cacheReferencesRect.top, greaterThan(addPointsRect.bottom));
+    expect(cacheReferencesRect.left, closeTo(addPointsRect.left, 0.1));
+
+    await tester.tap(find.byKey(const ValueKey('plan-action-add-points')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddPointsScreen), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+    final addPointsBackButton = tester.widget<IconButton>(
+      find
+          .descendant(
+            of: find.byType(AppBar),
+            matching: find.byType(IconButton),
+          )
+          .first,
+    );
+    expect(addPointsBackButton.tooltip, isNull);
+    Navigator.of(tester.element(find.byType(AddPointsScreen))).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+
+    await tester.tap(toggleButton);
+    await tester.pumpAndSettle();
+
+    final reopenedPanel = find.byKey(const ValueKey('plan-actions-panel'));
+    expect(reopenedPanel, findsOneWidget);
+    await tester.tapAt(Offset(5, tester.getCenter(reopenedPanel).dy));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
+    expect(
+      find.descendant(
+        of: toggleButton,
+        matching: find.byIcon(Icons.expand_more),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
+      kToolbarHeight,
+    );
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+    expect(
+      find.descendant(
+        of: toggleButton,
+        matching: find.byIcon(Icons.expand_more),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('plan action subtitles hide on a narrow screen', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
+    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('计划备忘录'), findsOneWidget);
+    expect(find.text('加入巡礼场景'), findsNothing);
+    expect(find.text('整理片区点位'), findsNothing);
+    expect(find.text('保存完整图片'), findsNothing);
+    expect(find.text('记录行程要点'), findsNothing);
+    expect(find.text('备份迁移计划'), findsNothing);
+  });
+
+  testWidgets('plan action subtitles stay visible on a wider screen', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
+    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('加入巡礼场景'), findsOneWidget);
+    expect(find.text('计划备忘录'), findsOneWidget);
+    expect(find.text('记录行程要点'), findsOneWidget);
+  });
+
+  testWidgets('plan actions can ignore taps outside the panel', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = SamplePilgrimageRepository();
+    await repository.saveAppSettings(
+      const AppSettings(dismissPlanActionsOnOutsideTap: false),
+    );
+    await tester.pumpWidget(MiriaGoApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+    await tester.pumpAndSettle();
+    final panel = find.byKey(const ValueKey('plan-actions-panel'));
+    expect(panel, findsOneWidget);
+
+    await tester.tapAt(Offset(5, tester.getCenter(panel).dy));
+    await tester.pumpAndSettle();
+
+    expect(panel, findsOneWidget);
+    expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('plan-action-cache-references')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ConfirmActionDialog), findsOneWidget);
+
+    final confirmButton = find
+        .descendant(
+          of: find.byType(AppDialogActionRow),
+          matching: find.byType(FilledButton),
+        )
+        .last;
+    await tester.tap(confirmButton);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
   });
 
   testWidgets('restores the last selected plan group', (tester) async {
@@ -426,6 +670,13 @@ void main() {
     await tester.tap(find.text('记录').last);
     await tester.pumpAndSettle();
 
+    expect(
+      tester
+          .widget<AppBar>(find.byKey(const ValueKey('records-app-bar')))
+          .toolbarHeight,
+      kToolbarHeight,
+    );
+
     final title = tester.widget<Text>(
       find.descendant(of: find.byType(AppBar), matching: find.text('记录')),
     );
@@ -549,15 +800,11 @@ void main() {
         const ValueKey('records-group-surface-sample-group-uji-station'),
       ),
     );
-    final groupDividerRect = tester.getRect(
-      find.byKey(const ValueKey('records-group-divider')).first,
-    );
     final firstRecordRect = tester.getRect(
       find.byKey(const ValueKey('record-card-sample-record-jr-uji-01')),
     );
-    expect(groupDividerRect.width, closeTo(groupSurfaceRect.width - 20, 0.1));
-    expect(groupDividerRect.left, greaterThan(groupSurfaceRect.left));
-    expect(firstRecordRect.top - groupDividerRect.bottom, closeTo(4, 0.1));
+    expect(find.byKey(const ValueKey('records-group-divider')), findsNothing);
+    expect(firstRecordRect.top - groupSurfaceRect.bottom, closeTo(4, 0.1));
     expect(
       find.ancestor(
         of: find.byKey(
@@ -726,6 +973,50 @@ void main() {
     await tester.pump();
     expect(tester.testTextInput.isVisible, isFalse);
   });
+
+  testWidgets(
+    'records search empty state explains no matches and clears search',
+    (tester) async {
+      await _pumpApp(tester);
+
+      await tester.tap(find.text('记录').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('records-search-field')),
+        '不存在的巡礼记录',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('records-empty-state')), findsOneWidget);
+      expect(find.text('没有找到相关记录'), findsOneWidget);
+      expect(find.byIcon(Icons.search_off_rounded), findsOneWidget);
+      expect(find.textContaining('点位、作品或场景'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('records-empty-clear-search')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('records-empty-clear-search')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('records-empty-state')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('record-card-sample-record-jr-uji-01')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('records-search-field')),
+            )
+            .controller
+            ?.text,
+        isEmpty,
+      );
+    },
+  );
 
   testWidgets('records can filter by work and plan group', (tester) async {
     await _pumpApp(tester);
@@ -941,6 +1232,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('记录详情'), findsOneWidget);
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
+      kToolbarHeight,
+    );
+    final backButton = tester.widget<IconButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('record-detail-back-button')),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(backButton.tooltip, isNull);
+    expect(
+      tester.getSize(
+        find.descendant(
+          of: find.byKey(const ValueKey('record-detail-back-button')),
+          matching: find.byType(IconButton),
+        ),
+      ),
+      const Size.square(40),
+    );
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: find.byKey(const ValueKey('record-detail-back-button')),
+              matching: find.byType(Icon),
+            ),
+          )
+          .semanticLabel,
+      '返回',
+    );
 
     await tester.tap(find.byTooltip('删除记录'));
     await tester.pumpAndSettle();
@@ -976,6 +1298,9 @@ void main() {
 
     await tester.tap(find.byTooltip('编辑'));
     await tester.pumpAndSettle();
+    expect(find.text('备忘录内容'), findsOneWidget);
+    expect(find.text('取消'), findsNothing);
+    expect(find.text('可以记录交通、预约、补拍事项、同行安排等。'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '第一天先去宇治站，下午整理补拍点。');
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
@@ -1263,6 +1588,15 @@ void main() {
     expect(find.text('井用机前步行道'), findsWidgets);
     expect(find.text('吹响吧！上低音号 / EP 1 / 2:08'), findsOneWidget);
     expect(find.textContaining('あじろぎの道 / 34.'), findsNothing);
+    expect(find.text('已拍 2'), findsNothing);
+    expect(find.byKey(const ValueKey('map-point-shot-badge')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byTooltip('拍摄参考'),
+        matching: find.byKey(const ValueKey('map-point-shot-badge')),
+      ),
+      findsOneWidget,
+    );
     expect(
       tester
           .widgetList<PolygonLayer>(find.byType(PolygonLayer))
@@ -1283,6 +1617,168 @@ void main() {
       find.byKey(const ValueKey('plan-group-picker-selected-accent')),
       findsOneWidget,
     );
+  });
+
+  testWidgets(
+    'map point card content opens detail and keeps navigation actions',
+    (tester) async {
+      await _pumpApp(tester);
+
+      await tester.tap(find.byIcon(Icons.map_outlined).last);
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.info_outline), findsNothing);
+      expect(find.byIcon(Icons.near_me_outlined), findsNWidgets(2));
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('map-point-card-content-anitabi-115908-7evkbmy2'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PointDetailSheet), findsOneWidget);
+    },
+  );
+
+  testWidgets('map large navigation button opens in-app navigation ui', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.byIcon(Icons.map_outlined).last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('map-in-app-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('navigation-route-confirm-screen')),
+      findsOneWidget,
+    );
+    expect(find.text('确认路线'), findsOneWidget);
+    expect(find.text('串联整个片区导航'), findsOneWidget);
+    expect(find.text('仅导航到选中点'), findsOneWidget);
+    expect(find.textContaining('点击即按顺序连接'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-route-confirm-zone')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsOneWidget,
+    );
+    expect(find.text('片区'), findsOneWidget);
+    expect(find.text('宇治站附近'), findsOneWidget);
+    expect(find.textContaining('井用机前步行道'), findsOneWidget);
+    expect(find.text('到达'), findsOneWidget);
+    expect(find.text('小时'), findsOneWidget);
+    expect(find.text('公里'), findsOneWidget);
+    expect(find.text('17 分钟'), findsNothing);
+    expect(find.text('结束路线'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('结束路线'), findsOneWidget);
+    expect(find.text('全部点位'), findsOneWidget);
+    expect(find.text('详细信息'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-all-stops')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-all-stops-sheet')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('宇治桥'), findsOneWidget);
+    expect(find.textContaining('下一个:'), findsNothing);
+    expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
+
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey('in-app-navigation-all-stops-sheet')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-end-route')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('map-in-app-navigation-button')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('map navigation can start only the selected point', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.byIcon(Icons.map_outlined).last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('map-in-app-navigation-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-route-confirm-point')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('终点: 井用机前步行道'), findsOneWidget);
+    expect(find.textContaining('下一个:'), findsNothing);
+  });
+
+  testWidgets('plan point detail navigation opens in-app navigation ui', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpApp(tester);
+
+    await tester.tap(find.text('井用机前步行道').first);
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'point-detail-in-app-navigation-button');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('navigation-route-confirm-screen')),
+      findsOneWidget,
+    );
+    expect(find.text('串联整个片区导航'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('navigation-route-confirm-zone')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-screen')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('井用机前步行道'), findsOneWidget);
+    expect(find.byType(PointDetailSheet), findsNothing);
   });
 
   testWidgets('plan map marker opens detail after selecting the point', (
@@ -1315,9 +1811,100 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('管理计划'), findsOneWidget);
-    expect(find.textContaining('关键点'), findsWidgets);
+    expect(find.byKey(const ValueKey('point-manager-group-switcher')), findsOneWidget);
+    expect(
+      tester.widget(find.byKey(const ValueKey('point-manager-group-switcher'))),
+      isA<FilledButton>(),
+    );
+    expect(find.text('宇治站附近'), findsOneWidget);
+    expect(find.byKey(const ValueKey('point-manager-anchor-row')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-anchor-row')),
+        matching: find.text('关键点：JR 宇治站'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-anchor-row')))
+          .height,
+      40,
+    );
+    expect(find.text('更改'), findsOneWidget);
     expect(find.text('无序'), findsWidgets);
     expect(find.text('井用机前步行道'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+        matching: find.text('6'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+        matching: find.text('点位'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+              matching: find.text('6'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      14,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const ValueKey('point-manager-count-chip-points')),
+              matching: find.text('点位'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      10,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-completed')),
+        matching: find.text('0'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('point-manager-count-chip-completed')),
+        matching: find.text('完成'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('关键点 · JR 宇治站'), findsNothing);
+    expect(find.text('1 / 7'), findsNothing);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-count-chip-points')))
+          .height,
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-order-button')))
+          .height,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('point-manager-order-button')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('point-manager-order-menu')))
+          .width,
+      124,
+    );
   });
 
   testWidgets('plan manager reuses plan region drawers', (tester) async {
@@ -1335,7 +1922,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, '宇治站附近'));
+    await tester.tap(find.byKey(const ValueKey('point-manager-group-switcher')));
     await tester.pumpAndSettle();
     expect(find.text('选择区域'), findsOneWidget);
     expect(
@@ -1457,7 +2044,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('新建片区'));
+    expect(find.byKey(const ValueKey('plan-group-summary')), findsOneWidget);
+    expect(find.byIcon(Icons.account_tree_outlined), findsNothing);
+    expect(find.text('未分配点位'), findsOneWidget);
+    expect(find.textContaining('个点位等待整理'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('plan-group-create-fab')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('创建'));
     await tester.pumpAndSettle();
@@ -1480,6 +2072,16 @@ void main() {
 
     expect(find.text('片区名不能为空'), findsNothing);
     expect(find.text('新片区'), findsOneWidget);
+    expect(find.text('未设置关键点'), findsOneWidget);
+    expect(find.text('空'), findsOneWidget);
+    expect(find.text('无序'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('片区操作'));
+    await tester.pumpAndSettle();
+    expect(find.text('重命名'), findsOneWidget);
+    expect(find.text('设置关键点'), findsOneWidget);
+    expect(find.text('切换为手动排序'), findsOneWidget);
+    expect(find.text('删除片区'), findsOneWidget);
   });
 
   testWidgets('hides desktop launcher status outside web builds', (
@@ -1493,6 +2095,76 @@ void main() {
     expect(find.text('设置'), findsWidgets);
     expect(find.text('桌面端'), findsNothing);
     expect(find.textContaining('桌面启动器'), findsNothing);
+  });
+
+  testWidgets('aligns plan, records, and settings root app bars', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).toolbarHeight,
+      kToolbarHeight,
+    );
+    final planAppBarTop = tester.getTopLeft(find.byType(AppBar)).dy;
+    final planActionTop = tester
+        .getTopLeft(find.byKey(const ValueKey('plan-actions-toggle')))
+        .dy;
+
+    await tester.tap(find.text('记录').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('records-app-bar'))).dy,
+      closeTo(planAppBarTop, 0.1),
+    );
+    final recordsTitleTop = tester
+        .getTopLeft(
+          find.descendant(
+            of: find.byKey(const ValueKey('records-app-bar')),
+            matching: find.text('记录'),
+          ),
+        )
+        .dy;
+    final recordsActionTop = tester
+        .getTopLeft(find.byKey(const ValueKey('records-toggle-all-sections')))
+        .dy;
+    expect(recordsActionTop, closeTo(planActionTop, 0.1));
+
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<AppBar>(find.byKey(const ValueKey('settings-app-bar')))
+          .toolbarHeight,
+      kToolbarHeight,
+    );
+    expect(
+      tester
+          .getTopLeft(
+            find.descendant(
+              of: find.byKey(const ValueKey('settings-app-bar')),
+              matching: find.text('设置'),
+            ),
+          )
+          .dy,
+      closeTo(recordsTitleTop, 0.1),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('settings-reset-button'))).dy,
+      closeTo(recordsActionTop, 0.1),
+    );
+    expect(
+      tester
+          .getTopRight(find.byKey(const ValueKey('settings-reset-button')))
+          .dx,
+      closeTo(
+        tester
+            .getTopRight(find.byKey(const ValueKey('settings-appearance-card')))
+            .dx,
+        0.1,
+      ),
+    );
   });
 
   testWidgets('restores app and comparison settings together', (tester) async {
@@ -1547,6 +2219,15 @@ void main() {
       find.byKey(const ValueKey('plan-group-progress-toggle')),
     );
     expect(progressToggle.value, isTrue);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('dismiss-plan-actions-on-outside-tap-toggle')),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    final dismissToggle = tester.widget<SwitchListTile>(
+      find.byKey(const ValueKey('dismiss-plan-actions-on-outside-tap-toggle')),
+    );
+    expect(dismissToggle.value, isTrue);
 
     Navigator.of(tester.element(find.text('外观设置').first)).pop();
     await tester.pumpAndSettle();
@@ -1563,6 +2244,7 @@ void main() {
 
     expect(find.text('最大缩放倍率'), findsOneWidget);
     expect(find.text('地图标记大小'), findsOneWidget);
+    expect(find.text('隐藏已完成点位'), findsOneWidget);
     expect(find.text('片区范围半径'), findsOneWidget);
     expect(find.text('显示片区进度条'), findsNothing);
     expect(find.text('90%'), findsOneWidget);
@@ -1627,6 +2309,16 @@ void main() {
       find.byKey(const ValueKey('anitabi-service-restore-defaults')),
       findsOneWidget,
     );
+    expect(find.text('连接测试'), findsNothing);
+    expect(find.text('主站地址'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('anitabi-service-restore-defaults')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('将把全部 Anitabi 服务地址恢复为官方默认值。'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
 
     Navigator.of(tester.element(find.text('Anitabi 服务地址').first)).pop();
     await tester.pumpAndSettle();
@@ -1640,6 +2332,45 @@ void main() {
     expect(find.text('地图标记大小'), findsNothing);
     expect(find.text('片区范围半径'), findsNothing);
     expect(find.text('自动聚合密集点位'), findsNothing);
+  });
+
+  testWidgets('appearance settings can switch app theme mode', (tester) async {
+    final repository = SamplePilgrimageRepository();
+    await tester.pumpWidget(MiriaGoApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+    expect(find.text('主题模式'), findsOneWidget);
+    expect(find.text('主题色'), findsOneWidget);
+    expect(find.text('浅色'), findsWidgets);
+
+    await tester.tap(find.text('外观设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('影响应用整体浅色或深色显示'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('appearance-theme-mode-dark')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('appearance-theme-mode-dark')));
+    await tester.pumpAndSettle();
+
+    expect((await repository.loadAppSettings()).themeMode, AppThemeMode.dark);
+    expect(AppColors.isDark, isTrue);
+    expect(
+      Theme.of(tester.element(find.text('外观设置').first)).brightness,
+      Brightness.dark,
+    );
+    Navigator.of(tester.element(find.text('外观设置').first)).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('深色'), findsWidgets);
+    expect(
+      Theme.of(
+        tester.element(find.byKey(const ValueKey('settings-app-bar'))),
+      ).scaffoldBackgroundColor,
+      AppColors.background,
+    );
   });
 
   testWidgets('custom theme palette updates the hex color', (tester) async {
@@ -1712,6 +2443,21 @@ void main() {
     expect(manualPointInkWell.onTap, isNotNull);
   });
 
+  testWidgets('empty map guide splits title and supporting copy', (tester) async {
+    await _pumpAppWithEmptyPlan(tester);
+
+    await tester.tap(find.text('地图').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前计划还没有点位'), findsOneWidget);
+    expect(find.text('添加点位后会在地图上显示标记。'), findsOneWidget);
+    expect(find.text('当前计划还没有点位。添加点位后会在地图上显示标记。'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('map-empty-card'))).height,
+      lessThan(120),
+    );
+  });
+
   testWidgets('quick manual point page keeps only the lightweight fields', (
     tester,
   ) async {
@@ -1777,13 +2523,70 @@ void main() {
     expect(updatedPlan.currentPointId, initialPlan.currentPointId);
   });
 
+  testWidgets('quick manual point paste fills coordinates without a dialog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
+    await tester.pumpAndSettle();
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('添加点位').last);
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'add-points-quick-manual-point');
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '35.712576, 139.722166');
+
+    _invokeKeyedAction(tester, 'quick-point-paste-coordinate');
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('quick-point-latitude')),
+          )
+          .controller
+          ?.text,
+      '35.712576',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('quick-point-longitude')),
+          )
+          .controller
+          ?.text,
+      '139.722166',
+    );
+    expect(find.text('粘贴坐标'), findsNothing);
+    expect(find.textContaining('已填入坐标'), findsOneWidget);
+  });
+
+  testWidgets('quick manual point paste explains empty clipboard', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
+    await tester.pumpAndSettle();
+
+    await _openPlanMenu(tester);
+    await tester.tap(find.text('添加点位').last);
+    await tester.pumpAndSettle();
+    _invokeKeyedAction(tester, 'add-points-quick-manual-point');
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '');
+
+    _invokeKeyedAction(tester, 'quick-point-paste-coordinate');
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('剪贴板中没有有效坐标'), findsOneWidget);
+    expect(find.text('粘贴坐标'), findsNothing);
+  });
+
   testWidgets('creates a new plan from the plan manager', (tester) async {
     final repository = SamplePilgrimageRepository();
     await tester.pumpWidget(MiriaGoApp(repository: repository));
     await tester.pumpAndSettle();
 
-    await _openPlanMenu(tester);
-    await tester.tap(find.text('切换计划'));
+    await tester.tap(find.byKey(const ValueKey('plan-switch-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('current-plan-section')), findsNothing);
     expect(find.byKey(const ValueKey('all-plans-section')), findsOneWidget);
@@ -2027,14 +2830,72 @@ void main() {
     expect(find.text('切换计划'), findsNothing);
   });
 
+  testWidgets('work manager opens a compact delete menu', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    final work = plan.works.first;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: WorkManagerScreen(
+          plan: plan,
+          repository: repository,
+          settings: const AppSettings(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final moreButton = find.byKey(ValueKey('work-manage-more-${work.id}'));
+    expect(moreButton, findsOneWidget);
+    expect(
+      find.descendant(of: moreButton, matching: find.byIcon(Icons.more_horiz)),
+      findsOneWidget,
+    );
+    expect(tester.getSize(moreButton), const Size.square(34));
+    final moreMenu = tester.widget<PopupMenuButton<String>>(moreButton);
+    expect(moreMenu.style?.side?.resolve({}), isNull);
+    expect(find.byKey(const ValueKey('work-action-delete')), findsNothing);
+    final cardBadgeTexts = tester.widgetList<Text>(
+      find.descendant(
+        of: find.byKey(ValueKey('work-manage-badges-${work.id}')),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(cardBadgeTexts, isNotEmpty);
+    for (final badgeText in cardBadgeTexts) {
+      expect(badgeText.maxLines, 1);
+      expect(badgeText.softWrap, isFalse);
+    }
+
+    await tester.tap(moreButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('work-action-delete')), findsOneWidget);
+    expect(find.text('删除作品'), findsOneWidget);
+    expect(find.text('作品操作'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('work-action-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除作品'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '删除'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('作品管理'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('switches plan when tapping copyable card title', (tester) async {
     final repository = SamplePilgrimageRepository();
     await repository.createPlan(name: '第二计划', area: '京都');
     await tester.pumpWidget(MiriaGoApp(repository: repository));
     await tester.pumpAndSettle();
 
-    await _openPlanMenu(tester);
-    await tester.tap(find.text('切换计划'));
+    await tester.tap(find.byKey(const ValueKey('plan-switch-button')));
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('plan-card-title-sample-uji-hibike')),
@@ -2096,7 +2957,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect((await repository.loadPlans()).map((plan) => plan.id), originalIds);
-    expect(find.text('保存计划顺序失败，已恢复原来的顺序。'), findsOneWidget);
+    expect(find.text('保存计划顺序失败，已恢复原来的顺序'), findsOneWidget);
     final cardKeys = tester
         .widgetList<Padding>(
           find.byWidgetPredicate(
@@ -2228,7 +3089,7 @@ void main() {
       tester.widget<TextFormField>(fields.at(2)).controller!.text,
       isEmpty,
     );
-    await tester.pageBack();
+    await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 
     expect(find.text('原创短片'), findsOneWidget);
@@ -2373,6 +3234,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('点击地图任意位置设置点位坐标'), findsOneWidget);
     expect(find.textContaining('点击地图可继续调整位置'), findsNothing);
+  });
+
+  testWidgets('manual point paste fills coordinates without a dialog', (
+    tester,
+  ) async {
+    await _pumpAppWithEmptyPlan(tester);
+
+    await _openAddPointsFromEmptyPlan(tester);
+    _invokeKeyedAction(tester, 'add-points-manual-point');
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    _mockClipboardRead(tester, '35.008900, 135.771100');
+
+    _invokeKeyedAction(tester, 'point-form-paste-coordinate');
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('point-form-latitude')),
+          )
+          .controller
+          ?.text,
+      '35.008900',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('point-form-longitude')),
+          )
+          .controller
+          ?.text,
+      '135.771100',
+    );
+    expect(find.text('粘贴坐标'), findsNothing);
+    expect(find.textContaining('已填入坐标'), findsOneWidget);
   });
 
   testWidgets('Anitabi link import adds missing work on import', (

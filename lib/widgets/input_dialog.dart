@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import 'confirm_action_dialog.dart';
 
 class AppInputDialog extends StatelessWidget {
   const AppInputDialog({
@@ -9,6 +10,8 @@ class AppInputDialog extends StatelessWidget {
     required this.confirmLabel,
     required this.onConfirm,
     this.cancelLabel = '取消',
+    this.titleTrailing,
+    this.errorText,
     super.key,
   });
 
@@ -17,6 +20,8 @@ class AppInputDialog extends StatelessWidget {
   final String confirmLabel;
   final VoidCallback onConfirm;
   final String cancelLabel;
+  final Widget? titleTrailing;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +31,12 @@ class AppInputDialog extends StatelessWidget {
           0.0,
           double.infinity,
         );
+    final titleStyle = TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0,
+    );
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       backgroundColor: AppColors.surface,
@@ -38,44 +49,74 @@ class AppInputDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+              if (titleTrailing == null)
+                Text(title, style: titleStyle)
+              else
+                SizedBox(
+                  height: 32,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(child: Text(title, style: titleStyle)),
+                      const SizedBox(width: 8),
+                      titleTrailing!,
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 18),
               Flexible(child: SingleChildScrollView(child: content)),
+              if (errorText != null && errorText!.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorText!,
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontSize: 13,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
-              OverflowBar(
-                spacing: 6,
-                overflowSpacing: 8,
-                alignment: MainAxisAlignment.end,
-                overflowAlignment: OverflowBarAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                    ),
-                    child: Text(cancelLabel),
-                  ),
-                  FilledButton(
-                    onPressed: onConfirm,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 46),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      shape: const StadiumBorder(),
-                    ),
-                    child: Text(confirmLabel),
-                  ),
-                ],
+              AppDialogActionRow(
+                cancelLabel: cancelLabel,
+                confirmLabel: confirmLabel,
+                onCancel: () => Navigator.of(context).pop(),
+                onConfirm: onConfirm,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppDialogPasteButton extends StatelessWidget {
+  const AppDialogPasteButton({required this.onPressed, super.key});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      key: const ValueKey('dialog-paste-button'),
+      onPressed: onPressed,
+      icon: const Icon(Icons.content_paste_outlined, size: 16),
+      label: const Text('粘贴'),
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        foregroundColor: AppColors.textPrimary,
+        side: BorderSide(color: AppColors.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -132,7 +173,7 @@ InputDecoration appDialogInputDecoration({
 }) {
   final border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(10),
-    borderSide: const BorderSide(color: AppColors.border),
+    borderSide: BorderSide(color: AppColors.border),
   );
   return InputDecoration(
     hintText: hintText,
@@ -150,11 +191,11 @@ InputDecoration appDialogInputDecoration({
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: AppColors.error),
+      borderSide: BorderSide(color: AppColors.error),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: AppColors.error, width: 1.25),
+      borderSide: BorderSide(color: AppColors.error, width: 1.25),
     ),
   );
 }

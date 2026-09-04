@@ -87,7 +87,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.border, width: 1.4),
+        borderSide: BorderSide(color: AppColors.border, width: 1.4),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -190,7 +190,7 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
                     letterSpacing: 0,

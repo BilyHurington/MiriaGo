@@ -75,8 +75,10 @@ class _AppScaledRouteView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppColors.palette = settings.themePalette;
-    AppColors.customAccentValue = settings.customThemeColorValue;
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: MediaQuery.platformBrightnessOf(context),
+    );
 
     return MediaQuery(
       data: MediaQuery.of(
@@ -87,9 +89,9 @@ class _AppScaledRouteView extends StatelessWidget {
         child: AppUiScaleView(
           scale: settings.uiScale,
           child: Theme(
-            data: AppTheme.light(
-              palette: settings.themePalette,
-              customAccentValue: settings.customThemeColorValue,
+            data: appThemeFor(
+              settings,
+              platformBrightness: MediaQuery.platformBrightnessOf(context),
             ),
             child: child,
           ),

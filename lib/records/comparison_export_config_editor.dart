@@ -237,7 +237,7 @@ class _SummaryChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -266,7 +266,7 @@ class _ValueCapsule extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 13,
           fontWeight: FontWeight.w700,
@@ -317,7 +317,7 @@ class _OutputWidthSelector extends StatelessWidget {
               ),
             ),
             if (index < _fixedWidths.length - 1)
-              const VerticalDivider(
+              VerticalDivider(
                 width: 1,
                 thickness: 1,
                 color: AppColors.surfaceMuted,
@@ -420,7 +420,7 @@ class _ToggleSetting extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -430,7 +430,7 @@ class _ToggleSetting extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   letterSpacing: 0,
@@ -626,7 +626,7 @@ InputDecoration _comparisonTextFieldDecoration({
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppColors.border),
+      borderSide: BorderSide(color: AppColors.border),
     ),
     disabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
@@ -756,11 +756,7 @@ class _SectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      color: AppColors.surfaceMuted,
-    );
+    return Divider(height: 1, thickness: 1, color: AppColors.surfaceMuted);
   }
 }
 
@@ -773,7 +769,7 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 14,
         fontWeight: FontWeight.w700,
