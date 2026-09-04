@@ -196,6 +196,8 @@ class AppSettings {
     this.mapThumbnailVisibleThreshold = 40,
     this.mapThumbnailConcurrentLoads = 10,
     this.showPlanGroupProgress = true,
+    this.dismissPlanActionsOnOutsideTap = true,
+    this.hideCompletedPointsOnMap = true,
     this.mapMarkerClusteringEnabled = true,
     this.mapMarkerClusterRadius = 40,
     this.mapMarkerClusterMaxZoom = 21,
@@ -240,6 +242,8 @@ class AppSettings {
   final int mapThumbnailVisibleThreshold;
   final int mapThumbnailConcurrentLoads;
   final bool showPlanGroupProgress;
+  final bool dismissPlanActionsOnOutsideTap;
+  final bool hideCompletedPointsOnMap;
   final bool mapMarkerClusteringEnabled;
   final int mapMarkerClusterRadius;
   final int mapMarkerClusterMaxZoom;
@@ -284,6 +288,8 @@ class AppSettings {
     int? mapThumbnailVisibleThreshold,
     int? mapThumbnailConcurrentLoads,
     bool? showPlanGroupProgress,
+    bool? dismissPlanActionsOnOutsideTap,
+    bool? hideCompletedPointsOnMap,
     bool? mapMarkerClusteringEnabled,
     int? mapMarkerClusterRadius,
     int? mapMarkerClusterMaxZoom,
@@ -348,6 +354,10 @@ class AppSettings {
           mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
       showPlanGroupProgress:
           showPlanGroupProgress ?? this.showPlanGroupProgress,
+      dismissPlanActionsOnOutsideTap:
+          dismissPlanActionsOnOutsideTap ?? this.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap:
+          hideCompletedPointsOnMap ?? this.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled:
           mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
       mapMarkerClusterRadius:

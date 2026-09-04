@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../widgets/input_dialog.dart';
+import '../widgets/app_back_button.dart';
 import '../map/map_tile_config.dart';
 import '../map/map_marker_scale.dart';
 import '../utils/selected_item_order.dart';
@@ -80,6 +81,7 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('选择关键点'),
         actions: [
           TextButton(

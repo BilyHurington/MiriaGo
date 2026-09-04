@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
+import '../widgets/app_back_button.dart';
 import 'visit_record_detail_screen.dart';
 import 'visit_record_photo_stub.dart'
     if (dart.library.io) 'visit_record_photo_io.dart';
@@ -34,7 +35,10 @@ class PointVisitRecordsScreen extends StatelessWidget {
             final records = controller.recordsForPoint(point.id);
 
             return Scaffold(
-              appBar: AppBar(title: const Text('点位拍摄记录')),
+              appBar: AppBar(
+                leading: appBackButtonIfCanPop(context),
+                title: const Text('点位拍摄记录'),
+              ),
               body: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [

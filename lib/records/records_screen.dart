@@ -43,6 +43,11 @@ class _RecordsScreenState extends State<RecordsScreen> {
     _synchronizeScopeFilters(controller.plan);
     final records = _filteredRecords(controller);
     final sections = _groupedRecords(controller, records);
+    final trimmedSearchQuery = _searchQuery.trim();
+    final hasActiveFilters =
+        _statusFilter != _RecordStatusFilter.all ||
+        _selectedWorkIds != null ||
+        _selectedGroupFilterIds != null;
     if (!_expandedSectionsInitialized && sections.isNotEmpty) {
       _expandedSectionIds.addAll(sections.map((section) => section.id));
       _expandedSectionsInitialized = true;
@@ -54,6 +59,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     return Scaffold(
       appBar: AppBar(
         key: const ValueKey('records-app-bar'),
+        toolbarHeight: AppTheme.appBarHeight,
         title: const Text(
           '记录',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
@@ -79,7 +85,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
               allSectionsExpanded ? Icons.unfold_less : Icons.unfold_more,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
         ],
       ),
       body: CustomScrollView(
@@ -121,9 +127,17 @@ class _RecordsScreenState extends State<RecordsScreen> {
             ),
           ),
           if (records.isEmpty)
-            const SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
-              sliver: SliverToBoxAdapter(child: _EmptyRecords()),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: _EmptyRecords(
+                  hasAnyRecords: controller.visitRecords.isNotEmpty,
+                  searchQuery: trimmedSearchQuery,
+                  hasActiveFilters: hasActiveFilters,
+                  onClearSearch: _clearSearch,
+                  onResetFilters: _resetFilters,
+                ),
+              ),
             )
           else
             for (final section in sections)
@@ -183,6 +197,22 @@ class _RecordsScreenState extends State<RecordsScreen> {
         ),
       ),
     );
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchQuery = '';
+      _resetExpandedSections();
+    });
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _statusFilter = _RecordStatusFilter.all;
+      _selectedWorkIds = null;
+      _selectedGroupFilterIds = null;
+      _resetExpandedSections();
+    });
   }
 
   void _resetExpandedSections() {
@@ -1821,32 +1851,107 @@ class _VisitRecordCard extends StatelessWidget {
 }
 
 class _EmptyRecords extends StatelessWidget {
-  const _EmptyRecords();
+  const _EmptyRecords({
+    required this.hasAnyRecords,
+    required this.searchQuery,
+    required this.hasActiveFilters,
+    required this.onClearSearch,
+    required this.onResetFilters,
+  });
+
+  final bool hasAnyRecords;
+  final String searchQuery;
+  final bool hasActiveFilters;
+  final VoidCallback onClearSearch;
+  final VoidCallback onResetFilters;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: AppColors.textSecondary),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '还没有巡礼记录。拍摄成功后会自动出现在这里。',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                letterSpacing: 0,
-              ),
+    final hasSearchQuery = hasAnyRecords && searchQuery.isNotEmpty;
+    final hasFilterResult =
+        hasAnyRecords && !hasSearchQuery && hasActiveFilters;
+    final icon = hasSearchQuery
+        ? Icons.search_off_rounded
+        : hasFilterResult
+        ? Icons.filter_alt_off_rounded
+        : Icons.photo_library_outlined;
+    final title = hasSearchQuery
+        ? '没有找到相关记录'
+        : hasFilterResult
+        ? '没有符合筛选条件的记录'
+        : '还没有巡礼记录';
+    final description = hasSearchQuery
+        ? hasActiveFilters
+              ? '没有与当前关键词和筛选条件同时匹配的点位、作品或场景。试试更换关键词，或重置筛选条件。'
+              : '没有与当前关键词匹配的点位、作品或场景。试试更换关键词，或清除搜索查看全部记录。'
+        : hasFilterResult
+        ? '调整状态、作品或片区筛选条件后再试。'
+        : '完成一次点位拍摄后，记录会自动汇总到这里。';
+
+    return Semantics(
+      liveRegion: true,
+      child: Padding(
+        key: const ValueKey('records-empty-state'),
+        padding: const EdgeInsets.fromLTRB(16, 28, 16, 36),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: AppColors.accent, size: 42),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  key: const ValueKey('records-empty-title'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  description,
+                  key: const ValueKey('records-empty-description'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.5,
+                    letterSpacing: 0,
+                  ),
+                ),
+                if (hasSearchQuery || hasFilterResult) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (hasSearchQuery)
+                        TextButton.icon(
+                          key: const ValueKey('records-empty-clear-search'),
+                          onPressed: onClearSearch,
+                          icon: const Icon(Icons.close, size: 18),
+                          label: const Text('清除搜索'),
+                        ),
+                      if (hasActiveFilters)
+                        TextButton.icon(
+                          key: const ValueKey('records-empty-reset-filters'),
+                          onPressed: onResetFilters,
+                          icon: const Icon(Icons.filter_alt_off, size: 18),
+                          label: const Text('重置筛选'),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

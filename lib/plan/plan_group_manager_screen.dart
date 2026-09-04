@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/app_scaled_route.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
@@ -74,10 +75,8 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
           ),
           title: const Text('片区管理'),
           actions: [

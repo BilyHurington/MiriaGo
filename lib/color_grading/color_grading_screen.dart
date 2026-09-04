@@ -11,6 +11,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'color_adjustment.dart';
 import 'color_grading_params.dart';
 import 'graded_photo_storage_stub.dart'
@@ -271,6 +272,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('自动调色'),
         actions: [TextButton(onPressed: _reset, child: const Text('重置'))],
       ),
