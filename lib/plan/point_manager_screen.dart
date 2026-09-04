@@ -15,6 +15,7 @@ import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'add_points_screen.dart';
 import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
@@ -111,10 +112,8 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
           ),
           title: Text(
             _selectionMode ? '已选 ${_selectedPointIds.length}' : '管理计划',
@@ -1831,6 +1830,7 @@ class _GroupAnchorMapPickerScreenState
 
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('选择关键点'),
         actions: [
           TextButton(

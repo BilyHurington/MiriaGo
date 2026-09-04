@@ -15,6 +15,7 @@ import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_utils.dart';
 
@@ -93,10 +94,8 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
           ),
           title: const Text('最近分配'),
         ),
@@ -506,10 +505,8 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didUpdate),
-            icon: const Icon(Icons.arrow_back),
           ),
           title: const Text('框选分配'),
         ),

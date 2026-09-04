@@ -8,6 +8,7 @@ import '../platform/platform_flags_stub.dart'
 import '../plan/pilgrimage_models.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'my_maps_csv_export.dart';
 import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
@@ -68,11 +69,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
-            onPressed: _handleBack,
-            icon: const Icon(Icons.arrow_back),
-          ),
+          leading: AppBackButton(onPressed: _handleBack),
           title: const Text('导入导出'),
         ),
         body: ListView(

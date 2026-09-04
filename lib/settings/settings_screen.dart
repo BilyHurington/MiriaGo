@@ -18,6 +18,7 @@ import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 
@@ -103,22 +104,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        key: const ValueKey('settings-app-bar'),
+        toolbarHeight: AppTheme.appBarHeight,
         title: const Text(
           '设置',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
         ),
         actions: [
           IconButton(
+            key: const ValueKey('settings-reset-button'),
             tooltip: '恢复初始设置',
             onPressed: _confirmResetSettings,
             icon: const Icon(Icons.restart_alt_outlined),
           ),
+          const SizedBox(width: 16),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _SettingsCard(
+            key: const ValueKey('settings-appearance-card'),
             header: _SettingsCardHeader(
               icon: Icons.palette_outlined,
               title: '外观设置',
@@ -730,6 +736,33 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 value: settings.showPlanGroupProgress,
                 onChanged: (value) {
                   _update(settings.copyWith(showPlanGroupProgress: value));
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _AppearancePanel(
+            child: Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                key: const ValueKey(
+                  'dismiss-plan-actions-on-outside-tap-toggle',
+                ),
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(
+                  Icons.touch_app_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: const Text('点击空白收回计划操作', style: _titleTextStyle),
+                subtitle: const Text(
+                  '展开计划操作后，点击面板外的空白区域自动收回',
+                  style: _secondaryTextStyle,
+                ),
+                value: settings.dismissPlanActionsOnOutsideTap,
+                onChanged: (value) {
+                  _update(
+                    settings.copyWith(dismissPlanActionsOnOutsideTap: value),
+                  );
                 },
               ),
             ),
@@ -1516,10 +1549,10 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
         _SettingsSection(
           title: 'Anitabi 服务地址',
           children: [
-            _MapUrlRow(
+            _AnitabiServiceEntryRow(
               key: const ValueKey('anitabi-service-settings-entry'),
-              icon: Icons.dns_outlined,
-              label: '主站、静态数据、API 与图片服务',
+              siteUrl: settings.anitabiSiteBaseUrl,
+              usingDefaults: _usesDefaultAnitabiService(settings),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => _AnitabiServiceSettingsPage(
@@ -1717,6 +1750,27 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
         _SettingsSection(
           title: '地图标记',
           children: [
+            Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                key: const ValueKey('hide-completed-points-on-map-toggle'),
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(
+                  Icons.visibility_off_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: const Text('隐藏已完成点位', style: _titleTextStyle),
+                subtitle: const Text(
+                  '在地图页不显示已标记完成的点位。关闭后仍可在地图上看到全部点位。',
+                  style: _secondaryTextStyle,
+                ),
+                value: settings.hideCompletedPointsOnMap,
+                onChanged: (value) {
+                  _update(settings.copyWith(hideCompletedPointsOnMap: value));
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2163,7 +2217,10 @@ class _DetailScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: Text(title),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: children,
@@ -2240,7 +2297,11 @@ extension _ZoomStepSnap on double {
 }
 
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.header, this.children = const []});
+  const _SettingsCard({
+    required this.header,
+    this.children = const [],
+    super.key,
+  });
 
   final _SettingsCardHeader header;
   final List<Widget> children;
@@ -3796,6 +3857,67 @@ class _SettingsDivider extends StatelessWidget {
   }
 }
 
+class _AnitabiServiceEntryRow extends StatelessWidget {
+  const _AnitabiServiceEntryRow({
+    super.key,
+    required this.siteUrl,
+    required this.usingDefaults,
+    required this.onTap,
+  });
+
+  final String siteUrl;
+  final bool usingDefaults;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.dns_outlined, color: AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    siteUrl,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    usingDefaults ? '使用默认地址，点击管理全部服务' : '已自定义，点击管理全部服务',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _secondaryTextStyle,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MapUrlRow extends StatelessWidget {
   const _MapUrlRow({
     super.key,
@@ -4221,6 +4343,15 @@ String _mapProviderHint(MapTileProvider provider) {
     MapTileProvider.customXyz => '\u74e6\u7247\u6a21\u677f',
     MapTileProvider.customMapLibreStyle => '\u6837\u5f0f URL',
   };
+}
+
+bool _usesDefaultAnitabiService(AppSettings settings) {
+  return settings.anitabiSiteBaseUrl == defaultAnitabiSiteBaseUrl &&
+      settings.anitabiStaticDataBaseUrl == defaultAnitabiStaticDataBaseUrl &&
+      settings.anitabiApiBaseUrl == defaultAnitabiApiBaseUrl &&
+      settings.anitabiOfficialImageBaseUrl ==
+          defaultAnitabiOfficialImageBaseUrl &&
+      settings.anitabiMirrorImageBaseUrl == defaultAnitabiMirrorImageBaseUrl;
 }
 
 String _anitabiImageSourceLabel(AnitabiImageSource source) {

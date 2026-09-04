@@ -19,6 +19,7 @@ import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/app_scaled_route.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/input_dialog.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
@@ -153,7 +154,10 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
         Navigator.of(context).pop(_didUpdate);
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('添加内容')),
+        appBar: AppBar(
+          leading: appBackButtonIfCanPop(context),
+          title: const Text('添加内容'),
+        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
@@ -549,7 +553,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('搜索 Bangumi'),
-          leading: BackButton(
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didAdd),
           ),
         ),
@@ -983,7 +987,10 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
   Widget build(BuildContext context) {
     final hasLinkText = _linkController.text.isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: const Text('Anitabi 链接导入')),
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: const Text('Anitabi 链接导入'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -1478,7 +1485,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('手动添加作品'),
-          leading: BackButton(
+          leading: AppBackButton(
             onPressed: () => Navigator.of(context).pop(_didAdd),
           ),
           actions: [
@@ -2342,6 +2349,7 @@ class _QuickManualPointFormScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('快速手动添加点位'),
         actions: [
           TextButton.icon(
@@ -3105,7 +3113,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(_isEditing ? '编辑点位' : '手动添加点位'),
-          leading: BackButton(
+          leading: AppBackButton(
             onPressed: () {
               if (!_didCommitPendingReference) {
                 unawaited(
@@ -3635,7 +3643,10 @@ class _ManualPointMapPickerScreenState
     final selectedPosition = _selectedPosition;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('选择点位坐标')),
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: const Text('选择点位坐标'),
+      ),
       body: Stack(
         children: [
           FlutterMap(

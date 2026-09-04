@@ -4,6 +4,18 @@ import 'package:miriago/desktop/desktop_repository_state.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
+  test('desktop persists plan action outside-tap preference', () {
+    final repository = SamplePilgrimageRepository(
+      settings: const AppSettings(dismissPlanActionsOnOutsideTap: false),
+    );
+    final encoded = encodeDesktopRepositoryState(repository.snapshot());
+
+    final decoded = decodeDesktopRepositoryState(encoded);
+
+    expect(decoded, isNotNull);
+    expect(decoded!.settings.dismissPlanActionsOnOutsideTap, isFalse);
+  });
+
   test('desktop repository state round-trips sample data', () async {
     final repository = SamplePilgrimageRepository();
     await repository.saveAppSettings(
@@ -37,6 +49,8 @@ void main() {
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
         showPlanGroupProgress: false,
+        dismissPlanActionsOnOutsideTap: false,
+        hideCompletedPointsOnMap: false,
         mapMarkerClusteringEnabled: false,
         mapMarkerClusterRadius: 88,
         mapMarkerClusterMaxZoom: 20,
@@ -74,6 +88,7 @@ void main() {
     expect(decoded, isNotNull);
     expect(decoded!.activePlanId, source.activePlanId);
     expect(decoded.settings.uiScale, 1.0);
+    expect(decoded.settings.dismissPlanActionsOnOutsideTap, isFalse);
     expect(
       decoded.settings.cameraCaptureAspectRatio,
       CameraPhotoAspectRatio.landscape16x9,
@@ -130,6 +145,7 @@ void main() {
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
     expect(decoded.settings.showPlanGroupProgress, isFalse);
+    expect(decoded.settings.hideCompletedPointsOnMap, isFalse);
     expect(decoded.settings.mapMarkerClusteringEnabled, isFalse);
     expect(decoded.settings.mapMarkerClusterRadius, 88);
     expect(decoded.settings.mapMarkerClusterMaxZoom, 20);
@@ -231,6 +247,7 @@ void main() {
     final decoded = decodeDesktopRepositoryState(source);
     final point = decoded!.plans.single.points.single;
 
+    expect(decoded.settings.dismissPlanActionsOnOutsideTap, isTrue);
     expect(point.work.id, 'missing-work');
     expect(point.work.title, '未知作品');
     expect(point.work.title, isNot('不应该被绑定的作品'));
