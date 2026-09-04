@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../anitabi_service_config.dart';
+import '../valhalla_service_config.dart';
 
 part 'app_database.g.dart';
 
@@ -139,6 +140,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(defaultAnitabiMirrorImageBaseUrl))();
   TextColumn get navigationApp =>
       text().withDefault(const Constant('googleMaps'))();
+  TextColumn get valhallaBaseUrl =>
+      text().withDefault(const Constant(defaultValhallaBaseUrl))();
   TextColumn get customXyzTileUrl => text().withDefault(const Constant(''))();
   TextColumn get customMapLibreStyleUrl =>
       text().withDefault(const Constant(''))();
@@ -196,7 +199,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 40;
+  int get schemaVersion => 41;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -646,6 +649,15 @@ class AppDatabase extends _$AppDatabase {
           'hide_completed_points_on_map',
           appSettingsEntries,
           appSettingsEntries.hideCompletedPointsOnMap,
+        );
+      }
+      if (from < 41) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'valhalla_base_url',
+          appSettingsEntries,
+          appSettingsEntries.valhallaBaseUrl,
         );
       }
     },

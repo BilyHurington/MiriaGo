@@ -1641,7 +1641,7 @@ void main() {
     },
   );
 
-  testWidgets('map large navigation button opens in-app navigation ui', (
+  testWidgets('map point card exposes in-app navigation action', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -1651,107 +1651,13 @@ void main() {
     await tester.tap(find.byIcon(Icons.map_outlined).last);
     await tester.pumpAndSettle();
 
-    await tester.tap(
+    final navigationButton = tester.widget<FilledButton>(
       find.byKey(const ValueKey('map-in-app-navigation-button')),
     );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('navigation-route-confirm-screen')),
-      findsOneWidget,
-    );
-    expect(find.text('确认路线'), findsOneWidget);
-    expect(find.text('串联整个片区导航'), findsOneWidget);
-    expect(find.text('仅导航到选中点'), findsOneWidget);
-    expect(find.textContaining('点击即按顺序连接'), findsNothing);
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-screen')),
-      findsNothing,
-    );
-
-    await tester.tap(
-      find.byKey(const ValueKey('navigation-route-confirm-zone')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-screen')),
-      findsOneWidget,
-    );
-    expect(find.text('片区'), findsOneWidget);
-    expect(find.text('宇治站附近'), findsOneWidget);
-    expect(find.textContaining('井用机前步行道'), findsOneWidget);
-    expect(find.text('到达'), findsOneWidget);
-    expect(find.text('小时'), findsOneWidget);
-    expect(find.text('公里'), findsOneWidget);
-    expect(find.text('17 分钟'), findsNothing);
-    expect(find.text('结束路线'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('结束路线'), findsOneWidget);
-    expect(find.text('全部点位'), findsOneWidget);
-    expect(find.text('详细信息'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('in-app-navigation-all-stops')));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-all-stops-sheet')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('宇治桥'), findsOneWidget);
-    expect(find.textContaining('下一个:'), findsNothing);
-    expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
-
-    Navigator.of(
-      tester.element(
-        find.byKey(const ValueKey('in-app-navigation-all-stops-sheet')),
-      ),
-    ).pop();
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('in-app-navigation-end-route')));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-screen')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('map-in-app-navigation-button')),
-      findsOneWidget,
-    );
+    expect(navigationButton.onPressed, isNotNull);
   });
 
-  testWidgets('map navigation can start only the selected point', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await _pumpApp(tester);
-
-    await tester.tap(find.byIcon(Icons.map_outlined).last);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('map-in-app-navigation-button')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('navigation-route-confirm-point')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-screen')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('终点: 井用机前步行道'), findsOneWidget);
-    expect(find.textContaining('下一个:'), findsNothing);
-  });
-
-  testWidgets('plan point detail navigation opens in-app navigation ui', (
+  testWidgets('plan point detail exposes in-app navigation action', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -1760,25 +1666,11 @@ void main() {
 
     await tester.tap(find.text('井用机前步行道').first);
     await tester.pumpAndSettle();
-    _invokeKeyedAction(tester, 'point-detail-in-app-navigation-button');
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('navigation-route-confirm-screen')),
-      findsOneWidget,
+    final navigationButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('point-detail-in-app-navigation-button')),
     );
-    expect(find.text('串联整个片区导航'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const ValueKey('navigation-route-confirm-zone')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-screen')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('井用机前步行道'), findsOneWidget);
-    expect(find.byType(PointDetailSheet), findsNothing);
+    expect(navigationButton.onPressed, isNotNull);
+    expect(find.byType(PointDetailSheet), findsOneWidget);
   });
 
   testWidgets('plan map marker opens detail after selecting the point', (
@@ -2332,6 +2224,15 @@ void main() {
 
     Navigator.of(tester.element(find.text('Anitabi 服务地址').first)).pop();
     await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('步行路径规划'),
+      280,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('步行路径规划'), findsOneWidget);
+    expect(find.text('https://valhalla1.openstreetmap.de'), findsOneWidget);
+    expect(find.text('测试连接'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('图片同时请求数'),

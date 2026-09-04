@@ -4369,6 +4369,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant('googleMaps'),
   );
+  static const VerificationMeta _valhallaBaseUrlMeta = const VerificationMeta(
+    'valhallaBaseUrl',
+  );
+  @override
+  late final GeneratedColumn<String> valhallaBaseUrl = GeneratedColumn<String>(
+    'valhalla_base_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(defaultValhallaBaseUrl),
+  );
   static const VerificationMeta _customXyzTileUrlMeta = const VerificationMeta(
     'customXyzTileUrl',
   );
@@ -4702,6 +4714,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     anitabiOfficialImageBaseUrl,
     anitabiMirrorImageBaseUrl,
     navigationApp,
+    valhallaBaseUrl,
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
@@ -4912,6 +4925,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         navigationApp.isAcceptableOrUnknown(
           data['navigation_app']!,
           _navigationAppMeta,
+        ),
+      );
+    }
+    if (data.containsKey('valhalla_base_url')) {
+      context.handle(
+        _valhallaBaseUrlMeta,
+        valhallaBaseUrl.isAcceptableOrUnknown(
+          data['valhalla_base_url']!,
+          _valhallaBaseUrlMeta,
         ),
       );
     }
@@ -5224,6 +5246,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}navigation_app'],
       )!,
+      valhallaBaseUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}valhalla_base_url'],
+      )!,
       customXyzTileUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}custom_xyz_tile_url'],
@@ -5352,6 +5378,7 @@ class AppSettingsEntry extends DataClass
   final String anitabiOfficialImageBaseUrl;
   final String anitabiMirrorImageBaseUrl;
   final String navigationApp;
+  final String valhallaBaseUrl;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
@@ -5398,6 +5425,7 @@ class AppSettingsEntry extends DataClass
     required this.anitabiOfficialImageBaseUrl,
     required this.anitabiMirrorImageBaseUrl,
     required this.navigationApp,
+    required this.valhallaBaseUrl,
     required this.customXyzTileUrl,
     required this.customMapLibreStyleUrl,
     required this.saveVisitPhotoToGallery,
@@ -5457,6 +5485,7 @@ class AppSettingsEntry extends DataClass
       anitabiMirrorImageBaseUrl,
     );
     map['navigation_app'] = Variable<String>(navigationApp);
+    map['valhalla_base_url'] = Variable<String>(valhallaBaseUrl);
     map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl);
     map['custom_map_libre_style_url'] = Variable<String>(
       customMapLibreStyleUrl,
@@ -5535,6 +5564,7 @@ class AppSettingsEntry extends DataClass
       anitabiOfficialImageBaseUrl: Value(anitabiOfficialImageBaseUrl),
       anitabiMirrorImageBaseUrl: Value(anitabiMirrorImageBaseUrl),
       navigationApp: Value(navigationApp),
+      valhallaBaseUrl: Value(valhallaBaseUrl),
       customXyzTileUrl: Value(customXyzTileUrl),
       customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
       saveVisitPhotoToGallery: Value(saveVisitPhotoToGallery),
@@ -5607,6 +5637,7 @@ class AppSettingsEntry extends DataClass
         json['anitabiMirrorImageBaseUrl'],
       ),
       navigationApp: serializer.fromJson<String>(json['navigationApp']),
+      valhallaBaseUrl: serializer.fromJson<String>(json['valhallaBaseUrl']),
       customXyzTileUrl: serializer.fromJson<String>(json['customXyzTileUrl']),
       customMapLibreStyleUrl: serializer.fromJson<String>(
         json['customMapLibreStyleUrl'],
@@ -5710,6 +5741,7 @@ class AppSettingsEntry extends DataClass
         anitabiMirrorImageBaseUrl,
       ),
       'navigationApp': serializer.toJson<String>(navigationApp),
+      'valhallaBaseUrl': serializer.toJson<String>(valhallaBaseUrl),
       'customXyzTileUrl': serializer.toJson<String>(customXyzTileUrl),
       'customMapLibreStyleUrl': serializer.toJson<String>(
         customMapLibreStyleUrl,
@@ -5789,6 +5821,7 @@ class AppSettingsEntry extends DataClass
     String? anitabiOfficialImageBaseUrl,
     String? anitabiMirrorImageBaseUrl,
     String? navigationApp,
+    String? valhallaBaseUrl,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
@@ -5840,6 +5873,7 @@ class AppSettingsEntry extends DataClass
     anitabiMirrorImageBaseUrl:
         anitabiMirrorImageBaseUrl ?? this.anitabiMirrorImageBaseUrl,
     navigationApp: navigationApp ?? this.navigationApp,
+    valhallaBaseUrl: valhallaBaseUrl ?? this.valhallaBaseUrl,
     customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
     customMapLibreStyleUrl:
         customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -5938,6 +5972,9 @@ class AppSettingsEntry extends DataClass
       navigationApp: data.navigationApp.present
           ? data.navigationApp.value
           : this.navigationApp,
+      valhallaBaseUrl: data.valhallaBaseUrl.present
+          ? data.valhallaBaseUrl.value
+          : this.valhallaBaseUrl,
       customXyzTileUrl: data.customXyzTileUrl.present
           ? data.customXyzTileUrl.value
           : this.customXyzTileUrl,
@@ -6039,6 +6076,7 @@ class AppSettingsEntry extends DataClass
           ..write('anitabiOfficialImageBaseUrl: $anitabiOfficialImageBaseUrl, ')
           ..write('anitabiMirrorImageBaseUrl: $anitabiMirrorImageBaseUrl, ')
           ..write('navigationApp: $navigationApp, ')
+          ..write('valhallaBaseUrl: $valhallaBaseUrl, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
@@ -6100,6 +6138,7 @@ class AppSettingsEntry extends DataClass
     anitabiOfficialImageBaseUrl,
     anitabiMirrorImageBaseUrl,
     navigationApp,
+    valhallaBaseUrl,
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
@@ -6152,6 +6191,7 @@ class AppSettingsEntry extends DataClass
               this.anitabiOfficialImageBaseUrl &&
           other.anitabiMirrorImageBaseUrl == this.anitabiMirrorImageBaseUrl &&
           other.navigationApp == this.navigationApp &&
+          other.valhallaBaseUrl == this.valhallaBaseUrl &&
           other.customXyzTileUrl == this.customXyzTileUrl &&
           other.customMapLibreStyleUrl == this.customMapLibreStyleUrl &&
           other.saveVisitPhotoToGallery == this.saveVisitPhotoToGallery &&
@@ -6207,6 +6247,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> anitabiOfficialImageBaseUrl;
   final Value<String> anitabiMirrorImageBaseUrl;
   final Value<String> navigationApp;
+  final Value<String> valhallaBaseUrl;
   final Value<String> customXyzTileUrl;
   final Value<String> customMapLibreStyleUrl;
   final Value<bool> saveVisitPhotoToGallery;
@@ -6254,6 +6295,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.anitabiOfficialImageBaseUrl = const Value.absent(),
     this.anitabiMirrorImageBaseUrl = const Value.absent(),
     this.navigationApp = const Value.absent(),
+    this.valhallaBaseUrl = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
@@ -6302,6 +6344,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.anitabiOfficialImageBaseUrl = const Value.absent(),
     this.anitabiMirrorImageBaseUrl = const Value.absent(),
     this.navigationApp = const Value.absent(),
+    this.valhallaBaseUrl = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
@@ -6350,6 +6393,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? anitabiOfficialImageBaseUrl,
     Expression<String>? anitabiMirrorImageBaseUrl,
     Expression<String>? navigationApp,
+    Expression<String>? valhallaBaseUrl,
     Expression<String>? customXyzTileUrl,
     Expression<String>? customMapLibreStyleUrl,
     Expression<bool>? saveVisitPhotoToGallery,
@@ -6407,6 +6451,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (anitabiMirrorImageBaseUrl != null)
         'anitabi_mirror_image_base_url': anitabiMirrorImageBaseUrl,
       if (navigationApp != null) 'navigation_app': navigationApp,
+      if (valhallaBaseUrl != null) 'valhalla_base_url': valhallaBaseUrl,
       if (customXyzTileUrl != null) 'custom_xyz_tile_url': customXyzTileUrl,
       if (customMapLibreStyleUrl != null)
         'custom_map_libre_style_url': customMapLibreStyleUrl,
@@ -6478,6 +6523,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? anitabiOfficialImageBaseUrl,
     Value<String>? anitabiMirrorImageBaseUrl,
     Value<String>? navigationApp,
+    Value<String>? valhallaBaseUrl,
     Value<String>? customXyzTileUrl,
     Value<String>? customMapLibreStyleUrl,
     Value<bool>? saveVisitPhotoToGallery,
@@ -6532,6 +6578,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       anitabiMirrorImageBaseUrl:
           anitabiMirrorImageBaseUrl ?? this.anitabiMirrorImageBaseUrl,
       navigationApp: navigationApp ?? this.navigationApp,
+      valhallaBaseUrl: valhallaBaseUrl ?? this.valhallaBaseUrl,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -6659,6 +6706,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     }
     if (navigationApp.present) {
       map['navigation_app'] = Variable<String>(navigationApp.value);
+    }
+    if (valhallaBaseUrl.present) {
+      map['valhalla_base_url'] = Variable<String>(valhallaBaseUrl.value);
     }
     if (customXyzTileUrl.present) {
       map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl.value);
@@ -6804,6 +6854,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('anitabiOfficialImageBaseUrl: $anitabiOfficialImageBaseUrl, ')
           ..write('anitabiMirrorImageBaseUrl: $anitabiMirrorImageBaseUrl, ')
           ..write('navigationApp: $navigationApp, ')
+          ..write('valhallaBaseUrl: $valhallaBaseUrl, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
@@ -9726,6 +9777,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> anitabiOfficialImageBaseUrl,
       Value<String> anitabiMirrorImageBaseUrl,
       Value<String> navigationApp,
+      Value<String> valhallaBaseUrl,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
@@ -9775,6 +9827,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> anitabiOfficialImageBaseUrl,
       Value<String> anitabiMirrorImageBaseUrl,
       Value<String> navigationApp,
+      Value<String> valhallaBaseUrl,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
@@ -9913,6 +9966,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<String> get navigationApp => $composableBuilder(
     column: $table.navigationApp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valhallaBaseUrl => $composableBuilder(
+    column: $table.valhallaBaseUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10151,6 +10209,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get valhallaBaseUrl => $composableBuilder(
+    column: $table.valhallaBaseUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => ColumnOrderings(column),
@@ -10382,6 +10445,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get valhallaBaseUrl => $composableBuilder(
+    column: $table.valhallaBaseUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => column,
@@ -10570,6 +10638,7 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> anitabiMirrorImageBaseUrl = const Value.absent(),
                 Value<String> navigationApp = const Value.absent(),
+                Value<String> valhallaBaseUrl = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
@@ -10621,6 +10690,7 @@ class $$AppSettingsEntriesTableTableManager
                 anitabiOfficialImageBaseUrl: anitabiOfficialImageBaseUrl,
                 anitabiMirrorImageBaseUrl: anitabiMirrorImageBaseUrl,
                 navigationApp: navigationApp,
+                valhallaBaseUrl: valhallaBaseUrl,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
@@ -10672,6 +10742,7 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> anitabiMirrorImageBaseUrl = const Value.absent(),
                 Value<String> navigationApp = const Value.absent(),
+                Value<String> valhallaBaseUrl = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
@@ -10723,6 +10794,7 @@ class $$AppSettingsEntriesTableTableManager
                 anitabiOfficialImageBaseUrl: anitabiOfficialImageBaseUrl,
                 anitabiMirrorImageBaseUrl: anitabiMirrorImageBaseUrl,
                 navigationApp: navigationApp,
+                valhallaBaseUrl: valhallaBaseUrl,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,

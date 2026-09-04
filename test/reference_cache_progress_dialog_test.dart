@@ -312,60 +312,6 @@ void main() {
     );
   });
 
-  testWidgets('debug preview shows all cache banner states', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) {
-              return Center(
-                child: FilledButton(
-                  onPressed: () =>
-                      showReferenceCacheBannerDebugPreview(context),
-                  child: const Text('start-cache'),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('start-cache'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(
-      find.byKey(const ValueKey('reference-cache-debug-running')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('reference-cache-debug-success')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('reference-cache-debug-partial')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('reference-cache-debug-failed')),
-      findsOneWidget,
-    );
-    expect(find.text('正在缓存参考图...'), findsOneWidget);
-    expect(find.text('重试失败'), findsOneWidget);
-    expect(find.text('重试全部'), findsOneWidget);
-    expect(find.text('参考图缓存完成'), findsNWidgets(2));
-
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(
-      find.byKey(const ValueKey('reference-cache-debug-running')),
-      findsNothing,
-    );
-  });
-
   testWidgets('retry returns to the in-progress state', (tester) async {
     var runs = 0;
     final secondRun = Completer<void>();

@@ -9,6 +9,7 @@ import '../app_managed_file_paths_stub.dart'
     if (dart.library.io) '../app_managed_file_paths_io.dart';
 import '../pilgrimage_repository.dart';
 import '../sample_pilgrimage_repository.dart';
+import '../valhalla_service_config.dart';
 import 'app_database.dart';
 import 'database_connection/stub_connection.dart'
     if (dart.library.io) 'database_connection/native_connection.dart';
@@ -105,6 +106,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         fallback: defaultAnitabiMirrorImageBaseUrl,
       ),
       navigationApp: _navigationAppFromName(row.navigationApp),
+      valhallaBaseUrl: normalizeValhallaBaseUrl(row.valhallaBaseUrl),
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
       saveVisitPhotoToGallery: row.saveVisitPhotoToGallery,
@@ -1135,6 +1137,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.anitabiMirrorImageBaseUrl.trim(),
             ),
             navigationApp: Value(settings.navigationApp.name),
+            valhallaBaseUrl: Value(
+              normalizeValhallaBaseUrl(settings.valhallaBaseUrl),
+            ),
             customXyzTileUrl: Value(settings.customXyzTileUrl.trim()),
             customMapLibreStyleUrl: Value(
               settings.customMapLibreStyleUrl.trim(),

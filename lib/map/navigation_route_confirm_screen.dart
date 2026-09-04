@@ -7,18 +7,26 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/plan_group_utils.dart';
 import '../widgets/app_back_button.dart';
+import 'current_location_resolver.dart';
 import 'in_app_navigation_screen.dart';
+import 'map_navigation_launcher.dart';
 import 'map_tile_config.dart';
+import 'valhalla_route_client.dart';
 
 const _endRouteRed = Color(0xFFFF3B30);
 
-class NavigationRouteConfirmScreen extends StatelessWidget {
+typedef NavigationLocationResolver = Future<LatLng> Function();
+
+class NavigationRouteConfirmScreen extends StatefulWidget {
   const NavigationRouteConfirmScreen({
     required this.point,
     required this.settings,
     this.groupName,
     this.stops = const [],
     this.planController,
+    this.routeClient,
+    this.locationResolver,
+    this.externalNavigationLauncher = const MapNavigationLauncher(),
     super.key,
   });
 
@@ -27,6 +35,9 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
   final String? groupName;
   final List<PilgrimagePoint> stops;
   final PilgrimagePlanController? planController;
+  final ValhallaRouteClient? routeClient;
+  final NavigationLocationResolver? locationResolver;
+  final MapNavigationLauncher externalNavigationLauncher;
 
   static Route<void> route({
     required PilgrimagePoint point,
@@ -34,6 +45,10 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
     String? groupName,
     List<PilgrimagePoint> stops = const [],
     PilgrimagePlanController? planController,
+    ValhallaRouteClient? routeClient,
+    NavigationLocationResolver? locationResolver,
+    MapNavigationLauncher externalNavigationLauncher =
+        const MapNavigationLauncher(),
   }) {
     return MaterialPageRoute<void>(
       fullscreenDialog: true,
@@ -43,6 +58,9 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
         groupName: groupName,
         stops: stops,
         planController: planController,
+        routeClient: routeClient,
+        locationResolver: locationResolver,
+        externalNavigationLauncher: externalNavigationLauncher,
       ),
     );
   }
@@ -54,6 +72,10 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
     String? groupName,
     List<PilgrimagePoint> stops = const [],
     PilgrimagePlanController? planController,
+    ValhallaRouteClient? routeClient,
+    NavigationLocationResolver? locationResolver,
+    MapNavigationLauncher externalNavigationLauncher =
+        const MapNavigationLauncher(),
   }) {
     return Navigator.of(context).push<void>(
       route(
@@ -62,6 +84,9 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
         groupName: groupName,
         stops: stops,
         planController: planController,
+        routeClient: routeClient,
+        locationResolver: locationResolver,
+        externalNavigationLauncher: externalNavigationLauncher,
       ),
     );
   }
@@ -85,22 +110,94 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
   }
 
   @override
+  State<NavigationRouteConfirmScreen> createState() =>
+      _NavigationRouteConfirmScreenState();
+}
+
+class _NavigationRouteConfirmScreenState
+    extends State<NavigationRouteConfirmScreen> {
+  late final ValhallaRouteClient _routeClient =
+      widget.routeClient ?? ValhallaRouteClient();
+  NavigationRoute? _route;
+  LatLng? _start;
+  Object? _error;
+  var _loading = true;
+  var _requestToken = 0;
+
+  late final List<PilgrimagePoint> _resolvedStops = _coordinateStops(
+    point: widget.point,
+    stops: widget.stops,
+  );
+  late final List<PilgrimagePoint> _remainingStops = remainingNavigationStops(
+    point: widget.point,
+    stops: _resolvedStops,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRoute(_remainingStops);
+  }
+
+  Future<void> _loadRoute(List<PilgrimagePoint> stops) async {
+    final requestToken = ++_requestToken;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final start = _start ?? await _resolveLocation();
+      final route = await _routeClient.route(
+        baseUrl: widget.settings.valhallaBaseUrl,
+        locations: [start, for (final stop in stops) stop.position],
+      );
+      if (!mounted || requestToken != _requestToken) return;
+      setState(() {
+        _start = start;
+        _route = route;
+        _loading = false;
+      });
+    } on Object catch (error) {
+      if (!mounted || requestToken != _requestToken) return;
+      setState(() {
+        _loading = false;
+        _error = error;
+      });
+    }
+  }
+
+  Future<LatLng> _resolveLocation() async {
+    final custom = widget.locationResolver;
+    if (custom != null) return custom();
+    final position = await resolveCurrentLocation();
+    return LatLng(position.latitude, position.longitude);
+  }
+
+  String get _errorMessage {
+    final error = _error;
+    if (error is CurrentLocationException) {
+      return currentLocationFailureMessage(error);
+    }
+    if (error is ValhallaRouteException) return error.message;
+    return '路线加载失败，请检查定位和路径服务设置';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final resolvedStops = _coordinateStops(point: point, stops: stops);
-    final remainingStops = remainingNavigationStops(
-      point: point,
-      stops: resolvedStops,
-    );
+    final remainingStops = _remainingStops;
     final canChainZone = remainingStops.length >= 2;
-    final routePoints = _previewPolyline([
-      for (final stop in remainingStops) stop.position,
-    ]);
+    final routePoints =
+        _route?.shape ??
+        [
+          _start,
+          for (final stop in remainingStops) stop.position,
+        ].whereType<LatLng>().toList(growable: false);
     final brightness = resolvedAppBrightness(
-      settings,
+      widget.settings,
       platformBrightness: MediaQuery.platformBrightnessOf(context),
     );
     applyAppColorsFromSettings(
-      settings,
+      widget.settings,
       platformBrightness: MediaQuery.platformBrightnessOf(context),
     );
 
@@ -112,7 +209,7 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
         children: [
           Expanded(
             child: _RoutePreviewMap(
-              settings: settings,
+              settings: widget.settings,
               dark: brightness == Brightness.dark,
               routePoints: routePoints,
               stops: remainingStops,
@@ -130,8 +227,9 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (groupName != null && groupName!.trim().isNotEmpty) ...[
-                      _GroupNameRow(name: groupName!.trim()),
+                    if (widget.groupName != null &&
+                        widget.groupName!.trim().isNotEmpty) ...[
+                      _GroupNameRow(name: widget.groupName!.trim()),
                       const SizedBox(height: 12),
                     ],
                     Text(
@@ -147,7 +245,7 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
                     Text(
                       canChainZone
                           ? '按顺序连接 ${remainingStops.length} 个点位：${_stopChainLabel(remainingStops)}'
-                          : '终点：${point.name}',
+                          : '终点：${widget.point.name}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -158,13 +256,47 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (canChainZone) ...[
+                    const SizedBox(height: 12),
+                    if (_loading) ...[
+                      const LinearProgressIndicator(minHeight: 3),
+                      const SizedBox(height: 8),
+                      Text(
+                        '正在获取当前位置并规划步行路线…',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ] else if (_error != null) ...[
+                      Text(
+                        _errorMessage,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _loadRoute(remainingStops),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('重试'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _openExternalNavigation,
+                              icon: const Icon(Icons.open_in_new),
+                              label: Text(widget.settings.navigationApp.label),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (canChainZone) ...[
                       _PrimaryZoneButton(
                         onTap: () => _startNavigation(
                           context,
                           chainZone: true,
-                          resolvedStops: resolvedStops,
+                          resolvedStops: _resolvedStops,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -172,7 +304,7 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
                         onTap: () => _startNavigation(
                           context,
                           chainZone: false,
-                          resolvedStops: resolvedStops,
+                          resolvedStops: _resolvedStops,
                         ),
                       ),
                     ] else
@@ -181,7 +313,7 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
                         onTap: () => _startNavigation(
                           context,
                           chainZone: false,
-                          resolvedStops: resolvedStops,
+                          resolvedStops: _resolvedStops,
                         ),
                       ),
                   ],
@@ -199,16 +331,56 @@ class NavigationRouteConfirmScreen extends StatelessWidget {
     required bool chainZone,
     required List<PilgrimagePoint> resolvedStops,
   }) {
-    final selectedStops = chainZone ? resolvedStops : [point];
+    final selectedStops = chainZone ? resolvedStops : [widget.point];
+    final activeStops = remainingNavigationStops(
+      point: widget.point,
+      stops: selectedStops,
+    );
+    if (_route == null || (!chainZone && _remainingStops.length > 1)) {
+      _loadAndStart(activeStops, chainZone: chainZone);
+      return;
+    }
+    _openNavigation(activeStops, chainZone: chainZone, route: _route!);
+  }
+
+  Future<void> _loadAndStart(
+    List<PilgrimagePoint> stops, {
+    required bool chainZone,
+  }) async {
+    await _loadRoute(stops);
+    if (!mounted || _route == null || _error != null) return;
+    _openNavigation(stops, chainZone: chainZone, route: _route!);
+  }
+
+  void _openNavigation(
+    List<PilgrimagePoint> stops, {
+    required bool chainZone,
+    required NavigationRoute route,
+  }) {
     Navigator.of(context).pushReplacement(
       InAppNavigationScreen.route(
-        point: point,
-        settings: settings,
-        groupName: chainZone ? groupName : null,
-        stops: selectedStops,
-        planController: planController,
+        point: widget.point,
+        settings: widget.settings,
+        groupName: chainZone ? widget.groupName : null,
+        stops: stops,
+        planController: widget.planController,
+        initialRoute: route,
+        initialLocation: _start!,
+        routeClient: _routeClient,
       ),
     );
+  }
+
+  Future<void> _openExternalNavigation() async {
+    final opened = await widget.externalNavigationLauncher.openWalking(
+      widget.point,
+      widget.settings.navigationApp,
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无法打开外部地图')));
+    }
   }
 }
 
@@ -445,18 +617,4 @@ List<PilgrimagePoint> _coordinateStops({
 
 String _stopChainLabel(List<PilgrimagePoint> stops) {
   return [for (final stop in stops) stop.name].join(' → ');
-}
-
-List<LatLng> _previewPolyline(List<LatLng> stops) {
-  if (stops.isEmpty) {
-    return const [];
-  }
-  if (stops.length == 1) {
-    final destination = stops.first;
-    return [
-      LatLng(destination.latitude - 0.0034, destination.longitude - 0.0026),
-      destination,
-    ];
-  }
-  return stops;
 }

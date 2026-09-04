@@ -39,56 +39,6 @@ Future<void> showReferenceCacheProgressDialog({
   }
 }
 
-Future<void> showReferenceCacheBannerDebugPreview(BuildContext context) {
-  return showStatusBannerOverlay(
-    context: context,
-    builder: (dialogContext) {
-      return SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _CacheBannerCard(
-              bannerKey: const ValueKey('reference-cache-debug-running'),
-              status: _CacheDialogStatus.running,
-              total: 18,
-              processed: 8,
-              succeeded: 8,
-              failed: 0,
-            ),
-            const SizedBox(height: 8),
-            _CacheBannerCard(
-              bannerKey: const ValueKey('reference-cache-debug-success'),
-              status: _CacheDialogStatus.success,
-              total: 18,
-              processed: 18,
-              succeeded: 18,
-              failed: 0,
-            ),
-            const SizedBox(height: 8),
-            _CacheBannerCard(
-              bannerKey: const ValueKey('reference-cache-debug-partial'),
-              status: _CacheDialogStatus.partial,
-              total: 18,
-              processed: 18,
-              succeeded: 14,
-              failed: 4,
-            ),
-            const SizedBox(height: 8),
-            _CacheBannerCard(
-              bannerKey: const ValueKey('reference-cache-debug-failed'),
-              status: _CacheDialogStatus.failed,
-              total: 18,
-              processed: 18,
-              succeeded: 0,
-              failed: 18,
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
 class ReferenceCacheProgressDialog extends StatefulWidget {
   const ReferenceCacheProgressDialog({required this.run, super.key});
 

@@ -698,6 +698,34 @@ void main() {
     },
   );
 
+  test('schema 40 to 41 adds Valhalla service URL without data loss', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.createPlan(name: '路径服务迁移', area: '东京');
+    await repository.saveAppSettings(
+      const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+    );
+    await database.customStatement(
+      'ALTER TABLE app_settings_entries DROP COLUMN valhalla_base_url',
+    );
+
+    await database.migration.onUpgrade(
+      database.createMigrator(),
+      40,
+      database.schemaVersion,
+    );
+
+    expect(
+      await _tableColumnNames(database, 'app_settings_entries'),
+      contains('valhalla_base_url'),
+    );
+    expect((await repository.loadPlans()).single.id, plan.id);
+    final settings = await repository.loadAppSettings();
+    expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+    expect(settings.valhallaBaseUrl, 'https://valhalla1.openstreetmap.de');
+  });
+
   test(
     'pending-coordinate point is never promoted to current target',
     () async {
@@ -1814,6 +1842,7 @@ void main() {
         fontScale: 1.2,
         themeMode: AppThemeMode.system,
         navigationApp: NavigationApp.amap,
+        valhallaBaseUrl: 'https://route.example',
         saveVisitPhotoToGallery: false,
         autoSaveComparisonToGallery: true,
         comparisonShowPilgrimName: true,
@@ -1869,6 +1898,7 @@ void main() {
     expect(settings.fontScale, 1.2);
     expect(settings.themeMode, AppThemeMode.system);
     expect(settings.navigationApp, NavigationApp.amap);
+    expect(settings.valhallaBaseUrl, 'https://route.example');
     expect(settings.saveVisitPhotoToGallery, isFalse);
     expect(settings.autoSaveComparisonToGallery, isTrue);
     expect(settings.comparisonShowPilgrimName, isTrue);

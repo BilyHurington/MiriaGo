@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
 import '../data/anitabi_service_config.dart';
+import '../data/valhalla_service_config.dart';
 
 const Object _unset = Object();
 
@@ -192,6 +193,7 @@ class AppSettings {
     this.anitabiOfficialImageBaseUrl = defaultAnitabiOfficialImageBaseUrl,
     this.anitabiMirrorImageBaseUrl = defaultAnitabiMirrorImageBaseUrl,
     this.navigationApp = NavigationApp.googleMaps,
+    this.valhallaBaseUrl = defaultValhallaBaseUrl,
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
     this.saveVisitPhotoToGallery = true,
@@ -238,6 +240,7 @@ class AppSettings {
   final String anitabiOfficialImageBaseUrl;
   final String anitabiMirrorImageBaseUrl;
   final NavigationApp navigationApp;
+  final String valhallaBaseUrl;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
@@ -284,6 +287,7 @@ class AppSettings {
     String? anitabiOfficialImageBaseUrl,
     String? anitabiMirrorImageBaseUrl,
     NavigationApp? navigationApp,
+    String? valhallaBaseUrl,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
@@ -337,6 +341,7 @@ class AppSettings {
       anitabiMirrorImageBaseUrl:
           anitabiMirrorImageBaseUrl ?? this.anitabiMirrorImageBaseUrl,
       navigationApp: navigationApp ?? this.navigationApp,
+      valhallaBaseUrl: valhallaBaseUrl ?? this.valhallaBaseUrl,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,

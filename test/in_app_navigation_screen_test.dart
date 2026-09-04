@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:miriago/app_theme.dart';
 import 'package:miriago/map/in_app_navigation_screen.dart';
+import 'package:miriago/map/valhalla_route_client.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
@@ -29,6 +32,7 @@ void main() {
     String? groupName,
     List<PilgrimagePoint> stops = const [],
     PilgrimagePoint? startPoint,
+    Stream<NavigationLocationSample>? locationStream,
   }) async {
     final selected = startPoint ?? point;
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -45,6 +49,13 @@ void main() {
                     context,
                     point: selected,
                     settings: settings,
+                    initialRoute: _testRoute(selected, stops),
+                    initialLocation: LatLng(
+                      selected.position.latitude - 0.003,
+                      selected.position.longitude - 0.002,
+                    ),
+                    locationStreamFactory: () =>
+                        locationStream ?? const Stream.empty(),
                     groupName: groupName,
                     stops: stops,
                   ),
@@ -133,7 +144,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('结束路线'), findsOneWidget);
-    expect(find.text('已到达'), findsOneWidget);
+    expect(find.text('已到达'), findsNothing);
     expect(find.text('全部点位'), findsOneWidget);
     expect(find.text('到达'), findsOneWidget);
     expect(find.text('小时'), findsOneWidget);
@@ -145,26 +156,6 @@ void main() {
       find.byKey(const ValueKey('in-app-navigation-collapse')),
       findsOneWidget,
     );
-
-    await tester.tap(
-      find.byKey(const ValueKey('in-app-navigation-arrive-debug')),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-arrive-debug-sheet')),
-      findsOneWidget,
-    );
-    expect(find.text('到达点位'), findsOneWidget);
-    expect(find.textContaining('第 1 / 1 个剩余点位'), findsOneWidget);
-    expect(find.text('打开相机'), findsOneWidget);
-    expect(find.text('前往下一点'), findsNothing);
-    expect(find.text('片区'), findsNothing);
-    Navigator.of(
-      tester.element(
-        find.byKey(const ValueKey('in-app-navigation-arrive-debug-sheet')),
-      ),
-    ).pop();
-    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('in-app-navigation-all-stops')));
     await tester.pumpAndSettle();
@@ -310,41 +301,48 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('in-app-navigation-arrive-debug')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-arrive-debug-sheet')),
-      findsOneWidget,
-    );
-    expect(find.text('到达点位'), findsOneWidget);
-    expect(find.textContaining('第 1 / 2 个剩余点位'), findsOneWidget);
-    expect(find.text('打开相机'), findsOneWidget);
-    expect(find.text('片区'), findsOneWidget);
-    expect(find.text('京阪宇治站前'), findsOneWidget);
-
-    await tester.tap(
-      find.byKey(const ValueKey('in-app-navigation-arrive-debug-next')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
-    expect(find.text('结束路线'), findsNothing);
-    expect(find.text('已到达'), findsNothing);
-    expect(
-      find.byKey(const ValueKey('in-app-navigation-expand')),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('in-app-navigation-all-stops')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('下一个:'), findsNothing);
     expect(find.textContaining('终点: 京阪宇治站前'), findsWidgets);
+  });
+
+  testWidgets('live location opens arrival sheet and advances to next stop', (
+    tester,
+  ) async {
+    const lastPoint = PilgrimagePoint(
+      id: 'point-2',
+      work: work,
+      name: '京阪宇治站前',
+      subtitle: '京阪宇治駅前',
+      position: LatLng(34.8942, 135.8069),
+      episodeLabel: 'EP 5',
+      referenceLabel: '手动',
+    );
+    final locations = StreamController<NavigationLocationSample>.broadcast();
+    addTearDown(locations.close);
+    await pumpScreen(
+      tester,
+      stops: const [point, lastPoint],
+      locationStream: locations.stream,
+    );
+
+    locations.add(
+      NavigationLocationSample(position: point.position, accuracy: 5),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-arrival-sheet')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('第 1 / 2 个剩余点位'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('in-app-navigation-arrival-next')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
   });
 
   testWidgets('zone tour from a later point skips earlier stops', (
@@ -393,4 +391,37 @@ void main() {
     expect(find.textContaining('下一个:'), findsNothing);
     expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
   });
+}
+
+NavigationRoute _testRoute(
+  PilgrimagePoint selected,
+  List<PilgrimagePoint> stops,
+) {
+  final targets = stops.isEmpty ? [selected] : stops;
+  final start = LatLng(
+    selected.position.latitude - 0.003,
+    selected.position.longitude - 0.002,
+  );
+  final shape = [start, for (final point in targets) point.position];
+  return NavigationRoute(
+    shape: shape,
+    maneuvers: [
+      NavigationManeuver(
+        type: 5,
+        instruction: '右转进入表参道',
+        distanceKm: 0.475,
+        beginShapeIndex: 0,
+        endShapeIndex: 1,
+      ),
+      NavigationManeuver(
+        type: 4,
+        instruction: '沿表参道直行',
+        distanceKm: 0.210,
+        beginShapeIndex: 1,
+        endShapeIndex: shape.length - 1,
+      ),
+    ],
+    distanceKm: 0.685,
+    duration: const Duration(minutes: 12),
+  );
 }

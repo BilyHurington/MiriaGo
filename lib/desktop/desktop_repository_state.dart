@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/sample_pilgrimage_repository.dart';
 import '../data/anitabi_service_config.dart';
+import '../data/valhalla_service_config.dart';
 import '../plan/pilgrimage_models.dart';
 
 const desktopRepositoryStateSchemaVersion = 1;
@@ -86,6 +87,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'anitabiOfficialImageBaseUrl': settings.anitabiOfficialImageBaseUrl,
     'anitabiMirrorImageBaseUrl': settings.anitabiMirrorImageBaseUrl,
     'navigationApp': settings.navigationApp.name,
+    'valhallaBaseUrl': settings.valhallaBaseUrl,
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
     'saveVisitPhotoToGallery': settings.saveVisitPhotoToGallery,
@@ -180,6 +182,9 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     navigationApp:
         _enumByName(NavigationApp.values, json['navigationApp']) ??
         NavigationApp.googleMaps,
+    valhallaBaseUrl: normalizeValhallaBaseUrl(
+      _stringValue(json['valhallaBaseUrl'], fallback: ''),
+    ),
     customXyzTileUrl: _stringValue(json['customXyzTileUrl'], fallback: ''),
     customMapLibreStyleUrl: _stringValue(
       json['customMapLibreStyleUrl'],

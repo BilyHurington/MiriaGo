@@ -8,9 +8,12 @@ import '../app_theme.dart';
 import '../app_version.dart';
 import '../camera_reference/camera_zoom_capabilities.dart';
 import '../data/pilgrimage_repository.dart';
+import '../data/reference_cache_cleanup.dart';
+import '../data/valhalla_service_config.dart';
 import '../data/anitabi_service_config.dart';
 import '../desktop/tauri_bridge.dart';
 import '../map/map_tile_config.dart';
+import '../map/valhalla_route_client.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/comparison_export_config.dart';
 import '../records/comparison_export_config_editor.dart';
@@ -18,15 +21,12 @@ import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/app_scaled_route.dart';
-import '../widgets/app_status_banner.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/snackbar_helper.dart';
-import '../widgets/status_snack_samples.dart';
 
-bool get _showFutureCacheCleanupSettings => false;
-bool get _showSnackDebugSettings => false;
+bool get _showCacheCleanupSettings => isReferenceCacheCleanupSupported;
 bool get _showDebugPhotoLocationSettings => false;
 bool get _shouldShowMobileGallerySettings {
   if (kIsWeb) {
@@ -290,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          if (_showFutureCacheCleanupSettings) ...[
+          if (_showCacheCleanupSettings) ...[
             const SizedBox(height: 12),
             _SettingsCard(
               header: _SettingsCardHeader(
@@ -330,18 +330,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          if (_showSnackDebugSettings) ...[
-            const SizedBox(height: 12),
-            _SettingsCard(
-              key: const ValueKey('settings-snack-debug-card'),
-              header: _SettingsCardHeader(
-                icon: Icons.notifications_outlined,
-                title: 'Snack 调试',
-                subtitle: '预览当前全部提示条',
-                onTap: () => _pushDetail(const _SnackDebugSettingsPage()),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1700,6 +1688,7 @@ class _DataSourceSettingsPage extends StatefulWidget {
 
 class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
   late AppSettings _settings;
+  var _testingValhalla = false;
 
   @override
   void initState() {
@@ -1712,6 +1701,29 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
       _settings = settings;
     });
     widget.onChanged(settings);
+  }
+
+  Future<void> _testValhalla() async {
+    setState(() => _testingValhalla = true);
+    try {
+      await ValhallaRouteClient().testConnection(_settings.valhallaBaseUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.success,
+          title: '路径规划服务连接正常',
+        );
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '路径规划服务连接失败',
+          subtitle: error.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testingValhalla = false);
+    }
   }
 
   @override
@@ -1867,6 +1879,63 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
               _navigationAppDescription(settings.navigationApp),
               style: _secondaryTextStyle,
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
+          title: '步行路径规划',
+          children: [
+            _MapUrlRow(
+              icon: Icons.route_outlined,
+              label: settings.valhallaBaseUrl,
+              onTap: () => widget.showMapUrlDialog(
+                title: 'Valhalla 服务地址',
+                initialValue: settings.valhallaBaseUrl,
+                helperText: '用于应用内步行路线规划。公开服务没有可用性保证。',
+                validator: validateValhallaBaseUrl,
+                onSaved: (value) {
+                  _update(
+                    settings.copyWith(
+                      valhallaBaseUrl: normalizeValhallaBaseUrl(value),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _testingValhalla ? null : _testValhalla,
+                    icon: _testingValhalla
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.wifi_tethering_outlined, size: 18),
+                    label: const Text('测试连接'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        settings.valhallaBaseUrl == defaultValhallaBaseUrl
+                        ? null
+                        : () => _update(
+                            settings.copyWith(
+                              valhallaBaseUrl: defaultValhallaBaseUrl,
+                            ),
+                          ),
+                    icon: const Icon(Icons.restore, size: 18),
+                    label: const Text('恢复默认'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('仅发送路线坐标，不会上传计划、作品或照片信息。', style: _secondaryTextStyle),
           ],
         ),
         const SizedBox(height: 12),
@@ -2183,6 +2252,9 @@ class _CacheCleanupSettingsPage extends StatefulWidget {
 class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
   final Set<String> _selectedPlanIds = <String>{};
   Future<List<PilgrimagePlan>>? _plansFuture;
+  var _busy = false;
+  var _completed = 0;
+  var _total = 0;
 
   @override
   void initState() {
@@ -2303,12 +2375,23 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _selectedPlanIds.isEmpty
+                    onPressed: _selectedPlanIds.isEmpty || _busy
                         ? null
-                        : _showCachePlaceholder,
-                    icon: const Icon(Icons.cleaning_services_outlined),
-                    label: const Text(
-                      '\u6e05\u9664\u5b8c\u6574\u53c2\u8003\u56fe\u7f13\u5b58',
+                        : () => _confirmAndClean(
+                            plans.where(
+                              (plan) => _selectedPlanIds.contains(plan.id),
+                            ),
+                          ),
+                    icon: _busy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cleaning_services_outlined),
+                    label: Text(
+                      _busy && _total > 0
+                          ? '正在清理 $_completed / $_total'
+                          : '清除下载的参考图缓存',
                     ),
                   ),
                 ),
@@ -2320,11 +2403,92 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
     );
   }
 
-  void _showCachePlaceholder() {
-    ScaffoldMessenger.of(context).showStatusSnack(
-      kind: AppStatusBannerKind.warning,
-      title: '清除缓存功能尚未接入，仅展示界面。',
+  Future<void> _confirmAndClean(Iterable<PilgrimagePlan> selected) async {
+    setState(() => _busy = true);
+    final plans = selected.toList(growable: false);
+    late ReferenceCacheScan scan;
+    try {
+      scan = await scanDownloadedReferenceCaches(plans);
+    } on Object catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '缓存扫描失败',
+          subtitle: error.toString(),
+        );
+      }
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (scan.fileCount == 0) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '所选计划没有可清理的下载缓存',
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清除参考图缓存？'),
+        content: Text(
+          '将删除 ${scan.fileCount} 个下载缓存，约 ${_formatByteSize(scan.byteCount)}。'
+          '本地上传图片和计划包导入图片不会被删除。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
     );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _completed = 0;
+      _total = scan.paths.length;
+    });
+    try {
+      final result = await cleanupDownloadedReferenceCaches(
+        repository: widget.repository,
+        plans: plans,
+        onProgress: (completed, total) {
+          if (!mounted) return;
+          setState(() {
+            _completed = completed;
+            _total = total;
+          });
+        },
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: result.failedFileCount == 0
+            ? AppStatusBannerKind.success
+            : AppStatusBannerKind.warning,
+        title: '已清理 ${result.deletedFileCount} 个缓存文件',
+        subtitle: result.failedFileCount == 0
+            ? '释放 ${_formatByteSize(result.reclaimedBytes)}'
+            : '${result.failedFileCount} 个文件清理失败',
+      );
+      setState(() {
+        _plansFuture = widget.repository.loadPlans();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _completed = 0;
+          _total = 0;
+        });
+      }
+    }
   }
 }
 
@@ -2368,70 +2532,13 @@ class _DesktopSettingsPage extends StatelessWidget {
   }
 }
 
-class _SnackDebugSettingsPage extends StatelessWidget {
-  const _SnackDebugSettingsPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return _DetailScaffold(
-      title: 'Snack 调试',
-      children: [
-        Text(
-          '当前应用里会用到的提示条样式，按进行中 / 成功 / 警告 / 失败排列。',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-            height: 1.4,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 14),
-        for (final sample in statusSnackDebugSamples) ...[
-          AppStatusBanner(
-            kind: sample.kind,
-            title: sample.title,
-            subtitle: sample.subtitle,
-            actionLabel: sample.actionLabel,
-            icon: sample.icon,
-            subtitleWidget: sample.hasProgress
-                ? AppStatusBannerProgressLine(
-                    countLabel:
-                        '${sample.progressProcessed} / ${sample.progressTotal}',
-                    percentLabel:
-                        '${((sample.progressProcessed! / sample.progressTotal!) * 100).round()}%',
-                    value: sample.progressProcessed! / sample.progressTotal!,
-                  )
-                : null,
-            footer: sample.footer == null
-                ? null
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 15,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          sample.footer!,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                            height: 1.3,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ],
-    );
-  }
+String _formatByteSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kilobytes = bytes / 1024;
+  if (kilobytes < 1024) return '${kilobytes.toStringAsFixed(1)} KB';
+  final megabytes = kilobytes / 1024;
+  if (megabytes < 1024) return '${megabytes.toStringAsFixed(1)} MB';
+  return '${(megabytes / 1024).toStringAsFixed(2)} GB';
 }
 
 class _AboutSettingsPage extends StatelessWidget {

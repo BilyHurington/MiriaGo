@@ -62,6 +62,7 @@ void main() {
         anitabiApiBaseUrl: 'https://api.example/v2',
         anitabiOfficialImageBaseUrl: 'https://images.example/official',
         anitabiMirrorImageBaseUrl: 'https://images.example/mirror',
+        valhallaBaseUrl: 'https://route.example',
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
         saveVisitPhotoToGallery: false,
@@ -149,6 +150,7 @@ void main() {
       decoded.settings.anitabiMirrorImageBaseUrl,
       'https://images.example/mirror',
     );
+    expect(decoded.settings.valhallaBaseUrl, 'https://route.example');
     expect(
       decoded.settings.customXyzTileUrl,
       'https://example.com/{z}/{x}/{y}.png',

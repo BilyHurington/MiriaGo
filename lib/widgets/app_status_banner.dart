@@ -168,55 +168,6 @@ class _AutoClosingStatusOverlayState extends State<_AutoClosingStatusOverlay> {
   Widget build(BuildContext context) => widget.child;
 }
 
-Future<void> showPlanExportBannerDebugPreview(BuildContext context) {
-  return showStatusBannerOverlay(
-    context: context,
-    builder: (_) {
-      return const SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppStatusBanner(
-              key: ValueKey('plan-export-debug-running'),
-              kind: AppStatusBannerKind.running,
-              title: '正在导出...',
-              icon: Icons.ios_share_outlined,
-            ),
-            SizedBox(height: 8),
-            AppStatusBanner(
-              key: ValueKey('plan-export-debug-canceled'),
-              kind: AppStatusBannerKind.running,
-              title: '已取消导出',
-              icon: Icons.cancel_outlined,
-            ),
-            SizedBox(height: 8),
-            AppStatusBanner(
-              key: ValueKey('plan-export-debug-success'),
-              kind: AppStatusBannerKind.success,
-              title: '数据包已导出',
-              subtitle: '已保存到本地',
-            ),
-            SizedBox(height: 8),
-            AppStatusBanner(
-              key: ValueKey('plan-export-debug-warning'),
-              kind: AppStatusBannerKind.warning,
-              title: '数据包已导出',
-              subtitle: '3 张完整参考图下载失败，2 张巡礼照片缺失',
-            ),
-            SizedBox(height: 8),
-            AppStatusBanner(
-              key: ValueKey('plan-export-debug-failed'),
-              kind: AppStatusBannerKind.error,
-              title: '导出失败',
-              subtitle: '请稍后重试',
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
 class AppStatusBanner extends StatelessWidget {
   const AppStatusBanner({
     super.key,

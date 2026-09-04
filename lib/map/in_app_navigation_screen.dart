@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
@@ -12,8 +14,19 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/plan_group_utils.dart';
 import 'map_tile_config.dart';
+import 'navigation_progress.dart';
+import 'valhalla_route_client.dart';
 
 const _endRouteRed = Color(0xFFFF3B30);
+
+class NavigationLocationSample {
+  const NavigationLocationSample({required this.position, this.accuracy = 0});
+  final LatLng position;
+  final double accuracy;
+}
+
+typedef NavigationLocationStreamFactory =
+    Stream<NavigationLocationSample> Function();
 
 class _NavigationChrome {
   const _NavigationChrome({
@@ -81,33 +94,49 @@ class InAppNavigationScreen extends StatefulWidget {
   const InAppNavigationScreen({
     required this.point,
     required this.settings,
+    required this.initialRoute,
+    required this.initialLocation,
     this.groupName,
     this.stops = const [],
     this.planController,
+    this.routeClient,
+    this.locationStreamFactory,
     super.key,
   });
 
   final PilgrimagePoint point;
   final AppSettings settings;
+  final NavigationRoute initialRoute;
+  final LatLng initialLocation;
   final String? groupName;
   final List<PilgrimagePoint> stops;
   final PilgrimagePlanController? planController;
+  final ValhallaRouteClient? routeClient;
+  final NavigationLocationStreamFactory? locationStreamFactory;
 
   static Route<void> route({
     required PilgrimagePoint point,
     required AppSettings settings,
+    required NavigationRoute initialRoute,
+    required LatLng initialLocation,
     String? groupName,
     List<PilgrimagePoint> stops = const [],
     PilgrimagePlanController? planController,
+    ValhallaRouteClient? routeClient,
+    NavigationLocationStreamFactory? locationStreamFactory,
   }) {
     return MaterialPageRoute<void>(
       fullscreenDialog: true,
       builder: (_) => InAppNavigationScreen(
         point: point,
         settings: settings,
+        initialRoute: initialRoute,
+        initialLocation: initialLocation,
         groupName: groupName,
         stops: stops,
         planController: planController,
+        routeClient: routeClient,
+        locationStreamFactory: locationStreamFactory,
       ),
     );
   }
@@ -116,17 +145,25 @@ class InAppNavigationScreen extends StatefulWidget {
     BuildContext context, {
     required PilgrimagePoint point,
     required AppSettings settings,
+    required NavigationRoute initialRoute,
+    required LatLng initialLocation,
     String? groupName,
     List<PilgrimagePoint> stops = const [],
     PilgrimagePlanController? planController,
+    ValhallaRouteClient? routeClient,
+    NavigationLocationStreamFactory? locationStreamFactory,
   }) {
     return Navigator.of(context).push<void>(
       route(
         point: point,
         settings: settings,
+        initialRoute: initialRoute,
+        initialLocation: initialLocation,
         groupName: groupName,
         stops: stops,
         planController: planController,
+        routeClient: routeClient,
+        locationStreamFactory: locationStreamFactory,
       ),
     );
   }
@@ -140,7 +177,12 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
   final PageController _stepController = PageController();
   var _stepIndex = 0;
   var _sheetExpanded = false;
-  var _debugStopIndex = 0;
+  var _targetIndex = 0;
+  var _followLocation = true;
+  var _offRouteSamples = 0;
+  var _arrivalSheetOpen = false;
+  DateTime? _lastRerouteAt;
+  StreamSubscription<NavigationLocationSample>? _locationSubscription;
 
   late final List<PilgrimagePoint> _stops = _resolvedStops(
     point: widget.point,
@@ -154,23 +196,19 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
     point: widget.point,
     stops: _stops,
   );
-  late final List<_PreviewStep> _steps = _previewStepsFor(widget.point);
-  late final List<LatLng> _route = () {
-    final route = _previewRouteForStops([
-      for (final stop in _activeStops) stop.position,
-    ]);
-    if (route.isEmpty) {
-      return _previewRouteFor(widget.point.position);
-    }
-    return route;
-  }();
-  late LatLng _currentLocation = _route.first;
+  late final ValhallaRouteClient _routeClient =
+      widget.routeClient ?? ValhallaRouteClient();
+  late NavigationRoute _navigationRoute = widget.initialRoute;
+  late List<LatLng> _route = _navigationRoute.shape;
+  late List<_PreviewStep> _steps = _stepsFor(_navigationRoute);
+  late LatLng _currentLocation = widget.initialLocation;
+  late RouteProgress _progress = routeProgressFor(_currentLocation, _route);
 
   PilgrimagePoint get _currentTarget {
     if (_activeStops.isEmpty) {
       return widget.point;
     }
-    final index = _debugStopIndex.clamp(0, _activeStops.length - 1);
+    final index = _targetIndex.clamp(0, _activeStops.length - 1);
     return _activeStops[index];
   }
 
@@ -178,20 +216,126 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
     if (_activeStops.isEmpty) {
       return true;
     }
-    return _debugStopIndex >= _activeStops.length - 1;
+    return _targetIndex >= _activeStops.length - 1;
   }
 
-  PilgrimagePoint? get _nextDebugStop {
-    if (_currentIsLast || _debugStopIndex + 1 >= _activeStops.length) {
+  PilgrimagePoint? get _nextStop {
+    if (_currentIsLast || _targetIndex + 1 >= _activeStops.length) {
       return null;
     }
-    return _activeStops[_debugStopIndex + 1];
+    return _activeStops[_targetIndex + 1];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final factory = widget.locationStreamFactory ?? _defaultLocationStream;
+    _locationSubscription = factory().listen(_onLocation, onError: (_) {});
+  }
+
+  Stream<NavigationLocationSample> _defaultLocationStream() {
+    return Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 2,
+      ),
+    ).map(
+      (position) => NavigationLocationSample(
+        position: LatLng(position.latitude, position.longitude),
+        accuracy: position.accuracy,
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _locationSubscription?.cancel();
     _stepController.dispose();
     super.dispose();
+  }
+
+  void _onLocation(NavigationLocationSample sample) {
+    if (!mounted) return;
+    final progress = routeProgressFor(sample.position, _route);
+    final maneuverIndex = activeManeuverIndexFor(
+      progress.nearestShapeIndex,
+      _navigationRoute.maneuvers.map((maneuver) => maneuver.endShapeIndex),
+    ).clamp(0, math.max(0, _steps.length - 1)).toInt();
+    setState(() {
+      _currentLocation = sample.position;
+      _progress = progress;
+      _stepIndex = maneuverIndex;
+    });
+    if (_stepController.hasClients &&
+        (_stepController.page?.round() ?? 0) != maneuverIndex) {
+      _stepController.animateToPage(
+        maneuverIndex,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    }
+    if (_followLocation) {
+      _mapController.move(
+        sample.position,
+        math.max(17.0, _mapController.camera.zoom),
+      );
+    }
+
+    final offRouteLimit = math.max(45.0, sample.accuracy + 25);
+    _offRouteSamples = progress.distanceFromRouteMeters > offRouteLimit
+        ? _offRouteSamples + 1
+        : 0;
+    if (_offRouteSamples >= 3) {
+      _reroute();
+    }
+
+    final arrivalRadius = math.max(18.0, sample.accuracy + 8);
+    if (!_arrivalSheetOpen &&
+        const Distance()(sample.position, _currentTarget.position) <=
+            arrivalRadius) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showArrival(
+            context,
+            _NavigationChrome.of(
+              resolvedAppBrightness(
+                widget.settings,
+                platformBrightness: MediaQuery.platformBrightnessOf(context),
+              ),
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  Future<void> _reroute() async {
+    final now = DateTime.now();
+    if (_lastRerouteAt != null &&
+        now.difference(_lastRerouteAt!) < const Duration(seconds: 25)) {
+      return;
+    }
+    _lastRerouteAt = now;
+    _offRouteSamples = 0;
+    try {
+      final route = await _routeClient.route(
+        baseUrl: widget.settings.valhallaBaseUrl,
+        locations: [
+          _currentLocation,
+          for (final stop in _activeStops.skip(_targetIndex)) stop.position,
+        ],
+      );
+      if (!mounted) return;
+      setState(() {
+        _navigationRoute = route;
+        _route = route.shape;
+        _steps = _stepsFor(route);
+        _stepIndex = 0;
+        _progress = routeProgressFor(_currentLocation, _route);
+      });
+    } on Object {
+      // Keep the previous route visible; another location update may retry later.
+    }
   }
 
   void _openReferenceCamera(PilgrimagePoint point) {
@@ -206,41 +350,48 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
     );
   }
 
-  Future<void> _showArriveDebug(
+  Future<void> _showArrival(
     BuildContext context,
     _NavigationChrome chrome,
-  ) {
+  ) async {
     final arrived = _currentTarget;
-    final next = _nextDebugStop;
+    final next = _nextStop;
     final remainingCount = _activeStops.isEmpty ? 1 : _activeStops.length;
-    return showModalBottomSheet<void>(
+    _arrivalSheetOpen = true;
+    await showModalBottomSheet<void>(
       context: context,
       backgroundColor: chrome.panel,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) {
-        return _ArriveDebugSheet(
+        return _ArrivalSheet(
           chrome: chrome,
           arrived: arrived,
           isLast: _currentIsLast,
-          stopNumber: _debugStopIndex + 1,
+          stopNumber: _targetIndex + 1,
           remainingCount: remainingCount,
           nextStop: next,
           onOpenCamera: () => _openReferenceCamera(arrived),
+          onFinish: _currentIsLast
+              ? () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).maybePop();
+                }
+              : null,
           onGoNext: next == null
               ? null
               : () {
                   Navigator.of(sheetContext).pop();
                   setState(() {
-                    _debugStopIndex++;
-                    _currentLocation = _currentTarget.position;
+                    _targetIndex++;
                     _sheetExpanded = false;
                   });
-                  _mapController.move(_currentLocation, 17);
+                  _reroute();
                 },
         );
       },
     );
+    _arrivalSheetOpen = false;
   }
 
   Future<void> _showAllStops(BuildContext context, _NavigationChrome chrome) {
@@ -295,6 +446,11 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all,
                 ),
+                onPositionChanged: (_, hasGesture) {
+                  if (hasGesture && _followLocation) {
+                    setState(() => _followLocation = false);
+                  }
+                },
               ),
               children: [
                 configuredNavigationMapTileLayer(
@@ -377,7 +533,10 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: _RecenterButton(
                       chrome: chrome,
-                      onTap: () => _mapController.move(_currentLocation, 17),
+                      onTap: () {
+                        setState(() => _followLocation = true);
+                        _mapController.move(_currentLocation, 17);
+                      },
                     ),
                   ),
                   _BottomPanel(
@@ -385,14 +544,17 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
                     point: _currentTarget,
                     currentIsLast: _currentIsLast,
                     stops: _stops,
-                    metrics: _tripMetricsFor(_route),
+                    metrics: _tripMetricsForRoute(
+                      _navigationRoute,
+                      remainingDistanceMeters:
+                          _progress.remainingDistanceMeters,
+                    ),
                     expanded: _sheetExpanded,
                     bottomInset: bottomInset,
                     onToggleExpanded: () {
                       setState(() => _sheetExpanded = !_sheetExpanded);
                     },
                     onShowAllStops: () => _showAllStops(context, chrome),
-                    onArriveDebug: () => _showArriveDebug(context, chrome),
                     onEndRoute: () => Navigator.of(context).maybePop(),
                   ),
                 ],
@@ -417,16 +579,17 @@ class _TripMetrics {
   final String distanceText;
 }
 
-_TripMetrics _tripMetricsFor(List<LatLng> route, {DateTime? now}) {
+_TripMetrics _tripMetricsForRoute(
+  NavigationRoute route, {
+  required double remainingDistanceMeters,
+  DateTime? now,
+}) {
   final clock = now ?? DateTime.now();
-  var meters = 0.0;
-  final calculator = Distance();
-  for (var i = 1; i < route.length; i++) {
-    meters += calculator(route[i - 1], route[i]);
-  }
-  final minutes = math.max(1, (meters * 0.015).round());
+  final totalMeters = math.max(1.0, route.distanceKm * 1000);
+  final ratio = (remainingDistanceMeters / totalMeters).clamp(0.0, 1.0);
+  final minutes = math.max(1, (route.duration.inSeconds * ratio / 60).round());
   final arrival = clock.add(Duration(minutes: minutes));
-  final km = meters / 1000;
+  final km = remainingDistanceMeters / 1000;
   return _TripMetrics(
     arrivalText:
         '${arrival.hour.toString().padLeft(2, '0')}:'
@@ -451,47 +614,38 @@ class _PreviewStep {
   final String instruction;
 }
 
-List<_PreviewStep> _previewStepsFor(PilgrimagePoint point) {
-  final road = _roadHint(point);
+List<_PreviewStep> _stepsFor(NavigationRoute route) {
+  if (route.maneuvers.isEmpty) {
+    return const [
+      _PreviewStep(
+        icon: Icons.straight_rounded,
+        distanceLabel: '路线中',
+        instruction: '沿路线继续前行',
+      ),
+    ];
+  }
   return [
-    _PreviewStep(
-      icon: Icons.turn_right_rounded,
-      distanceLabel: '475米',
-      instruction: '右转进入$road',
-    ),
-    _PreviewStep(
-      icon: Icons.straight_rounded,
-      distanceLabel: '210米',
-      instruction: '沿$road直行',
-    ),
-    _PreviewStep(
-      icon: Icons.turn_left_rounded,
-      distanceLabel: '80米',
-      instruction: '左转进入附近道路',
-    ),
-    _PreviewStep(
-      icon: Icons.turn_slight_right_rounded,
-      distanceLabel: '150米',
-      instruction: '靠右前往${point.name}',
-    ),
-    _PreviewStep(
-      icon: Icons.flag_rounded,
-      distanceLabel: '40米',
-      instruction: '到达终点',
-    ),
+    for (final maneuver in route.maneuvers)
+      _PreviewStep(
+        icon: _maneuverIcon(maneuver.type),
+        distanceLabel: _distanceLabel(maneuver.distanceKm),
+        instruction: maneuver.instruction,
+      ),
   ];
 }
 
-String _roadHint(PilgrimagePoint point) {
-  final subtitle = point.subtitle.trim();
-  if (subtitle.isNotEmpty) {
-    return subtitle;
-  }
-  final city = point.work.city.trim();
-  if (city.isNotEmpty) {
-    return '$city附近道路';
-  }
-  return '前方道路';
+IconData _maneuverIcon(int type) => switch (type) {
+  3 => Icons.flag_rounded,
+  5 || 6 || 9 || 16 || 17 => Icons.turn_right_rounded,
+  7 || 8 || 11 || 18 || 19 => Icons.turn_left_rounded,
+  12 || 13 => Icons.u_turn_left_rounded,
+  _ => Icons.straight_rounded,
+};
+
+String _distanceLabel(double kilometers) {
+  final meters = kilometers * 1000;
+  if (meters < 1000) return '${math.max(1, meters.round())}米';
+  return '${kilometers.toStringAsFixed(kilometers >= 10 ? 0 : 1)}公里';
 }
 
 List<PilgrimagePoint> _resolvedStops({
@@ -510,31 +664,6 @@ List<PilgrimagePoint> _resolvedStops({
 
 String _stopHeadline(PilgrimagePoint stop, {required bool isLast}) {
   return isLast ? '终点: ${stop.name}' : stop.name;
-}
-
-List<LatLng> _previewRouteFor(LatLng destination) {
-  return [
-    LatLng(destination.latitude - 0.0034, destination.longitude - 0.0026),
-    LatLng(destination.latitude - 0.0021, destination.longitude - 0.0024),
-    LatLng(destination.latitude - 0.0011, destination.longitude - 0.0008),
-    LatLng(destination.latitude - 0.0004, destination.longitude - 0.0002),
-    destination,
-  ];
-}
-
-List<LatLng> _previewRouteForStops(List<LatLng> stops) {
-  if (stops.isEmpty) {
-    return const [];
-  }
-  if (stops.length == 1) {
-    return _previewRouteFor(stops.first);
-  }
-  final first = stops.first;
-  return [
-    LatLng(first.latitude - 0.0028, first.longitude - 0.0022),
-    LatLng(first.latitude - 0.0012, first.longitude - 0.0009),
-    ...stops,
-  ];
 }
 
 class _InstructionBanner extends StatelessWidget {
@@ -698,7 +827,6 @@ class _BottomPanel extends StatelessWidget {
     required this.bottomInset,
     required this.onToggleExpanded,
     required this.onShowAllStops,
-    required this.onArriveDebug,
     required this.onEndRoute,
   });
 
@@ -711,7 +839,6 @@ class _BottomPanel extends StatelessWidget {
   final double bottomInset;
   final VoidCallback onToggleExpanded;
   final VoidCallback onShowAllStops;
-  final VoidCallback onArriveDebug;
   final VoidCallback onEndRoute;
 
   @override
@@ -770,28 +897,6 @@ class _BottomPanel extends StatelessWidget {
                       onTap: onShowAllStops,
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        key: const ValueKey('in-app-navigation-arrive-debug'),
-                        onPressed: onArriveDebug,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: chrome.primaryText,
-                          side: BorderSide(color: chrome.iconButton),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        child: const Text('已到达'),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -1262,8 +1367,8 @@ String _destinationSubtitle(PilgrimagePoint point) {
   return '${point.work.title} · $episode';
 }
 
-class _ArriveDebugSheet extends StatelessWidget {
-  const _ArriveDebugSheet({
+class _ArrivalSheet extends StatelessWidget {
+  const _ArrivalSheet({
     required this.chrome,
     required this.arrived,
     required this.isLast,
@@ -1272,6 +1377,7 @@ class _ArriveDebugSheet extends StatelessWidget {
     required this.onOpenCamera,
     this.nextStop,
     this.onGoNext,
+    this.onFinish,
   });
 
   final _NavigationChrome chrome;
@@ -1282,6 +1388,7 @@ class _ArriveDebugSheet extends StatelessWidget {
   final VoidCallback onOpenCamera;
   final PilgrimagePoint? nextStop;
   final VoidCallback? onGoNext;
+  final VoidCallback? onFinish;
 
   @override
   Widget build(BuildContext context) {
@@ -1289,7 +1396,7 @@ class _ArriveDebugSheet extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
         child: Column(
-          key: const ValueKey('in-app-navigation-arrive-debug-sheet'),
+          key: const ValueKey('in-app-navigation-arrival-sheet'),
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1339,7 +1446,7 @@ class _ArriveDebugSheet extends StatelessWidget {
                 width: double.infinity,
                 height: 52,
                 child: FilledButton(
-                  key: const ValueKey('in-app-navigation-arrive-debug-next'),
+                  key: const ValueKey('in-app-navigation-arrival-next'),
                   onPressed: onGoNext,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.accent,
@@ -1354,6 +1461,25 @@ class _ArriveDebugSheet extends StatelessWidget {
                     ),
                   ),
                   child: const Text('前往下一点'),
+                ),
+              ),
+            ],
+            if (onFinish != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  key: const ValueKey('in-app-navigation-arrival-finish'),
+                  onPressed: onFinish,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _endRouteRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('结束路线'),
                 ),
               ),
             ],
