@@ -52,6 +52,18 @@ Future<DesktopLauncherInfo?> loadDesktopLauncherInfo() async {
   );
 }
 
+Future<void> appendDesktopStartupLog({required String message}) {
+  return _invokeVoid('append_desktop_log', {
+    'request': {'message': message},
+  });
+}
+
+Future<void> openDesktopDirectory({required String target}) {
+  return _invokeVoid('open_desktop_directory', {
+    'request': {'target': target},
+  });
+}
+
 Future<DesktopExportDestination?> prepareDesktopExportDestination({
   required String fileName,
   required String mimeType,
@@ -287,6 +299,19 @@ Future<JSObject?> _invokeObject(
     return null;
   }
   return result as JSObject;
+}
+
+Future<void> _invokeVoid(String command, Map<String, Object?> arguments) async {
+  final core = _tauriCore();
+  if (core == null) {
+    throw StateError('Tauri launcher is not available.');
+  }
+  final promise = core.callMethod<JSPromise<JSAny?>>(
+    'invoke'.toJS,
+    command.toJS,
+    _jsObjectFromMap(arguments),
+  );
+  await promise.toDart;
 }
 
 JSObject _jsObjectFromMap(Map<String, Object?> map) {

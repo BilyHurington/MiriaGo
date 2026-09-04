@@ -30,11 +30,16 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>MiriaGo</title>
-  <script src="https://unpkg.com/maplibre-gl@^5.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@^5.0/dist/maplibre-gl.css" rel="stylesheet"/>
+  <script src="desktop_startup_monitor.js"></script>
+  <script src="vendor/maplibre-gl/maplibre-gl.js"></script>
+  <link href="vendor/maplibre-gl/maplibre-gl.css" rel="stylesheet"/>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="miriago-startup-status" style="box-sizing:border-box;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;font:14px system-ui,sans-serif;color:#555;text-align:center;white-space:pre-wrap;">
+    正在启动 MiriaGo...
+  </div>
+  <script src="desktop_cache_cleanup.js"></script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

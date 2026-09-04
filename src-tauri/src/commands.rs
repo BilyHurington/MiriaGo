@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf, process::Command};
 
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -109,6 +109,18 @@ pub struct FetchAnitabiStaticJsonRequest {
     pub base_url: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopLogRequest {
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenDesktopDirectoryRequest {
+    pub target: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadAssetResult {
@@ -169,6 +181,36 @@ pub fn ensure_data_dirs() -> Result<LauncherInfo, String> {
 }
 
 #[tauri::command]
+pub fn append_desktop_log(request: DesktopLogRequest) -> Result<(), String> {
+    let message: String = request.message.chars().take(8000).collect();
+    crate::startup_log::write(&format!("flutter: {message}"));
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_desktop_directory(request: OpenDesktopDirectoryRequest) -> Result<(), String> {
+    let dirs = storage::ensure_data_dirs()?;
+    let path = match request.target.as_str() {
+        "data" => dirs.data_dir,
+        "logs" => dirs.logs_dir,
+        _ => return Err("unsupported desktop directory target".to_string()),
+    };
+
+    #[cfg(target_os = "windows")]
+    let status = Command::new("explorer").arg(&path).status();
+    #[cfg(target_os = "macos")]
+    let status = Command::new("open").arg(&path).status();
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    let status = Command::new("xdg-open").arg(&path).status();
+
+    status
+        .map_err(|error| format!("failed to open {}: {error}", path.display()))?
+        .success()
+        .then_some(())
+        .ok_or_else(|| format!("failed to open {}", path.display()))
+}
+
+#[tauri::command]
 pub fn prepare_export_destination(
     request: PrepareExportDestinationRequest,
 ) -> Result<ExportDestinationResult, String> {
@@ -221,12 +263,23 @@ pub fn write_export_file(
 
 #[tauri::command]
 pub fn load_desktop_state() -> Result<DesktopStateResult, String> {
-    let database = crate::desktop_db::DesktopDatabase::open()?;
-    let state_json = database.load_state_json()?;
-    Ok(DesktopStateResult {
-        state_json,
-        database_path: database.path().display().to_string(),
-    })
+    crate::startup_log::write("opening desktop database");
+    let result = (|| {
+        let database = crate::desktop_db::DesktopDatabase::open()?;
+        let state_json = database.load_state_json()?;
+        Ok(DesktopStateResult {
+            state_json,
+            database_path: database.path().display().to_string(),
+        })
+    })();
+    match &result {
+        Ok(value) => crate::startup_log::write(&format!(
+            "desktop database ready path={}",
+            value.database_path
+        )),
+        Err(error) => crate::startup_log::write(&format!("desktop database failed: {error}")),
+    }
+    result
 }
 
 #[tauri::command]

@@ -61,6 +61,12 @@ Future<DesktopLauncherInfo?> loadDesktopLauncherInfo() async {
   return null;
 }
 
+Future<void> appendDesktopStartupLog({required String message}) async {}
+
+Future<void> openDesktopDirectory({required String target}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
 Future<DesktopExportDestination?> prepareDesktopExportDestination({
   required String fileName,
   required String mimeType,

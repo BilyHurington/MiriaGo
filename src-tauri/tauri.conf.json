@@ -4,8 +4,8 @@
   "version": "1.1.6",
   "identifier": "app.miriago.desktop",
   "build": {
-    "beforeDevCommand": "flutter build web --debug",
-    "beforeBuildCommand": "flutter build web --release",
+    "beforeDevCommand": "npm run build:web:desktop:debug",
+    "beforeBuildCommand": "npm run build:web:desktop",
     "frontendDist": "../build/web",
     "devUrl": "http://127.0.0.1:8791"
   },
@@ -29,6 +29,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
