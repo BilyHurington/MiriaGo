@@ -63,7 +63,12 @@ jobs:
       - name: Build Flutter Web
         run: npm run build:web:desktop
 
-      - name: Build Tauri desktop app
+      - name: Build portable Windows app
+        if: runner.os == 'Windows'
+        run: npm run desktop:build:portable
+
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
         run: npm run desktop:build
 
       - name: Package macOS zip
@@ -102,19 +107,12 @@ jobs:
           Copy-Item $exePath "$packageDir\MiriaGo.exe"
           Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\$env:ZIP_NAME" -Force
 
-          $setupPath = Get-ChildItem "src-tauri\target\release\bundle\nsis\*-setup.exe" | Select-Object -First 1
-          if ($null -eq $setupPath) {
-            throw "Missing Windows NSIS installer"
-          }
-          Copy-Item $setupPath.FullName "dist\desktop\MiriaGo-v$env:APP_VERSION-windows-x64-setup.exe"
-
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
           path: |
             dist/desktop/*.zip
-            dist/desktop/*.exe
 
       - name: Attach zip to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -122,4 +120,3 @@ jobs:
         with:
           files: |
             dist/desktop/*.zip
-            dist/desktop/*.exe
