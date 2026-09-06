@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../widgets/responsive_button.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
@@ -366,6 +368,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       groups: _plan.groups,
       groupBuckets: planGroupBuckets(_plan, _plan.completedPointIds),
       onMoveToGroup: _movePointToGroup,
+      onDelete: _deletePoint,
       navigationApp: widget.settings.navigationApp,
       settings: widget.settings,
     );
@@ -398,6 +401,21 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       planId: _plan.id,
       pointIds: {point.id},
       groupId: groupId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _deletePoint(PilgrimagePoint point) async {
+    final updatedPlan = await widget.repository.deletePointFromPlan(
+      planId: _plan.id,
+      pointId: point.id,
     );
     if (!mounted) {
       return;
@@ -820,6 +838,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       groups: _plan.groups,
       groupBuckets: planGroupBuckets(_plan, _plan.completedPointIds),
       onMoveToGroup: _movePointToGroup,
+      onDelete: _deletePoint,
       navigationApp: widget.settings.navigationApp,
       settings: widget.settings,
     );
@@ -852,6 +871,21 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       planId: _plan.id,
       pointIds: {point.id},
       groupId: groupId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _deletePoint(PilgrimagePoint point) async {
+    final updatedPlan = await widget.repository.deletePointFromPlan(
+      planId: _plan.id,
+      pointId: point.id,
     );
     if (!mounted) {
       return;
@@ -945,7 +979,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       children: [
-                        const Icon(Icons.folder_outlined, size: 19),
+                        const Icon(LucideIcons.folder, size: 19),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -960,8 +994,8 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                         ),
                         Icon(
                           _isOpen
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.chevronDown,
                           size: 20,
                         ),
                       ],
@@ -1026,7 +1060,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                                   leadingIcon:
                                       group.id == widget.selectedGroup?.id
                                       ? Icon(
-                                          Icons.check,
+                                          LucideIcons.check,
                                           color: accentColor,
                                           size: 19,
                                         )
@@ -1102,7 +1136,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                               }
                             : null,
                         leadingIcon: Icon(
-                          Icons.add,
+                          LucideIcons.plus,
                           color: accentColor,
                           size: 20,
                         ),
@@ -1254,15 +1288,17 @@ class _BoxAssignPanel extends StatelessWidget {
                 SizedBox(
                   key: const ValueKey('box-assign-toggle-button'),
                   width: actionButtonWidth,
-                  height: AppButtonStyles.compactHeight,
-                  child: OutlinedButton.icon(
+                  height: 44,
+                  child: OutlinedButton(
                     onPressed: isSaving ? null : onToggleBoxSelection,
                     style: AppButtonStyles.compactOutlinedButton(),
-                    icon: Icon(
-                      isBoxSelecting ? Icons.close : Icons.select_all_outlined,
-                      size: 17,
+                    child: ResponsiveButtonContent(
+                      icon: isBoxSelecting ? LucideIcons.x : LucideIcons.scan,
+                      iconSize: 17,
+                      label: isBoxSelecting ? '结束框选' : '框选',
+                      shortLabel: isBoxSelecting ? '结束' : '框选',
+                      semanticLabel: isBoxSelecting ? '结束框选' : '开始框选',
                     ),
-                    label: Text(isBoxSelecting ? '结束框选' : '框选'),
                   ),
                 ),
               ],
@@ -1287,14 +1323,19 @@ class _BoxAssignPanel extends StatelessWidget {
                 SizedBox(
                   key: const ValueKey('box-assign-submit-button'),
                   width: actionButtonWidth,
-                  height: AppButtonStyles.compactHeight,
+                  height: 44,
                   child: FilledButton(
                     onPressed:
                         isSaving || targetGroup == null || selectedCount == 0
                         ? null
                         : onAssign,
                     style: AppButtonStyles.compactFilledButton(),
-                    child: Text(isSaving ? '分配中' : '分配'),
+                    child: ResponsiveButtonContent(
+                      icon: LucideIcons.folderInput,
+                      iconSize: 17,
+                      label: isSaving ? '分配中' : '分配',
+                      semanticLabel: isSaving ? '正在分配' : '分配选中点位',
+                    ),
                   ),
                 ),
               ],
@@ -1374,7 +1415,7 @@ class _NearestAssignPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.auto_fix_high_outlined, size: 20),
+                const Icon(LucideIcons.wandSparkles, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1454,7 +1495,7 @@ class _NearestAssignPointCard extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                assignable ? Icons.check_circle_outline : Icons.info_outline,
+                assignable ? LucideIcons.circleCheckBig : LucideIcons.info,
                 color: assignable ? AppColors.accentDark : AppColors.warning,
               ),
               const SizedBox(width: 10),
@@ -1564,7 +1605,7 @@ class _AssignPointMarker extends StatelessWidget {
           width: selected ? 2 : 1,
         ),
       ),
-      icon: const Icon(Icons.place, size: 20),
+      icon: const Icon(LucideIcons.mapPin, size: 20),
     );
   }
 }
@@ -1591,7 +1632,7 @@ class _AnchorMarker extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(Icons.flag_outlined, color: AppColors.accentDark),
+        child: Icon(LucideIcons.flag, color: AppColors.accentDark),
       ),
     );
   }

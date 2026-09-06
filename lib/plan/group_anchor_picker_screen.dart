@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -178,14 +179,14 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
                         _manualPickMode = !_manualPickMode;
                       });
                     },
-                    icon: Icons.ads_click_outlined,
+                    icon: LucideIcons.mousePointerClick,
                   ),
                   const SizedBox(height: 8),
                   _MapToolButton(
                     tooltip: '输入经纬度',
                     selected: false,
                     onTap: _showCoordinateInput,
-                    icon: Icons.edit_location_alt_outlined,
+                    icon: LucideIcons.mapPinPen,
                   ),
                 ],
               ),
@@ -315,7 +316,7 @@ class _AnchorPointMarker extends StatelessWidget {
           width: selected ? 2 : 1,
         ),
       ),
-      icon: const Icon(Icons.place, size: 21),
+      icon: const Icon(LucideIcons.mapPin, size: 21),
     );
   }
 }
@@ -331,7 +332,7 @@ class _ManualAnchorMarker extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white, width: 3),
       ),
-      child: const Icon(Icons.add_location_alt, color: Colors.white),
+      child: const Icon(LucideIcons.mapPinPlus, color: Colors.white),
     );
   }
 }
@@ -399,7 +400,7 @@ class _AnchorSelectionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.flag_outlined, color: AppColors.accent, size: 28),
+          Icon(LucideIcons.flag, color: AppColors.accent, size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

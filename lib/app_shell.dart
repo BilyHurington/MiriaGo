@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'app_theme.dart';
 import 'data/anitabi_image_source_scope.dart';
@@ -357,26 +358,26 @@ class _AppShellState extends State<AppShell> {
                       },
                       destinations: const [
                         NavigationDestination(
-                          icon: Icon(Icons.checklist_outlined),
-                          selectedIcon: Icon(Icons.checklist),
+                          icon: Icon(LucideIcons.listTodo),
+                          selectedIcon: Icon(LucideIcons.listTodo),
                           label: '计划',
                           tooltip: '',
                         ),
                         NavigationDestination(
-                          icon: Icon(Icons.map_outlined),
-                          selectedIcon: Icon(Icons.map),
+                          icon: Icon(LucideIcons.map),
+                          selectedIcon: Icon(LucideIcons.map),
                           label: '地图',
                           tooltip: '',
                         ),
                         NavigationDestination(
-                          icon: Icon(Icons.collections_bookmark_outlined),
-                          selectedIcon: Icon(Icons.collections_bookmark),
+                          icon: Icon(LucideIcons.images),
+                          selectedIcon: Icon(LucideIcons.images),
                           label: '记录',
                           tooltip: '',
                         ),
                         NavigationDestination(
-                          icon: Icon(Icons.settings_outlined),
-                          selectedIcon: Icon(Icons.settings),
+                          icon: Icon(LucideIcons.settings),
+                          selectedIcon: Icon(LucideIcons.settings),
                           label: '设置',
                           tooltip: '',
                         ),
@@ -411,7 +412,7 @@ class _PlanLoadState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                hasError ? Icons.error_outline : Icons.route_outlined,
+                hasError ? LucideIcons.circleAlert : LucideIcons.route,
                 color: hasError ? AppColors.error : AppColors.accent,
                 size: 40,
               ),
@@ -450,7 +451,7 @@ class _PlanLoadState extends StatelessWidget {
               if (hasError)
                 OutlinedButton.icon(
                   onPressed: onRetry,
-                  icon: const Icon(Icons.refresh, size: 18),
+                  icon: const Icon(LucideIcons.refreshCw, size: 18),
                   label: const Text('重试'),
                 )
               else

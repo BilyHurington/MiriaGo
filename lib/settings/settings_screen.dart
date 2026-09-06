@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 
 import '../app_theme.dart';
@@ -24,6 +25,7 @@ import '../widgets/app_scaled_route.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/input_dialog.dart';
+import '../widgets/responsive_button.dart';
 import '../widgets/snackbar_helper.dart';
 
 bool get _showCacheCleanupSettings => isReferenceCacheCleanupSupported;
@@ -125,7 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             key: const ValueKey('settings-reset-button'),
             tooltip: '恢复初始设置',
             onPressed: _confirmResetSettings,
-            icon: const Icon(Icons.restart_alt_outlined),
+            icon: const Icon(LucideIcons.rotateCcw),
           ),
           const SizedBox(width: 16),
         ],
@@ -136,7 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(
             key: const ValueKey('settings-appearance-card'),
             header: _SettingsCardHeader(
-              icon: Icons.palette_outlined,
+              icon: LucideIcons.palette,
               title: '外观设置',
               subtitle: '主题色、深浅色、缩放、显示等',
               onTap: () => _pushDetail(
@@ -150,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SummaryGrid(
                 children: [
                   _SummaryTile(
-                    icon: Icons.circle,
+                    icon: LucideIcons.circle,
                     title: '主题色',
                     value: settings.themePalette.label,
                     swatch: _ThemeSwatch(
@@ -165,7 +167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   _SummaryTile(
-                    icon: Icons.dark_mode_outlined,
+                    icon: LucideIcons.moon,
                     title: '主题模式',
                     value: settings.themeMode.label,
                     onTap: () => _pushDetail(
@@ -182,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.photo_camera_outlined,
+              icon: LucideIcons.camera,
               title: '拍摄设置',
               subtitle: '照片比例、参考图比例、备份等',
               onTap: () => _pushDetail(
@@ -197,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SummaryGrid(
                 children: [
                   _SummaryTile(
-                    icon: Icons.crop_outlined,
+                    icon: LucideIcons.crop,
                     title: '拍摄图片比例',
                     value: settings.cameraCaptureAspectRatio.label,
                     onTap: () => _pushDetail(
@@ -209,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   _SummaryTile(
-                    icon: Icons.view_sidebar_outlined,
+                    icon: LucideIcons.panelRight,
                     title: '相机缩放',
                     value:
                         '${settings.cameraMinZoom.toStringAsFixed(1)}x-${settings.cameraMaxZoom.toStringAsFixed(1)}x',
@@ -225,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               if (_shouldShowMobileGallerySettings)
                 _SummarySwitchTile(
-                  icon: Icons.cloud_upload_outlined,
+                  icon: LucideIcons.cloudUpload,
                   title: '照片备份',
                   subtitle: '保存巡礼照片到相册',
                   value: settings.saveVisitPhotoToGallery,
@@ -240,7 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.compare_arrows_outlined,
+              icon: LucideIcons.arrowLeftRight,
               title: '对比图设置',
               subtitle: '导出样式、自动保存到相册',
               onTap: () => _openComparisonStyleSettings(settings),
@@ -248,7 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               if (_shouldShowMobileGallerySettings) ...[
                 _SummarySwitchTile(
-                  icon: Icons.photo_library_outlined,
+                  icon: LucideIcons.images,
                   title: '自动保存对比图',
                   subtitle: '保存记录时保存到相册',
                   value: settings.autoSaveComparisonToGallery,
@@ -264,7 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.map_outlined,
+              icon: LucideIcons.map,
               title: '数据源设置',
               subtitle: '地图源、图片源等',
               onTap: () => _pushDetail(
@@ -279,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.layers_outlined,
+              icon: LucideIcons.layers,
               title: '地图显示',
               subtitle: '点位、片区、聚合与缩略图',
               onTap: () => _pushDetail(
@@ -294,7 +296,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 12),
             _SettingsCard(
               header: _SettingsCardHeader(
-                icon: Icons.cleaning_services_outlined,
+                icon: LucideIcons.brushCleaning,
                 title: '清除缓存',
                 subtitle: '完整参考图缓存',
                 onTap: () => _pushDetail(
@@ -307,7 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (_shouldShowDesktopSection) ...[
             _SettingsCard(
               header: _SettingsCardHeader(
-                icon: Icons.desktop_windows_outlined,
+                icon: LucideIcons.monitor,
                 title: '桌面端',
                 subtitle: '启动器、数据目录等',
                 onTap: () => _pushDetail(
@@ -322,7 +324,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.info_outline,
+              icon: LucideIcons.info,
               title: '关于 MiriaGo',
               subtitle: '版本信息、开源许可等',
               onTap: () => _pushDetail(
@@ -540,7 +542,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                     Expanded(
                       child: _ModeButton(
                         key: const ValueKey('appearance-theme-mode-light'),
-                        icon: Icons.wb_sunny_outlined,
+                        icon: LucideIcons.sun,
                         label: '浅色',
                         selected: settings.themeMode == AppThemeMode.light,
                         onTap: () {
@@ -554,7 +556,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                     Expanded(
                       child: _ModeButton(
                         key: const ValueKey('appearance-theme-mode-dark'),
-                        icon: Icons.dark_mode_outlined,
+                        icon: LucideIcons.moon,
                         label: '深色',
                         selected: settings.themeMode == AppThemeMode.dark,
                         onTap: () {
@@ -568,7 +570,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                     Expanded(
                       child: _ModeButton(
                         key: const ValueKey('appearance-theme-mode-system'),
-                        icon: Icons.phone_iphone_outlined,
+                        icon: LucideIcons.smartphone,
                         label: '跟随系统',
                         selected: settings.themeMode == AppThemeMode.system,
                         onTap: () {
@@ -644,7 +646,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 Row(
                   children: [
                     Icon(
-                      Icons.fit_screen_outlined,
+                      LucideIcons.maximize,
                       color: AppColors.textSecondary,
                       size: 20,
                     ),
@@ -737,7 +739,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 key: const ValueKey('plan-group-progress-toggle'),
                 contentPadding: EdgeInsets.zero,
                 secondary: Icon(
-                  Icons.linear_scale_outlined,
+                  LucideIcons.moveHorizontal,
                   color: AppColors.textSecondary,
                 ),
                 title: Text('显示片区进度条', style: _titleTextStyle),
@@ -762,7 +764,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 ),
                 contentPadding: EdgeInsets.zero,
                 secondary: Icon(
-                  Icons.touch_app_outlined,
+                  LucideIcons.pointer,
                   color: AppColors.textSecondary,
                 ),
                 title: Text('点击空白收回计划操作', style: _titleTextStyle),
@@ -1040,7 +1042,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 secondary: Icon(
-                  Icons.cloud_upload_outlined,
+                  LucideIcons.cloudUpload,
                   color: AppColors.textSecondary,
                 ),
                 title: Text('保存巡礼照片到相册', style: _titleTextStyle),
@@ -1121,7 +1123,7 @@ class _PhotoLocationStrategyDropdown extends StatelessWidget {
         menuMaxHeight: appScaledOverlayExtent(settings, 360),
         icon: const Padding(
           padding: EdgeInsets.only(right: 8),
-          child: Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+          child: Icon(LucideIcons.chevronDown, size: 20),
         ),
         selectedItemBuilder: (context) => [
           for (final strategy in _strategies)
@@ -1266,7 +1268,7 @@ class _PhotoLocationStrategyDropdownItemState
             ),
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(Icons.check_circle, color: AppColors.accent, size: 18),
+              Icon(LucideIcons.checkCircle, color: AppColors.accent, size: 18),
             ],
           ],
         ),
@@ -1472,7 +1474,7 @@ class _AnitabiServiceSettingsPageState
         >[
           (
             key: const ValueKey('anitabi-site-base-url'),
-            icon: Icons.public_outlined,
+            icon: LucideIcons.globe,
             title: '主站地址',
             value: settings.anitabiSiteBaseUrl,
             onSaved: (value) =>
@@ -1480,7 +1482,7 @@ class _AnitabiServiceSettingsPageState
           ),
           (
             key: const ValueKey('anitabi-static-data-base-url'),
-            icon: Icons.data_object_outlined,
+            icon: LucideIcons.braces,
             title: '静态地图数据',
             value: settings.anitabiStaticDataBaseUrl,
             onSaved: (value) =>
@@ -1488,7 +1490,7 @@ class _AnitabiServiceSettingsPageState
           ),
           (
             key: const ValueKey('anitabi-api-base-url'),
-            icon: Icons.api_outlined,
+            icon: LucideIcons.webhook,
             title: '数据 API',
             value: settings.anitabiApiBaseUrl,
             onSaved: (value) =>
@@ -1496,7 +1498,7 @@ class _AnitabiServiceSettingsPageState
           ),
           (
             key: const ValueKey('anitabi-official-image-base-url'),
-            icon: Icons.image_outlined,
+            icon: LucideIcons.image,
             title: '官方图片服务',
             value: settings.anitabiOfficialImageBaseUrl,
             onSaved: (value) =>
@@ -1504,7 +1506,7 @@ class _AnitabiServiceSettingsPageState
           ),
           (
             key: const ValueKey('anitabi-mirror-image-base-url'),
-            icon: Icons.cloud_outlined,
+            icon: LucideIcons.cloud,
             title: '备用图片服务',
             value: settings.anitabiMirrorImageBaseUrl,
             onSaved: (value) =>
@@ -1550,7 +1552,7 @@ class _AnitabiServiceSettingsPageState
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.network_check_outlined),
+                    : const Icon(LucideIcons.wifi),
                 label: Text(_testing ? '正在测试连接' : '测试全部连接'),
               ),
             ),
@@ -1560,7 +1562,7 @@ class _AnitabiServiceSettingsPageState
               child: OutlinedButton.icon(
                 key: const ValueKey('anitabi-service-restore-defaults'),
                 onPressed: _testing ? null : _restoreDefaults,
-                icon: const Icon(Icons.restore),
+                icon: const Icon(LucideIcons.history),
                 label: const Text('恢复默认地址'),
               ),
             ),
@@ -1753,7 +1755,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             if (settings.mapTileProvider == MapTileProvider.openFreeMap) ...[
               const SizedBox(height: 12),
               _SettingsSubheading(
-                icon: Icons.layers_outlined,
+                icon: LucideIcons.layers,
                 title:
                     'OpenFreeMap 样式 ${openFreeMapStyleOption(settings.openFreeMapStyle).label}',
               ),
@@ -1773,7 +1775,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             if (settings.mapTileProvider == MapTileProvider.customXyz) ...[
               const SizedBox(height: 12),
               _MapUrlRow(
-                icon: Icons.grid_3x3_outlined,
+                icon: LucideIcons.grid3X3,
                 label: settings.customXyzTileUrl.trim().isEmpty
                     ? '未设置自定义 XYZ URL'
                     : settings.customXyzTileUrl.trim(),
@@ -1793,7 +1795,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
                 MapTileProvider.customMapLibreStyle) ...[
               const SizedBox(height: 12),
               _MapUrlRow(
-                icon: Icons.data_object_outlined,
+                icon: LucideIcons.braces,
                 label: settings.customMapLibreStyleUrl.trim().isEmpty
                     ? '未设置 MapLibre style URL'
                     : settings.customMapLibreStyleUrl.trim(),
@@ -1818,7 +1820,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             if (validateMapTileSettings(settings) != null) ...[
               const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.error_outline,
+                icon: LucideIcons.circleAlert,
                 text: validateMapTileSettings(settings)!,
               ),
             ],
@@ -1886,7 +1888,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
           title: '步行路径规划',
           children: [
             _MapUrlRow(
-              icon: Icons.route_outlined,
+              icon: LucideIcons.route,
               label: settings.valhallaBaseUrl,
               onTap: () => widget.showMapUrlDialog(
                 title: 'Valhalla 服务地址',
@@ -1903,36 +1905,36 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _testingValhalla ? null : _testValhalla,
-                    icon: _testingValhalla
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.wifi_tethering_outlined, size: 18),
-                    label: const Text('测试连接'),
-                  ),
+            ResponsiveTwoButtonRow(
+              first: OutlinedButton(
+                onPressed: _testingValhalla ? null : _testValhalla,
+                child: _testingValhalla
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const ResponsiveButtonContent(
+                        icon: LucideIcons.radio,
+                        label: '测试连接',
+                        shortLabel: '测试',
+                        semanticLabel: '测试 Valhalla 连接',
+                      ),
+              ),
+              second: OutlinedButton(
+                onPressed: settings.valhallaBaseUrl == defaultValhallaBaseUrl
+                    ? null
+                    : () => _update(
+                        settings.copyWith(
+                          valhallaBaseUrl: defaultValhallaBaseUrl,
+                        ),
+                      ),
+                child: const ResponsiveButtonContent(
+                  icon: LucideIcons.history,
+                  label: '恢复默认',
+                  shortLabel: '恢复',
+                  semanticLabel: '恢复默认 Valhalla 地址',
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed:
-                        settings.valhallaBaseUrl == defaultValhallaBaseUrl
-                        ? null
-                        : () => _update(
-                            settings.copyWith(
-                              valhallaBaseUrl: defaultValhallaBaseUrl,
-                            ),
-                          ),
-                    icon: const Icon(Icons.restore, size: 18),
-                    label: const Text('恢复默认'),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 8),
             Text('仅发送路线坐标，不会上传计划、作品或照片信息。', style: _secondaryTextStyle),
@@ -1943,7 +1945,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
           title: '图片加载',
           children: [
             _NumberStepperSetting(
-              icon: Icons.download_for_offline_outlined,
+              icon: LucideIcons.cloudDownload,
               title: '图片同时请求数',
               subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
               value: settings.mapThumbnailConcurrentLoads,
@@ -2008,7 +2010,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  Icons.zoom_in_outlined,
+                  LucideIcons.zoomIn,
                   color: AppColors.textSecondary,
                   size: 22,
                 ),
@@ -2086,7 +2088,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                 key: const ValueKey('hide-completed-points-on-map-toggle'),
                 contentPadding: EdgeInsets.zero,
                 secondary: Icon(
-                  Icons.visibility_off_outlined,
+                  LucideIcons.eyeOff,
                   color: AppColors.textSecondary,
                 ),
                 title: Text('隐藏已完成点位', style: _titleTextStyle),
@@ -2105,7 +2107,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  Icons.location_on_outlined,
+                  LucideIcons.mapPin,
                   color: AppColors.textSecondary,
                   size: 22,
                 ),
@@ -2143,7 +2145,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
           title: '片区范围',
           children: [
             _NumberStepperSetting(
-              icon: Icons.gesture_outlined,
+              icon: LucideIcons.hand,
               title: '片区范围半径',
               subtitle: '每个点位向外扩张的距离，用于生成地图上的片区轮廓。',
               value: settings.mapGroupAreaRadiusMeters,
@@ -2166,7 +2168,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 secondary: Icon(
-                  Icons.hub_outlined,
+                  LucideIcons.gitBranch,
                   color: AppColors.textSecondary,
                 ),
                 title: Text('自动聚合密集点位', style: _titleTextStyle),
@@ -2183,7 +2185,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
             if (settings.mapMarkerClusteringEnabled) ...[
               const SizedBox(height: 8),
               _NumberStepperSetting(
-                icon: Icons.blur_circular_outlined,
+                icon: LucideIcons.circleDashed,
                 title: '聚合范围',
                 subtitle: '屏幕上相距较近的点位会合并为一个带数量的聚合标记。',
                 value: settings.mapMarkerClusterRadius,
@@ -2197,7 +2199,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               ),
               const SizedBox(height: 12),
               _NumberStepperSetting(
-                icon: Icons.zoom_in_map_outlined,
+                icon: LucideIcons.maximize,
                 title: '停止聚合级别',
                 subtitle: '地图放大超过该级别后显示每个原始点位。',
                 value: settings.mapMarkerClusterMaxZoom,
@@ -2217,7 +2219,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
           title: '地图缩略图',
           children: [
             _NumberStepperSetting(
-              icon: Icons.photo_size_select_large_outlined,
+              icon: LucideIcons.maximize,
               title: '缩略图显示阈值',
               subtitle:
                   '视图内点位不超过 ${settings.mapThumbnailVisibleThreshold} 个时显示缩略图；超过时仅显示圆点。',
@@ -2289,7 +2291,10 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
               return _SettingsSection(
                 title: '计划',
                 children: [
-                  const _InfoRow(icon: Icons.error_outline, text: '计划列表读取失败'),
+                  const _InfoRow(
+                    icon: LucideIcons.circleAlert,
+                    text: '计划列表读取失败',
+                  ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () {
@@ -2297,7 +2302,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                         _plansFuture = widget.repository.loadPlans();
                       });
                     },
-                    icon: const Icon(Icons.refresh, size: 18),
+                    icon: const Icon(LucideIcons.refreshCw, size: 18),
                     label: const Text('重试'),
                   ),
                 ],
@@ -2330,7 +2335,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                                 ..addAll(plans.map((plan) => plan.id));
                             });
                           },
-                          icon: const Icon(Icons.select_all_outlined),
+                          icon: const Icon(LucideIcons.scan),
                         ),
                         IconButton(
                           tooltip: '清空',
@@ -2341,7 +2346,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                                     _selectedPlanIds.clear();
                                   });
                                 },
-                          icon: const Icon(Icons.deselect_outlined),
+                          icon: const Icon(LucideIcons.square),
                         ),
                       ],
                     ),
@@ -2387,7 +2392,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                             dimension: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.cleaning_services_outlined),
+                        : const Icon(LucideIcons.brushCleaning),
                     label: Text(
                       _busy && _total > 0
                           ? '正在清理 $_completed / $_total'
@@ -2510,18 +2515,18 @@ class _DesktopSettingsPage extends StatelessWidget {
           title: '启动器',
           children: [
             _InfoRow(
-              icon: Icons.desktop_windows_outlined,
+              icon: LucideIcons.monitor,
               text: desktopLauncherStatusText,
             ),
             if (desktopLauncherInfo != null) ...[
               const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.folder_outlined,
+                icon: LucideIcons.folder,
                 text: desktopLauncherInfo!.dataDir,
               ),
               const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.inventory_2_outlined,
+                icon: LucideIcons.package,
                 text: desktopLauncherInfo!.assetsDir,
               ),
             ],
@@ -2580,27 +2585,27 @@ class _AboutSettingsPage extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _AboutInfoTile(
-              icon: Icons.new_releases_outlined,
+              icon: LucideIcons.badge,
               label: '当前版本',
               value: appVersionLabel ?? '读取中',
             ),
             const _AboutInfoTile(
-              icon: Icons.person_outline,
+              icon: LucideIcons.user,
               label: '作者',
               value: 'BilyHurington',
             ),
             const _AboutInfoTile(
-              icon: Icons.mail_outline,
+              icon: LucideIcons.mail,
               label: '联系邮箱',
               value: 'bilyhurington@gmail.com',
             ),
             const _AboutInfoTile(
-              icon: Icons.code_outlined,
+              icon: LucideIcons.code,
               label: '开源仓库',
               value: 'github.com/BilyHurington/MiriaGo',
             ),
             const _AboutInfoTile(
-              icon: Icons.balance_outlined,
+              icon: LucideIcons.scale,
               label: '开源许可',
               value: 'MIT License',
             ),
@@ -2611,27 +2616,27 @@ class _AboutSettingsPage extends StatelessWidget {
           title: '数据与版权',
           children: [
             _AboutDataItem(
-              icon: Icons.map_outlined,
+              icon: LucideIcons.map,
               label: '地图',
               description: '可使用 OpenFreeMap、OpenStreetMap 或自定义地图服务。',
             ),
             _AboutDataItem(
-              icon: Icons.search_outlined,
+              icon: LucideIcons.search,
               label: '作品',
               description: '作品搜索数据来自 Bangumi。',
             ),
             _AboutDataItem(
-              icon: Icons.place_outlined,
+              icon: LucideIcons.mapPin,
               label: '巡礼内容',
               description: '巡礼点位与参考图来自 Anitabi。',
             ),
             _AboutDataItem(
-              icon: Icons.image_outlined,
+              icon: LucideIcons.image,
               label: '图片源',
               description: '图片源设置只影响访问域名，远端链接统一保留 Anitabi 默认格式。',
             ),
             _AboutDataItem(
-              icon: Icons.copyright_outlined,
+              icon: LucideIcons.copyright,
               label: '版权归属',
               description: '第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
               bottomSpacing: 0,
@@ -2831,7 +2836,11 @@ class _SettingsCardHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant, size: 30),
+            Icon(
+              LucideIcons.chevronRight,
+              color: scheme.onSurfaceVariant,
+              size: 30,
+            ),
           ],
         ),
       ),
@@ -3084,7 +3093,7 @@ class _NumberStepperSetting extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _NumberStepperIconButton(
-              icon: Icons.remove,
+              icon: LucideIcons.minus,
               tooltip: '减少',
               onTap: canDecrease
                   ? () => onChanged((value - step).clamp(min, max))
@@ -3113,7 +3122,7 @@ class _NumberStepperSetting extends StatelessWidget {
               ),
             ),
             _NumberStepperIconButton(
-              icon: Icons.add,
+              icon: LucideIcons.plus,
               tooltip: '增加',
               onTap: canIncrease
                   ? () => onChanged((value + step).clamp(min, max))
@@ -3220,7 +3229,7 @@ class _FullReferenceCacheSection extends StatelessWidget {
       title: '\u7f13\u5b58\u5185\u5bb9',
       children: [
         _CacheTargetCard(
-          icon: Icons.photo_library_outlined,
+          icon: LucideIcons.images,
           title: '\u5b8c\u6574\u53c2\u8003\u56fe\u7f13\u5b58',
           subtitle:
               '\u6e05\u9664\u76f8\u673a\u53c2\u8003\u548c\u5927\u56fe\u67e5\u770b\u4f7f\u7528\u7684\u5b8c\u6574\u53c2\u8003\u56fe\u3002\u7f29\u7565\u56fe\u7f13\u5b58\u4f1a\u4fdd\u7559\uff0c\u4ee5\u4fdd\u6301\u5217\u8868\u548c\u5730\u56fe\u52a0\u8f7d\u901f\u5ea6\u3002',
@@ -3481,7 +3490,7 @@ class _AspectRatioOption extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (selected) ...[
-                  Icon(Icons.check, size: 13, color: AppColors.onAccent),
+                  Icon(LucideIcons.check, size: 13, color: AppColors.onAccent),
                   const SizedBox(width: 4),
                 ],
                 Flexible(
@@ -3611,7 +3620,7 @@ class _CustomThemeColorOption extends StatelessWidget {
       color: Color(color.value),
       label: color.name,
       selected: selected,
-      icon: selected ? Icons.check : null,
+      icon: selected ? LucideIcons.check : null,
       onTap: onTap,
     );
   }
@@ -3636,7 +3645,7 @@ class _AddThemeColorOption extends StatelessWidget {
       color: Color(colorValue),
       label: label.trim().isEmpty ? '\u81ea\u5b9a\u4e49' : label.trim(),
       selected: selected,
-      icon: Icons.add,
+      icon: LucideIcons.plus,
       onTap: onTap,
     );
   }
@@ -4155,7 +4164,7 @@ class _ScaleStepper extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _StepperIconButton(icon: Icons.remove, onTap: onDecrease),
+          _StepperIconButton(icon: LucideIcons.minus, onTap: onDecrease),
           Container(
             width: 72,
             alignment: Alignment.center,
@@ -4173,7 +4182,7 @@ class _ScaleStepper extends StatelessWidget {
               ),
             ),
           ),
-          _StepperIconButton(icon: Icons.add, onTap: onIncrease),
+          _StepperIconButton(icon: LucideIcons.plus, onTap: onIncrease),
         ],
       ),
     );
@@ -4399,7 +4408,11 @@ class _AnitabiServiceRow extends StatelessWidget {
               ),
             ],
             const SizedBox(width: 2),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 22),
+            Icon(
+              LucideIcons.chevronRight,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
           ],
         ),
       ),
@@ -4439,7 +4452,7 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            Icon(Icons.dns_outlined, color: AppColors.textSecondary),
+            Icon(LucideIcons.network, color: AppColors.textSecondary),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -4467,7 +4480,11 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 22),
+            Icon(
+              LucideIcons.chevronRight,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
           ],
         ),
       ),
@@ -4506,7 +4523,7 @@ class _MapUrlRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Icon(Icons.edit_outlined, color: AppColors.textSecondary, size: 20),
+            Icon(LucideIcons.edit, color: AppColors.textSecondary, size: 20),
           ],
         ),
       ),
@@ -4566,7 +4583,7 @@ class _OpenFreeMapStyleGrid extends StatelessWidget {
           _CompactOptionChip(
             label: option.label,
             selected: selectedStyle == option.style,
-            icon: Icons.layers_outlined,
+            icon: LucideIcons.layers,
             onTap: () => onSelected(option.style),
           ),
       ],
@@ -4642,7 +4659,7 @@ class _CompactOptionChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              selected ? Icons.check : icon,
+              selected ? LucideIcons.check : icon,
               color: selected ? AppColors.onAccent : AppColors.textSecondary,
               size: 18,
             ),
@@ -4693,7 +4710,7 @@ class _MapSourceOptionCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              selected ? Icons.check : _mapProviderIcon(option.provider),
+              selected ? LucideIcons.check : _mapProviderIcon(option.provider),
               color: selected ? AppColors.onAccent : AppColors.textSecondary,
               size: 18,
             ),
@@ -4805,7 +4822,7 @@ class _NavigationAppOptionCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              selected ? Icons.check : _navigationAppIcon(app),
+              selected ? LucideIcons.check : _navigationAppIcon(app),
               color: selected ? AppColors.onAccent : AppColors.textSecondary,
               size: 18,
             ),
@@ -4854,19 +4871,19 @@ class _NavigationAppOptionCard extends StatelessWidget {
 
 IconData _mapProviderIcon(MapTileProvider provider) {
   return switch (provider) {
-    MapTileProvider.openFreeMap => Icons.map_outlined,
-    MapTileProvider.openStreetMap => Icons.public_outlined,
-    MapTileProvider.customXyz => Icons.grid_3x3_outlined,
-    MapTileProvider.customMapLibreStyle => Icons.data_object_outlined,
+    MapTileProvider.openFreeMap => LucideIcons.map,
+    MapTileProvider.openStreetMap => LucideIcons.globe,
+    MapTileProvider.customXyz => LucideIcons.grid3X3,
+    MapTileProvider.customMapLibreStyle => LucideIcons.braces,
   };
 }
 
 IconData _navigationAppIcon(NavigationApp app) {
   return switch (app) {
-    NavigationApp.googleMaps => Icons.explore_outlined,
-    NavigationApp.amap => Icons.near_me_outlined,
-    NavigationApp.appleMaps => Icons.map_outlined,
-    NavigationApp.baiduMaps => Icons.assistant_direction_outlined,
+    NavigationApp.googleMaps => LucideIcons.compass,
+    NavigationApp.amap => LucideIcons.navigation,
+    NavigationApp.appleMaps => LucideIcons.map,
+    NavigationApp.baiduMaps => LucideIcons.signpost,
   };
 }
 
@@ -4926,9 +4943,9 @@ String _anitabiImageSourceDescription(AppSettings settings) {
 
 IconData _anitabiImageSourceIcon(AnitabiImageSource source) {
   return switch (source) {
-    AnitabiImageSource.auto => Icons.auto_awesome_outlined,
-    AnitabiImageSource.official => Icons.image_outlined,
-    AnitabiImageSource.mirror => Icons.swap_horiz_outlined,
+    AnitabiImageSource.auto => LucideIcons.sparkles,
+    AnitabiImageSource.official => LucideIcons.image,
+    AnitabiImageSource.mirror => LucideIcons.arrowLeftRight,
   };
 }
 
@@ -5073,7 +5090,7 @@ class _ThemeSwatch extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: selected
-            ? Icon(Icons.check, color: AppColors.onAccent, size: 18)
+            ? Icon(LucideIcons.check, color: AppColors.onAccent, size: 18)
             : null,
       ),
     );

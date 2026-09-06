@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import 'confirm_action_dialog.dart';
@@ -103,7 +104,7 @@ class AppDialogPasteButton extends StatelessWidget {
     return OutlinedButton.icon(
       key: const ValueKey('dialog-paste-button'),
       onPressed: onPressed,
-      icon: const Icon(Icons.content_paste_outlined, size: 16),
+      icon: const Icon(LucideIcons.clipboardPaste, size: 16),
       label: const Text('粘贴'),
       style: OutlinedButton.styleFrom(
         visualDensity: VisualDensity.compact,

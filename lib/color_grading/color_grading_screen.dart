@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 
 import '../app_theme.dart';
@@ -307,7 +308,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
           IconButton(
             tooltip: '重置',
             onPressed: _confirmReset,
-            icon: const Icon(Icons.restart_alt),
+            icon: const Icon(LucideIcons.rotateCcw),
           ),
         ],
       ),
@@ -374,7 +375,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
                     color: Colors.white,
                   ),
                 )
-              : const Icon(Icons.auto_fix_high_outlined, size: 18),
+              : const Icon(LucideIcons.wandSparkles, size: 18),
           label: Text(_matching ? '匹配中...' : '自动匹配色调'),
         ),
         if (_targetParams != null) ...[
@@ -511,7 +512,7 @@ class _OriginalHoldButton extends StatelessWidget {
       onPointerCancel: enabled ? (_) => onChanged(false) : null,
       child: OutlinedButton.icon(
         onPressed: enabled ? () {} : null,
-        icon: Icon(showOriginal ? Icons.visibility : Icons.visibility_outlined),
+        icon: Icon(showOriginal ? LucideIcons.eye : LucideIcons.eye),
         label: Text(showOriginal ? '正在显示原图' : '按住显示原图'),
       ),
     );
@@ -607,7 +608,7 @@ class _ScorePanel extends StatelessWidget {
       child: beforeScore == null || afterScore == null
           ? Row(
               children: [
-                Icon(Icons.auto_fix_high_outlined, color: AppColors.accent),
+                Icon(LucideIcons.wandSparkles, color: AppColors.accent),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -638,13 +639,13 @@ class _ScorePanel extends StatelessWidget {
                   children: [
                     _ScoreValue(label: '原图', score: beforeScore!),
                     Icon(
-                      Icons.arrow_forward,
+                      LucideIcons.arrowRight,
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
                     _ScoreValue(label: '当前', score: currentToneScore ?? 0),
                     Icon(
-                      Icons.arrow_forward,
+                      LucideIcons.arrowRight,
                       size: 18,
                       color: AppColors.textSecondary,
                     ),
@@ -793,7 +794,7 @@ class _SavePanel extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.save_outlined, size: 18),
+                : const Icon(LucideIcons.save, size: 18),
             label: Text(saving ? '保存中...' : '保存调色结果'),
           ),
         ],

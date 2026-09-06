@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -7,6 +8,7 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/plan_group_utils.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/responsive_button.dart';
 import 'current_location_resolver.dart';
 import 'in_app_navigation_screen.dart';
 import 'map_navigation_launcher.dart';
@@ -272,24 +274,27 @@ class _NavigationRouteConfirmScreenState
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _loadRoute(remainingStops),
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('重试'),
-                            ),
+                      ResponsiveTwoButtonRow(
+                        spacing: 10,
+                        stackBelowWidth: 220,
+                        first: OutlinedButton(
+                          onPressed: () => _loadRoute(remainingStops),
+                          child: const ResponsiveButtonContent(
+                            icon: LucideIcons.refreshCw,
+                            label: '重试',
+                            semanticLabel: '重新规划路线',
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _openExternalNavigation,
-                              icon: const Icon(Icons.open_in_new),
-                              label: Text(widget.settings.navigationApp.label),
-                            ),
+                        ),
+                        second: OutlinedButton(
+                          onPressed: _openExternalNavigation,
+                          child: ResponsiveButtonContent(
+                            icon: LucideIcons.externalLink,
+                            label: widget.settings.navigationApp.label,
+                            shortLabel: '外部导航',
+                            semanticLabel:
+                                '使用 ${widget.settings.navigationApp.label} 导航',
                           ),
-                        ],
+                        ),
                       ),
                     ] else if (canChainZone) ...[
                       _PrimaryZoneButton(
@@ -392,7 +397,7 @@ class _PrimaryZoneButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.icon(
+    return FilledButton(
       key: ValueKey(
         singlePoint
             ? 'navigation-route-confirm-point'
@@ -403,11 +408,13 @@ class _PrimaryZoneButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(46),
         padding: const EdgeInsets.symmetric(horizontal: 16),
       ),
-      icon: Icon(
-        singlePoint ? Icons.near_me_outlined : Icons.route_rounded,
-        size: 20,
+      child: ResponsiveButtonContent(
+        icon: singlePoint ? LucideIcons.navigation : LucideIcons.route,
+        iconSize: 20,
+        label: singlePoint ? '开始导航' : '串联整个片区导航',
+        shortLabel: '开始导航',
+        semanticLabel: singlePoint ? '开始导航' : '串联整个片区导航',
       ),
-      label: Text(singlePoint ? '开始导航' : '串联整个片区导航'),
     );
   }
 }
@@ -419,15 +426,20 @@ class _SecondaryPointButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
+    return OutlinedButton(
       key: const ValueKey('navigation-route-confirm-point'),
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(46),
         padding: const EdgeInsets.symmetric(horizontal: 16),
       ),
-      icon: const Icon(Icons.location_on_outlined, size: 20),
-      label: const Text('仅导航到选中点'),
+      child: const ResponsiveButtonContent(
+        icon: LucideIcons.mapPin,
+        iconSize: 20,
+        label: '仅导航到选中点',
+        shortLabel: '仅导航到点位',
+        semanticLabel: '仅导航到选中点',
+      ),
     );
   }
 }
@@ -595,7 +607,7 @@ class _DestinationPin extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2.5),
         ),
-        child: const Icon(Icons.location_on, color: Colors.white, size: 16),
+        child: const Icon(LucideIcons.mapPin, color: Colors.white, size: 16),
       ),
     );
   }

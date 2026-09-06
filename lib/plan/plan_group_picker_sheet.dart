@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import 'pilgrimage_models.dart';
@@ -95,7 +96,7 @@ Future<void> showPlanGroupPickerSheet({
                                 });
                             });
                           },
-                          icon: const Icon(Icons.create_new_folder_outlined),
+                          icon: const Icon(LucideIcons.folderPlus),
                         ),
                     ],
                   ),
@@ -210,15 +211,44 @@ class _PlanGroupPickerTile extends StatelessWidget {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
+                              Positioned(
+                                left: 3,
+                                top: 4,
+                                width: 11,
+                                height: 7,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: accentColor,
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 3,
+                                right: 3,
+                                top: 8,
+                                bottom: 3,
+                                child: DecoratedBox(
+                                  key: ValueKey(
+                                    'plan-group-picker-completed-fill-${group.id}',
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: accentColor,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
                               Icon(
-                                Icons.folder,
-                                color: AppColors.accentDark,
+                                LucideIcons.folder,
+                                color: accentColor,
                                 size: 28,
                               ),
                               const Padding(
                                 padding: EdgeInsets.only(top: 2),
                                 child: Icon(
-                                  Icons.check,
+                                  LucideIcons.check,
                                   color: Colors.white,
                                   size: 14,
                                 ),
@@ -232,11 +262,11 @@ class _PlanGroupPickerTile extends StatelessWidget {
                           child: Icon(
                             group.isUngrouped
                                 ? (selected
-                                      ? Icons.inventory_2
-                                      : Icons.inventory_2_outlined)
+                                      ? LucideIcons.package
+                                      : LucideIcons.package)
                                 : (selected
-                                      ? Icons.folder
-                                      : Icons.folder_outlined),
+                                      ? LucideIcons.folder
+                                      : LucideIcons.folder),
                             color: selected
                                 ? accentColor
                                 : AppColors.textSecondary,
@@ -428,7 +458,7 @@ Future<String?> showPlanGroupSelectionSheet({
                             child: Row(
                               children: [
                                 const SizedBox(width: 8),
-                                Icon(Icons.add, color: AppColors.accent),
+                                Icon(LucideIcons.plus, color: AppColors.accent),
                                 const SizedBox(width: 12),
                                 Text(
                                   '新建片区',
@@ -513,8 +543,8 @@ class _PlanGroupSelectionTileState extends State<_PlanGroupSelectionTile> {
                       children: [
                         Icon(
                           widget.selected
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
+                              ? LucideIcons.checkCircle
+                              : LucideIcons.circle,
                           key: ValueKey(
                             'plan-point-group-selection-${widget.option.title}',
                           ),

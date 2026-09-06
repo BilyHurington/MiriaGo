@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import 'color_grading_params.dart';
@@ -35,7 +36,7 @@ class ColorGradingParameterSummary extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () => _showParameterSheet(context),
                 style: AppButtonStyles.compactOutlinedButton(),
-                icon: const Icon(Icons.tune, size: 18),
+                icon: const Icon(LucideIcons.slidersHorizontal, size: 18),
                 label: const Text('查看'),
               ),
             ],

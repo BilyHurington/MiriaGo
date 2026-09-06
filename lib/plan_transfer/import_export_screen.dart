@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 
 import '../app_theme.dart';
@@ -78,7 +79,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             _PlanExportSummary(plan: widget.plan),
             const SizedBox(height: 16),
             _SectionTitle(
-              icon: Icons.import_export_outlined,
+              icon: LucideIcons.import,
               title: '导入',
               subtitle: _usesExternalIosImport
                   ? '从文件、聊天、浏览器或网盘等位置用 MiriaGo 打开 .sjhplan。'
@@ -87,10 +88,10 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             const SizedBox(height: 10),
             _ActionTile(
               icon: _importing
-                  ? Icons.hourglass_empty_outlined
+                  ? LucideIcons.hourglass
                   : _usesExternalIosImport
-                  ? Icons.open_in_new_outlined
-                  : Icons.import_export_outlined,
+                  ? LucideIcons.externalLink
+                  : LucideIcons.import,
               title: _importing
                   ? '读取中...'
                   : _usesExternalIosImport
@@ -106,7 +107,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             ),
             const SizedBox(height: 20),
             _SectionTitle(
-              icon: Icons.inventory_2_outlined,
+              icon: LucideIcons.package,
               title: 'MiriaGo 数据包',
               subtitle: '新版 .sjhplan，内部为 zip，包含 manifest.json。',
             ),
@@ -129,15 +130,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             ),
             const SizedBox(height: 20),
             _SectionTitle(
-              icon: Icons.map_outlined,
+              icon: LucideIcons.map,
               title: 'Google My Maps',
               subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
             ),
             const SizedBox(height: 10),
             _ActionTile(
-              icon: _exporting
-                  ? Icons.hourglass_empty_outlined
-                  : Icons.table_chart_outlined,
+              icon: _exporting ? LucideIcons.hourglass : LucideIcons.table2,
               title: '导出 My Maps CSV',
               subtitle: '前 6 列贴近示例格式，作品、集数、来源等拆成独立列。',
               enabled: !_exporting && !_importing,
@@ -158,7 +157,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         appStatusSnackBar(
           kind: AppStatusBannerKind.running,
           title: '已取消导出',
-          icon: Icons.cancel_outlined,
+          icon: LucideIcons.circleX,
         ),
       );
     }
@@ -410,7 +409,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       appStatusSnackBar(
         kind: AppStatusBannerKind.running,
         title: '正在导出...',
-        icon: Icons.ios_share_outlined,
+        icon: LucideIcons.share2,
       ),
     );
     try {
@@ -423,7 +422,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
           appStatusSnackBar(
             kind: AppStatusBannerKind.running,
             title: '已取消导出',
-            icon: Icons.cancel_outlined,
+            icon: LucideIcons.circleX,
           ),
         );
         return;
@@ -437,7 +436,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         appStatusSnackBar(
           kind: AppStatusBannerKind.running,
           title: '已取消导出',
-          icon: Icons.cancel_outlined,
+          icon: LucideIcons.circleX,
         ),
       );
     } on _ExportAbortedException {
@@ -550,7 +549,7 @@ class _PlanExportSummary extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.archive_outlined, color: AppColors.accentDark),
+            child: Icon(LucideIcons.archive, color: AppColors.accentDark),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -665,23 +664,31 @@ class _BackupOptions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SegmentedButton<PlanExportV2Mode>(
-            segments: const [
-              ButtonSegment(
-                value: PlanExportV2Mode.planOnly,
-                icon: Icon(Icons.route_outlined),
-                label: Text('纯计划'),
-              ),
-              ButtonSegment(
-                value: PlanExportV2Mode.planWithRecords,
-                icon: Icon(Icons.collections_bookmark_outlined),
-                label: Text('计划+记录'),
-              ),
-            ],
-            selected: {mode},
-            onSelectionChanged: exporting
-                ? null
-                : (values) => onModeChanged(values.first),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              return SegmentedButton<PlanExportV2Mode>(
+                direction: constraints.maxWidth < 260 * textScale
+                    ? Axis.vertical
+                    : Axis.horizontal,
+                segments: const [
+                  ButtonSegment(
+                    value: PlanExportV2Mode.planOnly,
+                    icon: Icon(LucideIcons.route),
+                    label: Text('纯计划'),
+                  ),
+                  ButtonSegment(
+                    value: PlanExportV2Mode.planWithRecords,
+                    icon: Icon(LucideIcons.folders),
+                    label: Text('计划+记录'),
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: exporting
+                    ? null
+                    : (values) => onModeChanged(values.first),
+              );
+            },
           ),
           const SizedBox(height: 10),
           SwitchListTile(
@@ -708,7 +715,7 @@ class _BackupOptions extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.ios_share_outlined, size: 18),
+                : const Icon(LucideIcons.share2, size: 18),
             label: Text(exporting ? '导出中...' : '导出 MiriaGo 数据包'),
           ),
         ],
@@ -737,11 +744,7 @@ class _ExportSizeEstimateRow extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         else
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
+          Icon(LucideIcons.package, size: 18, color: AppColors.textSecondary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -822,7 +825,7 @@ class _ActionTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                LucideIcons.chevronRight,
                 color: enabled ? AppColors.textSecondary : AppColors.border,
               ),
             ],

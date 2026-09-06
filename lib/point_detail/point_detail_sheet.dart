@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../app_theme.dart';
@@ -14,7 +15,9 @@ import '../plan/plan_group_utils.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/copyable_text.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/responsive_button.dart';
 import '../plan/reference_image_status.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -38,6 +41,7 @@ class PointDetailSheet extends StatelessWidget {
     this.onOpenRecords,
     this.onOpenRecord,
     this.onEditPoint,
+    this.onDelete,
     this.navigationApp = NavigationApp.googleMaps,
     this.navigationLauncher = const MapNavigationLauncher(),
     this.settings = const AppSettings(),
@@ -65,6 +69,7 @@ class PointDetailSheet extends StatelessWidget {
   final VoidCallback? onOpenRecords;
   final ValueChanged<PilgrimageVisitRecord>? onOpenRecord;
   final VoidCallback? onEditPoint;
+  final Future<void> Function(PilgrimagePoint point)? onDelete;
   final NavigationApp navigationApp;
   final MapNavigationLauncher navigationLauncher;
   final AppSettings settings;
@@ -92,6 +97,7 @@ class PointDetailSheet extends StatelessWidget {
     VoidCallback? onOpenRecords,
     ValueChanged<PilgrimageVisitRecord>? onOpenRecord,
     VoidCallback? onEditPoint,
+    Future<void> Function(PilgrimagePoint point)? onDelete,
     NavigationApp navigationApp = NavigationApp.googleMaps,
     AppSettings settings = const AppSettings(),
     PilgrimagePlanController? planController,
@@ -118,6 +124,7 @@ class PointDetailSheet extends StatelessWidget {
           onOpenRecords: onOpenRecords,
           onOpenRecord: onOpenRecord,
           onEditPoint: onEditPoint,
+          onDelete: onDelete,
           navigationApp: navigationApp,
           settings: settings,
           planController: planController,
@@ -137,7 +144,7 @@ class PointDetailSheet extends StatelessWidget {
     messenger.showStatusSnack(
       kind: AppStatusBannerKind.running,
       title: '正在替换参考图...',
-      icon: Icons.swap_horiz_outlined,
+      icon: LucideIcons.arrowLeftRight,
     );
     final stored = await storeUserReferenceImage(
       sourcePath: picked.path,
@@ -186,6 +193,41 @@ class PointDetailSheet extends StatelessWidget {
       return;
     }
     await _showPlanMoveGroupSheet(context, moveToGroup);
+  }
+
+  Future<void> _deletePoint(BuildContext context) async {
+    final deletePoint = onDelete;
+    if (deletePoint == null) {
+      return;
+    }
+
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '删除点位',
+      message: '将从计划中删除“${point.name}”。',
+      confirmLabel: '删除点位',
+      destructive: true,
+      notice: '删除后无法撤销',
+      emphasizedValues: [point.name],
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    try {
+      await deletePoint(point);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '删除点位失败，请稍后重试。',
+      );
+    }
   }
 
   Future<void> _showPlanMoveGroupSheet(
@@ -258,7 +300,46 @@ class PointDetailSheet extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _StatusBadge(status: status),
+                          Row(
+                            children: [
+                              _StatusBadge(status: status),
+                              const Spacer(),
+                              if (onDelete != null)
+                                Tooltip(
+                                  message: '删除点位',
+                                  child: Semantics(
+                                    button: true,
+                                    label: '删除点位',
+                                    child: IconButton(
+                                      key: const ValueKey(
+                                        'point-detail-delete',
+                                      ),
+                                      onPressed: () => _deletePoint(context),
+                                      style: IconButton.styleFrom(
+                                        fixedSize: const Size(36, 36),
+                                        minimumSize: const Size(36, 36),
+                                        maximumSize: const Size(36, 36),
+                                        padding: EdgeInsets.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                            width: 36,
+                                            height: 36,
+                                          ),
+                                      padding: EdgeInsets.zero,
+                                      icon: Icon(
+                                        LucideIcons.trash2,
+                                        size: 18,
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           CopyableText(
                             text: point.name,
@@ -289,19 +370,19 @@ class PointDetailSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _InfoRow(
-                  icon: Icons.movie_filter_outlined,
+                  icon: LucideIcons.clapperboard,
                   label: '作品',
                   value: '${point.work.title} / ${point.work.subtitle}',
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
-                  icon: Icons.local_movies_outlined,
+                  icon: LucideIcons.film,
                   label: '场景',
                   value: point.displayEpisodeLabel,
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
-                  icon: Icons.location_on_outlined,
+                  icon: LucideIcons.mapPin,
                   label: '坐标',
                   value: point.hasCoordinate
                       ? '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}'
@@ -317,20 +398,20 @@ class PointDetailSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
-                  icon: Icons.image_outlined,
+                  icon: LucideIcons.image,
                   label: '参考',
                   value: point.referenceLabel,
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
-                  icon: Icons.source_outlined,
+                  icon: LucideIcons.fileCode,
                   label: '来源',
                   value: _sourceText,
                 ),
                 if (point.sourceId != null) ...[
                   const SizedBox(height: 8),
                   _InfoRow(
-                    icon: Icons.tag_outlined,
+                    icon: LucideIcons.tag,
                     label: 'ID',
                     value: point.sourceId!,
                   ),
@@ -338,7 +419,7 @@ class PointDetailSheet extends StatelessWidget {
                 if (point.sourceUrl != null) ...[
                   const SizedBox(height: 8),
                   _InfoRow(
-                    icon: Icons.link_outlined,
+                    icon: LucideIcons.link,
                     label: '链接',
                     value: point.sourceUrl!,
                   ),
@@ -346,7 +427,7 @@ class PointDetailSheet extends StatelessWidget {
                 if (point.note?.trim().isNotEmpty == true) ...[
                   const SizedBox(height: 8),
                   _InfoRow(
-                    icon: Icons.sticky_note_2_outlined,
+                    icon: LucideIcons.stickyNote,
                     label: '备注',
                     value: point.note!,
                   ),
@@ -415,17 +496,17 @@ class PointDetailSheet extends StatelessWidget {
     return switch (status) {
       VisitStatus.completed => _PointStatusAction(
         label: '撤回打卡',
-        icon: Icons.replay_outlined,
+        icon: LucideIcons.undo2,
         onTap: onComplete!,
       ),
       VisitStatus.current => _PointStatusAction(
         label: '标记完成',
-        icon: Icons.check_circle_outline,
+        icon: LucideIcons.circleCheckBig,
         onTap: onComplete!,
       ),
       VisitStatus.pending => _PointStatusAction(
         label: '标记完成',
-        icon: Icons.check_circle_outline,
+        icon: LucideIcons.circleCheckBig,
         onTap: onComplete!,
       ),
     };
@@ -485,21 +566,23 @@ class _PointDetailActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primaryActions = <Widget>[
-      Expanded(
-        child: FilledButton.icon(
-          key: const ValueKey('point-detail-in-app-navigation-button'),
-          onPressed: onOpenNavigation,
-          icon: const Icon(Icons.near_me_outlined, size: 18),
-          label: Text(onOpenNavigation == null ? '坐标待补充' : '导航'),
+      FilledButton(
+        key: const ValueKey('point-detail-in-app-navigation-button'),
+        onPressed: onOpenNavigation,
+        child: ResponsiveButtonContent(
+          icon: LucideIcons.navigation,
+          label: onOpenNavigation == null ? '坐标待补充' : '导航',
+          semanticLabel: '应用内导航',
         ),
       ),
       if (scope == PointDetailActionScope.visit && onOpenCamera != null) ...[
-        const SizedBox(width: 8),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onOpenCamera,
-            icon: const Icon(Icons.photo_camera_outlined, size: 18),
-            label: const Text('拍摄参考'),
+        OutlinedButton(
+          onPressed: onOpenCamera,
+          child: const ResponsiveButtonContent(
+            icon: LucideIcons.camera,
+            label: '拍摄参考',
+            shortLabel: '拍摄',
+            semanticLabel: '拍摄参考',
           ),
         ),
       ],
@@ -507,23 +590,25 @@ class _PointDetailActions extends StatelessWidget {
 
     final managementActions = <Widget>[
       if (scope != PointDetailActionScope.assign && onSetCurrent != null)
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: status == VisitStatus.current ? null : onSetCurrent,
-            icon: const Icon(Icons.flag_outlined, size: 18),
-            label: const Text('设为当前'),
+        OutlinedButton(
+          onPressed: status == VisitStatus.current ? null : onSetCurrent,
+          child: const ResponsiveButtonContent(
+            icon: LucideIcons.flag,
+            label: '设为当前',
+            shortLabel: '当前',
+            semanticLabel: '设为当前目标',
           ),
         ),
       if (scope != PointDetailActionScope.assign && statusAction != null) ...[
-        if (onSetCurrent != null) const SizedBox(width: 8),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              statusAction!.onTap();
-            },
-            icon: Icon(statusAction!.icon, size: 18),
-            label: Text(statusAction!.label),
+        OutlinedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            statusAction!.onTap();
+          },
+          child: ResponsiveButtonContent(
+            icon: statusAction!.icon,
+            label: statusAction!.label,
+            semanticLabel: statusAction!.label,
           ),
         ),
       ],
@@ -531,10 +616,10 @@ class _PointDetailActions extends StatelessWidget {
 
     return Column(
       children: [
-        Row(children: primaryActions),
+        _buildActionRow(primaryActions),
         if (managementActions.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Row(children: managementActions),
+          _buildActionRow(managementActions),
         ],
         if (onEditPoint != null) ...[
           const SizedBox(height: 8),
@@ -543,13 +628,20 @@ class _PointDetailActions extends StatelessWidget {
             child: OutlinedButton.icon(
               key: const ValueKey('point-detail-edit'),
               onPressed: onEditPoint,
-              icon: const Icon(Icons.edit_outlined, size: 18),
+              icon: const Icon(LucideIcons.edit, size: 18),
               label: const Text('编辑点位'),
             ),
           ),
         ],
       ],
     );
+  }
+
+  Widget _buildActionRow(List<Widget> actions) {
+    if (actions.length == 1) {
+      return SizedBox(width: double.infinity, child: actions.single);
+    }
+    return ResponsiveTwoButtonRow(first: actions[0], second: actions[1]);
   }
 }
 
@@ -611,11 +703,7 @@ class _ReferenceColumn extends StatelessWidget {
                   localPath: point.referenceThumbnailPath,
                   imageUrl: remoteImageUrl,
                   fit: BoxFit.cover,
-                  placeholder: Icon(
-                    Icons.image_outlined,
-                    color: color,
-                    size: 28,
-                  ),
+                  placeholder: Icon(LucideIcons.image, color: color, size: 28),
                 ),
               ),
             ),
@@ -658,11 +746,7 @@ class _GroupInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.grid_view_outlined,
-          color: AppColors.textSecondary,
-          size: 19,
-        ),
+        Icon(LucideIcons.grid2X2, color: AppColors.textSecondary, size: 19),
         const SizedBox(width: 8),
         SizedBox(
           width: 42,
@@ -831,11 +915,7 @@ class _PointRecordsPreview extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(
-              Icons.collections_bookmark_outlined,
-              color: AppColors.textSecondary,
-              size: 18,
-            ),
+            Icon(LucideIcons.folders, color: AppColors.textSecondary, size: 18),
             const SizedBox(width: 6),
             Text(
               '本点记录 ${records.length}',
@@ -849,7 +929,7 @@ class _PointRecordsPreview extends StatelessWidget {
             if (onOpenRecords != null)
               TextButton.icon(
                 onPressed: onOpenRecords,
-                icon: const Icon(Icons.chevron_right, size: 18),
+                icon: const Icon(LucideIcons.chevronRight, size: 18),
                 label: const Text('全部'),
               ),
           ],

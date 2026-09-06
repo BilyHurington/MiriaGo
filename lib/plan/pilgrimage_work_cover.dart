@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import 'pilgrimage_models.dart';
@@ -60,7 +61,7 @@ class _WorkCoverFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Icon(
-        Icons.movie_filter_outlined,
+        LucideIcons.clapperboard,
         size: 22,
         color: AppColors.textSecondary,
       ),

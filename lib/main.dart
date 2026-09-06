@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -171,7 +172,7 @@ class _DesktopStartupError extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.error_outline,
+                LucideIcons.circleAlert,
                 size: 52,
                 color: Theme.of(context).colorScheme.error,
               ),
@@ -189,7 +190,7 @@ class _DesktopStartupError extends StatelessWidget {
               FilledButton.icon(
                 key: const ValueKey('desktop-startup-retry'),
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(LucideIcons.refreshCw),
                 label: const Text('重试'),
               ),
               if (launcherInfo != null) ...[
@@ -201,12 +202,12 @@ class _DesktopStartupError extends StatelessWidget {
                   children: [
                     OutlinedButton.icon(
                       onPressed: () => _openDirectory(context, 'logs'),
-                      icon: const Icon(Icons.description_outlined),
+                      icon: const Icon(LucideIcons.fileText),
                       label: const Text('打开日志目录'),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _openDirectory(context, 'data'),
-                      icon: const Icon(Icons.folder_open_outlined),
+                      icon: const Icon(LucideIcons.folderOpen),
                       label: const Text('打开数据目录'),
                     ),
                   ],

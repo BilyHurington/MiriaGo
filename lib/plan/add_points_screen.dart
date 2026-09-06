@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,6 +21,7 @@ import '../widgets/reference_thumbnail_stub.dart'
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/app_scaled_route.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/responsive_button.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pilgrimage_work_dropdown.dart';
@@ -623,7 +625,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
                                     width: 40,
                                     height: 46,
                                   ),
-                                  icon: const Icon(Icons.clear, size: 19),
+                                  icon: const Icon(LucideIcons.x, size: 19),
                                 ),
                           suffixIconConstraints: const BoxConstraints.tightFor(
                             width: 40,
@@ -649,7 +651,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.search, size: 18),
+                        : const Icon(LucideIcons.search, size: 18),
                     label: Text(_isSearching ? '搜索中' : '搜索作品'),
                   ),
                 ),
@@ -682,7 +684,7 @@ class BangumiWorkSearchScreenState extends State<BangumiWorkSearchScreen> {
             const SizedBox(height: 12),
             if (_error != null)
               const _MessageCard(
-                icon: Icons.error_outline,
+                icon: LucideIcons.circleAlert,
                 text: 'Bangumi 搜索失败，请检查网络后重试。',
               )
             else if (_results.isNotEmpty)
@@ -875,7 +877,7 @@ class _BangumiTypeFilterDisclosure extends StatelessWidget {
                         turns: expanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 160),
                         child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
+                          LucideIcons.chevronDown,
                           size: 20,
                           color: AppColors.textSecondary,
                         ),
@@ -1084,8 +1086,8 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
                         ),
                         icon: Icon(
                           hasLinkText
-                              ? Icons.clear
-                              : Icons.content_paste_outlined,
+                              ? LucideIcons.x
+                              : LucideIcons.clipboardPaste,
                           size: 20,
                         ),
                       ),
@@ -1135,10 +1137,7 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         alignment: Alignment.center,
                       ),
-                      icon: const Icon(
-                        Icons.add_location_alt_outlined,
-                        size: 21,
-                      ),
+                      icon: const Icon(LucideIcons.mapPinPlus, size: 21),
                       label: const Text(
                         '打开 Anitabi 点位',
                         style: TextStyle(
@@ -1526,7 +1525,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
             onPressed: () => Navigator.of(context).pop(_didAdd),
           ),
           actions: [
-            TextButton.icon(
+            TextButton(
               key: const ValueKey('manual-work-filling-guide'),
               onPressed: _showFillingGuide,
               style: TextButton.styleFrom(
@@ -1534,14 +1533,11 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
                 minimumSize: const Size(0, 40),
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
-              icon: const Icon(Icons.menu_book_outlined, size: 17),
-              label: const Text(
-                '填写指南',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
+              child: const ResponsiveButtonContent(
+                icon: LucideIcons.bookOpen,
+                iconSize: 17,
+                label: '填写指南',
+                semanticLabel: '填写指南',
               ),
             ),
             const SizedBox(width: 4),
@@ -1605,10 +1601,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
                         ),
                         icon: const Padding(
                           padding: EdgeInsets.only(right: 8),
-                          child: Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 20,
-                          ),
+                          child: Icon(LucideIcons.chevronDown, size: 20),
                         ),
                         selectedItemBuilder: (context) => [
                           for (final type in _manualWorkSubjectTypes)
@@ -1673,7 +1666,7 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.check_outlined, size: 18),
+                    : const Icon(LucideIcons.check, size: 18),
                 label: Text(_isSaving ? '保存中' : '保存作品'),
               ),
             ],
@@ -1712,7 +1705,7 @@ class _ManualPointFillingGuideSheet extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.add_location_alt_outlined,
+                  LucideIcons.mapPinPlus,
                   color: AppColors.accentDark,
                   size: 24,
                 ),
@@ -1731,7 +1724,7 @@ class _ManualPointFillingGuideSheet extends StatelessWidget {
                 IconButton(
                   tooltip: '关闭',
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(LucideIcons.x, size: 20),
                 ),
               ],
             ),
@@ -1797,7 +1790,7 @@ class _ManualPointFillingGuideSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.location_searching_outlined,
+                    LucideIcons.locateFixed,
                     size: 19,
                     color: AppColors.accentDark,
                   ),
@@ -1851,7 +1844,7 @@ class _ManualWorkFillingGuideSheet extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.menu_book_outlined,
+                  LucideIcons.bookOpen,
                   color: AppColors.accentDark,
                   size: 24,
                 ),
@@ -1870,7 +1863,7 @@ class _ManualWorkFillingGuideSheet extends StatelessWidget {
                 IconButton(
                   tooltip: '关闭',
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(LucideIcons.x, size: 20),
                 ),
               ],
             ),
@@ -1929,7 +1922,7 @@ class _ManualWorkFillingGuideSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.lightbulb_outline,
+                    LucideIcons.lightbulb,
                     size: 19,
                     color: AppColors.accentDark,
                   ),
@@ -2136,7 +2129,7 @@ class _ManualWorkTypeDropdownItemState
           children: [
             Expanded(child: Text(widget.type.label)),
             if (widget.selected)
-              Icon(Icons.check_circle, color: AppColors.accent, size: 18),
+              Icon(LucideIcons.checkCircle, color: AppColors.accent, size: 18),
           ],
         ),
       ),
@@ -2380,7 +2373,7 @@ class _QuickManualPointFormScreenState
         leading: appBackButtonIfCanPop(context),
         title: const Text('快速手动添加点位'),
         actions: [
-          TextButton.icon(
+          TextButton(
             key: const ValueKey('quick-point-filling-guide'),
             onPressed: _showFillingGuide,
             style: TextButton.styleFrom(
@@ -2388,14 +2381,11 @@ class _QuickManualPointFormScreenState
               minimumSize: const Size(0, 40),
               padding: const EdgeInsets.symmetric(horizontal: 10),
             ),
-            icon: const Icon(Icons.menu_book_outlined, size: 17),
-            label: const Text(
-              '填写指南',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
+            child: const ResponsiveButtonContent(
+              icon: LucideIcons.bookOpen,
+              iconSize: 17,
+              label: '填写指南',
+              semanticLabel: '填写指南',
             ),
           ),
           const SizedBox(width: 4),
@@ -2538,11 +2528,11 @@ class _QuickManualPointFormScreenState
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: OutlinedButton(
                         key: const ValueKey('quick-point-map-picker'),
                         onPressed: _pickCoordinateFromMap,
                         style: OutlinedButton.styleFrom(
-                          fixedSize: const Size.fromHeight(40),
+                          fixedSize: const Size.fromHeight(44),
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           foregroundColor: AppColors.accent,
                           backgroundColor: AppColors.accent.withValues(
@@ -2555,21 +2545,19 @@ class _QuickManualPointFormScreenState
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        icon: const Icon(Icons.location_on, size: 19),
-                        label: const Text(
-                          '从地图选择',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
+                        child: const ResponsiveButtonContent(
+                          icon: LucideIcons.mapPin,
+                          iconSize: 19,
+                          label: '从地图选择',
+                          shortLabel: '地图选择',
+                          semanticLabel: '从地图选择坐标',
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 44,
-                      height: 40,
+                      height: 44,
                       child: IconButton.outlined(
                         key: const ValueKey('quick-point-paste-coordinate'),
                         tooltip: '粘贴剪贴板坐标',
@@ -2581,7 +2569,7 @@ class _QuickManualPointFormScreenState
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        icon: const Icon(Icons.content_paste_outlined),
+                        icon: const Icon(LucideIcons.clipboardPaste),
                       ),
                     ),
                   ],
@@ -2592,7 +2580,7 @@ class _QuickManualPointFormScreenState
             FilledButton.icon(
               key: const ValueKey('quick-point-submit'),
               onPressed: _submit,
-              icon: const Icon(Icons.check_outlined, size: 18),
+              icon: const Icon(LucideIcons.check, size: 18),
               label: const Text('保存点位'),
             ),
           ],
@@ -2625,7 +2613,7 @@ class _QuickManualPointFillingGuideSheet extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.add_location_alt_outlined,
+                  LucideIcons.mapPinPlus,
                   color: AppColors.accentDark,
                   size: 24,
                 ),
@@ -2644,7 +2632,7 @@ class _QuickManualPointFillingGuideSheet extends StatelessWidget {
                 IconButton(
                   tooltip: '关闭',
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(LucideIcons.x, size: 20),
                 ),
               ],
             ),
@@ -3077,7 +3065,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
             },
           ),
           actions: [
-            TextButton.icon(
+            TextButton(
               key: const ValueKey('manual-point-filling-guide'),
               onPressed: _showPointFillingGuide,
               style: TextButton.styleFrom(
@@ -3085,14 +3073,11 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                 minimumSize: const Size(0, 40),
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
-              icon: const Icon(Icons.menu_book_outlined, size: 17),
-              label: const Text(
-                '填写指南',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
+              child: const ResponsiveButtonContent(
+                icon: LucideIcons.bookOpen,
+                iconSize: 17,
+                label: '填写指南',
+                semanticLabel: '填写指南',
               ),
             ),
             const SizedBox(width: 4),
@@ -3339,11 +3324,11 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton.icon(
+                        child: OutlinedButton(
                           key: const ValueKey('point-form-map-picker'),
                           onPressed: _isSaving ? null : _pickCoordinateFromMap,
                           style: OutlinedButton.styleFrom(
-                            fixedSize: const Size.fromHeight(40),
+                            fixedSize: const Size.fromHeight(44),
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             foregroundColor: AppColors.accent,
                             backgroundColor: AppColors.accent.withValues(
@@ -3356,21 +3341,19 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(Icons.location_on, size: 19),
-                          label: const Text(
-                            '从地图选择',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
+                          child: const ResponsiveButtonContent(
+                            icon: LucideIcons.mapPin,
+                            iconSize: 19,
+                            label: '从地图选择',
+                            shortLabel: '地图选择',
+                            semanticLabel: '从地图选择坐标',
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       SizedBox(
                         width: 44,
-                        height: 40,
+                        height: 44,
                         child: IconButton.outlined(
                           key: const ValueKey('point-form-paste-coordinate'),
                           tooltip: '粘贴剪贴板坐标',
@@ -3384,7 +3367,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(Icons.content_paste_outlined),
+                          icon: const Icon(LucideIcons.clipboardPaste),
                         ),
                       ),
                     ],
@@ -3423,7 +3406,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.check_outlined, size: 18),
+                    : const Icon(LucideIcons.check, size: 18),
                 label: Text(_isSaving ? '保存中' : (_isEditing ? '保存修改' : '保存点位')),
               ),
             ],
@@ -3669,7 +3652,7 @@ class _ManualPointMapPickerScreenState
               bottom: false,
               child: _MapToolButton(
                 tooltip: _isPickMode ? '关闭地图选点' : '在地图上选点',
-                icon: Icons.ads_click_outlined,
+                icon: LucideIcons.mousePointerClick,
                 selected: _isPickMode,
                 onTap: () {
                   setState(() {
@@ -3706,7 +3689,7 @@ class _ManualPointPositionMarker extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white, width: 3),
       ),
-      child: const Icon(Icons.add_location_alt, color: Colors.white),
+      child: const Icon(LucideIcons.mapPinPlus, color: Colors.white),
     );
   }
 }
@@ -3768,7 +3751,7 @@ class _ManualPointSelectionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.add_location_alt_outlined, color: AppColors.accent),
+          Icon(LucideIcons.mapPinPlus, color: AppColors.accent),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -3893,7 +3876,7 @@ class _LinkedWorksPanel extends StatelessWidget {
                             ),
                             SizedBox(width: 2),
                             Icon(
-                              Icons.chevron_right_rounded,
+                              LucideIcons.chevronRight,
                               color: AppColors.accent,
                               size: 20,
                             ),
@@ -3957,7 +3940,7 @@ class _LinkedWorksPanel extends StatelessWidget {
                   Expanded(
                     child: _WorkCreationAction(
                       key: const ValueKey('add-points-bangumi-work'),
-                      icon: Icons.search_rounded,
+                      icon: LucideIcons.search,
                       title: '从Bangumi添加',
                       subtitle: '自动获取信息',
                       onTap: onBangumi,
@@ -3973,7 +3956,7 @@ class _LinkedWorksPanel extends StatelessWidget {
                   Expanded(
                     child: _WorkCreationAction(
                       key: const ValueKey('add-points-manual-work'),
-                      icon: Icons.add_rounded,
+                      icon: LucideIcons.plus,
                       title: '手动添加作品',
                       subtitle: '未收录时使用',
                       onTap: onManual,
@@ -4176,7 +4159,7 @@ class _ManualReferenceImagePicker extends StatelessWidget {
                       imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       placeholder: Icon(
-                        Icons.image_outlined,
+                        LucideIcons.image,
                         color: AppColors.textSecondary,
                       ),
                     ),
@@ -4217,16 +4200,13 @@ class _ManualReferenceImagePicker extends StatelessWidget {
                     children: [
                       OutlinedButton.icon(
                         onPressed: onPick,
-                        icon: const Icon(
-                          Icons.photo_library_outlined,
-                          size: 18,
-                        ),
+                        icon: const Icon(LucideIcons.images, size: 18),
                         label: Text(hasImage ? '重新选择' : '上传参考图'),
                       ),
                       if (hasPendingSelection)
                         TextButton.icon(
                           onPressed: onRemove,
-                          icon: const Icon(Icons.close_outlined, size: 18),
+                          icon: const Icon(LucideIcons.x, size: 18),
                           label: const Text('移除'),
                         ),
                     ],
@@ -4456,11 +4436,7 @@ class _BangumiSearchHintContent extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              Icons.manage_search_rounded,
-              color: AppColors.accent,
-              size: 17,
-            ),
+            Icon(LucideIcons.search, color: AppColors.accent, size: 17),
             const SizedBox(width: 8),
             Text(
               '搜索说明',
@@ -4496,7 +4472,7 @@ class _BangumiSearchHintContent extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 1),
                 child: Icon(
-                  Icons.info_outline_rounded,
+                  LucideIcons.info,
                   color: AppColors.accent,
                   size: 16,
                 ),
@@ -4579,7 +4555,7 @@ class _QuickImportPanel extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
-                            Icons.link_rounded,
+                            LucideIcons.link,
                             color: AppColors.accent,
                             size: 26,
                           ),
@@ -4637,7 +4613,7 @@ class _QuickImportPanel extends StatelessWidget {
                           ),
                         ),
                         Icon(
-                          Icons.chevron_right_rounded,
+                          LucideIcons.chevronRight,
                           color: enabled
                               ? AppColors.accent
                               : AppColors.textSecondary,
@@ -4711,7 +4687,7 @@ class _AddPointPanel extends StatelessWidget {
           ),
           _PointCreationAction(
             key: const ValueKey('add-points-anitabi-map'),
-            icon: Icons.map_outlined,
+            icon: LucideIcons.map,
             title: '从作品地图导入点位',
             subtitle: mapEnabled ? '在作品地图上选择并导入点位' : '请先通过 Bangumi 搜索添加作品',
             recommended: true,
@@ -4726,7 +4702,7 @@ class _AddPointPanel extends StatelessWidget {
           ),
           _PointCreationAction(
             key: const ValueKey('add-points-quick-manual-point'),
-            icon: Icons.add_location_alt_outlined,
+            icon: LucideIcons.mapPinPlus,
             title: '快速手动添加点位',
             subtitle: quickManualEnabled ? '只填写作品、名称和可选坐标' : '请先添加作品',
             enabled: quickManualEnabled,
@@ -4740,7 +4716,7 @@ class _AddPointPanel extends StatelessWidget {
           ),
           _PointCreationAction(
             key: const ValueKey('add-points-manual-point'),
-            icon: Icons.edit_location_alt_outlined,
+            icon: LucideIcons.mapPinPen,
             title: '手动添加点位',
             subtitle: '手动输入点位信息，逐个添加',
             enabled: manualEnabled,
@@ -4875,7 +4851,7 @@ class _PointCreationAction extends StatelessWidget {
                     ),
                   ),
                   Icon(
-                    Icons.chevron_right_rounded,
+                    LucideIcons.chevronRight,
                     color: enabled ? AppColors.accent : AppColors.textSecondary,
                     size: 22,
                   ),

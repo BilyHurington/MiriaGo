@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../desktop/desktop_asset_image.dart';
@@ -77,7 +78,7 @@ class _PhotoPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppColors.surfaceMuted,
-      child: const Center(child: Icon(Icons.photo_outlined)),
+      child: const Center(child: Icon(LucideIcons.image)),
     );
   }
 }

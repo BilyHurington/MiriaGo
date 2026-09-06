@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -618,7 +619,7 @@ List<_PreviewStep> _stepsFor(NavigationRoute route) {
   if (route.maneuvers.isEmpty) {
     return const [
       _PreviewStep(
-        icon: Icons.straight_rounded,
+        icon: LucideIcons.arrowUp,
         distanceLabel: '路线中',
         instruction: '沿路线继续前行',
       ),
@@ -635,11 +636,11 @@ List<_PreviewStep> _stepsFor(NavigationRoute route) {
 }
 
 IconData _maneuverIcon(int type) => switch (type) {
-  3 => Icons.flag_rounded,
-  5 || 6 || 9 || 16 || 17 => Icons.turn_right_rounded,
-  7 || 8 || 11 || 18 || 19 => Icons.turn_left_rounded,
-  12 || 13 => Icons.u_turn_left_rounded,
-  _ => Icons.straight_rounded,
+  3 => LucideIcons.flag,
+  5 || 6 || 9 || 16 || 17 => LucideIcons.cornerUpRight,
+  7 || 8 || 11 || 18 || 19 => LucideIcons.cornerUpLeft,
+  12 || 13 => LucideIcons.undo2,
+  _ => LucideIcons.arrowUp,
 };
 
 String _distanceLabel(double kilometers) {
@@ -879,7 +880,7 @@ class _BottomPanel extends StatelessWidget {
                     const SizedBox(height: 16),
                     _InfoRow(
                       chrome: chrome,
-                      icon: Icons.location_on,
+                      icon: LucideIcons.mapPin,
                       iconColor: Colors.white,
                       iconBackground: _endRouteRed,
                       title: point.name,
@@ -889,7 +890,7 @@ class _BottomPanel extends StatelessWidget {
                     _InfoRow(
                       key: const ValueKey('in-app-navigation-all-stops'),
                       chrome: chrome,
-                      icon: Icons.list,
+                      icon: LucideIcons.list,
                       iconColor: chrome.primaryText,
                       iconBackground: chrome.detailsIconBackground,
                       title: '全部点位',
@@ -983,8 +984,8 @@ class _SheetHeader extends StatelessWidget {
                     height: 40,
                     child: Icon(
                       expanded
-                          ? Icons.keyboard_arrow_down_rounded
-                          : Icons.keyboard_arrow_up_rounded,
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronUp,
                       color: chrome.primaryText,
                     ),
                   ),
@@ -1207,7 +1208,7 @@ class _InfoRow extends StatelessWidget {
                 ),
               ),
               if (onTap != null)
-                Icon(Icons.chevron_right_rounded, color: chrome.secondaryText),
+                Icon(LucideIcons.chevronRight, color: chrome.secondaryText),
             ],
           ),
         ),
@@ -1238,7 +1239,11 @@ class _RecenterButton extends StatelessWidget {
           child: SizedBox(
             width: 44,
             height: 44,
-            child: Icon(Icons.navigation, color: AppColors.accent, size: 22),
+            child: Icon(
+              LucideIcons.navigation,
+              color: AppColors.accent,
+              size: 22,
+            ),
           ),
         ),
       ),
@@ -1353,7 +1358,7 @@ class _DestinationPin extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.location_on, color: Colors.white, size: 18),
+        child: const Icon(LucideIcons.mapPin, color: Colors.white, size: 18),
       ),
     );
   }
@@ -1412,7 +1417,7 @@ class _ArrivalSheet extends StatelessWidget {
             const SizedBox(height: 12),
             _InfoRow(
               chrome: chrome,
-              icon: Icons.flag_rounded,
+              icon: LucideIcons.flag,
               iconColor: Colors.white,
               iconBackground: isLast ? _endRouteRed : AppColors.accent,
               title: arrived.name,
@@ -1422,7 +1427,7 @@ class _ArrivalSheet extends StatelessWidget {
             _InfoRow(
               key: const ValueKey('in-app-navigation-open-camera'),
               chrome: chrome,
-              icon: Icons.photo_camera_outlined,
+              icon: LucideIcons.camera,
               iconColor: chrome.primaryText,
               iconBackground: chrome.detailsIconBackground,
               title: '打开相机',
@@ -1433,7 +1438,7 @@ class _ArrivalSheet extends StatelessWidget {
               const SizedBox(height: 10),
               _InfoRow(
                 chrome: chrome,
-                icon: Icons.arrow_forward_rounded,
+                icon: LucideIcons.arrowRight,
                 iconColor: chrome.primaryText,
                 iconBackground: chrome.detailsIconBackground,
                 title: nextStop!.name,

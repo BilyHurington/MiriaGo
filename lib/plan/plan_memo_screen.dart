@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -380,7 +381,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save_outlined),
+                      : const Icon(LucideIcons.save),
                   label: const Text('保存'),
                 ),
               )
@@ -388,7 +389,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
               IconButton(
                 tooltip: '编辑',
                 onPressed: _startEditing,
-                icon: const Icon(Icons.edit_outlined),
+                icon: const Icon(LucideIcons.edit),
               ),
           ],
         ),
@@ -507,42 +508,42 @@ class _MarkdownToolbar extends StatelessWidget {
     const tools = [
       _MarkdownToolSpec(
         action: _MarkdownAction.heading,
-        icon: Icons.title,
+        icon: LucideIcons.heading,
         tooltip: '标题',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.bold,
-        icon: Icons.format_bold,
+        icon: LucideIcons.bold,
         tooltip: '加粗',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.list,
-        icon: Icons.format_list_bulleted,
+        icon: LucideIcons.list,
         tooltip: '列表',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.task,
-        icon: Icons.check_box_outlined,
+        icon: LucideIcons.squareCheckBig,
         tooltip: '待办',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.quote,
-        icon: Icons.format_quote,
+        icon: LucideIcons.quote,
         tooltip: '引用',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.divider,
-        icon: Icons.horizontal_rule,
+        icon: LucideIcons.minus,
         tooltip: '分割线',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.link,
-        icon: Icons.link,
+        icon: LucideIcons.link,
         tooltip: '链接',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.code,
-        icon: Icons.code,
+        icon: LucideIcons.code,
         tooltip: '代码',
       ),
     ];
@@ -739,7 +740,7 @@ class _TaskCheckboxBuilder {
             width: 28,
             height: 28,
             child: Icon(
-              value ? Icons.check_box : Icons.check_box_outline_blank,
+              value ? LucideIcons.squareCheckBig : LucideIcons.square,
               size: 25,
               color: value ? AppColors.accentDark : AppColors.textSecondary,
             ),
@@ -809,7 +810,7 @@ class _UnsupportedMarkdownImage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.image_not_supported_outlined, size: 20),
+          const Icon(LucideIcons.imageOff, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -836,27 +837,11 @@ class _EmptyPlanMemo extends StatelessWidget {
   final VoidCallback onStart;
 
   static const _suggestions = [
-    (
-      icon: Icons.directions_transit_outlined,
-      label: '交通安排',
-      detail: '如车次、换乘方案、出发时间等',
-    ),
-    (icon: Icons.hotel_outlined, label: '酒店预约', detail: '酒店地址、入住时间、联系方式等'),
-    (
-      icon: Icons.confirmation_number_outlined,
-      label: '活动门票',
-      detail: '活动门票、预约时间、注意事项等',
-    ),
-    (
-      icon: Icons.photo_camera_outlined,
-      label: '拍摄计划',
-      detail: '拍摄地点、时间、天气备选方案等',
-    ),
-    (
-      icon: Icons.notifications_none_rounded,
-      label: '注意事项',
-      detail: '携带物品、预算、当地注意事项等',
-    ),
+    (icon: LucideIcons.trainFront, label: '交通安排', detail: '如车次、换乘方案、出发时间等'),
+    (icon: LucideIcons.hotel, label: '酒店预约', detail: '酒店地址、入住时间、联系方式等'),
+    (icon: LucideIcons.ticket, label: '活动门票', detail: '活动门票、预约时间、注意事项等'),
+    (icon: LucideIcons.camera, label: '拍摄计划', detail: '拍摄地点、时间、天气备选方案等'),
+    (icon: LucideIcons.bell, label: '注意事项', detail: '携带物品、预算、当地注意事项等'),
   ];
 
   @override
@@ -879,7 +864,7 @@ class _EmptyPlanMemo extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    Icons.sticky_note_2_outlined,
+                    LucideIcons.stickyNote,
                     color: AppColors.accentDark,
                     size: 34,
                   ),
@@ -922,7 +907,7 @@ class _EmptyPlanMemo extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.lightbulb_outline_rounded,
+                              LucideIcons.lightbulb,
                               color: AppColors.accent,
                               size: 18,
                             ),
@@ -967,7 +952,7 @@ class _EmptyPlanMemo extends StatelessWidget {
                         minimumSize: const Size.fromHeight(46),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                       ),
-                      icon: const Icon(Icons.edit_note_rounded, size: 20),
+                      icon: const Icon(LucideIcons.notebookPen, size: 20),
                       label: const Text('开始记录'),
                     ),
                   ),
