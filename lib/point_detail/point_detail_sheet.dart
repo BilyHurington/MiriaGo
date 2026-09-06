@@ -195,41 +195,6 @@ class PointDetailSheet extends StatelessWidget {
     await _showPlanMoveGroupSheet(context, moveToGroup);
   }
 
-  Future<void> _deletePoint(BuildContext context) async {
-    final deletePoint = onDelete;
-    if (deletePoint == null) {
-      return;
-    }
-
-    final confirmed = await showConfirmActionDialog(
-      context,
-      title: '删除点位',
-      message: '将从计划中删除“${point.name}”。',
-      confirmLabel: '删除点位',
-      destructive: true,
-      notice: '删除后无法撤销',
-      emphasizedValues: [point.name],
-    );
-    if (!confirmed || !context.mounted) {
-      return;
-    }
-
-    try {
-      await deletePoint(point);
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showStatusSnack(
-        kind: AppStatusBannerKind.error,
-        title: '删除点位失败，请稍后重试。',
-      );
-    }
-  }
-
   Future<void> _showPlanMoveGroupSheet(
     BuildContext context,
     Future<void> Function(PilgrimagePoint point, String? groupId) moveToGroup,
@@ -305,38 +270,10 @@ class PointDetailSheet extends StatelessWidget {
                               _StatusBadge(status: status),
                               const Spacer(),
                               if (onDelete != null)
-                                Tooltip(
-                                  message: '删除点位',
-                                  child: Semantics(
-                                    button: true,
-                                    label: '删除点位',
-                                    child: IconButton(
-                                      key: const ValueKey(
-                                        'point-detail-delete',
-                                      ),
-                                      onPressed: () => _deletePoint(context),
-                                      style: IconButton.styleFrom(
-                                        fixedSize: const Size(36, 36),
-                                        minimumSize: const Size(36, 36),
-                                        maximumSize: const Size(36, 36),
-                                        padding: EdgeInsets.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                      constraints:
-                                          const BoxConstraints.tightFor(
-                                            width: 36,
-                                            height: 36,
-                                          ),
-                                      padding: EdgeInsets.zero,
-                                      icon: Icon(
-                                        LucideIcons.trash2,
-                                        size: 18,
-                                        color: AppColors.error,
-                                      ),
-                                    ),
-                                  ),
+                                _DeletePointButton(
+                                  key: ValueKey(point.id),
+                                  point: point,
+                                  onDelete: onDelete!,
                                 ),
                             ],
                           ),
@@ -541,6 +478,105 @@ class PointDetailSheet extends StatelessWidget {
       return '未设置关键点';
     }
     return anchorName;
+  }
+}
+
+class _DeletePointButton extends StatefulWidget {
+  const _DeletePointButton({
+    required this.point,
+    required this.onDelete,
+    super.key,
+  });
+
+  final PilgrimagePoint point;
+  final Future<void> Function(PilgrimagePoint point) onDelete;
+
+  @override
+  State<_DeletePointButton> createState() => _DeletePointButtonState();
+}
+
+class _DeletePointButtonState extends State<_DeletePointButton> {
+  bool _busy = false;
+  bool _deleted = false;
+
+  Future<void> _deletePoint() async {
+    if (_busy || _deleted) {
+      return;
+    }
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) {
+      return;
+    }
+    final navigator = Navigator.of(context);
+    final point = widget.point;
+    final deletePoint = widget.onDelete;
+    setState(() => _busy = true);
+
+    try {
+      final confirmed = await showConfirmActionDialog(
+        context,
+        title: '删除点位',
+        message: '将从计划中删除“${point.name}”。已有巡礼记录及照片将保留。',
+        confirmLabel: '删除点位',
+        destructive: true,
+        emphasizedValues: [point.name],
+      );
+      if (!confirmed || !mounted || !route.isActive || !route.isCurrent) {
+        return;
+      }
+
+      await deletePoint(point);
+      if (!mounted) {
+        return;
+      }
+      _deleted = true;
+      // A dismissed sheet stays mounted during its exit animation.
+      if (route.isActive && route.isCurrent) {
+        navigator.pop();
+      } else if (route.isActive) {
+        navigator.removeRoute(route);
+      }
+    } catch (_) {
+      if (!mounted || !route.isActive || !route.isCurrent) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '删除点位失败，请稍后重试。',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _busy ? '正在删除点位' : (_deleted ? '点位已删除' : '删除点位');
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: IconButton(
+          key: const ValueKey('point-detail-delete'),
+          onPressed: _busy || _deleted ? null : _deletePoint,
+          style: IconButton.styleFrom(
+            fixedSize: const Size(44, 44),
+            minimumSize: const Size(44, 44),
+            maximumSize: const Size(44, 44),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            foregroundColor: AppColors.error,
+          ),
+          constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+          padding: EdgeInsets.zero,
+          icon: const Icon(LucideIcons.trash2, size: 18),
+        ),
+      ),
+    );
   }
 }
 

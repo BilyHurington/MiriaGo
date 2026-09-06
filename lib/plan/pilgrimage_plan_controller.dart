@@ -25,6 +25,7 @@ class PilgrimagePlanController extends ChangeNotifier {
 
   String? _currentPointId;
   String? _selectedPointId;
+  int _pointStateRevision = 0;
 
   PilgrimagePlan get plan => _plan;
 
@@ -39,6 +40,7 @@ class PilgrimagePlanController extends ChangeNotifier {
   PilgrimagePoint? pointById(String id) => _pointById(id);
 
   void replacePlan(PilgrimagePlan plan) {
+    _pointStateRevision++;
     _plan = plan;
     _completedPointIds = {...plan.completedPointIds};
     _currentPointId = plan.currentPointId;
@@ -101,6 +103,7 @@ class PilgrimagePlanController extends ChangeNotifier {
     if (!point.hasCoordinate) {
       return;
     }
+    _pointStateRevision++;
     if (_completedPointIds.contains(point.id)) {
       _completedPointIds.remove(point.id);
     }
@@ -112,6 +115,7 @@ class PilgrimagePlanController extends ChangeNotifier {
   }
 
   void completePoint(PilgrimagePoint point) {
+    _pointStateRevision++;
     _completedPointIds.add(point.id);
 
     if (point.id == _currentPointId) {
@@ -129,6 +133,7 @@ class PilgrimagePlanController extends ChangeNotifier {
   }
 
   void reopenPoint(PilgrimagePoint point) {
+    _pointStateRevision++;
     _completedPointIds.remove(point.id);
     if (point.hasCoordinate) {
       _currentPointId = point.id;
@@ -233,14 +238,48 @@ class PilgrimagePlanController extends ChangeNotifier {
       return;
     }
 
+    final planId = _plan.id;
+    final pointStateRevision = _pointStateRevision;
     final updatedPlan = await repository.deletePointFromPlan(
-      planId: _plan.id,
+      planId: planId,
       pointId: point.id,
     );
-    _visitRecords = _visitRecords
-        .where((record) => record.pointId != point.id)
+    if (_plan.id != planId) {
+      return;
+    }
+
+    // Apply only this deletion to the latest plan, preserving other saved edits.
+    final remainingPoints = _plan.points
+        .where((candidate) => candidate.id != point.id)
         .toList(growable: false);
-    _replacePlanState(updatedPlan);
+    final remainingPointIds = remainingPoints.map((point) => point.id).toSet();
+    final completedPointIds = {..._completedPointIds}
+      ..retainAll(remainingPointIds);
+    final pendingPoints = remainingPoints.where(
+      (point) => point.hasCoordinate && !completedPointIds.contains(point.id),
+    );
+    var currentPointId = _currentPointId;
+    // Revisions detect changes that return to their starting value (B -> C -> B).
+    if (_pointStateRevision == pointStateRevision &&
+        (updatedPlan.currentPointId == null ||
+            pendingPoints.any(
+              (point) => point.id == updatedPlan.currentPointId,
+            ))) {
+      currentPointId = updatedPlan.currentPointId;
+    }
+    if (currentPointId != null && !remainingPointIds.contains(currentPointId)) {
+      currentPointId = pendingPoints.firstOrNull?.id;
+    }
+    _replacePlanState(
+      _plan.copyWith(
+        points: remainingPoints,
+        currentPointId: currentPointId,
+        completedPointIds: completedPointIds,
+        updatedAt: updatedPlan.updatedAt.isAfter(_plan.updatedAt)
+            ? updatedPlan.updatedAt
+            : _plan.updatedAt,
+      ),
+    );
   }
 
   Future<void> updatePlanMemo(String memo) async {
@@ -378,6 +417,7 @@ class PilgrimagePlanController extends ChangeNotifier {
   }
 
   void _replacePlanState(PilgrimagePlan updatedPlan) {
+    _pointStateRevision++;
     _plan = updatedPlan;
     _completedPointIds = {...updatedPlan.completedPointIds};
     _currentPointId = updatedPlan.currentPointId;
