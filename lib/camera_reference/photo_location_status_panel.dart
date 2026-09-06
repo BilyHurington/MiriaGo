@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 
@@ -32,11 +33,7 @@ class PhotoLocationStatusPanel extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Icon(
-              Icons.location_on_outlined,
-              size: 18,
-              color: AppColors.textSecondary,
-            ),
+            Icon(LucideIcons.mapPin, size: 18, color: AppColors.textSecondary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

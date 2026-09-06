@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_image_source_scope.dart';
@@ -233,7 +234,7 @@ class _VisitRecordConfirmationScreenState
           ScaffoldMessenger.of(context).showStatusSnack(
             kind: AppStatusBannerKind.running,
             title: '正在保存记录，请稍候。',
-            icon: Icons.save_outlined,
+            icon: LucideIcons.save,
           );
         }
       },
@@ -302,7 +303,7 @@ class _VisitRecordConfirmationScreenState
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.save_outlined, size: 18),
+                  : const Icon(LucideIcons.save, size: 18),
               label: Text(_saving ? '保存中' : '保存记录'),
             ),
             const SizedBox(height: 8),
@@ -310,7 +311,7 @@ class _VisitRecordConfirmationScreenState
               onPressed: _saving || _locating
                   ? null
                   : () => _save(completePoint: true),
-              icon: const Icon(Icons.check_circle_outline, size: 18),
+              icon: const Icon(LucideIcons.circleCheckBig, size: 18),
               label: const Text('保存并标记完成'),
             ),
             const SizedBox(height: 8),
@@ -376,7 +377,7 @@ Future<void> _showGallerySaveSheet(
         children: [
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.save_alt_outlined),
+            leading: const Icon(LucideIcons.download),
             title: const Text('保存到相册'),
             onTap: () => Navigator.of(context).pop('save'),
           ),
@@ -564,7 +565,7 @@ class _InfoPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.layers_outlined, color: AppColors.textSecondary),
+          Icon(LucideIcons.layers, color: AppColors.textSecondary),
           const SizedBox(width: 8),
           Text(
             '参考模式',

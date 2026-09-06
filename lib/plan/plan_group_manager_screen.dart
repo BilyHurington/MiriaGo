@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
@@ -488,7 +489,7 @@ class _CreateGroupFab extends StatelessWidget {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, size: 24),
+            Icon(LucideIcons.plus, size: 24),
             SizedBox(height: 2),
             Text(
               '新建',
@@ -599,7 +600,7 @@ class _PlanGroupCard extends StatelessWidget {
                 child: SizedBox(
                   width: 42,
                   child: Icon(
-                    Icons.drag_indicator,
+                    LucideIcons.gripVertical,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -660,7 +661,7 @@ class _PlanGroupCard extends StatelessWidget {
                 key: ValueKey('plan-group-actions-${group.id}'),
                 tooltip: '片区操作',
                 enabled: !isBusy,
-                icon: const Icon(Icons.more_vert),
+                icon: const Icon(LucideIcons.ellipsisVertical),
                 position: PopupMenuPosition.under,
                 offset: const Offset(0, 6),
                 elevation: 8,
@@ -690,7 +691,7 @@ class _PlanGroupCard extends StatelessWidget {
                     height: 42,
                     padding: EdgeInsets.symmetric(horizontal: 8),
                     child: _GroupActionRow(
-                      icon: Icons.edit_outlined,
+                      icon: LucideIcons.edit,
                       label: '重命名',
                     ),
                   ),
@@ -699,7 +700,7 @@ class _PlanGroupCard extends StatelessWidget {
                     height: 42,
                     padding: EdgeInsets.symmetric(horizontal: 8),
                     child: _GroupActionRow(
-                      icon: Icons.flag_outlined,
+                      icon: LucideIcons.flag,
                       label: '设置关键点',
                     ),
                   ),
@@ -708,7 +709,7 @@ class _PlanGroupCard extends StatelessWidget {
                     height: 42,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: _GroupActionRow(
-                      icon: Icons.sort_outlined,
+                      icon: LucideIcons.arrowUpDown,
                       label: group.orderMode == PlanGroupOrderMode.manual
                           ? '切换为无序'
                           : '切换为手动排序',
@@ -720,7 +721,7 @@ class _PlanGroupCard extends StatelessWidget {
                     height: 42,
                     padding: EdgeInsets.symmetric(horizontal: 8),
                     child: _GroupActionRow(
-                      icon: Icons.delete_outline,
+                      icon: LucideIcons.trash2,
                       label: '删除片区',
                       destructive: true,
                     ),
@@ -829,7 +830,7 @@ class _UngroupedGroupCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.inbox_outlined, color: AppColors.textSecondary),
+              Icon(LucideIcons.inbox, color: AppColors.textSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -863,7 +864,7 @@ class _UngroupedGroupCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              Icon(LucideIcons.chevronRight, color: AppColors.textSecondary),
             ],
           ),
         ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/plan/reference_cache_progress_dialog.dart';
 import 'package:miriago/plan/reference_full_cache_runner.dart';
@@ -40,7 +41,7 @@ void main() {
     );
     expect(find.text('提示：缓存过程中请保持网络连接，避免切换页面或锁屏。'), findsOneWidget);
     expect(find.text('重试失败'), findsNothing);
-    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byIcon(LucideIcons.x), findsNothing);
   });
 
   testWidgets('shows all-success cache state', (tester) async {
@@ -67,7 +68,7 @@ void main() {
 
     expect(find.text('参考图缓存完成'), findsOneWidget);
     expect(find.text('18 / 18 张成功，已保存到本地'), findsOneWidget);
-    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byIcon(LucideIcons.x), findsNothing);
     expect(find.text('重试失败'), findsNothing);
     expect(find.text('重试全部'), findsNothing);
   });
@@ -98,7 +99,7 @@ void main() {
     expect(find.text('参考图缓存完成'), findsOneWidget);
     expect(find.text('14 / 18 张成功 · 4 张失败'), findsOneWidget);
     expect(find.text('重试失败'), findsOneWidget);
-    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byIcon(LucideIcons.x), findsNothing);
   });
 
   testWidgets('shows all-failed cache state with retry all', (tester) async {

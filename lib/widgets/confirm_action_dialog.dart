@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import 'responsive_button.dart';
 
 Future<bool> showConfirmActionDialog(
   BuildContext context, {
@@ -122,7 +124,11 @@ class ConfirmActionDialog extends StatelessWidget {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.warning_rounded, color: dangerColor, size: 17),
+                      Icon(
+                        LucideIcons.triangleAlert,
+                        color: dangerColor,
+                        size: 17,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         '此操作无法撤销',
@@ -277,7 +283,7 @@ class _StandardConfirmDialog extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_rounded,
+                          LucideIcons.info,
                           color: AppColors.accent,
                           size: 17,
                         ),
@@ -331,40 +337,35 @@ class AppDialogActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: FilledButton(
-            onPressed: onCancel,
-            style: FilledButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              backgroundColor: AppColors.surfaceMuted,
-              minimumSize: const Size.fromHeight(48),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: _DialogActionLabel(cancelLabel),
+    return ResponsiveTwoButtonRow(
+      spacing: 10,
+      stackBelowWidth: 240,
+      first: FilledButton(
+        onPressed: onCancel,
+        style: FilledButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.surfaceMuted,
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton(
-            onPressed: onConfirm,
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: confirmColor ?? AppColors.accent,
-              minimumSize: const Size.fromHeight(48),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: _DialogActionLabel(confirmLabel),
+        child: _DialogActionLabel(cancelLabel),
+      ),
+      second: FilledButton(
+        onPressed: onConfirm,
+        style: FilledButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: confirmColor ?? AppColors.accent,
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
-      ],
+        child: _DialogActionLabel(confirmLabel),
+      ),
     );
   }
 }
@@ -376,10 +377,7 @@ class _DialogActionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(label, maxLines: 1, softWrap: false),
-    );
+    return Text(label, textAlign: TextAlign.center, maxLines: 2);
   }
 }
 

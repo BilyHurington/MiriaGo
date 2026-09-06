@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/bangumi_api_client.dart';
@@ -211,7 +212,7 @@ class _AddWorkPanel extends StatelessWidget {
             Expanded(
               child: _AddWorkAction(
                 key: const ValueKey('work-manager-bangumi-work'),
-                icon: Icons.search_rounded,
+                icon: LucideIcons.search,
                 title: '从Bangumi添加',
                 subtitle: '自动获取信息',
                 onTap: onBangumi,
@@ -226,7 +227,7 @@ class _AddWorkPanel extends StatelessWidget {
             Expanded(
               child: _AddWorkAction(
                 key: const ValueKey('work-manager-manual-work'),
-                icon: Icons.edit_rounded,
+                icon: LucideIcons.edit,
                 title: '手动添加作品',
                 subtitle: '未收录时使用',
                 onTap: onManual,
@@ -405,7 +406,7 @@ class _WorkManageCardState extends State<_WorkManageCard> {
             key: ValueKey('work-manage-more-${work.id}'),
             tooltip: '更多操作',
             enabled: !widget.disabled,
-            icon: const Icon(Icons.more_horiz),
+            icon: const Icon(LucideIcons.ellipsis),
             iconSize: 20,
             padding: EdgeInsets.zero,
             position: PopupMenuPosition.under,
@@ -437,11 +438,7 @@ class _WorkManageCardState extends State<_WorkManageCard> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AppColors.error,
-                    ),
+                    Icon(LucideIcons.trash2, size: 18, color: AppColors.error),
                     const SizedBox(width: 9),
                     Text(
                       '删除作品',
@@ -544,7 +541,7 @@ class _EmptyWorkPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+              Icon(LucideIcons.clapperboard, color: AppColors.accent),
               const SizedBox(width: 8),
               Text(
                 '还没有作品',

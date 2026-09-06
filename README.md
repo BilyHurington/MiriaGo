@@ -184,3 +184,7 @@ iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple De
 ## 开源协议
 
 本项目代码基于 [MIT License](LICENSE) 开源。
+
+## 第三方许可证
+
+本项目使用 [`lucide_icons_flutter`](https://pub.dev/packages/lucide_icons_flutter) 提供 Lucide 图标。该软件包以 MIT License 发布，Copyright (c) 2024 vqhapp；许可证全文见软件包发行内容中的 `LICENSE` 文件。

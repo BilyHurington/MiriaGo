@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 
@@ -24,42 +25,42 @@ IconData statusBannerIcon({
     return icon;
   }
   return switch (kind) {
-    AppStatusBannerKind.success => Icons.check_rounded,
-    AppStatusBannerKind.warning => Icons.warning_rounded,
-    AppStatusBannerKind.error => Icons.error_rounded,
+    AppStatusBannerKind.success => LucideIcons.check,
+    AppStatusBannerKind.warning => LucideIcons.triangleAlert,
+    AppStatusBannerKind.error => LucideIcons.circleAlert,
     AppStatusBannerKind.running => statusBannerRunningIcon(title),
   };
 }
 
 IconData statusBannerRunningIcon(String title) {
   if (title.contains('取消')) {
-    return Icons.cancel_outlined;
+    return LucideIcons.circleX;
   }
   if (title.contains('导出')) {
-    return Icons.ios_share_outlined;
+    return LucideIcons.share2;
   }
   if (title.contains('导入')) {
-    return Icons.add_location_alt_outlined;
+    return LucideIcons.mapPinPlus;
   }
   if (title.contains('替换')) {
-    return Icons.swap_horiz_outlined;
+    return LucideIcons.arrowLeftRight;
   }
   if (title.contains('比例') || title.contains('读取')) {
-    return Icons.aspect_ratio_outlined;
+    return LucideIcons.ratio;
   }
   if (title.contains('清除') || title.contains('重新加载')) {
-    return Icons.cleaning_services_outlined;
+    return LucideIcons.brushCleaning;
   }
   if (title.contains('缩略图')) {
-    return Icons.photo_library_outlined;
+    return LucideIcons.images;
   }
   if (title.contains('缓存')) {
-    return Icons.cached_outlined;
+    return LucideIcons.refreshCw;
   }
   if (title.contains('保存')) {
-    return Icons.save_outlined;
+    return LucideIcons.save;
   }
-  return Icons.hourglass_top_outlined;
+  return LucideIcons.hourglass;
 }
 
 SnackBar appStatusSnackBar({
@@ -353,10 +354,10 @@ class _StatusIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (kind == AppStatusBannerKind.warning) {
-      return Icon(Icons.warning_rounded, size: 32, color: palette.iconFill);
+      return Icon(LucideIcons.triangleAlert, size: 32, color: palette.iconFill);
     }
     if (kind == AppStatusBannerKind.error) {
-      return Icon(Icons.error_rounded, size: 32, color: palette.iconFill);
+      return Icon(LucideIcons.circleAlert, size: 32, color: palette.iconFill);
     }
     final resolved = statusBannerIcon(kind: kind, title: title, icon: icon);
     return Container(

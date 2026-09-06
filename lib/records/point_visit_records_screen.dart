@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
@@ -113,10 +114,7 @@ class _PointRecordsHeader extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.collections_bookmark_outlined,
-              color: AppColors.accent,
-            ),
+            child: Icon(LucideIcons.folders, color: AppColors.accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -194,11 +192,7 @@ class _EmptyPointRecords extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.photo_library_outlined,
-            color: AppColors.textSecondary,
-            size: 34,
-          ),
+          Icon(LucideIcons.images, color: AppColors.textSecondary, size: 34),
           SizedBox(height: 10),
           Text(
             '这个点位还没有拍摄记录',
@@ -223,7 +217,7 @@ class _PointRecordsListLabel extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: Row(
         children: [
-          Icon(Icons.schedule, color: AppColors.accent, size: 15),
+          Icon(LucideIcons.calendarClock, color: AppColors.accent, size: 15),
           const SizedBox(width: 6),
           Text(
             '拍摄记录',
@@ -324,12 +318,12 @@ class _PointVisitRecordCard extends StatelessWidget {
                         runSpacing: 6,
                         children: [
                           _RecordMetaChip(
-                            icon: Icons.layers_outlined,
+                            icon: LucideIcons.layers,
                             label: record.referenceMode,
                           ),
                           if (record.hasColorGrading)
                             const _RecordMetaChip(
-                              icon: Icons.auto_fix_high_outlined,
+                              icon: LucideIcons.wandSparkles,
                               label: '已调色',
                             ),
                         ],
@@ -341,7 +335,7 @@ class _PointVisitRecordCard extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.only(right: 10),
                 child: Icon(
-                  Icons.chevron_right,
+                  LucideIcons.chevronRight,
                   color: AppColors.textSecondary,
                 ),
               ),

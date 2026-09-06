@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -85,7 +86,7 @@ class ImageViewerScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).pop(),
                 child: const Padding(
                   padding: EdgeInsets.all(10),
-                  child: Icon(Icons.close, color: Colors.white, size: 24),
+                  child: Icon(LucideIcons.x, color: Colors.white, size: 24),
                 ),
               ),
             ),
@@ -166,7 +167,7 @@ class ImageViewerScreen extends StatelessWidget {
           messenger,
           '已取消保存',
           kind: AppStatusBannerKind.running,
-          icon: Icons.cancel_outlined,
+          icon: LucideIcons.circleX,
         );
         return;
       }
@@ -497,9 +498,9 @@ class _ImageViewerPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = switch (state) {
-      _ImageViewerPlaceholderState.loading => Icons.hourglass_empty_rounded,
-      _ImageViewerPlaceholderState.empty => Icons.image_outlined,
-      _ImageViewerPlaceholderState.unavailable => Icons.broken_image_outlined,
+      _ImageViewerPlaceholderState.loading => LucideIcons.hourglass,
+      _ImageViewerPlaceholderState.empty => LucideIcons.image,
+      _ImageViewerPlaceholderState.unavailable => LucideIcons.imageOff,
     };
     final label = switch (state) {
       _ImageViewerPlaceholderState.loading => '图片加载中',
@@ -551,7 +552,7 @@ class _WebSaveSheet extends StatelessWidget {
         children: [
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
+            leading: const Icon(LucideIcons.download, color: Colors.white),
             title: const Text('保存图片', style: TextStyle(color: Colors.white)),
             onTap: onSave,
           ),
@@ -579,12 +580,12 @@ class _MobileSaveSheet extends StatelessWidget {
         children: [
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.share_outlined, color: Colors.white),
+            leading: const Icon(LucideIcons.share, color: Colors.white),
             title: const Text('分享', style: TextStyle(color: Colors.white)),
             onTap: onShare,
           ),
           ListTile(
-            leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
+            leading: const Icon(LucideIcons.download, color: Colors.white),
             title: const Text('保存到相册', style: TextStyle(color: Colors.white)),
             onTap: onSaveToGallery,
           ),

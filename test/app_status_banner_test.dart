@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/app_theme.dart';
 import 'package:miriago/widgets/app_status_banner.dart';
@@ -52,7 +53,7 @@ void main() {
     expect(find.text('数据包已导出'), findsOneWidget);
     expect(find.text('已保存到本地'), findsOneWidget);
     expect(find.byType(AppStatusBanner), findsOneWidget);
-    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    expect(find.byIcon(LucideIcons.check), findsOneWidget);
   });
 
   test('single-sentence status titles drop the trailing period', () {
@@ -83,29 +84,20 @@ void main() {
   });
 
   test('running titles infer distinct action icons', () {
-    expect(statusBannerRunningIcon('正在导出...'), Icons.ios_share_outlined);
-    expect(statusBannerRunningIcon('已取消导出'), Icons.cancel_outlined);
-    expect(statusBannerRunningIcon('正在缓存参考图...'), Icons.cached_outlined);
-    expect(statusBannerRunningIcon('正在保存记录，请稍候。'), Icons.save_outlined);
-    expect(statusBannerRunningIcon('正在替换参考图...'), Icons.swap_horiz_outlined);
-    expect(
-      statusBannerRunningIcon('正在读取参考图比例，请稍后拍摄。'),
-      Icons.aspect_ratio_outlined,
-    );
+    expect(statusBannerRunningIcon('正在导出...'), LucideIcons.share2);
+    expect(statusBannerRunningIcon('已取消导出'), LucideIcons.circleX);
+    expect(statusBannerRunningIcon('正在缓存参考图...'), LucideIcons.refreshCw);
+    expect(statusBannerRunningIcon('正在保存记录，请稍候。'), LucideIcons.save);
+    expect(statusBannerRunningIcon('正在替换参考图...'), LucideIcons.arrowLeftRight);
+    expect(statusBannerRunningIcon('正在读取参考图比例，请稍后拍摄。'), LucideIcons.ratio);
     expect(
       statusBannerRunningIcon('正在清除缓存并重新加载 Anitabi 点位...'),
-      Icons.cleaning_services_outlined,
+      LucideIcons.brushCleaning,
     );
-    expect(
-      statusBannerRunningIcon('正在导入 12 个点位...'),
-      Icons.add_location_alt_outlined,
-    );
-    expect(
-      statusBannerRunningIcon('正在缓存缩略图 8/12，成功 7'),
-      Icons.photo_library_outlined,
-    );
-    expect(statusBannerRunningIcon('已取消保存'), Icons.cancel_outlined);
-    expect(statusBannerRunningIcon('正在处理...'), Icons.hourglass_top_outlined);
+    expect(statusBannerRunningIcon('正在导入 12 个点位...'), LucideIcons.mapPinPlus);
+    expect(statusBannerRunningIcon('正在缓存缩略图 8/12，成功 7'), LucideIcons.images);
+    expect(statusBannerRunningIcon('已取消保存'), LucideIcons.circleX);
+    expect(statusBannerRunningIcon('正在处理...'), LucideIcons.hourglass);
   });
 
   testWidgets('unknown running banner uses an hourglass instead of download', (
@@ -123,8 +115,8 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.hourglass_top_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.download_rounded), findsNothing);
+    expect(find.byIcon(LucideIcons.hourglass), findsOneWidget);
+    expect(find.byIcon(LucideIcons.download), findsNothing);
   });
 
   testWidgets('running banner renders a custom icon when provided', (
@@ -137,13 +129,13 @@ void main() {
           body: AppStatusBanner(
             kind: AppStatusBannerKind.running,
             title: '正在导出...',
-            icon: Icons.ios_share_outlined,
+            icon: LucideIcons.share2,
           ),
         ),
       ),
     );
 
-    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.download_rounded), findsNothing);
+    expect(find.byIcon(LucideIcons.share2), findsOneWidget);
+    expect(find.byIcon(LucideIcons.download), findsNothing);
   });
 }

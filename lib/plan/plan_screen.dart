@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../app_theme.dart';
@@ -326,14 +327,16 @@ class _PlanScreenState extends State<PlanScreen> {
             key: const ValueKey('plan-switch-button'),
             tooltip: '切换计划',
             onPressed: widget.onOpenPlanManager,
-            icon: const Icon(Icons.swap_horiz),
+            icon: const Icon(LucideIcons.arrowLeftRight),
           ),
           IconButton(
             key: const ValueKey('plan-actions-toggle'),
             tooltip: _showPlanActions ? '收起计划操作' : '展开计划操作',
             onPressed: _togglePlanActions,
             icon: Icon(
-              _showPlanActions ? Icons.expand_less : Icons.expand_more,
+              _showPlanActions
+                  ? LucideIcons.chevronUp
+                  : LucideIcons.chevronDown,
             ),
           ),
         ],
@@ -521,6 +524,7 @@ class _PlanScreenState extends State<PlanScreen> {
       onOpenRecords: () => _openPointRecords(context, point),
       onOpenRecord: (record) => _openRecordDetail(context, record),
       onEditPoint: () => _editPoint(context, point),
+      onDelete: controller.deletePoint,
       navigationApp: settings.navigationApp,
       settings: settings,
       planController: controller,
@@ -769,8 +773,54 @@ class _PlanActionsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showSubtitles =
-            constraints.maxWidth >= _planActionSubtitleMinPanelWidth;
+        final compact = constraints.maxWidth < _planActionSubtitleMinPanelWidth;
+        final items = [
+          _PlanActionItem(
+            key: const ValueKey('plan-action-add-points'),
+            icon: const Icon(LucideIcons.mapPinPlus, size: 20),
+            title: '添加点位',
+            subtitle: '加入巡礼场景',
+            compact: compact,
+            onTap: onAddPoints,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-manage-points'),
+            icon: const Icon(LucideIcons.slidersHorizontal, size: 20),
+            title: '管理计划',
+            subtitle: '整理片区点位',
+            compact: compact,
+            onTap: onManagePoints,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-cache-references'),
+            icon: isCachingReferences
+                ? const SizedBox.square(
+                    dimension: 19,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(LucideIcons.cloudDownload, size: 20),
+            title: '缓存参考图',
+            subtitle: '保存完整图片',
+            compact: compact,
+            onTap: onCacheReferences,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-memo'),
+            icon: const Icon(LucideIcons.stickyNote, size: 20),
+            title: '计划备忘录',
+            subtitle: '记录行程要点',
+            compact: compact,
+            onTap: onOpenMemo,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-import-export'),
+            icon: const Icon(LucideIcons.import, size: 20),
+            title: '导入导出',
+            subtitle: '备份迁移计划',
+            compact: compact,
+            onTap: onImportExport,
+          ),
+        ];
         return Container(
           key: const ValueKey('plan-actions-panel'),
           clipBehavior: Clip.antiAlias,
@@ -779,102 +829,34 @@ class _PlanActionsPanel extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppColors.border),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: compact
+              ? _planActionRow(items)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: _PlanActionItem(
-                        key: const ValueKey('plan-action-add-points'),
-                        icon: const Icon(
-                          Icons.add_location_alt_outlined,
-                          size: 20,
-                        ),
-                        title: '添加点位',
-                        subtitle: '加入巡礼场景',
-                        showSubtitle: showSubtitles,
-                        onTap: onAddPoints,
-                      ),
-                    ),
-                    const _PlanActionDivider(),
-                    Expanded(
-                      child: _PlanActionItem(
-                        key: const ValueKey('plan-action-manage-points'),
-                        icon: const Icon(Icons.tune_outlined, size: 20),
-                        title: '管理计划',
-                        subtitle: '整理片区点位',
-                        showSubtitle: showSubtitles,
-                        onTap: onManagePoints,
-                      ),
-                    ),
+                    _planActionRow(items.sublist(0, 2)),
+                    const AppHairline(),
+                    _planActionRow(items.sublist(2)),
                   ],
                 ),
-              ),
-              const AppHairline(),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _PlanActionItem(
-                        key: const ValueKey('plan-action-cache-references'),
-                        icon: isCachingReferences
-                            ? const SizedBox.square(
-                                dimension: 19,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.download_for_offline_outlined,
-                                size: 20,
-                              ),
-                        title: '缓存参考图',
-                        subtitle: '保存完整图片',
-                        showSubtitle: showSubtitles,
-                        onTap: onCacheReferences,
-                      ),
-                    ),
-                    const _PlanActionDivider(),
-                    Expanded(
-                      child: _PlanActionItem(
-                        key: const ValueKey('plan-action-memo'),
-                        icon: const Icon(
-                          Icons.sticky_note_2_outlined,
-                          size: 20,
-                        ),
-                        title: '计划备忘录',
-                        subtitle: '记录行程要点',
-                        showSubtitle: showSubtitles,
-                        onTap: onOpenMemo,
-                      ),
-                    ),
-                    const _PlanActionDivider(),
-                    Expanded(
-                      child: _PlanActionItem(
-                        key: const ValueKey('plan-action-import-export'),
-                        icon: const Icon(
-                          Icons.import_export_outlined,
-                          size: 20,
-                        ),
-                        title: '导入导出',
-                        subtitle: '备份迁移计划',
-                        showSubtitle: showSubtitles,
-                        onTap: onImportExport,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         );
       },
     );
   }
+}
+
+Widget _planActionRow(List<Widget> items) {
+  return IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const _PlanActionDivider(),
+          Expanded(child: items[i]),
+        ],
+      ],
+    ),
+  );
 }
 
 class _PlanActionItem extends StatelessWidget {
@@ -882,7 +864,7 @@ class _PlanActionItem extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.showSubtitle,
+    required this.compact,
     required this.onTap,
     super.key,
   });
@@ -890,63 +872,95 @@ class _PlanActionItem extends StatelessWidget {
   final Widget icon;
   final String title;
   final String subtitle;
-  final bool showSubtitle;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final themedIcon = IconTheme(
+      data: IconThemeData(color: AppColors.accentDark),
+      child: icon,
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            child: Row(
-              children: [
-                IconTheme(
-                  data: IconThemeData(color: AppColors.accentDark),
-                  child: icon,
+        child: compact
+            ? Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 10,
                 ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    themedIcon,
+                    const SizedBox(height: 6),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
                         title,
-                        maxLines: showSubtitle ? 1 : 2,
+                        maxLines: 1,
+                        softWrap: false,
+                        textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: AppColors.textPrimary,
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0,
                         ),
                       ),
-                      if (showSubtitle) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0,
-                          ),
+                    ),
+                  ],
+                ),
+              )
+            : ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 64),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  child: Row(
+                    children: [
+                      themedIcon,
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }
@@ -992,7 +1006,7 @@ class _GroupSwitcher extends StatelessWidget {
             onPressed: selectedIndex == 0
                 ? null
                 : () => onSelectGroup(groups[selectedIndex - 1]),
-            icon: const Icon(Icons.chevron_left),
+            icon: const Icon(LucideIcons.chevronLeft),
             tooltip: '上一个片区',
           ),
           Expanded(
@@ -1015,7 +1029,7 @@ class _GroupSwitcher extends StatelessWidget {
             onPressed: selectedIndex == groups.length - 1
                 ? null
                 : () => onSelectGroup(groups[selectedIndex + 1]),
-            icon: const Icon(Icons.chevron_right),
+            icon: const Icon(LucideIcons.chevronRight),
             tooltip: '下一个片区',
           ),
         ],
@@ -1111,7 +1125,10 @@ class _PlanGroupControls extends StatelessWidget {
                   minimumSize: const Size(74, 40),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
-                icon: Icon(showMap ? Icons.map : Icons.map_outlined, size: 18),
+                icon: Icon(
+                  showMap ? LucideIcons.map : LucideIcons.map,
+                  size: 18,
+                ),
                 label: Text(showMap ? '收起地图' : '地图'),
               ),
             ],
@@ -1184,7 +1201,7 @@ class _SortOrderControl extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.sort_outlined, size: 18),
+                          const Icon(LucideIcons.arrowUpDown, size: 18),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1198,7 +1215,7 @@ class _SortOrderControl extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(Icons.expand_more, size: 18),
+                          const Icon(LucideIcons.chevronDown, size: 18),
                         ],
                       ),
                     ),
@@ -1206,12 +1223,12 @@ class _SortOrderControl extends StatelessWidget {
                 },
                 menuChildren: [
                   MenuItemButton(
-                    leadingIcon: const Icon(Icons.format_list_numbered),
+                    leadingIcon: const Icon(LucideIcons.listOrdered),
                     onPressed: () => onChanged(PointSortMode.plan),
                     child: const Text('默认计划顺序'),
                   ),
                   MenuItemButton(
-                    leadingIcon: const Icon(Icons.near_me_outlined),
+                    leadingIcon: const Icon(LucideIcons.navigation),
                     onPressed: () => onChanged(PointSortMode.distance),
                     child: const Text('按距离当前位置'),
                   ),
@@ -1233,7 +1250,7 @@ class _SortOrderControl extends StatelessWidget {
                   width: 40,
                   height: 40,
                   child: Icon(
-                    descending ? Icons.south_outlined : Icons.north_outlined,
+                    descending ? LucideIcons.arrowDown : LucideIcons.arrowUp,
                     size: 18,
                   ),
                 ),
@@ -1440,8 +1457,8 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                   icon: widget.isLocating
                       ? null
                       : widget.showVirtualLocation
-                      ? Icons.my_location
-                      : Icons.my_location_outlined,
+                      ? LucideIcons.locateFixed
+                      : LucideIcons.locateFixed,
                   onTap: widget.isLocating
                       ? null
                       : widget.onToggleVirtualLocation,
@@ -1569,7 +1586,7 @@ class _MapPointMarker extends StatelessWidget {
         ],
       ),
       child: Icon(
-        completed ? Icons.check : Icons.place,
+        completed ? LucideIcons.check : LucideIcons.mapPin,
         size: selected ? 19 : 15,
         color: Colors.white,
       ),
@@ -1660,7 +1677,7 @@ class _EmptyPlanCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.inventory_2_rounded, color: AppColors.accent),
+              Icon(LucideIcons.package, color: AppColors.accent),
               const SizedBox(width: 10),
               Text(
                 '还没有点位',
@@ -1685,7 +1702,7 @@ class _EmptyPlanCard extends StatelessWidget {
                 minimumSize: const Size.fromHeight(46),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+              icon: const Icon(LucideIcons.mapPinPlus, size: 20),
               label: const Text('添加点位'),
             ),
           ),
@@ -1838,10 +1855,7 @@ class _WorkHeader extends StatelessWidget {
               color: AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.movie_filter_outlined,
-              color: AppColors.accentDark,
-            ),
+            child: Icon(LucideIcons.clapperboard, color: AppColors.accentDark),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1978,8 +1992,8 @@ class _PlanPointTile extends StatelessWidget {
                     : onComplete,
                 icon: Icon(
                   status == VisitStatus.completed
-                      ? Icons.restart_alt
-                      : Icons.check_outlined,
+                      ? LucideIcons.rotateCcw
+                      : LucideIcons.check,
                 ),
               ),
               IconButton(
@@ -1991,7 +2005,7 @@ class _PlanPointTile extends StatelessWidget {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Center(child: Icon(Icons.photo_camera_outlined)),
+                      const Center(child: Icon(LucideIcons.camera)),
                       if (recordCount > 0)
                         const Positioned(
                           top: -5,
@@ -2015,19 +2029,19 @@ class _PlanPointTile extends StatelessWidget {
         background: AppColors.accent,
         foreground: Colors.white,
         border: AppColors.accent,
-        icon: Icons.flag,
+        icon: LucideIcons.flag,
       ),
       VisitStatus.completed => _PointStatusColors(
         background: AppColors.surfaceMuted,
         foreground: AppColors.textSecondary,
         border: AppColors.border,
-        icon: Icons.check_circle_outline,
+        icon: LucideIcons.circleCheckBig,
       ),
       VisitStatus.pending => _PointStatusColors(
         background: AppColors.surfaceMuted,
         foreground: AppColors.accentDark,
         border: AppColors.border,
-        icon: Icons.place_outlined,
+        icon: LucideIcons.mapPin,
       ),
     };
   }
@@ -2089,11 +2103,7 @@ class _PointRecordBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        Icons.photo_library_outlined,
-        size: 10,
-        color: AppColors.accentDark,
-      ),
+      child: Icon(LucideIcons.images, size: 10, color: AppColors.accentDark),
     );
   }
 }

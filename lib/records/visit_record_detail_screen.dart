@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 
 import '../app_theme.dart';
@@ -73,7 +74,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
           IconButton(
             tooltip: '删除记录',
             onPressed: () => _confirmDelete(context),
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(LucideIcons.trash2),
           ),
         ],
       ),
@@ -101,18 +102,18 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
                 : () => _showPointDetail(resolvedPoint),
             children: [
               _DetailRow(
-                icon: Icons.schedule,
+                icon: LucideIcons.calendarClock,
                 label: '拍摄时间',
                 value: _formatDateTime(_record.capturedAt),
               ),
               if (resolvedPoint != null) ...[
                 _DetailRow(
-                  icon: Icons.grid_view_outlined,
+                  icon: LucideIcons.grid2X2,
                   label: '片区',
                   value: _groupName(resolvedPoint, group),
                 ),
                 _DetailRow(
-                  icon: Icons.local_movies_outlined,
+                  icon: LucideIcons.film,
                   label: '场景',
                   value: resolvedPoint.displayEpisodeLabel,
                 ),
@@ -157,6 +158,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       records: widget.controller.recordsForPoint(point.id),
       onOpenRecords: () => _openPointRecords(point),
       onOpenRecord: _openRelatedRecord,
+      onDelete: widget.controller.deletePoint,
       navigationApp: widget.settings.navigationApp,
       settings: widget.settings,
     );
@@ -596,7 +598,7 @@ class _OrphanRecordNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.link_off_outlined, color: AppColors.warning, size: 19),
+          Icon(LucideIcons.link2Off, color: AppColors.warning, size: 19),
           SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -672,7 +674,7 @@ class _RecordInfoDashboard extends StatelessWidget {
                   if (onHeaderTap != null) ...[
                     const SizedBox(width: 12),
                     Icon(
-                      Icons.chevron_right,
+                      LucideIcons.chevronRight,
                       color: AppColors.textSecondary,
                       size: 24,
                     ),
@@ -739,7 +741,7 @@ class _RecordActionPanel extends StatelessWidget {
           children: [
             Expanded(
               child: _RecordAction(
-                icon: Icons.auto_fix_high_outlined,
+                icon: LucideIcons.wandSparkles,
                 title: '自动调色',
                 subtitle: '优化巡礼照片',
                 onTap: onColorGrading,
@@ -753,7 +755,7 @@ class _RecordActionPanel extends StatelessWidget {
             ),
             Expanded(
               child: _RecordAction(
-                icon: Icons.ios_share_outlined,
+                icon: LucideIcons.share2,
                 title: '导出对比图',
                 subtitle: '生成分享图片',
                 onTap: onExportComparison,

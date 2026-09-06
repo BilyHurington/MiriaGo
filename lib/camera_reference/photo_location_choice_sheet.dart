@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
@@ -48,7 +49,7 @@ class PhotoLocationChoiceSheet extends StatelessWidget {
             const SizedBox(height: 16),
             _PhotoLocationChoiceTile(
               key: const ValueKey('photo-location-choice-recent'),
-              icon: Icons.history_toggle_off_outlined,
+              icon: LucideIcons.history,
               title: '使用最近一次定位',
               subtitle: '优先快速写入近期有效定位，没有时获取一次。',
               onTap: () => Navigator.of(
@@ -58,7 +59,7 @@ class PhotoLocationChoiceSheet extends StatelessWidget {
             const SizedBox(height: 10),
             _PhotoLocationChoiceTile(
               key: const ValueKey('photo-location-choice-confirm'),
-              icon: Icons.my_location_outlined,
+              icon: LucideIcons.locateFixed,
               title: '确认记录时获取定位',
               subtitle: '拍摄后在确认页面等待新定位，适合需要更准确位置时。',
               recommended: true,
@@ -70,7 +71,7 @@ class PhotoLocationChoiceSheet extends StatelessWidget {
             const SizedBox(height: 10),
             _PhotoLocationChoiceTile(
               key: const ValueKey('photo-location-choice-disabled'),
-              icon: Icons.location_off_outlined,
+              icon: LucideIcons.mapPinOff,
               title: '不记录定位',
               onTap: () =>
                   Navigator.of(context).pop(PhotoLocationStrategy.disabled),

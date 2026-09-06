@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
@@ -82,7 +83,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     });
                   },
             icon: Icon(
-              allSectionsExpanded ? Icons.unfold_less : Icons.unfold_more,
+              allSectionsExpanded
+                  ? LucideIcons.chevronsUp
+                  : LucideIcons.chevronsDown,
             ),
           ),
           const SizedBox(width: 16),
@@ -312,7 +315,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           id: group.id,
           title: group.name,
           subtitle: _groupAnchorLabel(group),
-          icon: Icons.folder_outlined,
+          icon: LucideIcons.folder,
           entries: _sortEntries(entries),
         ),
       );
@@ -325,7 +328,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           id: _ungroupedRecordFilterId,
           title: '未分组',
           subtitle: '还没有放入片区的记录',
-          icon: Icons.inventory_2_outlined,
+          icon: LucideIcons.package,
           entries: _sortEntries(ungroupedEntries),
         ),
       );
@@ -337,7 +340,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           id: _orphanRecordFilterId,
           title: '孤立记录',
           subtitle: '对应点位已不在当前计划中',
-          icon: Icons.link_off_outlined,
+          icon: LucideIcons.link2Off,
           entries: _sortEntries(orphanRecords),
         ),
       );
@@ -507,7 +510,7 @@ class _RecordFilters extends StatelessWidget {
                 backgroundColor: AppColors.surface,
                 side: BorderSide(color: AppColors.border),
               ),
-              icon: const Icon(Icons.tune),
+              icon: const Icon(LucideIcons.slidersHorizontal),
             ),
           ),
         ),
@@ -714,7 +717,11 @@ class _RecordScopeEntry extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                Icon(Icons.check_circle, color: AppColors.accent, size: 20),
+                Icon(
+                  LucideIcons.checkCircle,
+                  color: AppColors.accent,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -728,7 +735,7 @@ class _RecordScopeEntry extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                Icon(LucideIcons.chevronRight, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -819,7 +826,7 @@ class _RecordScopeOptionSheetState extends State<_RecordScopeOptionSheet> {
                           key: ValueKey('records-scope-back-${widget.kind}'),
                           tooltip: '返回筛选记录',
                           onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.chevron_left),
+                          icon: const Icon(LucideIcons.chevronLeft),
                         ),
                       ),
                     ),
@@ -1141,7 +1148,11 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
                   children: [
-                    Icon(Icons.filter_alt, color: AppColors.accent, size: 20),
+                    Icon(
+                      LucideIcons.listFilter,
+                      color: AppColors.accent,
+                      size: 20,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -1156,9 +1167,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                       ),
                     ),
                     Icon(
-                      _isOpen
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
+                      _isOpen ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                       color: AppColors.accentDark,
                       size: 20,
                     ),
@@ -1197,7 +1206,11 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                       key: ValueKey('records-status-option-${option.$3}'),
                       onPressed: () => widget.onSelected(option.$1),
                       leadingIcon: option.$1 == widget.statusFilter
-                          ? Icon(Icons.check, color: accentColor, size: 19)
+                          ? Icon(
+                              LucideIcons.check,
+                              color: accentColor,
+                              size: 19,
+                            )
                           : const SizedBox(width: 19),
                       style: ButtonStyle(
                         minimumSize: const WidgetStatePropertyAll(
@@ -1308,7 +1321,7 @@ class _ExpandedRecordFiltersState extends State<_ExpandedRecordFilters> {
             letterSpacing: 0,
           ),
           prefixIcon: const Icon(
-            Icons.search,
+            LucideIcons.search,
             key: ValueKey('records-search-prefix-icon'),
             size: 20,
           ),
@@ -1345,7 +1358,7 @@ class _ExpandedRecordFiltersState extends State<_ExpandedRecordFilters> {
                       widget.onSearchChanged('');
                       setState(() {});
                     },
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(LucideIcons.x, size: 18),
                   ),
           ),
         ),
@@ -1567,14 +1580,18 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                         const SizedBox(width: 8),
                         Icon(
                           widget.expanded
-                              ? Icons.expand_less
-                              : Icons.expand_more,
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.chevronDown,
                           color: AppColors.textSecondary,
                           size: 24,
                         ),
                       ],
                     ),
                   ),
+                  if (!widget.expanded)
+                    AppHairline(
+                      key: ValueKey('records-group-divider-${section.id}'),
+                    ),
                 ],
               ),
             ),
@@ -1586,12 +1603,12 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
 
   IconData _sectionIcon(_RecordGroup section, bool expanded) {
     if (section.id == _ungroupedRecordFilterId) {
-      return expanded ? Icons.inventory_2 : Icons.inventory_2_outlined;
+      return expanded ? LucideIcons.package : LucideIcons.package;
     }
     if (section.id == _orphanRecordFilterId) {
-      return Icons.link_off;
+      return LucideIcons.link2Off;
     }
-    return expanded ? Icons.location_on : Icons.location_on_outlined;
+    return expanded ? LucideIcons.mapPin : LucideIcons.mapPin;
   }
 }
 
@@ -1806,7 +1823,7 @@ class _VisitRecordCard extends StatelessWidget {
                         key: ValueKey('record-captured-row-${record.id}'),
                         children: [
                           Icon(
-                            Icons.schedule_outlined,
+                            LucideIcons.calendarClock,
                             size: 15,
                             color: AppColors.textSecondary,
                           ),
@@ -1826,7 +1843,7 @@ class _VisitRecordCard extends StatelessWidget {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right,
+                  LucideIcons.chevronRight,
                   color: AppColors.textSecondary,
                   size: 25,
                 ),
@@ -1860,10 +1877,10 @@ class _EmptyRecords extends StatelessWidget {
     final hasFilterResult =
         hasAnyRecords && !hasSearchQuery && hasActiveFilters;
     final icon = hasSearchQuery
-        ? Icons.search_off_rounded
+        ? LucideIcons.searchX
         : hasFilterResult
-        ? Icons.filter_alt_off_rounded
-        : Icons.photo_library_outlined;
+        ? LucideIcons.listFilter
+        : LucideIcons.images;
     final title = hasSearchQuery
         ? '没有找到相关记录'
         : hasFilterResult
@@ -1924,14 +1941,14 @@ class _EmptyRecords extends StatelessWidget {
                         TextButton.icon(
                           key: const ValueKey('records-empty-clear-search'),
                           onPressed: onClearSearch,
-                          icon: const Icon(Icons.close, size: 18),
+                          icon: const Icon(LucideIcons.x, size: 18),
                           label: const Text('清除搜索'),
                         ),
                       if (hasActiveFilters)
                         TextButton.icon(
                           key: const ValueKey('records-empty-reset-filters'),
                           onPressed: onResetFilters,
-                          icon: const Icon(Icons.filter_alt_off, size: 18),
+                          icon: const Icon(LucideIcons.listFilter, size: 18),
                           label: const Text('重置筛选'),
                         ),
                     ],

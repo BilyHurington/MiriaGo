@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan/pilgrimage_work_dropdown.dart';
@@ -154,7 +155,9 @@ void main() {
 
     expect(find.byType(Scrollbar), findsOneWidget);
     final scrollbarRect = tester.getRect(find.byType(Scrollbar));
-    final selectedIconRect = tester.getRect(find.byIcon(Icons.check_circle));
+    final selectedIconRect = tester.getRect(
+      find.byIcon(LucideIcons.checkCircle),
+    );
     expect(selectedIconRect.right, lessThanOrEqualTo(scrollbarRect.right - 10));
 
     final backgrounds = find.byType(AnimatedContainer);

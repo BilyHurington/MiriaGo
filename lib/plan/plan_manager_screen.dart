@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
@@ -310,7 +311,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(_sorting ? Icons.done : Icons.sort),
+                  : Icon(
+                      _sorting ? LucideIcons.check : LucideIcons.arrowUpDown,
+                    ),
             ),
         ],
       ),
@@ -420,7 +423,7 @@ class _CreatePlanButton extends StatelessWidget {
         side: BorderSide(color: AppColors.accent, width: 1.2),
         minimumSize: const Size.fromHeight(46),
       ),
-      icon: const Icon(Icons.add, size: 19),
+      icon: const Icon(LucideIcons.plus, size: 19),
       label: const Text('新建计划'),
     );
   }
@@ -622,10 +625,10 @@ class _PlanCardState extends State<_PlanCard> {
                         children: [
                           Icon(
                             widget.reorderIndex != null
-                                ? Icons.sort
+                                ? LucideIcons.arrowUpDown
                                 : selected
-                                ? Icons.check_circle
-                                : Icons.swap_horiz,
+                                ? LucideIcons.checkCircle
+                                : LucideIcons.arrowLeftRight,
                             color: selected
                                 ? AppColors.accent
                                 : AppColors.textSecondary.withValues(
@@ -678,7 +681,7 @@ class _PlanCardState extends State<_PlanCard> {
                         message: '拖动排序',
                         child: Center(
                           child: Icon(
-                            Icons.drag_indicator,
+                            LucideIcons.gripVertical,
                             size: 22,
                             color: AppColors.textSecondary.withValues(
                               alpha: widget.reorderEnabled ? 0.7 : 0.35,
@@ -703,7 +706,7 @@ class _PlanCardState extends State<_PlanCard> {
                         key: ValueKey('plan-card-edit-${plan.id}'),
                         tooltip: '编辑计划信息',
                         onPressed: widget.onRename,
-                        icon: Icons.edit_outlined,
+                        icon: LucideIcons.edit,
                         iconSize: 21,
                       ),
                       const SizedBox(width: 2),
@@ -821,7 +824,7 @@ class _PlanMoreButtonState extends State<_PlanMoreButton> {
             _controller.open();
           }
         },
-        icon: Icons.more_horiz,
+        icon: LucideIcons.ellipsis,
         iconSize: 20,
       ),
     );
@@ -860,21 +863,21 @@ class _PlanActionsMenuPanel extends StatelessWidget {
                   _PlanMenuActionItem(
                     actionKey: const ValueKey('plan-menu-action-transfer'),
                     label: '导入导出',
-                    icon: Icons.import_export_outlined,
+                    icon: LucideIcons.import,
                     onPressed: onExport,
                   ),
                   const SizedBox(height: 6),
                   _PlanMenuActionItem(
                     actionKey: const ValueKey('plan-menu-action-copy'),
                     label: '复制计划',
-                    icon: Icons.copy_outlined,
+                    icon: LucideIcons.copy,
                     onPressed: onDuplicate,
                   ),
                   Divider(height: 17, color: AppColors.border),
                   _PlanMenuActionItem(
                     actionKey: const ValueKey('plan-menu-action-delete'),
                     label: '删除计划',
-                    icon: Icons.delete_outline,
+                    icon: LucideIcons.trash2,
                     onPressed: canDelete ? onDelete : null,
                     isDangerous: true,
                   ),
@@ -1172,7 +1175,7 @@ class _ErrorState extends StatelessWidget {
     return Center(
       child: OutlinedButton.icon(
         onPressed: onRetry,
-        icon: const Icon(Icons.refresh),
+        icon: const Icon(LucideIcons.refreshCw),
         label: const Text('重新加载计划'),
       ),
     );

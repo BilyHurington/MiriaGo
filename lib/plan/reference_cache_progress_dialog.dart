@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../widgets/app_status_banner.dart';
@@ -183,7 +184,7 @@ class _CacheBannerCard extends StatelessWidget {
     return AppStatusBanner(
       key: bannerKey,
       kind: kind,
-      icon: status == _CacheDialogStatus.running ? Icons.cached_outlined : null,
+      icon: status == _CacheDialogStatus.running ? LucideIcons.refreshCw : null,
       title: _titleFor(status),
       subtitle: status == _CacheDialogStatus.running
           ? null
@@ -211,7 +212,7 @@ class _CacheBannerCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  Icons.info_outline,
+                  LucideIcons.info,
                   size: 15,
                   color: AppColors.textSecondary,
                 ),

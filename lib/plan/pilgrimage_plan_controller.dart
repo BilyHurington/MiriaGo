@@ -227,6 +227,22 @@ class PilgrimagePlanController extends ChangeNotifier {
     _replacePlanState(updatedPlan);
   }
 
+  Future<void> deletePoint(PilgrimagePoint point) async {
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+
+    final updatedPlan = await repository.deletePointFromPlan(
+      planId: _plan.id,
+      pointId: point.id,
+    );
+    _visitRecords = _visitRecords
+        .where((record) => record.pointId != point.id)
+        .toList(growable: false);
+    _replacePlanState(updatedPlan);
+  }
+
   Future<void> updatePlanMemo(String memo) async {
     final repository = _repository;
     if (repository == null) {

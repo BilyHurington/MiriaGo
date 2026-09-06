@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
@@ -70,7 +71,7 @@ class MapThumbnailMarker extends StatelessWidget {
                     width: bubbleWidth,
                     height: bubbleHeight,
                     placeholder: Icon(
-                      imported ? Icons.check : Icons.image_outlined,
+                      imported ? LucideIcons.check : LucideIcons.image,
                       color: imported ? AppColors.textSecondary : pinColor,
                       size: selected ? 24 : 22,
                     ),

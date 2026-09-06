@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
@@ -46,13 +47,13 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           _StatsGrid(importPackage: _package),
           const SizedBox(height: 18),
           _SectionTitle(
-            icon: Icons.fact_check_outlined,
+            icon: LucideIcons.listChecks,
             title: '选择导入内容',
             subtitle: '导入前不会修改当前数据。',
           ),
           const SizedBox(height: 10),
           _ImportOptionTile(
-            icon: Icons.route_outlined,
+            icon: LucideIcons.route,
             title: '计划结构',
             subtitle: '作品、片区、点位、完成状态和当前目标。',
             value: true,
@@ -61,7 +62,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           ),
           const SizedBox(height: 8),
           _ImportOptionTile(
-            icon: Icons.collections_bookmark_outlined,
+            icon: LucideIcons.folders,
             title: '拍摄记录',
             subtitle: _package.isLegacyJson
                 ? 'v1 文件不包含照片资源，仅导入计划结构。'
@@ -74,7 +75,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           ),
           const SizedBox(height: 8),
           _ImportOptionTile(
-            icon: Icons.photo_library_outlined,
+            icon: LucideIcons.images,
             title: '图片和资源文件',
             subtitle: _assetImportSubtitle,
             value: _includeAssets,
@@ -87,7 +88,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           if (_package.warnings.isNotEmpty) ...[
             const SizedBox(height: 18),
             _SectionTitle(
-              icon: Icons.warning_amber_outlined,
+              icon: LucideIcons.triangleAlert,
               title: '包内提示',
               subtitle: '导出时记录的缺失或兼容信息。',
             ),
@@ -118,7 +119,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.download_done_outlined),
+                : const Icon(LucideIcons.download),
             label: Text(_importing ? '导入中...' : '导入所选内容'),
           ),
         ),
@@ -204,10 +205,7 @@ class _PackageHeader extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.inventory_2_outlined,
-              color: AppColors.accentDark,
-            ),
+            child: Icon(LucideIcons.package, color: AppColors.accentDark),
           ),
           const SizedBox(width: 12),
           Expanded(

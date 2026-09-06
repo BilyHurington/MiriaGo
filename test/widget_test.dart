@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:miriago/app_theme.dart';
 import 'package:miriago/main.dart';
@@ -28,6 +29,7 @@ import 'package:miriago/widgets/constrained_menu_anchor.dart';
 import 'package:miriago/widgets/confirm_action_dialog.dart';
 import 'package:miriago/widgets/input_dialog.dart';
 import 'package:miriago/widgets/reference_image_placeholder.dart';
+import 'package:miriago/widgets/responsive_button.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
   await tester.pumpWidget(MiriaGoApp(repository: SamplePilgrimageRepository()));
@@ -215,14 +217,14 @@ void main() {
     expect(
       find.descendant(
         of: switchButton,
-        matching: find.byIcon(Icons.swap_horiz),
+        matching: find.byIcon(LucideIcons.arrowLeftRight),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: toggleButton,
-        matching: find.byIcon(Icons.expand_more),
+        matching: find.byIcon(LucideIcons.chevronDown),
       ),
       findsOneWidget,
     );
@@ -243,7 +245,7 @@ void main() {
     expect(
       find.descendant(
         of: toggleButton,
-        matching: find.byIcon(Icons.expand_less),
+        matching: find.byIcon(LucideIcons.chevronUp),
       ),
       findsOneWidget,
     );
@@ -265,7 +267,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('plan-action-cache-references')),
-        matching: find.byIcon(Icons.download_for_offline_outlined),
+        matching: find.byIcon(LucideIcons.cloudDownload),
       ),
       findsOneWidget,
     );
@@ -281,8 +283,9 @@ void main() {
     );
     expect(addPointsRect.top, closeTo(managePointsRect.top, 0.1));
     expect(addPointsRect.bottom, closeTo(managePointsRect.bottom, 0.1));
-    expect(cacheReferencesRect.top, greaterThan(addPointsRect.bottom));
-    expect(cacheReferencesRect.left, closeTo(addPointsRect.left, 0.1));
+    expect(cacheReferencesRect.top, closeTo(addPointsRect.top, 0.1));
+    expect(cacheReferencesRect.bottom, closeTo(addPointsRect.bottom, 0.1));
+    expect(cacheReferencesRect.left, greaterThan(managePointsRect.right));
 
     await tester.tap(find.byKey(const ValueKey('plan-action-add-points')));
     await tester.pumpAndSettle();
@@ -316,7 +319,7 @@ void main() {
     expect(
       find.descendant(
         of: toggleButton,
-        matching: find.byIcon(Icons.expand_more),
+        matching: find.byIcon(LucideIcons.chevronDown),
       ),
       findsOneWidget,
     );
@@ -329,7 +332,7 @@ void main() {
     expect(
       find.descendant(
         of: toggleButton,
-        matching: find.byIcon(Icons.expand_more),
+        matching: find.byIcon(LucideIcons.chevronDown),
       ),
       findsOneWidget,
     );
@@ -371,6 +374,166 @@ void main() {
     expect(find.text('加入巡礼场景'), findsOneWidget);
     expect(find.text('计划备忘录'), findsOneWidget);
     expect(find.text('记录行程要点'), findsOneWidget);
+    final addPointsRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-add-points')),
+    );
+    final cacheReferencesRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-cache-references')),
+    );
+    expect(cacheReferencesRect.top, greaterThan(addPointsRect.bottom));
+    expect(cacheReferencesRect.left, closeTo(addPointsRect.left, 0.1));
+  });
+
+  testWidgets(
+    'responsive button content degrades accessibly without shrinking',
+    (tester) async {
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 220,
+                child: FilledButton(
+                  onPressed: () => presses += 1,
+                  child: const ResponsiveButtonContent(
+                    icon: LucideIcons.mapPinPlus,
+                    label: '加入计划',
+                    shortLabel: '加入',
+                    semanticLabel: '加入计划',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('加入计划'), findsOneWidget);
+      await tester.tap(find.byType(FilledButton));
+      expect(presses, 1);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 112,
+                child: FilledButton(
+                  onPressed: () {},
+                  child: const ResponsiveButtonContent(
+                    icon: LucideIcons.mapPinPlus,
+                    label: '加入计划',
+                    shortLabel: '加入',
+                    semanticLabel: '加入计划',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('加入'), findsOneWidget);
+
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 44,
+                child: FilledButton(
+                  onPressed: null,
+                  child: const ResponsiveButtonContent(
+                    icon: LucideIcons.mapPinPlus,
+                    label: '加入计划',
+                    shortLabel: '加入',
+                    semanticLabel: '加入计划',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('加入计划'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byIcon(LucideIcons.mapPinPlus)).label,
+        '加入计划',
+      );
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      semantics.dispose();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 100,
+                  child: FilledButton(
+                    onPressed: () {},
+                    child: const ResponsiveButtonContent(
+                      icon: LucideIcons.mapPinPlus,
+                      label: '加入计划',
+                      shortLabel: '加入',
+                      semanticLabel: '加入计划',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('加入计划'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('confirmation actions stack at narrow widths with large text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 220,
+                child: AppDialogActionRow(
+                  cancelLabel: '暂不删除',
+                  confirmLabel: '删除所有记录',
+                  onCancel: () {},
+                  onConfirm: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final buttons = find.byType(FilledButton);
+    expect(
+      tester.getRect(buttons.first).bottom,
+      lessThan(tester.getRect(buttons.last).top),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('plan actions can ignore taps outside the panel', (tester) async {
@@ -509,11 +672,24 @@ void main() {
     );
     expect(completedIcon, findsOneWidget);
     expect(
-      find.descendant(of: completedIcon, matching: find.byIcon(Icons.folder)),
+      find.descendant(
+        of: completedIcon,
+        matching: find.byIcon(LucideIcons.folder),
+      ),
       findsOneWidget,
     );
+    final completedFill = tester.widget<DecoratedBox>(
+      find.byKey(ValueKey('plan-group-picker-completed-fill-${group.id}')),
+    );
+    expect(
+      (completedFill.decoration as BoxDecoration).color,
+      AppTheme.light().colorScheme.primary,
+    );
     final checkIcon = tester.widget<Icon>(
-      find.descendant(of: completedIcon, matching: find.byIcon(Icons.check)),
+      find.descendant(
+        of: completedIcon,
+        matching: find.byIcon(LucideIcons.check),
+      ),
     );
     expect(checkIcon.color, Colors.white);
     expect(
@@ -664,6 +840,33 @@ void main() {
     expect(tester.getSize(find.text('结束框选')).height, lessThanOrEqualTo(20));
   });
 
+  testWidgets('app shell uses the Lucide bottom navigation icons', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    final destinations = tester
+        .widgetList<NavigationDestination>(find.byType(NavigationDestination))
+        .toList(growable: false);
+    const expectedIcons = [
+      LucideIcons.listTodo,
+      LucideIcons.map,
+      LucideIcons.images,
+      LucideIcons.settings,
+    ];
+    const expectedLabels = ['计划', '地图', '记录', '设置'];
+
+    expect(destinations, hasLength(4));
+    for (var index = 0; index < destinations.length; index += 1) {
+      expect(destinations[index].label, expectedLabels[index]);
+      expect((destinations[index].icon as Icon).icon, expectedIcons[index]);
+      expect(
+        (destinations[index].selectedIcon as Icon).icon,
+        expectedIcons[index],
+      );
+    }
+  });
+
   testWidgets('shows records dashboard header and summary', (tester) async {
     await _pumpApp(tester);
 
@@ -730,7 +933,7 @@ void main() {
           .height,
       4,
     );
-    expect(find.byIcon(Icons.collections_bookmark_outlined), findsNothing);
+    expect(find.byIcon(LucideIcons.folders), findsNothing);
     expect(
       find.byKey(const ValueKey('records-group-sample-group-uji-station')),
       findsOneWidget,
@@ -747,7 +950,7 @@ void main() {
     final expandedGroupIcon = tester.widget<Icon>(
       find.byKey(const ValueKey('records-group-icon-sample-group-uji-station')),
     );
-    expect(expandedGroupIcon.icon, Icons.location_on);
+    expect(expandedGroupIcon.icon, LucideIcons.mapPin);
     final recordTitle = tester.widget<Text>(
       find.descendant(
         of: find.byKey(const ValueKey('record-card-sample-record-jr-uji-01')),
@@ -804,6 +1007,12 @@ void main() {
       find.byKey(const ValueKey('record-card-sample-record-jr-uji-01')),
     );
     expect(find.byKey(const ValueKey('records-group-divider')), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey('records-group-divider-sample-group-uji-station'),
+      ),
+      findsNothing,
+    );
     expect(firstRecordRect.top - groupSurfaceRect.bottom, closeTo(4, 0.1));
     expect(
       find.ancestor(
@@ -829,7 +1038,7 @@ void main() {
             ),
           )
           .icon,
-      Icons.location_on_outlined,
+      LucideIcons.mapPin,
     );
     await tester.tap(firstGroupHeader);
     await tester.pumpAndSettle();
@@ -918,7 +1127,7 @@ void main() {
       find.byKey(const ValueKey('records-status-option-all')),
     );
     expect(selectedStatusOption.leadingIcon, isA<Icon>());
-    expect((selectedStatusOption.leadingIcon! as Icon).icon, Icons.check);
+    expect((selectedStatusOption.leadingIcon! as Icon).icon, LucideIcons.check);
     expect(
       selectedStatusOption.style?.overlayColor?.resolve({WidgetState.hovered}),
       Colors.transparent,
@@ -989,7 +1198,7 @@ void main() {
 
       expect(find.byKey(const ValueKey('records-empty-state')), findsOneWidget);
       expect(find.text('没有找到相关记录'), findsOneWidget);
-      expect(find.byIcon(Icons.search_off_rounded), findsOneWidget);
+      expect(find.byIcon(LucideIcons.searchX), findsOneWidget);
       expect(find.textContaining('点位、作品或场景'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('records-empty-clear-search')),
@@ -1200,6 +1409,12 @@ void main() {
       findsNothing,
     );
     expect(
+      find.byKey(
+        const ValueKey('records-group-divider-sample-group-uji-station'),
+      ),
+      findsOneWidget,
+    );
+    expect(
       tester
           .widget<Icon>(
             find.byKey(
@@ -1207,7 +1422,7 @@ void main() {
             ),
           )
           .icon,
-      Icons.location_on_outlined,
+      LucideIcons.mapPin,
     );
 
     await tester.tap(find.byKey(const ValueKey('records-toggle-all-sections')));
@@ -1361,13 +1576,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('备用路线'), findsOneWidget);
-    expect(find.byIcon(Icons.check_box_outline_blank), findsOneWidget);
-    expect(find.byIcon(Icons.check_box), findsOneWidget);
+    expect(find.byIcon(LucideIcons.square), findsOneWidget);
+    expect(find.byIcon(LucideIcons.squareCheckBig), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.check_box_outline_blank));
+    await tester.tap(find.byIcon(LucideIcons.square));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.check_box), findsNWidgets(2));
+    expect(find.byIcon(LucideIcons.squareCheckBig), findsNWidgets(2));
 
     await tester.tap(find.byTooltip('编辑'));
     await tester.pumpAndSettle();
@@ -1377,9 +1592,9 @@ void main() {
   testWidgets('opens camera reference from current target', (tester) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.byIcon(Icons.photo_camera_outlined).first);
+    await tester.tap(find.byIcon(LucideIcons.camera).first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('叠影'), findsWidgets);
     expect(find.text('上下'), findsWidgets);
@@ -1421,7 +1636,7 @@ void main() {
     );
     expect(selectedTile, findsOneWidget);
     expect(tester.getSize(selectedTile).height, 44);
-    expect(selectedIcon.icon, Icons.check_circle);
+    expect(selectedIcon.icon, LucideIcons.checkCircle);
     expect(
       find.byKey(const ValueKey('plan-group-picker-selected-accent')),
       findsNothing,
@@ -1542,6 +1757,112 @@ void main() {
     expect(middleTop, lessThan(lateTop));
   });
 
+  testWidgets('point detail confirms deletion and keeps the sheet on failure', (
+    tester,
+  ) async {
+    const work = PilgrimageWork(
+      id: 'delete-work',
+      title: '删除测试作品',
+      subtitle: '',
+      city: '',
+      source: WorkSource.manual,
+    );
+    const point = PilgrimagePoint(
+      id: 'delete-point',
+      work: work,
+      name: '删除测试点位',
+      subtitle: '',
+      position: LatLng(35, 135),
+      episodeLabel: 'EP 1',
+      referenceLabel: '手动',
+    );
+    var deleteCalls = 0;
+    var shouldFail = true;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => PointDetailSheet.show(
+                context,
+                point: point,
+                status: VisitStatus.pending,
+                onReplaceReference: (_, _) async {},
+                onDelete: (_) async {
+                  deleteCalls += 1;
+                  if (shouldFail) {
+                    throw StateError('delete failed');
+                  }
+                },
+              ),
+              child: const Text('打开删除测试'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开删除测试'));
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const ValueKey('point-detail-delete'));
+    expect(deleteButton, findsOneWidget);
+    expect(tester.getSize(deleteButton), const Size(36, 36));
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(of: deleteButton, matching: find.byType(Icon)),
+          )
+          .size,
+      18,
+    );
+    expect(
+      tester.getCenter(find.text('待访问')).dy,
+      closeTo(tester.getCenter(deleteButton).dy, 0.1),
+    );
+    expect(find.byTooltip('删除点位'), findsOneWidget);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    var dialogButtons = find.descendant(
+      of: find.byType(ConfirmActionDialog),
+      matching: find.byType(FilledButton),
+    );
+    await tester.tap(dialogButtons.first);
+    await tester.pumpAndSettle();
+    expect(deleteCalls, 0);
+    expect(deleteButton, findsOneWidget);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    dialogButtons = find.descendant(
+      of: find.byType(ConfirmActionDialog),
+      matching: find.byType(FilledButton),
+    );
+    await tester.tap(dialogButtons.last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(deleteCalls, 1);
+    expect(deleteButton, findsOneWidget);
+    expect(find.text('删除点位失败，请稍后重试'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    shouldFail = false;
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    dialogButtons = find.descendant(
+      of: find.byType(ConfirmActionDialog),
+      matching: find.byType(FilledButton),
+    );
+    await tester.tap(dialogButtons.last);
+    await tester.pumpAndSettle();
+    expect(deleteCalls, 2);
+    expect(deleteButton, findsNothing);
+  });
+
   testWidgets('edits point details from the shared detail sheet', (
     tester,
   ) async {
@@ -1580,7 +1901,7 @@ void main() {
   testWidgets('shows group filters on the map', (tester) async {
     await _pumpApp(tester);
 
-    await tester.tap(find.byIcon(Icons.map_outlined).last);
+    await tester.tap(find.byIcon(LucideIcons.map).last);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('宇治站附近'), findsWidgets);
@@ -1624,11 +1945,16 @@ void main() {
     (tester) async {
       await _pumpApp(tester);
 
-      await tester.tap(find.byIcon(Icons.map_outlined).last);
+      await tester.tap(find.byIcon(LucideIcons.map).last);
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.info_outline), findsNothing);
-      expect(find.byIcon(Icons.near_me_outlined), findsNWidgets(2));
+      expect(find.byIcon(LucideIcons.info), findsNothing);
+      expect(find.byIcon(Icons.directions_walk), findsOneWidget);
+      expect(find.byIcon(LucideIcons.navigation), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('map-navigation-button-divider')),
+        findsOneWidget,
+      );
 
       await tester.tap(
         find.byKey(
@@ -1648,14 +1974,54 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpApp(tester);
 
-    await tester.tap(find.byIcon(Icons.map_outlined).last);
+    await tester.tap(find.byIcon(LucideIcons.map).last);
     await tester.pumpAndSettle();
 
-    final navigationButton = tester.widget<FilledButton>(
+    final navigationButton = tester.widget<InkWell>(
       find.byKey(const ValueKey('map-in-app-navigation-button')),
     );
-    expect(navigationButton.onPressed, isNotNull);
+    final externalNavigationButton = tester.widget<InkWell>(
+      find.byKey(const ValueKey('map-external-navigation-button')),
+    );
+    expect(navigationButton.onTap, isNotNull);
+    expect(externalNavigationButton.onTap, isNotNull);
   });
+
+  testWidgets(
+    'map point card keeps 44px actions without overflow when narrow',
+    (tester) async {
+      for (final width in [320.0, 300.0, 280.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 844));
+        await _pumpApp(tester);
+        await tester.tap(find.byIcon(LucideIcons.map).last);
+        await tester.pumpAndSettle();
+
+        final navigation = tester.getRect(
+          find.byKey(const ValueKey('map-in-app-navigation-button')),
+        );
+        final camera = tester.getRect(find.byTooltip('拍摄参考'));
+        final complete = tester.getRect(find.byTooltip('标记完成'));
+        expect(navigation.height, closeTo(44, 0.1));
+        expect(camera.height, closeTo(navigation.height, 0.1));
+        expect(complete.height, closeTo(navigation.height, 0.1));
+        expect(camera.width, closeTo(52, 0.1));
+        expect(complete.width, closeTo(52, 0.1));
+        if (width == 280) {
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('map-in-app-navigation-button')),
+              matching: find.text('导航'),
+            ),
+            findsNothing,
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+      await tester.binding.setSurfaceSize(null);
+    },
+  );
 
   testWidgets('plan point detail exposes in-app navigation action', (
     tester,
@@ -1947,7 +2313,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('plan-group-summary')), findsOneWidget);
-    expect(find.byIcon(Icons.account_tree_outlined), findsNothing);
+    expect(find.byIcon(LucideIcons.network), findsNothing);
     expect(find.text('未分配点位'), findsOneWidget);
     expect(find.textContaining('个点位等待整理'), findsOneWidget);
 
@@ -2543,7 +2909,7 @@ void main() {
       find
           .descendant(
             of: find.byTooltip('编辑计划信息').first,
-            matching: find.byIcon(Icons.edit_outlined),
+            matching: find.byIcon(LucideIcons.edit),
           )
           .first,
     );
@@ -2769,7 +3135,10 @@ void main() {
     final moreButton = find.byKey(ValueKey('work-manage-more-${work.id}'));
     expect(moreButton, findsOneWidget);
     expect(
-      find.descendant(of: moreButton, matching: find.byIcon(Icons.more_horiz)),
+      find.descendant(
+        of: moreButton,
+        matching: find.byIcon(LucideIcons.ellipsis),
+      ),
       findsOneWidget,
     );
     expect(tester.getSize(moreButton), const Size.square(34));
@@ -3006,7 +3375,7 @@ void main() {
       tester.widget<TextFormField>(fields.at(2)).controller!.text,
       isEmpty,
     );
-    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.tap(find.byIcon(LucideIcons.arrowLeft));
     await tester.pumpAndSettle();
 
     expect(find.text('原创短片'), findsOneWidget);
@@ -3232,6 +3601,67 @@ void main() {
       hasLength(1),
     );
     expect(updatedPlan.points, hasLength(1));
+  });
+
+  testWidgets('Anitabi point card shortens import action when narrow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(280, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = SamplePilgrimageRepository(plans: const []);
+    final plan = await repository.createPlan(name: '窄屏导入测试', area: '京都');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 12345,
+          initialPointId: 'point-1',
+          anitabiClient: _FakeAnitabiClient(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const ValueKey('anitabi-point-card-point-1'));
+    expect(card, findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('anitabi-point-thumbnail-point-1')),
+      ),
+      const Size(80, 80),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('anitabi-point-text-point-1')))
+          .height,
+      80,
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('anitabi-point-navigation-point-1')),
+          )
+          .height,
+      40,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('anitabi-point-import-point-1')))
+          .height,
+      40,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('加入')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('加入计划')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Anitabi link import uses global pid owner work', (tester) async {

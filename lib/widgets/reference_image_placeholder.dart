@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 
@@ -31,7 +32,7 @@ class ReferenceImagePlaceholder extends StatelessWidget {
           padding: EdgeInsets.all(compact ? 6 : 14),
           child: compact
               ? Icon(
-                  Icons.image_outlined,
+                  LucideIcons.image,
                   color: iconColor ?? AppColors.accentDark,
                   size: 28,
                 )
@@ -46,7 +47,7 @@ class ReferenceImagePlaceholder extends StatelessWidget {
                       )
                     else
                       Icon(
-                        Icons.image_outlined,
+                        LucideIcons.image,
                         color: iconColor ?? AppColors.accentDark,
                         size: 32,
                       ),

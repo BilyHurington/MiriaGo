@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -124,7 +125,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
               IconButton(
                 tooltip: '片区管理',
                 onPressed: _openGroupManager,
-                icon: const Icon(Icons.account_tree_outlined),
+                icon: const Icon(LucideIcons.network),
               ),
             if (!_isSaving && _plan.points.isNotEmpty)
               IconButton(
@@ -138,14 +139,14 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.download_for_offline_outlined),
+                    : const Icon(LucideIcons.cloudDownload),
               ),
             if (!_isSaving && _plan.points.isNotEmpty)
               IconButton(
                 tooltip: _selectionMode ? '退出多选' : '多选',
                 onPressed: _toggleSelectionMode,
                 icon: Icon(
-                  _selectionMode ? Icons.close : Icons.checklist_rtl_outlined,
+                  _selectionMode ? LucideIcons.x : LucideIcons.listChecks,
                 ),
               ),
           ],
@@ -631,6 +632,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       onMoveToGroup: _movePointToGroup,
       onCreateGroup: _createGroupFromPicker,
       onEditPoint: () => _editPoint(currentPoint),
+      onDelete: _deletePoint,
       navigationApp: widget.settings.navigationApp,
       settings: widget.settings,
     );
@@ -655,6 +657,28 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       _didUpdate = true;
       _selectedPointIds.clear();
       _selectionMode = false;
+    });
+  }
+
+  Future<void> _deletePoint(PilgrimagePoint point) async {
+    final updatedPlan = await widget.repository.deletePointFromPlan(
+      planId: _plan.id,
+      pointId: point.id,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPointIds.remove(point.id);
+      if (_selectedPointIds.isEmpty) {
+        _selectionMode = false;
+      }
+      final groups = _groups;
+      if (_selectedGroupIndex >= groups.length) {
+        _selectedGroupIndex = groups.isEmpty ? 0 : groups.length - 1;
+      }
+      _didUpdate = true;
     });
   }
 
@@ -1160,7 +1184,7 @@ class _PlanManagerHeader extends StatelessWidget {
               IconButton(
                 tooltip: '上一个片区',
                 onPressed: selectionMode ? null : onPreviousGroup,
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(LucideIcons.chevronLeft),
               ),
               Expanded(
                 child: FilledButton.tonal(
@@ -1182,7 +1206,7 @@ class _PlanManagerHeader extends StatelessWidget {
               IconButton(
                 tooltip: '下一个片区',
                 onPressed: selectionMode ? null : onNextGroup,
-                icon: const Icon(Icons.chevron_right),
+                icon: const Icon(LucideIcons.chevronRight),
               ),
             ],
           ),
@@ -1207,7 +1231,11 @@ class _PlanManagerHeader extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
                         child: Row(
                           children: [
-                            Icon(Icons.flag, size: 18, color: AppColors.accent),
+                            Icon(
+                              LucideIcons.flag,
+                              size: 18,
+                              color: AppColors.accent,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1232,7 +1260,7 @@ class _PlanManagerHeader extends StatelessWidget {
                               ),
                             ),
                             Icon(
-                              Icons.chevron_right,
+                              LucideIcons.chevronRight,
                               size: 18,
                               color: AppColors.textSecondary,
                             ),
@@ -1347,7 +1375,7 @@ class _UngroupedActionRow extends StatelessWidget {
       children: [
         Expanded(
           child: _HeaderPillButton(
-            icon: Icons.auto_fix_high_outlined,
+            icon: LucideIcons.wandSparkles,
             label: '最近分配',
             onTap: () => onNearestAssign(),
           ),
@@ -1355,7 +1383,7 @@ class _UngroupedActionRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _HeaderPillButton(
-            icon: Icons.select_all_outlined,
+            icon: LucideIcons.scan,
             label: '框选分配',
             onTap: () => onBoxAssign(),
           ),
@@ -1528,7 +1556,7 @@ class _GroupOrderModeButtonState extends State<_GroupOrderModeButton> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.swap_vert,
+                  LucideIcons.arrowUpDown,
                   size: 16,
                   color: widget.enabled
                       ? AppColors.textPrimary
@@ -1542,7 +1570,7 @@ class _GroupOrderModeButtonState extends State<_GroupOrderModeButton> {
                 ),
                 const SizedBox(width: 2),
                 Icon(
-                  _isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  _isOpen ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                   size: 16,
                   color: widget.enabled
                       ? AppColors.textPrimary
@@ -1581,7 +1609,11 @@ class _GroupOrderModeButtonState extends State<_GroupOrderModeButton> {
                       key: ValueKey('point-manager-order-option-${option.$3}'),
                       onPressed: () => widget.onSelected(option.$1),
                       leadingIcon: option.$1 == widget.mode
-                          ? Icon(Icons.check, color: accentColor, size: 18)
+                          ? Icon(
+                              LucideIcons.check,
+                              color: accentColor,
+                              size: 18,
+                            )
                           : const SizedBox(width: 18),
                       style: ButtonStyle(
                         minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
@@ -1757,7 +1789,7 @@ class _PointManagerTile extends StatelessWidget {
                   key: ValueKey('point-manager-actions-${point.id}'),
                   tooltip: '点位操作',
                   enabled: !isBusy,
-                  icon: const Icon(Icons.more_vert),
+                  icon: const Icon(LucideIcons.ellipsisVertical),
                   position: PopupMenuPosition.under,
                   offset: const Offset(0, 6),
                   elevation: 8,
@@ -1789,7 +1821,7 @@ class _PointManagerTile extends StatelessWidget {
                       height: 42,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: const _PointActionRow(
-                        icon: Icons.drive_file_move_outlined,
+                        icon: LucideIcons.folderInput,
                         label: '移动到片区',
                       ),
                     ),
@@ -1799,7 +1831,7 @@ class _PointManagerTile extends StatelessWidget {
                         height: 42,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: const _PointActionRow(
-                          icon: Icons.flag_outlined,
+                          icon: LucideIcons.flag,
                           label: '设为当前目标',
                         ),
                       ),
@@ -1809,8 +1841,8 @@ class _PointManagerTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: _PointActionRow(
                         icon: status == VisitStatus.completed
-                            ? Icons.restart_alt
-                            : Icons.check_outlined,
+                            ? LucideIcons.rotateCcw
+                            : LucideIcons.check,
                         label: status == VisitStatus.completed
                             ? '取消完成'
                             : '标记完成',
@@ -1822,7 +1854,7 @@ class _PointManagerTile extends StatelessWidget {
                       height: 42,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: const _PointActionRow(
-                        icon: Icons.delete_outline,
+                        icon: LucideIcons.trash2,
                         label: '删除点位',
                         destructive: true,
                       ),
@@ -1958,7 +1990,7 @@ class _PointLeadingControl extends StatelessWidget {
       child: SizedBox(
         width: 42,
         child: Center(
-          child: Icon(Icons.drag_indicator, color: AppColors.textSecondary),
+          child: Icon(LucideIcons.gripVertical, color: AppColors.textSecondary),
         ),
       ),
     );
@@ -2017,8 +2049,8 @@ class _BatchActionBar extends StatelessWidget {
                       : onSelectAll,
                   icon: Icon(
                     allSelected
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
+                        ? LucideIcons.squareCheckBig
+                        : LucideIcons.square,
                   ),
                 ),
                 Text(
@@ -2027,22 +2059,22 @@ class _BatchActionBar extends StatelessWidget {
                 ),
                 const Spacer(),
                 _BatchActionButton(
-                  icon: Icons.drive_file_move_outlined,
+                  icon: LucideIcons.folderInput,
                   label: '移动',
                   onPressed: isBusy || !hasSelection ? null : onMove,
                 ),
                 _BatchActionButton(
-                  icon: Icons.check_outlined,
+                  icon: LucideIcons.check,
                   label: '完成',
                   onPressed: isBusy || !hasSelection ? null : onComplete,
                 ),
                 _BatchActionButton(
-                  icon: Icons.restart_alt,
+                  icon: LucideIcons.rotateCcw,
                   label: '重置',
                   onPressed: isBusy || !hasSelection ? null : onReopen,
                 ),
                 _BatchActionButton(
-                  icon: Icons.delete_outline,
+                  icon: LucideIcons.trash2,
                   label: '删除',
                   color: AppColors.error,
                   onPressed: isBusy || !hasSelection ? null : onDelete,
@@ -2265,14 +2297,14 @@ class _GroupAnchorMapPickerScreenState
                         _manualPickMode = !_manualPickMode;
                       });
                     },
-                    icon: Icons.ads_click_outlined,
+                    icon: LucideIcons.mousePointerClick,
                   ),
                   const SizedBox(height: 8),
                   _MapToolButton(
                     tooltip: '输入经纬度',
                     selected: false,
                     onTap: _showCoordinateInput,
-                    icon: Icons.edit_location_alt_outlined,
+                    icon: LucideIcons.mapPinPen,
                   ),
                 ],
               ),
@@ -2402,7 +2434,7 @@ class _AnchorPointMarker extends StatelessWidget {
           width: selected ? 2 : 1,
         ),
       ),
-      icon: const Icon(Icons.place, size: 21),
+      icon: const Icon(LucideIcons.mapPin, size: 21),
     );
   }
 }
@@ -2418,7 +2450,7 @@ class _ManualAnchorMarker extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white, width: 3),
       ),
-      child: const Icon(Icons.add_location_alt, color: Colors.white),
+      child: const Icon(LucideIcons.mapPinPlus, color: Colors.white),
     );
   }
 }
@@ -2486,7 +2518,7 @@ class _AnchorSelectionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.flag_outlined, color: AppColors.accent, size: 28),
+          Icon(LucideIcons.flag, color: AppColors.accent, size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

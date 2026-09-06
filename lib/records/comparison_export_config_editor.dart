@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import 'comparison_export_config.dart';
@@ -28,10 +29,6 @@ class ComparisonExportConfigEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _CurrentConfigSummary(config: config),
-        const SizedBox(height: 18),
-        const _SectionDivider(),
-        const SizedBox(height: 18),
         const _SectionLabel('外观'),
         const SizedBox(height: 12),
         ComparisonAppearanceSection(
@@ -102,6 +99,7 @@ class ComparisonAppearanceSection extends StatelessWidget {
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 4,
+            tickMarkShape: SliderTickMarkShape.noTickMark,
             thumbShape: const RoundSliderThumbShape(
               enabledThumbRadius: 7,
               pressedElevation: 3,
@@ -183,67 +181,6 @@ class ComparisonAppearanceSection extends StatelessWidget {
           onChanged: (value) => onChanged(config.copyWith(showLabels: value)),
         ),
       ],
-    );
-  }
-}
-
-class _CurrentConfigSummary extends StatelessWidget {
-  const _CurrentConfigSummary({required this.config});
-
-  final ComparisonExportConfig config;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderLabel = config.borderWidthPercent == 0
-        ? '无边框'
-        : '${config.borderWidthPercent.toStringAsFixed(1)}% 边框';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel('当前配置'),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _SummaryChip(
-              label: config.outputWidth == ComparisonOutputWidth.auto
-                  ? '自动宽度'
-                  : config.outputWidth.label,
-            ),
-            _SummaryChip(label: borderLabel),
-            _SummaryChip(label: config.showLabels ? '显示标签' : '隐藏标签'),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ),
-      ),
     );
   }
 }
@@ -601,12 +538,12 @@ class _MetadataFilterChip extends StatelessWidget {
 
 IconData _metadataFieldIcon(ComparisonMetadataField field) {
   return switch (field) {
-    ComparisonMetadataField.capturedAt => Icons.access_time_rounded,
-    ComparisonMetadataField.pointName => Icons.place_rounded,
-    ComparisonMetadataField.workTitle => Icons.article_rounded,
-    ComparisonMetadataField.episodeLabel => Icons.landscape_outlined,
-    ComparisonMetadataField.coordinates => Icons.my_location_rounded,
-    ComparisonMetadataField.anitabiId => Icons.badge_outlined,
+    ComparisonMetadataField.capturedAt => LucideIcons.clock,
+    ComparisonMetadataField.pointName => LucideIcons.mapPin,
+    ComparisonMetadataField.workTitle => LucideIcons.fileText,
+    ComparisonMetadataField.episodeLabel => LucideIcons.mountain,
+    ComparisonMetadataField.coordinates => LucideIcons.locateFixed,
+    ComparisonMetadataField.anitabiId => LucideIcons.badge,
   };
 }
 
@@ -699,7 +636,7 @@ class _ColorOption extends StatelessWidget {
                   ),
                   child: selected
                       ? Icon(
-                          Icons.check,
+                          LucideIcons.check,
                           key: const ValueKey('selected'),
                           size: 14,
                           color: color.computeLuminance() > 0.55
