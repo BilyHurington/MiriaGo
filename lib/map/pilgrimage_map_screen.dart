@@ -1150,69 +1150,96 @@ class _PointCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _SplitNavigationButton(
-                  inAppLabel: point.hasCoordinate ? '导航' : '坐标待补充',
-                  onOpenInAppNavigation: onOpenInAppNavigation,
-                  onOpenExternalNavigation: onOpenExternalNavigation,
-                ),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                width: _mapPointPrimaryActionWidth,
-                height: _mapPointActionExtent,
-                child: IconButton.outlined(
-                  tooltip: '拍摄参考',
-                  onPressed: onOpenCamera,
-                  icon: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Center(child: Icon(LucideIcons.camera)),
-                        if (recordCount > 0)
-                          const Positioned(
-                            top: -5,
-                            right: -5,
-                            child: _MapRecordBadge(),
-                          ),
-                      ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final navigation = _SplitNavigationButton(
+                inAppLabel: point.hasCoordinate ? '导航' : '坐标待补充',
+                onOpenInAppNavigation: onOpenInAppNavigation,
+                onOpenExternalNavigation: onOpenExternalNavigation,
+              );
+              final showCurrent =
+                  point.hasCoordinate &&
+                  status != VisitStatus.current &&
+                  status != VisitStatus.completed;
+              final actions = <Widget>[
+                SizedBox(
+                  width: _mapPointPrimaryActionWidth,
+                  height: _mapPointActionExtent,
+                  child: IconButton.outlined(
+                    tooltip: '拍摄参考',
+                    onPressed: onOpenCamera,
+                    icon: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Center(child: Icon(LucideIcons.camera)),
+                          if (recordCount > 0)
+                            const Positioned(
+                              top: -5,
+                              right: -5,
+                              child: _MapRecordBadge(),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                width: _mapPointPrimaryActionWidth,
-                height: _mapPointActionExtent,
-                child: IconButton.outlined(
-                  tooltip: status == VisitStatus.completed ? '撤回打卡' : '标记完成',
-                  onPressed: onComplete,
-                  icon: Icon(
-                    status == VisitStatus.completed
-                        ? LucideIcons.undo2
-                        : LucideIcons.circleCheckBig,
-                  ),
-                ),
-              ),
-              if (point.hasCoordinate &&
-                  status != VisitStatus.current &&
-                  status != VisitStatus.completed) ...[
                 const SizedBox(width: 4),
                 SizedBox(
-                  width: _mapPointActionExtent,
+                  width: _mapPointPrimaryActionWidth,
                   height: _mapPointActionExtent,
                   child: IconButton.outlined(
-                    tooltip: '设为当前目标',
-                    onPressed: onSetCurrent,
-                    icon: const Icon(LucideIcons.flag),
+                    tooltip: status == VisitStatus.completed ? '撤回打卡' : '标记完成',
+                    onPressed: onComplete,
+                    icon: Icon(
+                      status == VisitStatus.completed
+                          ? LucideIcons.undo2
+                          : LucideIcons.circleCheckBig,
+                    ),
                   ),
                 ),
-              ],
-            ],
+                if (showCurrent) ...[
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: _mapPointActionExtent,
+                    height: _mapPointActionExtent,
+                    child: IconButton.outlined(
+                      tooltip: '设为当前目标',
+                      onPressed: onSetCurrent,
+                      icon: const Icon(LucideIcons.flag),
+                    ),
+                  ),
+                ],
+              ];
+              final minimumWidth =
+                  _mapPointActionExtent * 2 +
+                  1 +
+                  _mapPointPrimaryActionWidth * 2 +
+                  8 +
+                  (showCurrent ? _mapPointActionExtent + 4 : 0);
+              if (constraints.maxWidth < minimumWidth) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    navigation,
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: actions,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: navigation),
+                  const SizedBox(width: 4),
+                  ...actions,
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1272,17 +1299,20 @@ class _SplitNavigationButton extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: InkWell(
-                key: const ValueKey('map-in-app-navigation-button'),
-                onTap: onOpenInAppNavigation,
-                child: Center(
-                  child: IconTheme(
-                    data: IconThemeData(color: foregroundColor),
-                    child: Tooltip(
-                      message: '应用内导航：$inAppLabel',
-                      child: Semantics(
-                        label: '应用内导航：$inAppLabel',
-                        child: const Icon(Icons.directions_walk, size: 20),
+              child: Semantics(
+                button: true,
+                enabled: onOpenInAppNavigation != null,
+                label: '应用内导航：$inAppLabel',
+                child: InkWell(
+                  key: const ValueKey('map-in-app-navigation-button'),
+                  onTap: onOpenInAppNavigation,
+                  child: Center(
+                    child: IconTheme(
+                      data: IconThemeData(color: foregroundColor),
+                      child: Tooltip(
+                        message: '应用内导航：$inAppLabel',
+                        excludeFromSemantics: true,
+                        child: const Icon(LucideIcons.footprints, size: 20),
                       ),
                     ),
                   ),
@@ -1296,17 +1326,23 @@ class _SplitNavigationButton extends StatelessWidget {
               color: foregroundColor.withValues(alpha: 0.38),
             ),
             Expanded(
-              child: Tooltip(
-                message: '打开外部地图',
-                child: InkWell(
-                  key: const ValueKey('map-external-navigation-button'),
-                  onTap: onOpenExternalNavigation,
-                  child: SizedBox(
-                    height: _mapPointActionExtent,
-                    child: Icon(
-                      LucideIcons.navigation,
-                      size: 21,
-                      color: foregroundColor,
+              child: Semantics(
+                button: true,
+                enabled: onOpenExternalNavigation != null,
+                label: '打开外部地图',
+                child: Tooltip(
+                  message: '打开外部地图',
+                  excludeFromSemantics: true,
+                  child: InkWell(
+                    key: const ValueKey('map-external-navigation-button'),
+                    onTap: onOpenExternalNavigation,
+                    child: SizedBox(
+                      height: _mapPointActionExtent,
+                      child: Icon(
+                        LucideIcons.navigation,
+                        size: 21,
+                        color: foregroundColor,
+                      ),
                     ),
                   ),
                 ),

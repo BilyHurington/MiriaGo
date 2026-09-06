@@ -43,8 +43,8 @@ void main() {
     );
     expect(actionButtons, findsNWidgets(2));
     expect(
-      tester.getTopLeft(actionButtons.first).dy,
-      closeTo(tester.getTopLeft(actionButtons.last).dy, 0.1),
+      tester.getBottomLeft(actionButtons.first).dy,
+      lessThan(tester.getTopLeft(actionButtons.last).dy),
     );
     expect(tester.takeException(), isNull);
   });
@@ -127,8 +127,8 @@ void main() {
     );
     expect(actionButtons, findsNWidgets(2));
     expect(
-      tester.getTopLeft(actionButtons.first).dy,
-      closeTo(tester.getTopLeft(actionButtons.last).dy, 0.1),
+      tester.getBottomLeft(actionButtons.first).dy,
+      lessThan(tester.getTopLeft(actionButtons.last).dy),
     );
     expect(tester.takeException(), isNull);
   });

@@ -974,7 +974,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                       }
                     : null,
                 child: SizedBox(
-                  height: AppButtonStyles.compactHeight,
+                  height: 44,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(

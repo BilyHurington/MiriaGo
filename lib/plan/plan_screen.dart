@@ -896,12 +896,12 @@ class _PlanActionItem extends StatelessWidget {
                   children: [
                     themedIcon,
                     const SizedBox(height: 6),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
+                    Tooltip(
+                      message: title,
+                      excludeFromSemantics: true,
                       child: Text(
                         title,
-                        maxLines: 1,
-                        softWrap: false,
+                        maxLines: 2,
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

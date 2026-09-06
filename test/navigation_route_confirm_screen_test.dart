@@ -242,9 +242,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('测试路径服务不可用'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
-    expect(find.text('Google Maps'), findsOneWidget);
-
-    await tester.tap(find.text('Google Maps'));
+    final externalButton = find.byKey(
+      const ValueKey('navigation-route-external-fallback'),
+    );
+    expect(externalButton, findsOneWidget);
+    expect(tester.widget<OutlinedButton>(externalButton).onPressed, isNotNull);
+    await tester.tap(externalButton);
     await tester.pump();
     expect(externalOpened, isTrue);
   });

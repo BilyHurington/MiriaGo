@@ -286,6 +286,9 @@ class _NavigationRouteConfirmScreenState
                           ),
                         ),
                         second: OutlinedButton(
+                          key: const ValueKey(
+                            'navigation-route-external-fallback',
+                          ),
                           onPressed: _openExternalNavigation,
                           child: ResponsiveButtonContent(
                             icon: LucideIcons.externalLink,

@@ -13,6 +13,7 @@ import 'package:miriago/data/anitabi_client.dart';
 import 'package:miriago/data/bangumi_api_client.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/map/map_marker_clustering.dart';
+import 'package:miriago/map/pilgrimage_map_screen.dart';
 import 'package:miriago/point_detail/point_detail_sheet.dart';
 import 'package:miriago/plan/add_points_screen.dart';
 import 'package:miriago/plan/anitabi_map_import_screen.dart';
@@ -387,6 +388,7 @@ void main() {
   testWidgets(
     'responsive button content degrades accessibly without shrinking',
     (tester) async {
+      final semantics = tester.ensureSemantics();
       var presses = 0;
       await tester.pumpWidget(
         MaterialApp(
@@ -437,8 +439,20 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('加入'), findsOneWidget);
+      expect(find.byTooltip('加入计划'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(FilledButton)),
+        matchesSemantics(
+          label: '加入计划',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
 
-      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -742,11 +756,11 @@ void main() {
       tester
           .getSize(find.byKey(const ValueKey('box-assign-group-picker-button')))
           .height,
-      AppButtonStyles.compactHeight,
+      44,
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('box-assign-toggle-button'))),
-      const Size(112, AppButtonStyles.compactHeight),
+      const Size(112, 44),
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('box-assign-submit-button'))),
@@ -1809,7 +1823,7 @@ void main() {
 
     final deleteButton = find.byKey(const ValueKey('point-detail-delete'));
     expect(deleteButton, findsOneWidget);
-    expect(tester.getSize(deleteButton), const Size(36, 36));
+    expect(tester.getSize(deleteButton), const Size(44, 44));
     expect(
       tester
           .widget<Icon>(
@@ -1949,7 +1963,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(LucideIcons.info), findsNothing);
-      expect(find.byIcon(Icons.directions_walk), findsOneWidget);
+      expect(find.byIcon(LucideIcons.footprints), findsOneWidget);
       expect(find.byIcon(LucideIcons.navigation), findsOneWidget);
       expect(
         find.byKey(const ValueKey('map-navigation-button-divider')),
@@ -2006,6 +2020,15 @@ void main() {
         expect(complete.height, closeTo(navigation.height, 0.1));
         expect(camera.width, closeTo(52, 0.1));
         expect(complete.width, closeTo(52, 0.1));
+        expect(navigation.width, greaterThanOrEqualTo(44));
+        expect(
+          tester
+              .getSize(
+                find.byKey(const ValueKey('map-external-navigation-button')),
+              )
+              .width,
+          greaterThanOrEqualTo(44),
+        );
         if (width == 280) {
           expect(
             find.descendant(
@@ -2015,6 +2038,25 @@ void main() {
             findsNothing,
           );
         }
+        expect(tester.takeException(), isNull);
+        final controller = tester
+            .widget<PilgrimageMapScreen>(find.byType(PilgrimageMapScreen))
+            .controller;
+        controller.selectPoint(
+          controller.points.firstWhere(
+            (point) => controller.statusFor(point) == VisitStatus.pending,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('设为当前目标'), findsOneWidget);
+        expect(
+          tester
+              .getSize(
+                find.byKey(const ValueKey('map-in-app-navigation-button')),
+              )
+              .width,
+          greaterThanOrEqualTo(44),
+        );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
@@ -3660,6 +3702,16 @@ void main() {
     expect(
       find.descendant(of: card, matching: find.text('加入计划')),
       findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('anitabi-point-text-point-1')))
+          .height,
+      greaterThan(80),
     );
     expect(tester.takeException(), isNull);
   });

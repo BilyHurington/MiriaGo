@@ -28,24 +28,31 @@ class ResponsiveButtonContent extends StatelessWidget {
       builder: (context, constraints) {
         final display = _displayFor(context, constraints.maxWidth);
         final fullSemantics = semanticLabel ?? label;
-        switch (display) {
-          case _ResponsiveButtonDisplay.full:
-            return _LabelAndIcon(icon: icon, label: label, iconSize: iconSize);
-          case _ResponsiveButtonDisplay.short:
-            return _LabelAndIcon(
-              icon: icon,
-              label: shortLabel!,
-              iconSize: iconSize,
-            );
-          case _ResponsiveButtonDisplay.iconOnly:
-            return Tooltip(
-              message: fullSemantics,
-              child: Semantics(
-                label: fullSemantics,
-                child: Icon(icon, size: iconSize),
-              ),
-            );
-        }
+        final content = switch (display) {
+          _ResponsiveButtonDisplay.full => _LabelAndIcon(
+            icon: icon,
+            label: label,
+            iconSize: iconSize,
+          ),
+          _ResponsiveButtonDisplay.short => _LabelAndIcon(
+            icon: icon,
+            label: shortLabel!,
+            iconSize: iconSize,
+          ),
+          _ResponsiveButtonDisplay.iconOnly => Icon(icon, size: iconSize),
+        };
+        final accessibleContent = Semantics(
+          label: fullSemantics,
+          excludeSemantics: true,
+          child: content,
+        );
+        return display == _ResponsiveButtonDisplay.full
+            ? accessibleContent
+            : Tooltip(
+                message: fullSemantics,
+                excludeFromSemantics: true,
+                child: accessibleContent,
+              );
       },
     );
   }
@@ -75,7 +82,9 @@ class ResponsiveButtonContent extends StatelessWidget {
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
-    return iconSize + 8 + painter.width;
+    final width = iconSize + 8 + painter.width;
+    painter.dispose();
+    return width;
   }
 }
 

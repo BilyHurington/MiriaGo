@@ -1966,11 +1966,19 @@ class _NativeFlashButton extends StatelessWidget {
       'torch' => LucideIcons.flashlight,
       _ => LucideIcons.zap,
     };
+    final label = switch (controller.flashMode) {
+      'off' => '闪光灯：关闭',
+      'on' => '闪光灯：开启',
+      'torch' => '闪光灯：常亮',
+      _ => '闪光灯：自动',
+    };
 
     return _CameraCircleButton(
       size: size ?? 44,
       iconSize: iconSize ?? 21,
-      tooltip: showTooltip ? '闪光灯' : null,
+      tooltip: showTooltip ? label : null,
+      semanticLabel: label,
+      badge: controller.flashMode == 'auto' ? 'A' : null,
       icon: icon,
       onPressed: controller.cycleFlashMode,
     );
@@ -2631,6 +2639,7 @@ class _CameraCircleButton extends StatelessWidget {
     required this.onPressed,
     this.text,
     this.semanticLabel,
+    this.badge,
     this.size = 44,
     this.iconSize = 21,
   });
@@ -2640,11 +2649,21 @@ class _CameraCircleButton extends StatelessWidget {
   final VoidCallback onPressed;
   final String? text;
   final String? semanticLabel;
+  final String? badge;
   final double size;
   final double iconSize;
 
   @override
   Widget build(BuildContext context) {
+    final image = _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text);
+    final content = badge == null
+        ? image
+        : Badge(
+            label: Text(badge!),
+            backgroundColor: Colors.white,
+            textColor: Colors.black,
+            child: image,
+          );
     final button = IconButton.filled(
       tooltip: tooltip,
       constraints: BoxConstraints.tight(Size(size, size)),
@@ -2659,16 +2678,10 @@ class _CameraCircleButton extends StatelessWidget {
       ),
       onPressed: onPressed,
       icon: semanticLabel == null
-          ? _CameraButtonIcon(icon: icon, iconSize: iconSize, text: text)
+          ? content
           : Semantics(
               label: semanticLabel,
-              child: ExcludeSemantics(
-                child: _CameraButtonIcon(
-                  icon: icon,
-                  iconSize: iconSize,
-                  text: text,
-                ),
-              ),
+              child: ExcludeSemantics(child: content),
             ),
     );
     return SizedBox.square(dimension: size, child: button);
@@ -2699,9 +2712,17 @@ class _CompactFlashButton extends StatelessWidget {
               FlashMode.auto => LucideIcons.zap,
               FlashMode.always => LucideIcons.flashlight,
             };
+            final label = switch (flashMode) {
+              FlashMode.none => '闪光灯：关闭',
+              FlashMode.on => '闪光灯：开启',
+              FlashMode.auto => '闪光灯：自动',
+              FlashMode.always => '闪光灯：常亮',
+            };
 
             return _CameraCircleButton(
-              tooltip: showTooltip ? '闪光灯' : null,
+              tooltip: showTooltip ? label : null,
+              semanticLabel: label,
+              badge: flashMode == FlashMode.auto ? 'A' : null,
               icon: icon,
               onPressed: sensorConfig.switchCameraFlash,
             );

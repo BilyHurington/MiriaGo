@@ -2416,9 +2416,9 @@ class _AnitabiPointCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: SizedBox(
+                          child: ConstrainedBox(
                             key: ValueKey('anitabi-point-text-${point.id}'),
-                            height: 80,
+                            constraints: const BoxConstraints(minHeight: 80),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
