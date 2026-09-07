@@ -144,6 +144,46 @@ void main() {
     },
   );
 
+  for (final zoomCase in [(22, 19.0), (22, 14.0), (16, 14.0)]) {
+    testWidgets(
+      'recenter restores default zoom from ${zoomCase.$2} within max ${zoomCase.$1}',
+      (tester) async {
+        final positions =
+            StreamController<NavigationLocationSample>.broadcast();
+        await pumpScreen(
+          tester,
+          settings: AppSettings(mapMaxZoom: zoomCase.$1),
+          locationStream: positions.stream,
+        );
+        final mapWidget = tester.widget<FlutterMap>(find.byType(FlutterMap));
+        final map = mapWidget.mapController!;
+        const movedCenter = LatLng(34.886, 135.804);
+        const location = LatLng(34.887, 135.805);
+        map.move(movedCenter, zoomCase.$2);
+        mapWidget.options.onPositionChanged!(map.camera, true);
+        positions.add(const NavigationLocationSample(position: location));
+        await tester.pumpAndSettle();
+        expect(map.camera.center, movedCenter);
+        tester
+            .widget<InkWell>(
+              find.byKey(const ValueKey('in-app-navigation-recenter')),
+            )
+            .onTap!();
+        await tester.pumpAndSettle();
+        expect(map.camera.center, location);
+        final expectedZoom = zoomCase.$1 < 17 ? 16.0 : 17.0;
+        expect(map.camera.zoom, expectedZoom);
+        const nextLocation = LatLng(34.8871, 135.8051);
+        positions.add(const NavigationLocationSample(position: nextLocation));
+        await tester.pumpAndSettle();
+        expect(map.camera.center, nextLocation);
+        expect(map.camera.zoom, expectedZoom);
+        await tester.pumpWidget(const SizedBox());
+        await positions.close();
+      },
+    );
+  }
+
   testWidgets('renders light-mode apple-style navigation chrome', (
     tester,
   ) async {

@@ -634,7 +634,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                         setState(() => _followLocation = true);
                         _mapController.move(
                           _currentLocation,
-                          _mapController.camera.zoom,
+                          math.min(17.0, widget.settings.mapMaxZoom.toDouble()),
                         );
                       },
                     ),
