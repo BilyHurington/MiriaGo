@@ -7,12 +7,15 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../widgets/responsive_button.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
+import 'reference_image_status.dart';
 import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
@@ -664,6 +667,8 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                       assignable: selectedBoxPoints.any(
                         (point) => point.id == _selectedPoint!.id,
                       ),
+                      assignableLabel: '已框选',
+                      unassignableLabel: '未框选',
                       onOpenDetail: () => _showPointDetail(_selectedPoint!),
                     ),
             ),
@@ -974,7 +979,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
                       }
                     : null,
                 child: SizedBox(
-                  height: 44,
+                  height: AppButtonStyles.compactHeight,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
@@ -1269,7 +1274,7 @@ class _BoxAssignPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1288,7 +1293,7 @@ class _BoxAssignPanel extends StatelessWidget {
                 SizedBox(
                   key: const ValueKey('box-assign-toggle-button'),
                   width: actionButtonWidth,
-                  height: 44,
+                  height: 36,
                   child: OutlinedButton(
                     onPressed: isSaving ? null : onToggleBoxSelection,
                     style: AppButtonStyles.compactOutlinedButton(),
@@ -1323,7 +1328,7 @@ class _BoxAssignPanel extends StatelessWidget {
                 SizedBox(
                   key: const ValueKey('box-assign-submit-button'),
                   width: actionButtonWidth,
-                  height: 44,
+                  height: 36,
                   child: FilledButton(
                     onPressed:
                         isSaving || targetGroup == null || selectedCount == 0
@@ -1409,7 +1414,7 @@ class _NearestAssignPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1419,7 +1424,7 @@ class _NearestAssignPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '最大距离 ${_formatDistance(distanceMeters)} · 可分配 $assignableCount/$ungroupedCount',
+                    '最大距离 ${_formatDistance(distanceMeters)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1428,17 +1433,18 @@ class _NearestAssignPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 36,
-                  child: FilledButton(
-                    onPressed: isSaving || groupCount == 0 ? null : onAssign,
-                    child: Text(isSaving ? '分配中' : '分配'),
+                Text(
+                  '可分配 $assignableCount/$ungroupedCount',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               '未分组点位会分配到距离最近、且在最大距离范围内的片区关键点。',
               style: TextStyle(
@@ -1448,14 +1454,50 @@ class _NearestAssignPanel extends StatelessWidget {
                 letterSpacing: 0,
               ),
             ),
-            const SizedBox(height: 8),
-            Slider(
-              value: distanceMeters.clamp(50.0, 5000.0),
-              min: 50,
-              max: 5000,
-              divisions: 99,
-              label: _formatDistance(distanceMeters),
-              onChanged: isSaving ? null : onDistanceChanged,
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '当前 ${_formatDistance(distanceMeters)}',
+                  style: TextStyle(
+                    color: AppColors.accentDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                Text(
+                  '50 m - 5 km',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    value: distanceMeters.clamp(50.0, 5000.0),
+                    min: 50,
+                    max: 5000,
+                    divisions: 99,
+                    label: _formatDistance(distanceMeters),
+                    onChanged: isSaving ? null : onDistanceChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 38,
+                  child: FilledButton(
+                    onPressed: isSaving || groupCount == 0 ? null : onAssign,
+                    child: Text(isSaving ? '分配中' : '分配'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1471,12 +1513,16 @@ class _NearestAssignPointCard extends StatelessWidget {
     required this.distanceMeters,
     required this.assignable,
     required this.onOpenDetail,
+    this.assignableLabel = '在最大距离范围内',
+    this.unassignableLabel = '超出最大距离',
   });
 
   final PilgrimagePoint point;
   final PilgrimagePlanGroup? nearestGroup;
   final double? distanceMeters;
   final bool assignable;
+  final String assignableLabel;
+  final String unassignableLabel;
   final VoidCallback onOpenDetail;
 
   @override
@@ -1484,54 +1530,84 @@ class _NearestAssignPointCard extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomInset),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.border),
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: AppColors.border),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(
-                assignable ? LucideIcons.circleCheckBig : LucideIcons.info,
-                color: assignable ? AppColors.accentDark : AppColors.warning,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      point.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                      ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpenDetail,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: ReferenceThumbnail(
+                      localPath: point.referenceThumbnailPath,
+                      imageUrl: hasRemoteReferenceImage(point)
+                          ? point.referenceImageUrl
+                          : null,
+                      placeholder: const Icon(LucideIcons.image),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      nearestGroup == null
-                          ? '没有可用片区关键点'
-                          : '${nearestGroup!.name} · ${_formatDistance(distanceMeters ?? 0)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(onPressed: onOpenDetail, child: const Text('详情')),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        point.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        nearestGroup == null
+                            ? '没有可用片区关键点'
+                            : '${nearestGroup!.name} · ${_formatDistance(distanceMeters ?? 0)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        assignable ? assignableLabel : unassignableLabel,
+                        style: TextStyle(
+                          color: assignable
+                              ? AppColors.accentDark
+                              : AppColors.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  assignable ? LucideIcons.circleCheckBig : LucideIcons.info,
+                  color: assignable ? AppColors.accentDark : AppColors.warning,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),

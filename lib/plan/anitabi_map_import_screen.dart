@@ -2097,7 +2097,7 @@ class _ImportSummary extends StatelessWidget {
     final expected = expectedCount;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(8),
@@ -2134,12 +2134,12 @@ class _ImportSummary extends StatelessWidget {
             ],
           ),
           if (!isLoading) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 SizedBox(
                   width: 44,
-                  height: 44,
+                  height: 36,
                   child: IconButton.outlined(
                     tooltip: '添加所有点位',
                     onPressed: isImporting || availableCount == 0
@@ -2152,7 +2152,7 @@ class _ImportSummary extends StatelessWidget {
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 44,
-                  height: 44,
+                  height: 36,
                   child: IconButton.outlined(
                     tooltip: boxSelectionEnabled ? '退出框选' : '框选点位',
                     isSelected: boxSelectionEnabled,
@@ -2165,7 +2165,7 @@ class _ImportSummary extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: SizedBox(
-                    height: 44,
+                    height: 36,
                     child: FilledButton(
                       onPressed:
                           isImporting ||

@@ -2037,10 +2037,10 @@ class _PlanPointTile extends StatelessWidget {
                     children: [
                       const Center(child: Icon(LucideIcons.camera)),
                       if (recordCount > 0)
-                        const Positioned(
+                        Positioned(
                           top: -5,
                           right: -5,
-                          child: _PointRecordBadge(),
+                          child: _PointRecordBadge(stacked: recordCount > 1),
                         ),
                     ],
                   ),
@@ -2112,7 +2112,9 @@ class _PlanPointThumbnail extends StatelessWidget {
 }
 
 class _PointRecordBadge extends StatelessWidget {
-  const _PointRecordBadge();
+  const _PointRecordBadge({required this.stacked});
+
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
@@ -2133,7 +2135,11 @@ class _PointRecordBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(LucideIcons.images, size: 10, color: AppColors.accentDark),
+      child: Icon(
+        stacked ? LucideIcons.images : LucideIcons.image,
+        size: 10,
+        color: AppColors.accentDark,
+      ),
     );
   }
 }

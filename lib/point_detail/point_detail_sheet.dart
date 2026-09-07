@@ -18,6 +18,7 @@ import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/responsive_button.dart';
+import '../widgets/split_navigation_button.dart';
 import '../plan/reference_image_status.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
@@ -170,6 +171,19 @@ class PointDetailSheet extends StatelessWidget {
     navigator.pop();
   }
 
+  Future<void> _openExternalNavigation(BuildContext context) async {
+    if (!point.hasCoordinate) {
+      return;
+    }
+    final opened = await navigationLauncher.openWalking(point, navigationApp);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '无法打开${navigationApp.label}。',
+      );
+    }
+  }
+
   Future<void> _openInAppNavigation(BuildContext context) async {
     if (!point.hasCoordinate) {
       return;
@@ -265,17 +279,28 @@ class PointDetailSheet extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              _StatusBadge(status: status),
-                              const Spacer(),
-                              if (onDelete != null)
-                                _DeletePointButton(
-                                  key: ValueKey(point.id),
-                                  point: point,
-                                  onDelete: onDelete!,
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _StatusBadge(
+                                  key: const ValueKey(
+                                    'point-detail-status-badge',
+                                  ),
+                                  status: status,
                                 ),
-                            ],
+                                const Expanded(child: SizedBox.shrink()),
+                                if (onDelete != null)
+                                  AspectRatio(
+                                    aspectRatio: 1,
+                                    child: _DeletePointButton(
+                                      key: ValueKey(point.id),
+                                      point: point,
+                                      onDelete: onDelete!,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 8),
                           CopyableText(
@@ -391,8 +416,11 @@ class PointDetailSheet extends StatelessWidget {
                 _PointDetailActions(
                   scope: actionScope,
                   status: status,
-                  onOpenNavigation: point.hasCoordinate
+                  onOpenInAppNavigation: point.hasCoordinate
                       ? () => _openInAppNavigation(context)
+                      : null,
+                  onOpenExternalNavigation: point.hasCoordinate
+                      ? () => _openExternalNavigation(context)
                       : null,
                   onOpenCamera: onOpenCamera == null
                       ? null
@@ -563,17 +591,15 @@ class _DeletePointButtonState extends State<_DeletePointButton> {
           key: const ValueKey('point-detail-delete'),
           onPressed: _busy || _deleted ? null : _deletePoint,
           style: IconButton.styleFrom(
-            fixedSize: const Size(44, 44),
-            minimumSize: const Size(44, 44),
-            maximumSize: const Size(44, 44),
             padding: EdgeInsets.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
             foregroundColor: AppColors.error,
+            minimumSize: Size.zero,
           ),
-          constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+          constraints: const BoxConstraints.expand(),
           padding: EdgeInsets.zero,
-          icon: const Icon(LucideIcons.trash2, size: 18),
+          icon: const Icon(LucideIcons.trash2, size: 16),
         ),
       ),
     );
@@ -584,7 +610,8 @@ class _PointDetailActions extends StatelessWidget {
   const _PointDetailActions({
     required this.scope,
     required this.status,
-    required this.onOpenNavigation,
+    required this.onOpenInAppNavigation,
+    required this.onOpenExternalNavigation,
     required this.onOpenCamera,
     required this.onSetCurrent,
     required this.statusAction,
@@ -593,7 +620,8 @@ class _PointDetailActions extends StatelessWidget {
 
   final PointDetailActionScope scope;
   final VisitStatus status;
-  final VoidCallback? onOpenNavigation;
+  final VoidCallback? onOpenInAppNavigation;
+  final VoidCallback? onOpenExternalNavigation;
   final VoidCallback? onOpenCamera;
   final VoidCallback? onSetCurrent;
   final _PointStatusAction? statusAction;
@@ -601,19 +629,27 @@ class _PointDetailActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canNavigate =
+        onOpenInAppNavigation != null || onOpenExternalNavigation != null;
+    final actionHeight =
+        44 + Theme.of(context).visualDensity.baseSizeAdjustment.dy;
+    final actionStyle = OutlinedButton.styleFrom(
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
     final primaryActions = <Widget>[
-      FilledButton(
-        key: const ValueKey('point-detail-in-app-navigation-button'),
-        onPressed: onOpenNavigation,
-        child: ResponsiveButtonContent(
-          icon: LucideIcons.navigation,
-          label: onOpenNavigation == null ? '坐标待补充' : '导航',
-          semanticLabel: '应用内导航',
-        ),
+      SplitNavigationButton(
+        inAppLabel: canNavigate ? '导航' : '坐标待补充',
+        onOpenInAppNavigation: onOpenInAppNavigation,
+        onOpenExternalNavigation: onOpenExternalNavigation,
+        height: actionHeight,
+        inAppKey: const ValueKey('point-detail-in-app-navigation-button'),
+        externalKey: const ValueKey('point-detail-external-navigation-button'),
+        dividerKey: const ValueKey('point-detail-navigation-button-divider'),
       ),
       if (scope == PointDetailActionScope.visit && onOpenCamera != null) ...[
         OutlinedButton(
           onPressed: onOpenCamera,
+          style: actionStyle,
           child: const ResponsiveButtonContent(
             icon: LucideIcons.camera,
             label: '拍摄参考',
@@ -628,6 +664,7 @@ class _PointDetailActions extends StatelessWidget {
       if (scope != PointDetailActionScope.assign && onSetCurrent != null)
         OutlinedButton(
           onPressed: status == VisitStatus.current ? null : onSetCurrent,
+          style: actionStyle,
           child: const ResponsiveButtonContent(
             icon: LucideIcons.flag,
             label: '设为当前',
@@ -641,6 +678,7 @@ class _PointDetailActions extends StatelessWidget {
             Navigator.of(context).pop();
             statusAction!.onTap();
           },
+          style: actionStyle,
           child: ResponsiveButtonContent(
             icon: statusAction!.icon,
             label: statusAction!.label,
@@ -664,6 +702,7 @@ class _PointDetailActions extends StatelessWidget {
             child: OutlinedButton.icon(
               key: const ValueKey('point-detail-edit'),
               onPressed: onEditPoint,
+              style: actionStyle,
               icon: const Icon(LucideIcons.edit, size: 18),
               label: const Text('编辑点位'),
             ),
@@ -847,7 +886,7 @@ class _GroupInfoRow extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.status, super.key});
 
   final VisitStatus status;
 
@@ -991,7 +1030,13 @@ class _PointRecordsPreview extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(child: VisitRecordPhoto(path: photoPath)),
+                        Expanded(
+                          child: ClipRRect(
+                            key: const ValueKey('point-record-preview-photo'),
+                            borderRadius: BorderRadius.circular(8),
+                            child: VisitRecordPhoto(path: photoPath),
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           _formatRecordTime(record.capturedAt),
