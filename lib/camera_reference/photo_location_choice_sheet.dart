@@ -63,7 +63,6 @@ class PhotoLocationChoiceSheet extends StatelessWidget {
               title: '确认记录时获取定位',
               subtitle: '拍摄后在确认页面等待新定位，适合需要更准确位置时。',
               recommended: true,
-              highlighted: true,
               onTap: () => Navigator.of(
                 context,
               ).pop(PhotoLocationStrategy.waitOnConfirmation),
@@ -90,7 +89,6 @@ class _PhotoLocationChoiceTile extends StatelessWidget {
     required this.onTap,
     this.subtitle,
     this.recommended = false,
-    this.highlighted = false,
     super.key,
   });
 
@@ -98,22 +96,15 @@ class _PhotoLocationChoiceTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool recommended;
-  final bool highlighted;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = highlighted
-        ? AppColors.accent
-        : AppColors.border.withValues(alpha: 0.9);
-    final fillColor = highlighted
-        ? AppColors.accent.withValues(alpha: 0.08)
-        : AppColors.surface;
     return Material(
-      color: fillColor,
+      color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: borderColor, width: highlighted ? 1.5 : 1),
+        side: BorderSide(color: AppColors.border.withValues(alpha: 0.9)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -123,10 +114,7 @@ class _PhotoLocationChoiceTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                icon,
-                color: highlighted ? AppColors.accent : AppColors.textPrimary,
-              ),
+              Icon(icon, color: AppColors.textPrimary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

@@ -6,7 +6,7 @@ import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
   testWidgets(
-    'photo location sheet strengthens copy and highlights recommend',
+    'photo location sheet keeps recommend badge without preselecting',
     (tester) async {
       PhotoLocationStrategy? selected;
       await tester.pumpWidget(
@@ -51,7 +51,7 @@ void main() {
             )
             .first,
       );
-      expect(confirmTile.color, AppColors.accent.withValues(alpha: 0.08));
+      expect(confirmTile.color, AppColors.surface);
 
       await tester.tap(
         find.byKey(const ValueKey('photo-location-choice-recent')),
