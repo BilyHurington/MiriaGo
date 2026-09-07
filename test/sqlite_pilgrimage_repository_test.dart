@@ -29,6 +29,94 @@ class _FakePathProviderPlatform extends PathProviderPlatform {
 }
 
 void main() {
+  test(
+    'schema 41 file upgrades on reopen and keeps explicit preference after restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'miriago-location-migration-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File(p.join(directory.path, 'app.sqlite'));
+      final oldDatabase = AppDatabase(NativeDatabase(file));
+      final oldRepository = SqlitePilgrimageRepository(database: oldDatabase);
+      final plan = await oldRepository.createPlan(
+        name: 'Existing plan',
+        area: 'Tokyo',
+      );
+      await oldRepository.saveAppSettings(
+        const AppSettings(mapMaxZoom: 23, fontScale: 1.1),
+      );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries DROP COLUMN continuous_map_location',
+      );
+      await oldDatabase.customStatement('PRAGMA user_version = 41');
+      await oldDatabase.close();
+
+      final database = AppDatabase(NativeDatabase(file));
+      final repository = SqlitePilgrimageRepository(database: database);
+      final migrated = await repository.loadAppSettings();
+      expect(migrated.continuousMapLocation, isTrue);
+      expect(migrated.fontScale, 1.1);
+      expect(migrated.mapMaxZoom, 23);
+      expect(
+        (await repository.loadPlans()).any((item) => item.id == plan.id),
+        isTrue,
+      );
+      await repository.saveAppSettings(
+        migrated.copyWith(continuousMapLocation: false),
+      );
+      await database.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      expect(
+        (await SqlitePilgrimageRepository(
+          database: reopened,
+        ).loadAppSettings()).continuousMapLocation,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'schema 41 to 42 preserves data and defaults continuous location on',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(
+        name: 'Location migration',
+        area: 'Tokyo',
+      );
+      await repository.saveAppSettings(
+        const AppSettings(mapMaxZoom: 23, continuousMapLocation: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).continuousMapLocation,
+        isFalse,
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries DROP COLUMN continuous_map_location',
+      );
+      await database.migration.onUpgrade(database.createMigrator(), 41, 42);
+      final settings = await repository.loadAppSettings();
+      expect(settings.continuousMapLocation, isTrue);
+      expect(settings.mapMaxZoom, 23);
+      expect(
+        (await repository.loadPlans()).any((item) => item.id == plan.id),
+        isTrue,
+      );
+      await repository.saveAppSettings(
+        settings.copyWith(continuousMapLocation: false),
+      );
+      await database.migration.onUpgrade(database.createMigrator(), 41, 42);
+      expect(
+        (await repository.loadAppSettings()).continuousMapLocation,
+        isFalse,
+      );
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('persists completed point and next current target', () async {

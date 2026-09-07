@@ -28,7 +28,7 @@ import 'navigation_route_confirm_screen.dart';
 import 'map_navigation_launcher.dart';
 import 'map_marker_clustering.dart';
 import 'map_tile_config.dart';
-import 'current_location_resolver.dart';
+import 'map_location_tracker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 
@@ -36,11 +36,15 @@ class PilgrimageMapScreen extends StatefulWidget {
   const PilgrimageMapScreen({
     required this.controller,
     required this.settings,
+    this.isActive = true,
+    this.locationTracker,
     super.key,
   });
 
   final PilgrimagePlanController controller;
   final AppSettings settings;
+  final bool isActive;
+  final MapLocationTracker? locationTracker;
 
   @override
   State<PilgrimageMapScreen> createState() => _PilgrimageMapScreenState();
@@ -53,7 +57,8 @@ class _OverlapPointBrowser {
   final List<String> pointIds;
 }
 
-class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
+class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
+    with MapLocationLifecycle<PilgrimageMapScreen> {
   static const Duration _thumbnailBoundsDebounceDuration = Duration(
     milliseconds: 180,
   );
@@ -64,6 +69,42 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   LatLng? _currentLocation;
   bool _isLocating = false;
+  late final _locationTracker = widget.locationTracker ?? MapLocationTracker();
+  String? _locationError;
+
+  @override
+  bool get locationPageEnabled => widget.isActive;
+
+  @override
+  void onLocationActivityChanged(bool active) => _locationTracker.configure(
+    active: active,
+    continuous: widget.settings.continuousMapLocation,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _locationTracker.addListener(_onLocationChanged);
+  }
+
+  void _onLocationChanged() {
+    if (!mounted) return;
+    final position = _locationTracker.position;
+    final nextError = _locationTracker.error;
+    if (nextError != null &&
+        nextError != _locationError &&
+        locationPageActive) {
+      _showSnackBar(nextError);
+    }
+    setState(() {
+      if (position != null) {
+        _currentLocation = LatLng(position.latitude, position.longitude);
+      }
+      _isLocating = _locationTracker.locating;
+      _locationError = nextError;
+    });
+  }
+
   bool _showThumbnailMarkers = false;
   int _selectedGroupIndex = 0;
   _OverlapPointBrowser? _overlapPointBrowser;
@@ -80,6 +121,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
   @override
   void didUpdateWidget(covariant PilgrimageMapScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    syncLocationActivity(force: true);
     if (oldWidget.settings.mapThumbnailConcurrentLoads !=
         widget.settings.mapThumbnailConcurrentLoads) {
       _thumbnailLoadLimiter.maxConcurrent =
@@ -89,38 +131,20 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
 
   @override
   void dispose() {
+    _locationTracker.removeListener(_onLocationChanged);
+    _locationTracker.dispose();
     _thumbnailBoundsDebounce?.cancel();
     _visibleBoundsNotifier.dispose();
     super.dispose();
   }
 
   Future<void> _locateUser() async {
-    setState(() {
-      _isLocating = true;
-    });
-
-    try {
-      final position = await resolveCurrentLocation();
-      final location = LatLng(position.latitude, position.longitude);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _currentLocation = location;
-      });
-      _mapController.move(location, 16);
-    } on CurrentLocationException catch (error) {
-      _showSnackBar(currentLocationFailureMessage(error));
-    } catch (_) {
-      _showSnackBar('定位失败，请检查权限和定位服务。');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLocating = false;
-        });
-      }
+    final position = await _locationTracker.locate();
+    if (mounted && locationPageActive && position != null) {
+      _mapController.move(
+        LatLng(position.latitude, position.longitude),
+        _mapController.camera.zoom,
+      );
     }
   }
 
@@ -736,7 +760,13 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen> {
                             baseWidth: 44,
                             baseHeight: 44,
                             scale: widget.settings.mapMarkerScale,
-                            child: const _CurrentLocationMarker(),
+                            child: Tooltip(
+                              message: _locationError ?? '当前位置',
+                              child: Opacity(
+                                opacity: _locationError == null ? 1 : 0.4,
+                                child: const _CurrentLocationMarker(),
+                              ),
+                            ),
                           ),
                         ),
                     ],

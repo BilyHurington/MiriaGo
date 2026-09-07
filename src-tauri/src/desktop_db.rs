@@ -433,6 +433,7 @@ impl DesktopDatabase {
             ),
             ("map_marker_scale", "REAL NOT NULL DEFAULT 0.9"),
             ("map_max_zoom", "INTEGER NOT NULL DEFAULT 22"),
+            ("continuous_map_location", "INTEGER NOT NULL DEFAULT 1"),
         ] {
             if columns.iter().any(|column| column == name) {
                 continue;
@@ -574,7 +575,7 @@ impl DesktopDatabase {
                         map_marker_clustering_enabled, map_marker_cluster_radius,
                         map_marker_cluster_max_zoom,
                         map_group_area_radius_meters, map_marker_scale,
-                        map_max_zoom
+                        map_max_zoom, continuous_map_location
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -610,6 +611,7 @@ impl DesktopDatabase {
                         "mapGroupAreaRadiusMeters": row.get::<_, i64>(28)?,
                         "mapMarkerScale": row.get::<_, f64>(29)?,
                         "mapMaxZoom": row.get::<_, i64>(30)?,
+                        "continuousMapLocation": row.get::<_, bool>(31)?,
                     }))
                 },
             )
@@ -950,8 +952,8 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            show_plan_group_progress,
            map_marker_clustering_enabled, map_marker_cluster_radius,
            map_marker_cluster_max_zoom, map_group_area_radius_meters,
-           map_marker_scale, map_max_zoom
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31)",
+           map_marker_scale, map_max_zoom, continuous_map_location
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -1000,6 +1002,7 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             i64_value(settings, "mapGroupAreaRadiusMeters", 160).clamp(25, 500),
             f64_value(settings, "mapMarkerScale", 0.9).clamp(0.6, 1.2),
             i64_value(settings, "mapMaxZoom", 22).clamp(16, 24),
+            bool_value(settings, "continuousMapLocation", true),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -1219,6 +1222,7 @@ fn default_settings_json() -> Value {
         "mapGroupAreaRadiusMeters": 160,
         "mapMarkerScale": 0.9,
         "mapMaxZoom": 22,
+        "continuousMapLocation": true,
     })
 }
 
@@ -1316,7 +1320,8 @@ mod tests {
                   "mapMarkerClusterMaxZoom": 20,
                   "mapGroupAreaRadiusMeters": 225,
                   "mapMarkerScale": 1.1,
-                  "mapMaxZoom": 23
+                  "mapMaxZoom": 23,
+                  "continuousMapLocation": false
                 }"#,
             )
             .expect("save settings");
@@ -1353,6 +1358,35 @@ mod tests {
         assert_eq!(settings["mapGroupAreaRadiusMeters"], 225);
         assert_eq!(settings["mapMarkerScale"], 1.1);
         assert_eq!(settings["mapMaxZoom"], 23);
+        assert_eq!(settings["continuousMapLocation"], false);
+    }
+
+    #[test]
+    fn continuous_location_migrates_existing_settings_without_resetting_them() {
+        let mut database = memory_database();
+        database
+            .save_settings_json(r#"{"mapMaxZoom":23,"navigationApp":"amap"}"#)
+            .unwrap();
+        database
+            .connection
+            .execute(
+                "ALTER TABLE app_settings DROP COLUMN continuous_map_location",
+                [],
+            )
+            .unwrap();
+        database.migrate().unwrap();
+        let settings = database.load_settings_json().unwrap();
+        assert_eq!(settings["continuousMapLocation"], true);
+        assert_eq!(settings["mapMaxZoom"], 23);
+        assert_eq!(settings["navigationApp"], "amap");
+        let mut updated = settings;
+        updated["continuousMapLocation"] = json!(false);
+        database.save_settings_json(&updated.to_string()).unwrap();
+        database.migrate().unwrap();
+        assert_eq!(
+            database.load_settings_json().unwrap()["continuousMapLocation"],
+            false
+        );
     }
 
     #[test]

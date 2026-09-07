@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreLocation
 import Flutter
 import ImageIO
 import Photos
@@ -63,6 +64,8 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let messenger = engineBridge.applicationRegistrar.messenger()
+    FlutterEventChannel(name: "miriago/map_heading", binaryMessenger: messenger)
+      .setStreamHandler(MapHeadingStream())
     registerNativeCameraPreview(
       registry: engineBridge.pluginRegistry,
       messenger: messenger
@@ -264,6 +267,64 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
     } catch {
       return nil
     }
+  }
+}
+
+private final class MapHeadingStream: NSObject, FlutterStreamHandler, CLLocationManagerDelegate {
+  private let manager = CLLocationManager()
+  private var sink: FlutterEventSink?
+
+  override init() {
+    super.init()
+    manager.delegate = self
+    manager.headingFilter = 1
+    // True-north heading requires location on this same manager. Navigation
+    // owns precise positioning; this coarse stream only supplies declination.
+    manager.desiredAccuracy = kCLLocationAccuracyKilometer
+    manager.distanceFilter = 1000
+  }
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    sink = events
+    guard CLLocationManager.headingAvailable() else {
+      events(nil)
+      return nil
+    }
+    manager.startUpdatingLocation()
+    manager.startUpdatingHeading()
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    manager.stopUpdatingHeading()
+    manager.stopUpdatingLocation()
+    sink = nil
+    return nil
+  }
+
+  func locationManager(_ manager: CLLocationManager, didUpdateHeading heading: CLHeading) {
+    guard heading.headingAccuracy >= 0, heading.headingAccuracy <= 45,
+      heading.trueHeading >= 0 else { sink?(nil); return }
+    let orientation = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .first { $0.activationState == .foregroundActive }?.interfaceOrientation
+    let offset: Double
+    switch orientation {
+    case .landscapeRight: offset = 90
+    case .landscapeLeft: offset = -90
+    case .portraitUpsideDown: offset = 180
+    default: offset = 0
+    }
+    sink?((heading.trueHeading + offset + 360).truncatingRemainder(dividingBy: 360))
+  }
+
+  func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    sink?(nil)
+  }
+
+  deinit {
+    manager.stopUpdatingHeading()
+    manager.stopUpdatingLocation()
   }
 }
 

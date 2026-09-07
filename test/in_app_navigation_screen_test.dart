@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:miriago/app_theme.dart';
 import 'package:miriago/map/in_app_navigation_screen.dart';
 import 'package:miriago/map/valhalla_route_client.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
@@ -33,6 +34,7 @@ void main() {
     List<PilgrimagePoint> stops = const [],
     PilgrimagePoint? startPoint,
     Stream<NavigationLocationSample>? locationStream,
+    Stream<double?>? headingStream,
   }) async {
     final selected = startPoint ?? point;
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -47,6 +49,9 @@ void main() {
                 child: FilledButton(
                   onPressed: () => InAppNavigationScreen.open(
                     context,
+                    headingStreamFactory: headingStream == null
+                        ? null
+                        : (_) => headingStream,
                     point: selected,
                     settings: settings,
                     initialRoute: _testRoute(selected, stops),
@@ -70,6 +75,74 @@ void main() {
     await tester.tap(find.text('打开导航'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('invalid samples cannot keep an old navigation fix fresh', (
+    tester,
+  ) async {
+    final stream = StreamController<NavigationLocationSample>.broadcast();
+    await pumpScreen(tester, locationStream: stream.stream);
+    stream.add(
+      const NavigationLocationSample(position: LatLng(34.887, 135.805)),
+    );
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(seconds: 10));
+      stream.add(
+        const NavigationLocationSample(position: LatLng(double.nan, 135)),
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(find.textContaining('当前位置可能已过期'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await stream.close();
+  });
+
+  testWidgets(
+    'navigation remains live when ordinary refresh is off and preserves zoom',
+    (tester) async {
+      final positions = StreamController<NavigationLocationSample>.broadcast();
+      final headings = StreamController<double?>.broadcast();
+      await pumpScreen(
+        tester,
+        settings: const AppSettings(continuousMapLocation: false),
+        locationStream: positions.stream,
+        headingStream: headings.stream,
+      );
+      final map = tester
+          .widget<FlutterMap>(find.byType(FlutterMap))
+          .mapController!;
+      map.move(const LatLng(34.886, 135.804), 19);
+      headings.add(90);
+      positions.add(
+        const NavigationLocationSample(position: LatLng(34.887, 135.805)),
+      );
+      await tester.pumpAndSettle();
+      expect(map.camera.center, const LatLng(34.887, 135.805));
+      expect(map.camera.zoom, 19);
+      expect(
+        find.byKey(const ValueKey('navigation-heading-sector')),
+        findsOneWidget,
+      );
+      positions.addError(StateError('service unavailable'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('navigation-location-retry')),
+        findsOneWidget,
+      );
+      positions.add(
+        const NavigationLocationSample(position: LatLng(34.8871, 135.8051)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('navigation-location-retry')),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox());
+      await positions.close();
+      await headings.close();
+    },
+  );
 
   testWidgets('renders light-mode apple-style navigation chrome', (
     tester,

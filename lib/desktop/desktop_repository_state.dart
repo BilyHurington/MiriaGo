@@ -114,6 +114,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'mapGroupAreaRadiusMeters': settings.mapGroupAreaRadiusMeters,
     'mapMarkerScale': settings.mapMarkerScale,
     'mapMaxZoom': settings.mapMaxZoom,
+    'continuousMapLocation': settings.continuousMapLocation,
   };
 }
 
@@ -234,6 +235,7 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _intValue(json['mapGroupAreaRadiusMeters']) ?? 160,
     mapMarkerScale: _doubleValue(json['mapMarkerScale']) ?? 0.9,
     mapMaxZoom: (_intValue(json['mapMaxZoom']) ?? 22).clamp(16, 24),
+    continuousMapLocation: _boolValue(json['continuousMapLocation']) ?? true,
   );
 }
 

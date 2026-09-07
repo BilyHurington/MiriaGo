@@ -1,9 +1,37 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/desktop/desktop_repository_state.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
+  test(
+    'continuous location defaults on for legacy settings and round trips off',
+    () {
+      expect(const AppSettings().continuousMapLocation, isTrue);
+      final settings = const AppSettings(
+        continuousMapLocation: false,
+      ).copyWith(mapMaxZoom: 23);
+      final repository = SamplePilgrimageRepository(settings: settings);
+      final encoded = encodeDesktopRepositoryState(repository.snapshot());
+      expect(
+        decodeDesktopRepositoryState(encoded)!.settings.continuousMapLocation,
+        isFalse,
+      );
+      final legacy = jsonDecode(encoded) as Map<String, dynamic>;
+      (legacy['settings'] as Map<String, dynamic>).remove(
+        'continuousMapLocation',
+      );
+      expect(
+        decodeDesktopRepositoryState(
+          jsonEncode(legacy),
+        )!.settings.continuousMapLocation,
+        isTrue,
+      );
+    },
+  );
+
   test('desktop persists plan action outside-tap preference', () {
     final repository = SamplePilgrimageRepository(
       settings: const AppSettings(dismissPlanActionsOnOutsideTap: false),

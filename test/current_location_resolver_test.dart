@@ -5,6 +5,34 @@ import 'package:geolocator/geolocator.dart';
 import 'package:miriago/map/current_location_resolver.dart';
 
 void main() {
+  test(
+    'optional map cancellation stops pending location without affecting default resolver',
+    () async {
+      var stopped = false;
+      final cancel = Completer<void>();
+      final stream = StreamController<Position>(onCancel: () => stopped = true);
+      final started = Completer<void>();
+      final request = resolveCurrentLocation(
+        isServiceEnabled: () async => true,
+        checkPermission: () async => LocationPermission.whileInUse,
+        positionStream: (_) {
+          started.complete();
+          return stream.stream;
+        },
+        cancelled: cancel.future,
+      );
+      final expectation = expectLater(
+        request,
+        throwsA(isA<CurrentLocationCancelled>()),
+      );
+      await started.future;
+      cancel.complete();
+      await expectation;
+      expect(stopped, isTrue);
+      await stream.close();
+    },
+  );
+
   test('rechecks permission and waits after the first grant', () async {
     var permissionChecks = 0;
     var requested = false;

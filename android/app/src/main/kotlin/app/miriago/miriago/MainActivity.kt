@@ -13,14 +13,37 @@ import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.EventChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var planFileChannel: MethodChannel? = null
     private var pendingPlanPath: String? = null
+    private var mapHeading: MapHeadingStream? = null
+
+    override fun onResume() {
+        super.onResume()
+        mapHeading?.resume()
+    }
+
+    override fun onPause() {
+        mapHeading?.pause()
+        super.onPause()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        mapHeading?.onCancel(null)
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "miriago/map_heading")
+            .setStreamHandler(null)
+        mapHeading = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        mapHeading = MapHeadingStream(this)
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "miriago/map_heading")
+            .setStreamHandler(mapHeading)
         flutterEngine
             .platformViewsController
             .registry

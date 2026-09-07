@@ -16,7 +16,7 @@ import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
-import '../map/current_location_resolver.dart';
+import '../map/map_location_tracker.dart';
 import '../utils/selected_item_order.dart';
 import 'add_points_screen.dart';
 import 'plan_group_picker_sheet.dart';
@@ -40,6 +40,8 @@ class PlanScreen extends StatefulWidget {
     required this.onOpenAddPoints,
     required this.onOpenPointManager,
     required this.onOpenImportExport,
+    this.isActive = true,
+    this.locationTracker,
     super.key,
   });
 
@@ -51,12 +53,15 @@ class PlanScreen extends StatefulWidget {
   final VoidCallback onOpenAddPoints;
   final VoidCallback onOpenPointManager;
   final VoidCallback onOpenImportExport;
+  final bool isActive;
+  final MapLocationTracker? locationTracker;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
 }
 
-class _PlanScreenState extends State<PlanScreen> {
+class _PlanScreenState extends State<PlanScreen>
+    with MapLocationLifecycle<PlanScreen> {
   int _selectedGroupIndex = 0;
   String? _selectedGroupId;
   late String _selectedPlanId;
@@ -69,6 +74,44 @@ class _PlanScreenState extends State<PlanScreen> {
   bool _isCachingFullReferences = false;
   double _mapHeightRatio = 0.42;
   LatLng? _currentLocation;
+  late final _locationTracker = widget.locationTracker ?? MapLocationTracker();
+  String? _locationError;
+
+  @override
+  bool get locationPageEnabled =>
+      widget.isActive && _showMap && controller.points.isNotEmpty;
+
+  @override
+  void onLocationActivityChanged(bool active) => _locationTracker.configure(
+    active: active,
+    continuous: settings.continuousMapLocation,
+  );
+
+  @override
+  void didUpdateWidget(covariant PlanScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    syncLocationActivity(force: true);
+  }
+
+  void _onLocationChanged() {
+    if (!mounted) return;
+    final position = _locationTracker.position;
+    final nextError = _locationTracker.error;
+    if (nextError != null &&
+        nextError != _locationError &&
+        locationPageActive) {
+      _showSnackBar(nextError);
+    }
+    setState(() {
+      if (position != null) {
+        _currentLocation = LatLng(position.latitude, position.longitude);
+      }
+      _isLocating = _locationTracker.locating;
+      _showVirtualLocation = _locationTracker.enabled;
+      _locationError = nextError;
+    });
+  }
+
   final _pointListController = ScrollController();
   final _pointTileKeys = <String, GlobalKey>{};
   final _planActionsPanelRegionKey = GlobalKey();
@@ -82,10 +125,13 @@ class _PlanScreenState extends State<PlanScreen> {
     super.initState();
     _selectedPlanId = controller.plan.id;
     _selectedGroupId = controller.plan.currentGroupId;
+    _locationTracker.addListener(_onLocationChanged);
   }
 
   @override
   void dispose() {
+    _locationTracker.removeListener(_onLocationChanged);
+    _locationTracker.dispose();
     _pointListController.dispose();
     super.dispose();
   }
@@ -98,6 +144,7 @@ class _PlanScreenState extends State<PlanScreen> {
       _selectedGroupId = groupId;
       _showMap = false;
     });
+    syncLocationActivity();
     controller.setCurrentGroup(groupId);
   }
 
@@ -248,42 +295,16 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   Future<void> _toggleCurrentLocation() async {
-    if (_showVirtualLocation && _currentLocation != null) {
-      setState(() {
-        _showVirtualLocation = false;
-      });
+    if (_showVirtualLocation && _locationError == null) {
+      _locationTracker.disable();
       return;
     }
-
-    setState(() {
-      _isLocating = true;
-    });
-
-    try {
-      final position = await resolveCurrentLocation();
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _currentLocation = LatLng(position.latitude, position.longitude);
-        _showVirtualLocation = true;
-      });
-    } on CurrentLocationException catch (error) {
-      _showSnackBar(currentLocationFailureMessage(error));
-    } catch (_) {
-      _showSnackBar('定位失败，请检查权限和定位服务。');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLocating = false;
-        });
-      }
-    }
+    await _locationTracker.locate();
   }
 
   @override
   Widget build(BuildContext context) {
+    syncLocationActivity();
     final plan = controller.plan;
     final groups = planGroupBuckets(plan, controller.completedPointIds);
     if (_selectedPlanId != plan.id) {
@@ -411,6 +432,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 onCreateGroup: () => _createGroupFromPointDetail(context),
               ),
               _PlanGroupControls(
+                locationError: _locationError,
                 group: selectedGroup,
                 showMap: _showMap,
                 sortMode: _sortMode,
@@ -435,6 +457,7 @@ class _PlanScreenState extends State<PlanScreen> {
                   setState(() {
                     _showMap = !_showMap;
                   });
+                  syncLocationActivity();
                 },
                 onResizeMap: _resizeMap,
                 onToggleVirtualLocation: _toggleCurrentLocation,
@@ -1051,6 +1074,7 @@ class _GroupSwitcher extends StatelessWidget {
 
 class _PlanGroupControls extends StatelessWidget {
   const _PlanGroupControls({
+    required this.locationError,
     required this.group,
     required this.showMap,
     required this.sortMode,
@@ -1071,6 +1095,7 @@ class _PlanGroupControls extends StatelessWidget {
   });
 
   final PlanGroupBucket group;
+  final String? locationError;
   final bool showMap;
   final PointSortMode sortMode;
   final bool sortDescending;
@@ -1135,6 +1160,11 @@ class _PlanGroupControls extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (showMap) ...[
+            if (locationError != null)
+              Text(
+                locationError!,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
             _PlanInlineMap(
               group: group,
               completedPointIds: completedPointIds,
@@ -1317,8 +1347,8 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
     final currentLocation = widget.currentLocation;
     if (widget.showVirtualLocation &&
         currentLocation != null &&
-        currentLocation != oldWidget.currentLocation) {
-      _mapController.move(currentLocation, 16);
+        !oldWidget.showVirtualLocation) {
+      _mapController.move(currentLocation, _mapController.camera.zoom);
       return;
     }
 

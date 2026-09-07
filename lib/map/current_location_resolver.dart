@@ -26,7 +26,14 @@ Future<Position> resolveCurrentLocation({
   Future<void> Function()? waitForAppResume,
   Duration normalTimeout = const Duration(seconds: 12),
   Duration firstGrantTimeout = const Duration(seconds: 25),
+  Future<void>? cancelled,
 }) async {
+  Future<T> untilCancelled<T>(Future<T> operation) => cancelled == null
+      ? operation
+      : Future.any([
+          operation,
+          cancelled.then<T>((_) => throw const CurrentLocationCancelled()),
+        ]);
   final readService = isServiceEnabled ?? Geolocator.isLocationServiceEnabled;
   final readPermission = checkPermission ?? Geolocator.checkPermission;
   final request = requestPermission ?? Geolocator.requestPermission;
@@ -36,23 +43,23 @@ Future<Position> resolveCurrentLocation({
   final wait = delay ?? Future<void>.delayed;
   final waitForResume = waitForAppResume ?? _waitForAppResume;
 
-  if (!await readService()) {
+  if (!await untilCancelled(readService())) {
     throw const CurrentLocationException(
       CurrentLocationFailure.serviceDisabled,
     );
   }
 
-  var permission = await readPermission();
+  var permission = await untilCancelled(readPermission());
   var firstGrant = false;
   if (permission == LocationPermission.denied) {
-    permission = await request();
+    permission = await untilCancelled(request());
     firstGrant =
         permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always;
     if (firstGrant) {
-      await waitForResume();
-      await wait(const Duration(milliseconds: 350));
-      permission = await readPermission();
+      await untilCancelled(waitForResume());
+      await untilCancelled(wait(const Duration(milliseconds: 350)));
+      permission = await untilCancelled(readPermission());
     }
   }
 
@@ -68,9 +75,9 @@ Future<Position> resolveCurrentLocation({
     streamFactory(const LocationSettings(accuracy: LocationAccuracy.high)),
   );
   try {
-    final hasPosition = await iterator.moveNext().timeout(
-      firstGrant ? firstGrantTimeout : normalTimeout,
-    );
+    final hasPosition = await untilCancelled(
+      iterator.moveNext(),
+    ).timeout(firstGrant ? firstGrantTimeout : normalTimeout);
     if (!hasPosition) {
       throw const CurrentLocationException(CurrentLocationFailure.timeout);
     }
@@ -80,6 +87,10 @@ Future<Position> resolveCurrentLocation({
   } finally {
     await iterator.cancel();
   }
+}
+
+class CurrentLocationCancelled implements Exception {
+  const CurrentLocationCancelled();
 }
 
 Future<void> _waitForAppResume() async {

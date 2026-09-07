@@ -2555,7 +2555,10 @@ void main() {
     expect(find.text('最大缩放倍率'), findsOneWidget);
     expect(find.text('地图标记大小'), findsOneWidget);
     expect(find.text('隐藏已完成点位'), findsOneWidget);
-    expect(find.text('片区范围半径'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('continuous-map-location-switch')),
+      findsOneWidget,
+    );
     expect(find.text('显示片区进度条'), findsNothing);
     expect(find.text('90%'), findsOneWidget);
     final maxZoomSlider = tester.widget<Slider>(
@@ -2563,6 +2566,12 @@ void main() {
     );
     expect(maxZoomSlider.value, 22);
     expect(maxZoomSlider.max, 24);
+    await tester.scrollUntilVisible(
+      find.text('片区范围半径'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('片区范围半径'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('自动聚合密集点位'),
       280,

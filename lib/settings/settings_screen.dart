@@ -2004,6 +2004,23 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
       fontScale: settings.fontScale,
       children: [
         _SettingsSection(
+          title: '当前位置',
+          children: [
+            SwitchListTile(
+              key: const ValueKey('continuous-map-location-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: Text('持续更新当前位置', style: _titleTextStyle),
+              subtitle: Text(
+                '开启定位后持续更新；关闭时仅在点击定位时获取一次。',
+                style: _secondaryTextStyle,
+              ),
+              value: settings.continuousMapLocation,
+              onChanged: (value) =>
+                  _update(settings.copyWith(continuousMapLocation: value)),
+            ),
+          ],
+        ),
+        _SettingsSection(
           title: '地图缩放',
           children: [
             Row(

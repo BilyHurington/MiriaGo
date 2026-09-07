@@ -293,6 +293,7 @@ class _AppShellState extends State<AppShell> {
                     index: _selectedIndex,
                     children: [
                       PlanScreen(
+                        isActive: _selectedIndex == 0,
                         controller: controller,
                         settings: _settings,
                         repository: widget.repository,
@@ -305,6 +306,7 @@ class _AppShellState extends State<AppShell> {
                       TickerMode(
                         enabled: _selectedIndex == 1,
                         child: PilgrimageMapScreen(
+                          isActive: _selectedIndex == 1,
                           controller: controller,
                           settings: _settings,
                         ),

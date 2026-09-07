@@ -187,6 +187,8 @@ class AppSettingsEntries extends Table {
       integer().withDefault(const Constant(160))();
   RealColumn get mapMarkerScale => real().withDefault(const Constant(0.9))();
   IntColumn get mapMaxZoom => integer().withDefault(const Constant(22))();
+  BoolColumn get continuousMapLocation =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -199,7 +201,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 41;
+  int get schemaVersion => 42;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -658,6 +660,15 @@ class AppDatabase extends _$AppDatabase {
           'valhalla_base_url',
           appSettingsEntries,
           appSettingsEntries.valhallaBaseUrl,
+        );
+      }
+      if (from < 42) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'continuous_map_location',
+          appSettingsEntries,
+          appSettingsEntries.continuousMapLocation,
         );
       }
     },

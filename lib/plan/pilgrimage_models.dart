@@ -218,6 +218,7 @@ class AppSettings {
     this.mapGroupAreaRadiusMeters = 160,
     this.mapMarkerScale = 0.9,
     this.mapMaxZoom = 22,
+    this.continuousMapLocation = true,
   });
 
   final double uiScale;
@@ -265,6 +266,7 @@ class AppSettings {
   final int mapGroupAreaRadiusMeters;
   final double mapMarkerScale;
   final int mapMaxZoom;
+  final bool continuousMapLocation;
 
   AppSettings copyWith({
     double? uiScale,
@@ -312,6 +314,7 @@ class AppSettings {
     int? mapGroupAreaRadiusMeters,
     double? mapMarkerScale,
     int? mapMaxZoom,
+    bool? continuousMapLocation,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -385,6 +388,8 @@ class AppSettings {
           mapGroupAreaRadiusMeters ?? this.mapGroupAreaRadiusMeters,
       mapMarkerScale: mapMarkerScale ?? this.mapMarkerScale,
       mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
+      continuousMapLocation:
+          continuousMapLocation ?? this.continuousMapLocation,
     );
   }
 }

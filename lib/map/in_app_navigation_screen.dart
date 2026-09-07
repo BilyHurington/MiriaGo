@@ -17,6 +17,8 @@ import '../plan/plan_group_utils.dart';
 import 'map_tile_config.dart';
 import 'navigation_progress.dart';
 import 'valhalla_route_client.dart';
+import 'map_location_tracker.dart';
+import 'navigation_heading.dart';
 
 const _endRouteRed = Color(0xFFFF3B30);
 
@@ -102,6 +104,7 @@ class InAppNavigationScreen extends StatefulWidget {
     this.planController,
     this.routeClient,
     this.locationStreamFactory,
+    this.headingStreamFactory,
     super.key,
   });
 
@@ -114,6 +117,7 @@ class InAppNavigationScreen extends StatefulWidget {
   final PilgrimagePlanController? planController;
   final ValhallaRouteClient? routeClient;
   final NavigationLocationStreamFactory? locationStreamFactory;
+  final NavigationHeadingStreamFactory? headingStreamFactory;
 
   static Route<void> route({
     required PilgrimagePoint point,
@@ -125,6 +129,7 @@ class InAppNavigationScreen extends StatefulWidget {
     PilgrimagePlanController? planController,
     ValhallaRouteClient? routeClient,
     NavigationLocationStreamFactory? locationStreamFactory,
+    NavigationHeadingStreamFactory? headingStreamFactory,
   }) {
     return MaterialPageRoute<void>(
       fullscreenDialog: true,
@@ -138,6 +143,7 @@ class InAppNavigationScreen extends StatefulWidget {
         planController: planController,
         routeClient: routeClient,
         locationStreamFactory: locationStreamFactory,
+        headingStreamFactory: headingStreamFactory,
       ),
     );
   }
@@ -153,6 +159,7 @@ class InAppNavigationScreen extends StatefulWidget {
     PilgrimagePlanController? planController,
     ValhallaRouteClient? routeClient,
     NavigationLocationStreamFactory? locationStreamFactory,
+    NavigationHeadingStreamFactory? headingStreamFactory,
   }) {
     return Navigator.of(context).push<void>(
       route(
@@ -165,6 +172,7 @@ class InAppNavigationScreen extends StatefulWidget {
         planController: planController,
         routeClient: routeClient,
         locationStreamFactory: locationStreamFactory,
+        headingStreamFactory: headingStreamFactory,
       ),
     );
   }
@@ -173,7 +181,8 @@ class InAppNavigationScreen extends StatefulWidget {
   State<InAppNavigationScreen> createState() => _InAppNavigationScreenState();
 }
 
-class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
+class _InAppNavigationScreenState extends State<InAppNavigationScreen>
+    with MapLocationLifecycle<InAppNavigationScreen> {
   final MapController _mapController = MapController();
   final PageController _stepController = PageController();
   var _stepIndex = 0;
@@ -184,6 +193,74 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
   var _arrivalSheetOpen = false;
   DateTime? _lastRerouteAt;
   StreamSubscription<NavigationLocationSample>? _locationSubscription;
+  final _heading = NavigationHeading();
+  Future<void> _locationCancelled = Future<void>.value();
+  Timer? _locationExpiry;
+  int _locationSession = 0;
+  String? _locationError;
+
+  @override
+  bool get locationPageEnabled => true;
+
+  @override
+  void onLocationActivityChanged(bool active) {
+    _stopLocation();
+    if (active) {
+      unawaited(_startLocation(_locationSession));
+      _heading.start(
+        () => (widget.headingStreamFactory ?? nativeNavigationHeading)(
+          _currentLocation,
+        ),
+      );
+    }
+  }
+
+  void _stopLocation() {
+    ++_locationSession;
+    _locationExpiry?.cancel();
+    final subscription = _locationSubscription;
+    _locationSubscription = null;
+    if (subscription != null) {
+      _locationCancelled = subscription.cancel().catchError((Object _) {});
+    }
+    _heading.stop();
+  }
+
+  Future<void> _startLocation(int session) async {
+    await _locationCancelled;
+    if (!mounted || session != _locationSession) return;
+    try {
+      final factory = widget.locationStreamFactory ?? _defaultLocationStream;
+      _locationSubscription = factory().listen(
+        (sample) {
+          if (!mounted || session != _locationSession) return;
+          if (_onLocation(sample)) _armLocationExpiry(session);
+        },
+        onError: (Object error) {
+          if (!mounted || session != _locationSession) return;
+          setState(() => _locationError = locationUpdateError(error));
+        },
+        onDone: () {
+          if (!mounted || session != _locationSession) return;
+          setState(() => _locationError = '定位更新已停止，请重试。');
+        },
+      );
+      _armLocationExpiry(session);
+    } catch (error) {
+      if (mounted && session == _locationSession) {
+        setState(() => _locationError = locationUpdateError(error));
+      }
+    }
+  }
+
+  void _armLocationExpiry(int session) {
+    _locationExpiry?.cancel();
+    _locationExpiry = Timer(const Duration(seconds: 45), () {
+      if (mounted && session == _locationSession) {
+        setState(() => _locationError = '暂未收到新的定位，当前位置可能已过期。');
+      }
+    });
+  }
 
   late final List<PilgrimagePoint> _stops = _resolvedStops(
     point: widget.point,
@@ -227,18 +304,11 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
     return _activeStops[_targetIndex + 1];
   }
 
-  @override
-  void initState() {
-    super.initState();
-    final factory = widget.locationStreamFactory ?? _defaultLocationStream;
-    _locationSubscription = factory().listen(_onLocation, onError: (_) {});
-  }
-
   Stream<NavigationLocationSample> _defaultLocationStream() {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 2,
+        distanceFilter: 0,
       ),
     ).map(
       (position) => NavigationLocationSample(
@@ -250,19 +320,29 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
+    _stopLocation();
+    _heading.dispose();
     _stepController.dispose();
     super.dispose();
   }
 
-  void _onLocation(NavigationLocationSample sample) {
-    if (!mounted) return;
+  bool _onLocation(NavigationLocationSample sample) {
+    if (!mounted) return false;
+    if (!sample.position.latitude.isFinite ||
+        !sample.position.longitude.isFinite ||
+        sample.position.latitude.abs() > 90 ||
+        sample.position.longitude.abs() > 180 ||
+        !sample.accuracy.isFinite ||
+        sample.accuracy < 0) {
+      return false;
+    }
     final progress = routeProgressFor(sample.position, _route);
     final maneuverIndex = activeManeuverIndexFor(
       progress.nearestShapeIndex,
       _navigationRoute.maneuvers.map((maneuver) => maneuver.endShapeIndex),
     ).clamp(0, math.max(0, _steps.length - 1)).toInt();
     setState(() {
+      _locationError = null;
       _currentLocation = sample.position;
       _progress = progress;
       _stepIndex = maneuverIndex;
@@ -276,10 +356,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
       );
     }
     if (_followLocation) {
-      _mapController.move(
-        sample.position,
-        math.max(17.0, _mapController.camera.zoom),
-      );
+      _mapController.move(sample.position, _mapController.camera.zoom);
     }
 
     final offRouteLimit = math.max(45.0, sample.accuracy + 25);
@@ -308,6 +385,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
         }
       });
     }
+    return true;
   }
 
   Future<void> _reroute() async {
@@ -476,9 +554,13 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
                   markers: [
                     Marker(
                       point: _currentLocation,
-                      width: 44,
-                      height: 44,
-                      child: const _LocationPuck(),
+                      width: 56,
+                      height: 56,
+                      rotate: false,
+                      child: NavigationLocationPuck(
+                        heading: _heading,
+                        stale: _locationError != null,
+                      ),
                     ),
                     for (var i = 0; i < _stops.length; i++)
                       if (i < _startIndex)
@@ -530,13 +612,30 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_locationError != null)
+                    Material(
+                      color: chrome.panel,
+                      child: ListTile(
+                        dense: true,
+                        title: Text(_locationError!),
+                        trailing: IconButton(
+                          key: const ValueKey('navigation-location-retry'),
+                          tooltip: '重试定位',
+                          icon: const Icon(LucideIcons.refreshCw),
+                          onPressed: () => syncLocationActivity(force: true),
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: _RecenterButton(
                       chrome: chrome,
                       onTap: () {
                         setState(() => _followLocation = true);
-                        _mapController.move(_currentLocation, 17);
+                        _mapController.move(
+                          _currentLocation,
+                          _mapController.camera.zoom,
+                        );
                       },
                     ),
                   ),
@@ -1245,42 +1344,6 @@ class _RecenterButton extends StatelessWidget {
               size: 22,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LocationPuck extends StatelessWidget {
-  const _LocationPuck();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 42,
-        height: 42,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withValues(alpha: 0.18),
-              ),
-            ),
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent,
-                border: Border.all(color: Colors.white, width: 3),
-              ),
-            ),
-          ],
         ),
       ),
     );
