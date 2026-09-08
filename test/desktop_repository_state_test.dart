@@ -1,9 +1,78 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/desktop/desktop_repository_state.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
+  test(
+    'continuous location defaults on for legacy settings and round trips off',
+    () {
+      expect(const AppSettings().continuousMapLocation, isTrue);
+      final settings = const AppSettings(
+        continuousMapLocation: false,
+      ).copyWith(mapMaxZoom: 23);
+      final repository = SamplePilgrimageRepository(settings: settings);
+      final encoded = encodeDesktopRepositoryState(repository.snapshot());
+      expect(
+        decodeDesktopRepositoryState(encoded)!.settings.continuousMapLocation,
+        isFalse,
+      );
+      final legacy = jsonDecode(encoded) as Map<String, dynamic>;
+      (legacy['settings'] as Map<String, dynamic>).remove(
+        'continuousMapLocation',
+      );
+      expect(
+        decodeDesktopRepositoryState(
+          jsonEncode(legacy),
+        )!.settings.continuousMapLocation,
+        isTrue,
+      );
+    },
+  );
+
+  test('desktop persists plan action outside-tap preference', () {
+    final repository = SamplePilgrimageRepository(
+      settings: const AppSettings(dismissPlanActionsOnOutsideTap: false),
+    );
+    final encoded = encodeDesktopRepositoryState(repository.snapshot());
+
+    final decoded = decodeDesktopRepositoryState(encoded);
+
+    expect(decoded, isNotNull);
+    expect(decoded!.settings.dismissPlanActionsOnOutsideTap, isFalse);
+  });
+
+  test('desktop persists appearance theme mode', () {
+    final repository = SamplePilgrimageRepository(
+      settings: const AppSettings(themeMode: AppThemeMode.dark),
+    );
+    final encoded = encodeDesktopRepositoryState(repository.snapshot());
+
+    final decoded = decodeDesktopRepositoryState(encoded);
+
+    expect(decoded, isNotNull);
+    expect(decoded!.settings.themeMode, AppThemeMode.dark);
+  });
+
+  test('desktop persists sample uji-station zone chain', () {
+    final encoded = encodeDesktopRepositoryState(
+      SamplePilgrimageRepository().snapshot(),
+    );
+
+    final decoded = decodeDesktopRepositoryState(encoded);
+    final chain = _ujiStationChain(decoded!.plans.single);
+
+    expect(decoded.plans.single.currentGroupId, 'sample-group-uji-station');
+    expect(chain.map((point) => point.name), _ujiStationChainNames);
+    expect(chain.map((point) => point.groupOrderIndex), [0, 1, 2, 4, 5, 6]);
+    expect(
+      chain.map((point) => point.groupId),
+      everyElement('sample-group-uji-station'),
+    );
+  });
+
   test('desktop repository state round-trips sample data', () async {
     final repository = SamplePilgrimageRepository();
     await repository.saveAppSettings(
@@ -11,6 +80,7 @@ void main() {
         uiScale: 1.25,
         cameraCaptureAspectRatio: CameraPhotoAspectRatio.landscape16x9,
         photoLocationStrategy: PhotoLocationStrategy.waitOnConfirmation,
+        themeMode: AppThemeMode.dark,
         themePalette: AppThemePalette.miriaYellow,
         mapTileProvider: MapTileProvider.customMapLibreStyle,
         openFreeMapStyle: OpenFreeMapStyle.fiord,
@@ -20,6 +90,7 @@ void main() {
         anitabiApiBaseUrl: 'https://api.example/v2',
         anitabiOfficialImageBaseUrl: 'https://images.example/official',
         anitabiMirrorImageBaseUrl: 'https://images.example/mirror',
+        valhallaBaseUrl: 'https://route.example',
         customXyzTileUrl: 'https://example.com/{z}/{x}/{y}.png',
         customMapLibreStyleUrl: 'https://example.com/style.json',
         saveVisitPhotoToGallery: false,
@@ -37,6 +108,8 @@ void main() {
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
         showPlanGroupProgress: false,
+        dismissPlanActionsOnOutsideTap: false,
+        hideCompletedPointsOnMap: false,
         mapMarkerClusteringEnabled: false,
         mapMarkerClusterRadius: 88,
         mapMarkerClusterMaxZoom: 20,
@@ -74,6 +147,8 @@ void main() {
     expect(decoded, isNotNull);
     expect(decoded!.activePlanId, source.activePlanId);
     expect(decoded.settings.uiScale, 1.0);
+    expect(decoded.settings.dismissPlanActionsOnOutsideTap, isFalse);
+    expect(decoded.settings.themeMode, AppThemeMode.dark);
     expect(
       decoded.settings.cameraCaptureAspectRatio,
       CameraPhotoAspectRatio.landscape16x9,
@@ -103,6 +178,7 @@ void main() {
       decoded.settings.anitabiMirrorImageBaseUrl,
       'https://images.example/mirror',
     );
+    expect(decoded.settings.valhallaBaseUrl, 'https://route.example');
     expect(
       decoded.settings.customXyzTileUrl,
       'https://example.com/{z}/{x}/{y}.png',
@@ -130,6 +206,7 @@ void main() {
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
     expect(decoded.settings.showPlanGroupProgress, isFalse);
+    expect(decoded.settings.hideCompletedPointsOnMap, isFalse);
     expect(decoded.settings.mapMarkerClusteringEnabled, isFalse);
     expect(decoded.settings.mapMarkerClusterRadius, 88);
     expect(decoded.settings.mapMarkerClusterMaxZoom, 20);
@@ -231,8 +308,28 @@ void main() {
     final decoded = decodeDesktopRepositoryState(source);
     final point = decoded!.plans.single.points.single;
 
+    expect(decoded.settings.dismissPlanActionsOnOutsideTap, isTrue);
     expect(point.work.id, 'missing-work');
     expect(point.work.title, '未知作品');
     expect(point.work.title, isNot('不应该被绑定的作品'));
   });
+}
+
+const _ujiStationChainNames = [
+  '井用机前步行道',
+  '宇治桥',
+  'JR 宇治站',
+  '宇治文化中心 停车场',
+  '宇治川河畔',
+  '京阪宇治站前',
+];
+
+List<PilgrimagePoint> _ujiStationChain(PilgrimagePlan plan) {
+  return [
+    for (final point in plan.points)
+      if (point.groupId == 'sample-group-uji-station') point,
+  ]..sort(
+    (left, right) =>
+        (left.groupOrderIndex ?? 0).compareTo(right.groupOrderIndex ?? 0),
+  );
 }

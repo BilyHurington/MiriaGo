@@ -7,6 +7,7 @@ import 'tauri_bridge_stub.dart'
         DesktopExportSaveResult,
         DesktopLauncherInfo,
         DesktopAssetResult,
+        DesktopAssetFileResult,
         DesktopRestoreImportAssetsResult,
         DesktopStateResult;
 export 'tauri_bridge_stub.dart'
@@ -15,6 +16,7 @@ export 'tauri_bridge_stub.dart'
         DesktopExportSaveResult,
         DesktopLauncherInfo,
         DesktopAssetResult,
+        DesktopAssetFileResult,
         DesktopRestoreImportAssetsResult,
         DesktopStateResult;
 
@@ -264,6 +266,36 @@ Future<DesktopAssetResult> writeDesktopAsset({
   );
 }
 
+Future<DesktopAssetFileResult> inspectDesktopReferenceCacheAsset({
+  required String path,
+}) async {
+  final result = await _invokeObject('inspect_reference_cache_asset', {
+    'request': {'path': path},
+  });
+  if (result == null) {
+    throw StateError('Tauri inspect_reference_cache_asset returned no result.');
+  }
+  return DesktopAssetFileResult(
+    existed: _boolProperty(result, 'existed') ?? false,
+    byteLength: _intProperty(result, 'byteLength') ?? 0,
+  );
+}
+
+Future<DesktopAssetFileResult> deleteDesktopReferenceCacheAsset({
+  required String path,
+}) async {
+  final result = await _invokeObject('delete_reference_cache_asset', {
+    'request': {'path': path},
+  });
+  if (result == null) {
+    throw StateError('Tauri delete_reference_cache_asset returned no result.');
+  }
+  return DesktopAssetFileResult(
+    existed: _boolProperty(result, 'existed') ?? false,
+    byteLength: _intProperty(result, 'byteLength') ?? 0,
+  );
+}
+
 Future<DesktopStateResult> _invokeDesktopState(
   String command,
   Map<String, Object?> arguments,
@@ -373,4 +405,12 @@ bool? _boolProperty(JSObject object, String name) {
     return null;
   }
   return (value as JSBoolean).toDart;
+}
+
+int? _intProperty(JSObject object, String name) {
+  final value = object.getProperty<JSAny?>(name.toJS);
+  if (value == null || value.isUndefinedOrNull) {
+    return null;
+  }
+  return (value as JSNumber).toDartInt;
 }

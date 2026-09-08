@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +17,7 @@ import '../plan_transfer/plan_export_delivery.dart';
 import '../plan_transfer/plan_export_delivery_result.dart';
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
+import 'snackbar_helper.dart';
 
 typedef ImageViewerRemoteImageResolver =
     Future<Uint8List?> Function(String url, AnitabiImageSource imageSource);
@@ -84,7 +86,7 @@ class ImageViewerScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).pop(),
                 child: const Padding(
                   padding: EdgeInsets.all(10),
-                  child: Icon(Icons.close, color: Colors.white, size: 24),
+                  child: Icon(LucideIcons.x, color: Colors.white, size: 24),
                 ),
               ),
             ),
@@ -105,7 +107,11 @@ class ImageViewerScreen extends StatelessWidget {
                 Navigator.of(ctx).pop();
                 final savePath = await _resolveLocalImagePath(context);
                 if (savePath == null) {
-                  _showSnackBar(messenger, '图片读取失败');
+                  _showSnackBar(
+                    messenger,
+                    '图片读取失败',
+                    kind: AppStatusBannerKind.error,
+                  );
                   return;
                 }
                 Share.shareXFiles([XFile(savePath)]);
@@ -114,11 +120,21 @@ class ImageViewerScreen extends StatelessWidget {
                 Navigator.of(ctx).pop();
                 final savePath = await _resolveLocalImagePath(context);
                 if (savePath == null) {
-                  _showSnackBar(messenger, '图片读取失败');
+                  _showSnackBar(
+                    messenger,
+                    '图片读取失败',
+                    kind: AppStatusBannerKind.error,
+                  );
                   return;
                 }
                 final success = await saveImageToGallery(savePath);
-                _showSnackBar(messenger, success ? '已保存到相册' : '保存失败');
+                _showSnackBar(
+                  messenger,
+                  success ? '已保存到相册' : '保存失败',
+                  kind: success
+                      ? AppStatusBannerKind.success
+                      : AppStatusBannerKind.error,
+                );
               },
             ),
       backgroundColor: const Color(0xFF2C2C2E),
@@ -133,7 +149,7 @@ class ImageViewerScreen extends StatelessWidget {
     try {
       final imageBytes = await _resolveImageBytes(sheetContext);
       if (imageBytes == null || imageBytes.isEmpty) {
-        _showSnackBar(messenger, '图片读取失败');
+        _showSnackBar(messenger, '图片读取失败', kind: AppStatusBannerKind.error);
         return;
       }
       final extension = _preferredExtension();
@@ -147,12 +163,17 @@ class ImageViewerScreen extends StatelessWidget {
         extension: extension,
       );
       if (result.action == PlanExportDeliveryAction.canceled) {
-        _showSnackBar(messenger, '已取消保存');
+        _showSnackBar(
+          messenger,
+          '已取消保存',
+          kind: AppStatusBannerKind.running,
+          icon: LucideIcons.circleX,
+        );
         return;
       }
-      _showSnackBar(messenger, '图片已保存');
+      _showSnackBar(messenger, '图片已保存', kind: AppStatusBannerKind.success);
     } catch (_) {
-      _showSnackBar(messenger, '保存失败');
+      _showSnackBar(messenger, '保存失败', kind: AppStatusBannerKind.error);
     }
   }
 
@@ -306,8 +327,13 @@ class ImageViewerScreen extends StatelessWidget {
     return base64Decode(payload);
   }
 
-  void _showSnackBar(ScaffoldMessengerState messenger, String message) {
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+  void _showSnackBar(
+    ScaffoldMessengerState messenger,
+    String message, {
+    AppStatusBannerKind kind = AppStatusBannerKind.error,
+    IconData? icon,
+  }) {
+    messenger.showStatusSnack(kind: kind, title: message, icon: icon);
   }
 
   Widget _buildImage(BuildContext context) {
@@ -472,9 +498,9 @@ class _ImageViewerPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = switch (state) {
-      _ImageViewerPlaceholderState.loading => Icons.hourglass_empty_rounded,
-      _ImageViewerPlaceholderState.empty => Icons.image_outlined,
-      _ImageViewerPlaceholderState.unavailable => Icons.broken_image_outlined,
+      _ImageViewerPlaceholderState.loading => LucideIcons.hourglass,
+      _ImageViewerPlaceholderState.empty => LucideIcons.image,
+      _ImageViewerPlaceholderState.unavailable => LucideIcons.imageOff,
     };
     final label = switch (state) {
       _ImageViewerPlaceholderState.loading => '图片加载中',
@@ -526,7 +552,7 @@ class _WebSaveSheet extends StatelessWidget {
         children: [
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
+            leading: const Icon(LucideIcons.download, color: Colors.white),
             title: const Text('保存图片', style: TextStyle(color: Colors.white)),
             onTap: onSave,
           ),
@@ -554,12 +580,12 @@ class _MobileSaveSheet extends StatelessWidget {
         children: [
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.share_outlined, color: Colors.white),
+            leading: const Icon(LucideIcons.share, color: Colors.white),
             title: const Text('分享', style: TextStyle(color: Colors.white)),
             onTap: onShare,
           ),
           ListTile(
-            leading: const Icon(Icons.save_alt_outlined, color: Colors.white),
+            leading: const Icon(LucideIcons.download, color: Colors.white),
             title: const Text('保存到相册', style: TextStyle(color: Colors.white)),
             onTap: onSaveToGallery,
           ),

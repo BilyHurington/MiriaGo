@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
@@ -7,6 +8,7 @@ import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'pilgrimage_models.dart';
 
 Widget _cleanPlanReorderProxy(
@@ -93,9 +95,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       switched = true;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('切换计划失败，请稍后重试。')));
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '切换计划失败，请稍后重试。',
+        );
       }
     }
     if (!mounted) {
@@ -122,7 +125,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     if (plans == null || plans.length <= 1) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('至少需要保留一个计划')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '至少需要保留一个计划');
       return;
     }
 
@@ -231,16 +234,18 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        SnackBar(content: Text('已复制「${duplicatedPlan.name}」')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已复制「${duplicatedPlan.name}」',
       );
     } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('复制计划失败，请稍后重试。')));
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '复制计划失败，请稍后重试。',
+      );
     }
   }
 
@@ -274,8 +279,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
         return;
       }
       setState(() => _plans = previousPlans);
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        const SnackBar(content: Text('保存计划顺序失败，已恢复原来的顺序。')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '保存计划顺序失败，已恢复原来的顺序。',
       );
     } finally {
       if (mounted) {
@@ -290,6 +296,7 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: Text(_sorting ? '调整计划顺序' : '切换计划'),
         actions: [
           if (plans != null && plans.length > 1)
@@ -304,7 +311,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(_sorting ? Icons.done : Icons.sort),
+                  : Icon(
+                      _sorting ? LucideIcons.check : LucideIcons.arrowUpDown,
+                    ),
             ),
         ],
       ),
@@ -414,7 +423,7 @@ class _CreatePlanButton extends StatelessWidget {
         side: BorderSide(color: AppColors.accent, width: 1.2),
         minimumSize: const Size.fromHeight(46),
       ),
-      icon: const Icon(Icons.add, size: 19),
+      icon: const Icon(LucideIcons.plus, size: 19),
       label: const Text('新建计划'),
     );
   }
@@ -431,7 +440,7 @@ class _PlanSectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 7),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 13,
           height: 1.15,
@@ -495,7 +504,13 @@ class _PlanCardState extends State<_PlanCard> {
     if (_menuOpen == open) {
       return;
     }
-    setState(() => _menuOpen = open);
+    setState(() {
+      _menuOpen = open;
+      _cardHovered = false;
+      if (!open) {
+        _actionHovered = false;
+      }
+    });
   }
 
   @override
@@ -528,6 +543,9 @@ class _PlanCardState extends State<_PlanCard> {
         child: InkWell(
           onTap: selected ? null : widget.onSwitch,
           hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Stack(
             children: [
               Padding(
@@ -549,7 +567,7 @@ class _PlanCardState extends State<_PlanCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         onTap: selected ? null : widget.onSwitch,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 17,
                           height: 1.15,
@@ -571,7 +589,7 @@ class _PlanCardState extends State<_PlanCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         onTap: selected ? null : widget.onSwitch,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12.5,
                           height: 1.15,
@@ -591,7 +609,7 @@ class _PlanCardState extends State<_PlanCard> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   '暂无作品',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 11,
                                     height: 1,
@@ -616,10 +634,10 @@ class _PlanCardState extends State<_PlanCard> {
                         children: [
                           Icon(
                             widget.reorderIndex != null
-                                ? Icons.sort
+                                ? LucideIcons.arrowUpDown
                                 : selected
-                                ? Icons.check_circle
-                                : Icons.swap_horiz,
+                                ? LucideIcons.checkCircle
+                                : LucideIcons.arrowLeftRight,
                             color: selected
                                 ? AppColors.accent
                                 : AppColors.textSecondary.withValues(
@@ -672,7 +690,7 @@ class _PlanCardState extends State<_PlanCard> {
                         message: '拖动排序',
                         child: Center(
                           child: Icon(
-                            Icons.drag_indicator,
+                            LucideIcons.gripVertical,
                             size: 22,
                             color: AppColors.textSecondary.withValues(
                               alpha: widget.reorderEnabled ? 0.7 : 0.35,
@@ -697,7 +715,7 @@ class _PlanCardState extends State<_PlanCard> {
                         key: ValueKey('plan-card-edit-${plan.id}'),
                         tooltip: '编辑计划信息',
                         onPressed: widget.onRename,
-                        icon: Icons.edit_outlined,
+                        icon: LucideIcons.edit,
                         iconSize: 21,
                       ),
                       const SizedBox(width: 2),
@@ -711,6 +729,7 @@ class _PlanCardState extends State<_PlanCard> {
                           onDuplicate: widget.onDuplicate!,
                           onDelete: widget.onDelete!,
                           onMenuOpenChanged: _setMenuOpen,
+                          onMenuHoverChanged: _setActionHovered,
                         ),
                     ],
                   ),
@@ -760,6 +779,7 @@ class _PlanMoreButton extends StatefulWidget {
     required this.onDuplicate,
     required this.onDelete,
     required this.onMenuOpenChanged,
+    required this.onMenuHoverChanged,
   });
 
   final PilgrimagePlan plan;
@@ -768,6 +788,7 @@ class _PlanMoreButton extends StatefulWidget {
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
   final ValueChanged<bool> onMenuOpenChanged;
+  final ValueChanged<bool> onMenuHoverChanged;
 
   @override
   State<_PlanMoreButton> createState() => _PlanMoreButtonState();
@@ -791,11 +812,15 @@ class _PlanMoreButtonState extends State<_PlanMoreButton> {
         alignment: AlignmentDirectional.bottomStart,
         backgroundColor: WidgetStatePropertyAll(Colors.transparent),
         surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+        shadowColor: WidgetStatePropertyAll(Colors.transparent),
         padding: WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: WidgetStatePropertyAll(Size(_menuWidth, 0)),
         maximumSize: WidgetStatePropertyAll(Size(_menuWidth, 520)),
         elevation: WidgetStatePropertyAll(0),
-        shadowColor: WidgetStatePropertyAll(Colors.transparent),
+        side: WidgetStatePropertyAll(BorderSide.none),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(side: BorderSide.none),
+        ),
       ),
       menuChildren: [
         _PlanActionsMenuPanel(
@@ -803,6 +828,7 @@ class _PlanMoreButtonState extends State<_PlanMoreButton> {
           onExport: widget.onExport,
           onDuplicate: widget.onDuplicate,
           onDelete: widget.onDelete,
+          onHoverChanged: widget.onMenuHoverChanged,
         ),
       ],
       child: _PlanActionButton(
@@ -815,7 +841,7 @@ class _PlanMoreButtonState extends State<_PlanMoreButton> {
             _controller.open();
           }
         },
-        icon: Icons.more_horiz,
+        icon: LucideIcons.ellipsis,
         iconSize: 20,
       ),
     );
@@ -828,64 +854,70 @@ class _PlanActionsMenuPanel extends StatelessWidget {
     required this.onExport,
     required this.onDuplicate,
     required this.onDelete,
+    required this.onHoverChanged,
   });
 
   final bool canDelete;
   final VoidCallback onExport;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
+  final ValueChanged<bool> onHoverChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      key: const ValueKey('plan-actions-menu'),
-      width: _PlanMoreButtonState._menuWidth,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          CustomPaint(
-            key: const ValueKey('plan-actions-menu-panel'),
-            painter: const _PlanMenuSurfacePainter(),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 23, 10, 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _PlanMenuActionItem(
-                    actionKey: const ValueKey('plan-menu-action-transfer'),
-                    label: '导入导出',
-                    icon: Icons.import_export_outlined,
-                    onPressed: onExport,
-                  ),
-                  const SizedBox(height: 6),
-                  _PlanMenuActionItem(
-                    actionKey: const ValueKey('plan-menu-action-copy'),
-                    label: '复制计划',
-                    icon: Icons.copy_outlined,
-                    onPressed: onDuplicate,
-                  ),
-                  const Divider(height: 17, color: AppColors.border),
-                  _PlanMenuActionItem(
-                    actionKey: const ValueKey('plan-menu-action-delete'),
-                    label: '删除计划',
-                    icon: Icons.delete_outline,
-                    onPressed: canDelete ? onDelete : null,
-                    isDangerous: true,
-                  ),
-                ],
+    return MouseRegion(
+      onEnter: (_) => onHoverChanged(true),
+      onExit: (_) => onHoverChanged(false),
+      child: SizedBox(
+        key: const ValueKey('plan-actions-menu'),
+        width: _PlanMoreButtonState._menuWidth,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CustomPaint(
+              key: const ValueKey('plan-actions-menu-panel'),
+              painter: const _PlanMenuSurfacePainter(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 23, 10, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _PlanMenuActionItem(
+                      actionKey: const ValueKey('plan-menu-action-transfer'),
+                      label: '导入导出',
+                      icon: LucideIcons.import,
+                      onPressed: onExport,
+                    ),
+                    const SizedBox(height: 6),
+                    _PlanMenuActionItem(
+                      actionKey: const ValueKey('plan-menu-action-copy'),
+                      label: '复制计划',
+                      icon: LucideIcons.copy,
+                      onPressed: onDuplicate,
+                    ),
+                    Divider(height: 17, color: AppColors.border),
+                    _PlanMenuActionItem(
+                      actionKey: const ValueKey('plan-menu-action-delete'),
+                      label: '删除计划',
+                      icon: LucideIcons.trash2,
+                      onPressed: canDelete ? onDelete : null,
+                      isDangerous: true,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const Positioned(
-            top: 0,
-            right: 8,
-            child: SizedBox(
-              key: ValueKey('plan-actions-menu-pointer'),
-              width: 22,
-              height: 13,
+            const Positioned(
+              top: 0,
+              right: 8,
+              child: SizedBox(
+                key: ValueKey('plan-actions-menu-pointer'),
+                width: 22,
+                height: 13,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1035,9 +1067,18 @@ class _PlanActionButton extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: onPressed,
+              borderRadius: BorderRadius.circular(8),
               hoverColor: AppColors.surfaceMuted,
               highlightColor: AppColors.surfaceMuted,
               splashColor: AppColors.accent.withValues(alpha: 0.08),
+              focusColor: Colors.transparent,
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.hovered) ||
+                    states.contains(WidgetState.pressed)) {
+                  return AppColors.surfaceMuted;
+                }
+                return Colors.transparent;
+              }),
               child: Center(
                 child: Icon(
                   icon,
@@ -1080,7 +1121,7 @@ class _PlanWorkTags extends StatelessWidget {
         if (remainingCount > 0)
           Text(
             '+$remainingCount',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
               height: 1,
@@ -1141,7 +1182,7 @@ class _PlanWorkTag extends StatelessWidget {
               work.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 11,
                 height: 1,
@@ -1166,7 +1207,7 @@ class _ErrorState extends StatelessWidget {
     return Center(
       child: OutlinedButton.icon(
         onPressed: onRetry,
-        icon: const Icon(Icons.refresh),
+        icon: const Icon(LucideIcons.refreshCw),
         label: const Text('重新加载计划'),
       ),
     );

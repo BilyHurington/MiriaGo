@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/sample_pilgrimage_repository.dart';
 import '../data/anitabi_service_config.dart';
+import '../data/valhalla_service_config.dart';
 import '../plan/pilgrimage_models.dart';
 
 const desktopRepositoryStateSchemaVersion = 1;
@@ -86,6 +87,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'anitabiOfficialImageBaseUrl': settings.anitabiOfficialImageBaseUrl,
     'anitabiMirrorImageBaseUrl': settings.anitabiMirrorImageBaseUrl,
     'navigationApp': settings.navigationApp.name,
+    'valhallaBaseUrl': settings.valhallaBaseUrl,
     'customXyzTileUrl': settings.customXyzTileUrl,
     'customMapLibreStyleUrl': settings.customMapLibreStyleUrl,
     'saveVisitPhotoToGallery': settings.saveVisitPhotoToGallery,
@@ -104,12 +106,15 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'mapThumbnailVisibleThreshold': settings.mapThumbnailVisibleThreshold,
     'mapThumbnailConcurrentLoads': settings.mapThumbnailConcurrentLoads,
     'showPlanGroupProgress': settings.showPlanGroupProgress,
+    'dismissPlanActionsOnOutsideTap': settings.dismissPlanActionsOnOutsideTap,
+    'hideCompletedPointsOnMap': settings.hideCompletedPointsOnMap,
     'mapMarkerClusteringEnabled': settings.mapMarkerClusteringEnabled,
     'mapMarkerClusterRadius': settings.mapMarkerClusterRadius,
     'mapMarkerClusterMaxZoom': settings.mapMarkerClusterMaxZoom,
     'mapGroupAreaRadiusMeters': settings.mapGroupAreaRadiusMeters,
     'mapMarkerScale': settings.mapMarkerScale,
     'mapMaxZoom': settings.mapMaxZoom,
+    'continuousMapLocation': settings.continuousMapLocation,
   };
 }
 
@@ -178,6 +183,9 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     navigationApp:
         _enumByName(NavigationApp.values, json['navigationApp']) ??
         NavigationApp.googleMaps,
+    valhallaBaseUrl: normalizeValhallaBaseUrl(
+      _stringValue(json['valhallaBaseUrl'], fallback: ''),
+    ),
     customXyzTileUrl: _stringValue(json['customXyzTileUrl'], fallback: ''),
     customMapLibreStyleUrl: _stringValue(
       json['customMapLibreStyleUrl'],
@@ -215,6 +223,10 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     mapThumbnailConcurrentLoads:
         _intValue(json['mapThumbnailConcurrentLoads']) ?? 10,
     showPlanGroupProgress: _boolValue(json['showPlanGroupProgress']) ?? true,
+    dismissPlanActionsOnOutsideTap:
+        _boolValue(json['dismissPlanActionsOnOutsideTap']) ?? true,
+    hideCompletedPointsOnMap:
+        _boolValue(json['hideCompletedPointsOnMap']) ?? true,
     mapMarkerClusteringEnabled:
         _boolValue(json['mapMarkerClusteringEnabled']) ?? true,
     mapMarkerClusterRadius: _intValue(json['mapMarkerClusterRadius']) ?? 40,
@@ -223,6 +235,7 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _intValue(json['mapGroupAreaRadiusMeters']) ?? 160,
     mapMarkerScale: _doubleValue(json['mapMarkerScale']) ?? 0.9,
     mapMaxZoom: (_intValue(json['mapMaxZoom']) ?? 22).clamp(16, 24),
+    continuousMapLocation: _boolValue(json['continuousMapLocation']) ?? true,
   );
 }
 

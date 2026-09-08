@@ -9,6 +9,7 @@ import '../app_managed_file_paths_stub.dart'
     if (dart.library.io) '../app_managed_file_paths_io.dart';
 import '../pilgrimage_repository.dart';
 import '../sample_pilgrimage_repository.dart';
+import '../valhalla_service_config.dart';
 import 'app_database.dart';
 import 'database_connection/stub_connection.dart'
     if (dart.library.io) 'database_connection/native_connection.dart';
@@ -105,6 +106,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         fallback: defaultAnitabiMirrorImageBaseUrl,
       ),
       navigationApp: _navigationAppFromName(row.navigationApp),
+      valhallaBaseUrl: normalizeValhallaBaseUrl(row.valhallaBaseUrl),
       customXyzTileUrl: row.customXyzTileUrl,
       customMapLibreStyleUrl: row.customMapLibreStyleUrl,
       saveVisitPhotoToGallery: row.saveVisitPhotoToGallery,
@@ -130,12 +132,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       ),
       mapThumbnailConcurrentLoads: row.mapThumbnailConcurrentLoads.clamp(1, 30),
       showPlanGroupProgress: row.showPlanGroupProgress,
+      dismissPlanActionsOnOutsideTap: row.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap: row.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled: row.mapMarkerClusteringEnabled,
       mapMarkerClusterRadius: row.mapMarkerClusterRadius.clamp(32, 120),
       mapMarkerClusterMaxZoom: row.mapMarkerClusterMaxZoom.clamp(10, 22),
       mapGroupAreaRadiusMeters: row.mapGroupAreaRadiusMeters.clamp(25, 500),
       mapMarkerScale: row.mapMarkerScale.clamp(0.6, 1.2),
       mapMaxZoom: row.mapMaxZoom.clamp(16, 24),
+      continuousMapLocation: row.continuousMapLocation,
     );
   }
 
@@ -498,16 +503,22 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         final storagePointId = _storageId(planId, entry.key);
         await (_database.update(_database.points)..where(
               (table) =>
-                  table.planId.equals(planId) & table.id.equals(storagePointId),
+                  table.planId.equals(planId) &
+                  table.id.equals(storagePointId) &
+                  (entry.value.expectedReferenceImageUrl == null
+                      ? const Constant(true)
+                      : table.referenceImageUrl.equals(
+                          entry.value.expectedReferenceImageUrl!,
+                        )),
             ))
             .write(
               PointsCompanion(
                 referenceThumbnailPath: Value(
                   entry.value.referenceThumbnailPath,
                 ),
-                referenceFullImagePath: Value(
-                  entry.value.referenceFullImagePath,
-                ),
+                referenceFullImagePath: entry.value.preserveFullImagePath
+                    ? const Value.absent()
+                    : Value(entry.value.referenceFullImagePath),
               ),
             );
       }
@@ -1133,6 +1144,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.anitabiMirrorImageBaseUrl.trim(),
             ),
             navigationApp: Value(settings.navigationApp.name),
+            valhallaBaseUrl: Value(
+              normalizeValhallaBaseUrl(settings.valhallaBaseUrl),
+            ),
             customXyzTileUrl: Value(settings.customXyzTileUrl.trim()),
             customMapLibreStyleUrl: Value(
               settings.customMapLibreStyleUrl.trim(),
@@ -1173,6 +1187,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.mapThumbnailConcurrentLoads.clamp(1, 30),
             ),
             showPlanGroupProgress: Value(settings.showPlanGroupProgress),
+            dismissPlanActionsOnOutsideTap: Value(
+              settings.dismissPlanActionsOnOutsideTap,
+            ),
+            hideCompletedPointsOnMap: Value(settings.hideCompletedPointsOnMap),
             mapMarkerClusteringEnabled: Value(
               settings.mapMarkerClusteringEnabled,
             ),
@@ -1187,6 +1205,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             mapMarkerScale: Value(settings.mapMarkerScale.clamp(0.6, 1.2)),
             mapMaxZoom: Value(settings.mapMaxZoom.clamp(16, 24)),
+            continuousMapLocation: Value(settings.continuousMapLocation),
           ),
         );
   }

@@ -97,6 +97,42 @@ void main() {
       isNotNull,
     );
   });
+
+  testWidgets('skip location waits no longer and keeps save enabled', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.controller.dispose);
+    await _pumpConfirmation(
+      tester,
+      fixture,
+      photoLocationStrategy: PhotoLocationStrategy.waitOnConfirmation,
+      resolvePhotoLocation: () => Completer<PhotoLocationData>().future,
+      writePhotoLocation: (_, _) async => true,
+      settle: false,
+    );
+
+    expect(find.text('正在获取拍摄位置...'), findsOneWidget);
+    expect(find.text('跳过'), findsOneWidget);
+    expect(
+      find.ancestor(of: find.text('跳过'), matching: find.byType(OutlinedButton)),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.text('跳过'));
+    await tester.pump();
+
+    expect(find.text('已跳过定位，本次照片不会写入位置。'), findsOneWidget);
+    expect(find.text('跳过'), findsNothing);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNotNull,
+    );
+  });
 }
 
 class _Fixture {

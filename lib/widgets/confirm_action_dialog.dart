@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import 'responsive_button.dart';
 
 Future<bool> showConfirmActionDialog(
   BuildContext context, {
@@ -25,6 +27,22 @@ Future<bool> showConfirmActionDialog(
     ),
   );
   return confirmed == true;
+}
+
+Future<void> showInfoActionDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = '知道了',
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => InfoActionDialog(
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+    ),
+  );
 }
 
 class ConfirmActionDialog extends StatelessWidget {
@@ -81,7 +99,7 @@ class ConfirmActionDialog extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -106,7 +124,11 @@ class ConfirmActionDialog extends StatelessWidget {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.warning_rounded, color: dangerColor, size: 17),
+                      Icon(
+                        LucideIcons.triangleAlert,
+                        color: dangerColor,
+                        size: 17,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         '此操作无法撤销',
@@ -121,37 +143,72 @@ class ConfirmActionDialog extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                OverflowBar(
-                  spacing: 10,
-                  overflowSpacing: 8,
-                  alignment: MainAxisAlignment.end,
-                  overflowAlignment: OverflowBarAlignment.end,
-                  children: [
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      style: FilledButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        backgroundColor: AppColors.surfaceMuted,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(cancelLabel),
+                AppDialogActionRow(
+                  cancelLabel: cancelLabel,
+                  confirmLabel: confirmLabel,
+                  confirmColor: dangerColor,
+                  onCancel: () => Navigator.of(context).pop(false),
+                  onConfirm: () => Navigator.of(context).pop(true),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class InfoActionDialog extends StatelessWidget {
+  const InfoActionDialog({
+    required this.title,
+    required this.message,
+    this.confirmLabel = '知道了',
+    super.key,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = _availableDialogHeight(context);
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _EmphasizedMessage(message, emphasizedValues: const []),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: FilledButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: dangerColor,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(confirmLabel),
-                    ),
-                  ],
+                  ),
+                  child: _DialogActionLabel(confirmLabel),
                 ),
               ],
             ),
@@ -199,7 +256,7 @@ class _StandardConfirmDialog extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -226,7 +283,7 @@ class _StandardConfirmDialog extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_rounded,
+                          LucideIcons.info,
                           color: AppColors.accent,
                           size: 17,
                         ),
@@ -247,26 +304,11 @@ class _StandardConfirmDialog extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                OverflowBar(
-                  spacing: 6,
-                  overflowSpacing: 8,
-                  alignment: MainAxisAlignment.end,
-                  overflowAlignment: OverflowBarAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(cancelLabel),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 46),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: const StadiumBorder(),
-                      ),
-                      child: Text(confirmLabel),
-                    ),
-                  ],
+                AppDialogActionRow(
+                  cancelLabel: cancelLabel,
+                  confirmLabel: confirmLabel,
+                  onCancel: () => Navigator.of(context).pop(false),
+                  onConfirm: () => Navigator.of(context).pop(true),
                 ),
               ],
             ),
@@ -274,6 +316,68 @@ class _StandardConfirmDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class AppDialogActionRow extends StatelessWidget {
+  const AppDialogActionRow({
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.onCancel,
+    required this.onConfirm,
+    this.confirmColor,
+    super.key,
+  });
+
+  final String cancelLabel;
+  final String confirmLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+  final Color? confirmColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveTwoButtonRow(
+      spacing: 10,
+      stackBelowWidth: 240,
+      first: FilledButton(
+        onPressed: onCancel,
+        style: FilledButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.surfaceMuted,
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: _DialogActionLabel(cancelLabel),
+      ),
+      second: FilledButton(
+        onPressed: onConfirm,
+        style: FilledButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: confirmColor ?? AppColors.accent,
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: _DialogActionLabel(confirmLabel),
+      ),
+    );
+  }
+}
+
+class _DialogActionLabel extends StatelessWidget {
+  const _DialogActionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(label, textAlign: TextAlign.center, maxLines: 2);
   }
 }
 
@@ -299,7 +403,7 @@ class _EmphasizedMessage extends StatelessWidget {
             .toSet()
             .toList()
           ..sort((a, b) => b.length.compareTo(a.length));
-    final baseStyle = const TextStyle(
+    final baseStyle = TextStyle(
       color: AppColors.textSecondary,
       fontSize: 14,
       height: 1.55,
@@ -319,7 +423,7 @@ class _EmphasizedMessage extends StatelessWidget {
       spans.add(
         TextSpan(
           text: match.group(0),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),

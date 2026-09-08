@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'pilgrimage_plan_controller.dart';
 
 class PlanMemoScreen extends StatefulWidget {
@@ -95,16 +97,6 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
     });
   }
 
-  Future<void> _cancelEditing() async {
-    if (!await _confirmDiscardChanges()) {
-      return;
-    }
-    setState(() {
-      _setMemoText(_savedMemo);
-      _isEditing = false;
-    });
-  }
-
   Future<void> _saveMemo() async {
     if (_isSaving) {
       return;
@@ -122,12 +114,12 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('计划备忘录已保存')));
+      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '计划备忘录已保存');
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('计划备忘录保存失败')));
+        ).showStatusSnack(kind: AppStatusBannerKind.error, title: '计划备忘录保存失败');
       }
     } finally {
       if (mounted) {
@@ -162,7 +154,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('待办状态保存失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '待办状态保存失败');
     } finally {
       if (mounted) {
         setState(() {
@@ -350,7 +342,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
     if (uri == null || !uri.hasScheme) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('链接格式不正确')));
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '链接格式不正确');
       return;
     }
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -359,7 +351,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
     }
     ScaffoldMessenger.of(
       context,
-    ).showReplacingSnackBar(const SnackBar(content: Text('无法打开链接')));
+    ).showStatusSnack(kind: AppStatusBannerKind.error, title: '无法打开链接');
   }
 
   @override
@@ -375,18 +367,10 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _handleBack,
-          ),
+          leading: AppBackButton(onPressed: _handleBack),
           title: const Text('计划备忘录'),
           actions: [
-            if (_isEditing) ...[
-              TextButton(
-                onPressed: _isSaving ? null : _cancelEditing,
-                child: const Text('取消'),
-              ),
+            if (_isEditing)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton.icon(
@@ -397,15 +381,15 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save_outlined),
+                      : const Icon(LucideIcons.save),
                   label: const Text('保存'),
                 ),
-              ),
-            ] else
+              )
+            else
               IconButton(
                 tooltip: '编辑',
                 onPressed: _startEditing,
-                icon: const Icon(Icons.edit_outlined),
+                icon: const Icon(LucideIcons.edit),
               ),
           ],
         ),
@@ -419,21 +403,76 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
                         _MarkdownToolbar(onAction: _applyMarkdownAction),
                         const SizedBox(height: 12),
                         Expanded(
-                          child: TextField(
-                            onTapOutside: dismissKeyboardOnTapOutside,
-                            controller: _memoController,
-                            autofocus: true,
-                            expands: true,
-                            maxLines: null,
-                            minLines: null,
-                            keyboardType: TextInputType.multiline,
-                            textAlignVertical: TextAlignVertical.top,
-                            decoration: const InputDecoration(
-                              labelText: '备忘录内容',
-                              alignLabelWithHint: true,
-                              hintText: '可以记录交通、预约、补拍事项、同行安排等。',
-                              border: OutlineInputBorder(),
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '备忘录内容',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Expanded(
+                                child: TextField(
+                                  key: const ValueKey('plan-memo-editor'),
+                                  onTapOutside: dismissKeyboardOnTapOutside,
+                                  controller: _memoController,
+                                  autofocus: true,
+                                  expands: true,
+                                  maxLines: null,
+                                  minLines: null,
+                                  keyboardType: TextInputType.multiline,
+                                  textAlignVertical: TextAlignVertical.top,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 15,
+                                    height: 1.5,
+                                    letterSpacing: 0,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '可以记录交通、预约、补拍事项、同行安排等。',
+                                    hintStyle: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 14,
+                                      height: 1.5,
+                                      fontWeight: FontWeight.w400,
+                                      letterSpacing: 0,
+                                    ),
+                                    filled: true,
+                                    fillColor: AppColors.surface,
+                                    contentPadding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      16,
+                                      16,
+                                      16,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: AppColors.border,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: AppColors.border,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide(
+                                        color: AppColors.accent,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -469,42 +508,42 @@ class _MarkdownToolbar extends StatelessWidget {
     const tools = [
       _MarkdownToolSpec(
         action: _MarkdownAction.heading,
-        icon: Icons.title,
+        icon: LucideIcons.heading,
         tooltip: '标题',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.bold,
-        icon: Icons.format_bold,
+        icon: LucideIcons.bold,
         tooltip: '加粗',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.list,
-        icon: Icons.format_list_bulleted,
+        icon: LucideIcons.list,
         tooltip: '列表',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.task,
-        icon: Icons.check_box_outlined,
+        icon: LucideIcons.squareCheckBig,
         tooltip: '待办',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.quote,
-        icon: Icons.format_quote,
+        icon: LucideIcons.quote,
         tooltip: '引用',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.divider,
-        icon: Icons.horizontal_rule,
+        icon: LucideIcons.minus,
         tooltip: '分割线',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.link,
-        icon: Icons.link,
+        icon: LucideIcons.link,
         tooltip: '链接',
       ),
       _MarkdownToolSpec(
         action: _MarkdownAction.code,
-        icon: Icons.code,
+        icon: LucideIcons.code,
         tooltip: '代码',
       ),
     ];
@@ -608,7 +647,7 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
 
   static MarkdownStyleSheet _markdownStyleSheet(BuildContext context) {
     final base = MarkdownStyleSheet.fromTheme(Theme.of(context));
-    const paragraph = TextStyle(
+    final paragraph = TextStyle(
       color: AppColors.textPrimary,
       fontSize: 16,
       height: 1.55,
@@ -627,21 +666,21 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
       listBullet: paragraph.copyWith(fontSize: 18, fontWeight: FontWeight.w800),
       listBulletPadding: EdgeInsets.zero,
       checkbox: TextStyle(color: AppColors.accentDark, fontSize: 24),
-      h1: const TextStyle(
+      h1: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 24,
         fontWeight: FontWeight.w800,
         height: 1.25,
         letterSpacing: 0,
       ),
-      h2: const TextStyle(
+      h2: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 21,
         fontWeight: FontWeight.w800,
         height: 1.3,
         letterSpacing: 0,
       ),
-      h3: const TextStyle(
+      h3: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 18,
         fontWeight: FontWeight.w800,
@@ -650,7 +689,7 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
       ),
       strong: const TextStyle(fontWeight: FontWeight.w800),
       blockSpacing: 10,
-      blockquote: const TextStyle(
+      blockquote: TextStyle(
         color: AppColors.textSecondary,
         fontSize: 16,
         height: 1.55,
@@ -662,7 +701,7 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
         border: Border(left: BorderSide(color: AppColors.accentDark, width: 4)),
         borderRadius: BorderRadius.circular(8),
       ),
-      code: const TextStyle(
+      code: TextStyle(
         color: AppColors.textPrimary,
         backgroundColor: AppColors.surfaceMuted,
         fontSize: 14,
@@ -675,7 +714,7 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      horizontalRuleDecoration: const BoxDecoration(
+      horizontalRuleDecoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
     );
@@ -701,7 +740,7 @@ class _TaskCheckboxBuilder {
             width: 28,
             height: 28,
             child: Icon(
-              value ? Icons.check_box : Icons.check_box_outline_blank,
+              value ? LucideIcons.squareCheckBig : LucideIcons.square,
               size: 25,
               color: value ? AppColors.accentDark : AppColors.textSecondary,
             ),
@@ -721,7 +760,7 @@ Widget _buildMarkdownBullet(MarkdownBulletParameters parameters) {
         child: Text(
           '${parameters.index + 1}.',
           textAlign: TextAlign.right,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w800,
@@ -734,7 +773,7 @@ Widget _buildMarkdownBullet(MarkdownBulletParameters parameters) {
   }
   return Transform.translate(
     offset: const Offset(0, 4),
-    child: const SizedBox(
+    child: SizedBox(
       width: 20,
       height: 20,
       child: Center(
@@ -771,14 +810,14 @@ class _UnsupportedMarkdownImage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.image_not_supported_outlined, size: 20),
+          const Icon(LucideIcons.imageOff, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '备忘录不支持图片：$label',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -798,27 +837,11 @@ class _EmptyPlanMemo extends StatelessWidget {
   final VoidCallback onStart;
 
   static const _suggestions = [
-    (
-      icon: Icons.directions_transit_outlined,
-      label: '交通安排',
-      detail: '如车次、换乘方案、出发时间等',
-    ),
-    (icon: Icons.hotel_outlined, label: '酒店预约', detail: '酒店地址、入住时间、联系方式等'),
-    (
-      icon: Icons.confirmation_number_outlined,
-      label: '活动门票',
-      detail: '活动门票、预约时间、注意事项等',
-    ),
-    (
-      icon: Icons.photo_camera_outlined,
-      label: '拍摄计划',
-      detail: '拍摄地点、时间、天气备选方案等',
-    ),
-    (
-      icon: Icons.notifications_none_rounded,
-      label: '注意事项',
-      detail: '携带物品、预算、当地注意事项等',
-    ),
+    (icon: LucideIcons.trainFront, label: '交通安排', detail: '如车次、换乘方案、出发时间等'),
+    (icon: LucideIcons.hotel, label: '酒店预约', detail: '酒店地址、入住时间、联系方式等'),
+    (icon: LucideIcons.ticket, label: '活动门票', detail: '活动门票、预约时间、注意事项等'),
+    (icon: LucideIcons.camera, label: '拍摄计划', detail: '拍摄地点、时间、天气备选方案等'),
+    (icon: LucideIcons.bell, label: '注意事项', detail: '携带物品、预算、当地注意事项等'),
   ];
 
   @override
@@ -841,13 +864,13 @@ class _EmptyPlanMemo extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    Icons.sticky_note_2_outlined,
+                    LucideIcons.stickyNote,
                     color: AppColors.accentDark,
                     size: 34,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   '还没有计划备忘',
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -857,7 +880,7 @@ class _EmptyPlanMemo extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   '记录本次巡礼的重要事项',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -884,7 +907,7 @@ class _EmptyPlanMemo extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.lightbulb_outline_rounded,
+                              LucideIcons.lightbulb,
                               color: AppColors.accent,
                               size: 18,
                             ),
@@ -929,7 +952,7 @@ class _EmptyPlanMemo extends StatelessWidget {
                         minimumSize: const Size.fromHeight(46),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                       ),
-                      icon: const Icon(Icons.edit_note_rounded, size: 20),
+                      icon: const Icon(LucideIcons.notebookPen, size: 20),
                       label: const Text('开始记录'),
                     ),
                   ),
@@ -973,7 +996,7 @@ class _MemoSuggestionItem extends StatelessWidget {
                 Text(
                   suggestion.label,
                   maxLines: 1,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -985,7 +1008,7 @@ class _MemoSuggestionItem extends StatelessWidget {
                   suggestion.detail,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
                     letterSpacing: 0,

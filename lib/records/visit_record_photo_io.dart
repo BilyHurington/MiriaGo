@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/app_managed_file_paths_io.dart';
@@ -86,7 +87,7 @@ class VisitRecordPhoto extends StatelessWidget {
     return ColoredBox(
       color: AppColors.surfaceMuted,
       child: Center(
-        child: Icon(Icons.broken_image_outlined, color: AppColors.accentDark),
+        child: Icon(LucideIcons.imageOff, color: AppColors.accentDark),
       ),
     );
   }

@@ -212,6 +212,51 @@ void main() {
     expect(largeAverage, closeTo(240, 3));
     expect(largeAverage, greaterThan(smallAverage * 2.9));
   });
+
+  test('in-app navigation tour chains all coordinate points in a zone', () {
+    final fixture = _buildGroupedPlanFixture();
+    final tour = inAppNavigationTourFor(
+      point: fixture.groupAFirst,
+      buckets: planGroupBuckets(fixture.plan, const {}),
+    );
+
+    expect(tour.groupName, '片区 A');
+    expect(tour.stops.map((point) => point.id), ['a-1', 'a-2']);
+    expect(tour.startIndex, 0);
+    expect(tour.remainingStops.map((point) => point.id), ['a-1', 'a-2']);
+  });
+
+  test('in-app navigation tour starts from the selected point in a zone', () {
+    final fixture = _buildGroupedPlanFixture();
+    final tour = inAppNavigationTourFor(
+      point: fixture.groupASecond,
+      buckets: planGroupBuckets(fixture.plan, const {}),
+    );
+
+    expect(tour.groupName, '片区 A');
+    expect(tour.startIndex, 1);
+    expect(tour.stops.map((point) => point.id), ['a-1', 'a-2']);
+    expect(tour.remainingStops.map((point) => point.id), ['a-2']);
+  });
+
+  test('in-app navigation tour stays on a single ungrouped point', () {
+    final fixture = _buildGroupedPlanFixture();
+    final ungrouped = fixture.groupAFirst.copyWith(
+      id: 'ungrouped-1',
+      groupId: null,
+      groupOrderIndex: null,
+    );
+    final plan = fixture.plan.copyWith(
+      points: [...fixture.plan.points, ungrouped],
+    );
+    final tour = inAppNavigationTourFor(
+      point: ungrouped,
+      buckets: planGroupBuckets(plan, const {}),
+    );
+
+    expect(tour.groupName, isNull);
+    expect(tour.stops.map((point) => point.id), ['ungrouped-1']);
+  });
 }
 
 _GroupedPlanFixture _buildGroupedPlanFixture() {

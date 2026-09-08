@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../widgets/app_back_button.dart';
+import '../widgets/snackbar_helper.dart';
 import 'plan_import_asset_restore.dart';
 import 'plan_import_package.dart';
 
@@ -32,7 +35,10 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('导入内容')),
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: const Text('导入内容'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -41,13 +47,13 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           _StatsGrid(importPackage: _package),
           const SizedBox(height: 18),
           _SectionTitle(
-            icon: Icons.fact_check_outlined,
+            icon: LucideIcons.listChecks,
             title: '选择导入内容',
             subtitle: '导入前不会修改当前数据。',
           ),
           const SizedBox(height: 10),
           _ImportOptionTile(
-            icon: Icons.route_outlined,
+            icon: LucideIcons.route,
             title: '计划结构',
             subtitle: '作品、片区、点位、完成状态和当前目标。',
             value: true,
@@ -56,7 +62,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           ),
           const SizedBox(height: 8),
           _ImportOptionTile(
-            icon: Icons.collections_bookmark_outlined,
+            icon: LucideIcons.folders,
             title: '拍摄记录',
             subtitle: _package.isLegacyJson
                 ? 'v1 文件不包含照片资源，仅导入计划结构。'
@@ -69,7 +75,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           ),
           const SizedBox(height: 8),
           _ImportOptionTile(
-            icon: Icons.photo_library_outlined,
+            icon: LucideIcons.images,
             title: '图片和资源文件',
             subtitle: _assetImportSubtitle,
             value: _includeAssets,
@@ -82,7 +88,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
           if (_package.warnings.isNotEmpty) ...[
             const SizedBox(height: 18),
             _SectionTitle(
-              icon: Icons.warning_amber_outlined,
+              icon: LucideIcons.triangleAlert,
               title: '包内提示',
               subtitle: '导出时记录的缺失或兼容信息。',
             ),
@@ -92,7 +98,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
                   warning,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,
@@ -113,7 +119,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.download_done_outlined),
+                : const Icon(LucideIcons.download),
             label: Text(_importing ? '导入中...' : '导入所选内容'),
           ),
         ),
@@ -139,14 +145,13 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            restored.warnings.isEmpty
-                ? '已导入计划「${importedPlan.name}」'
-                : '已导入计划「${importedPlan.name}」，部分资源未恢复',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: restored.warnings.isEmpty
+            ? AppStatusBannerKind.success
+            : AppStatusBannerKind.warning,
+        title: restored.warnings.isEmpty
+            ? '已导入计划「${importedPlan.name}」'
+            : '已导入计划「${importedPlan.name}」，部分资源未恢复',
       );
       Navigator.of(context).pop(true);
     } catch (_) {
@@ -155,7 +160,7 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('导入失败')));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '导入失败');
     } finally {
       if (mounted) {
         setState(() => _importing = false);
@@ -200,10 +205,7 @@ class _PackageHeader extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.inventory_2_outlined,
-              color: AppColors.accentDark,
-            ),
+            child: Icon(LucideIcons.package, color: AppColors.accentDark),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -225,7 +227,7 @@ class _PackageHeader extends StatelessWidget {
                   '${importPackage.versionLabel} / ${importPackage.sourceName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,
@@ -286,7 +288,7 @@ class _StatChip extends StatelessWidget {
       ),
       child: Text(
         '$label $value',
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w700,
           fontSize: 12,
@@ -330,7 +332,7 @@ class _SectionTitle extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   letterSpacing: 0,
@@ -391,7 +393,7 @@ class _ImportOptionTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,

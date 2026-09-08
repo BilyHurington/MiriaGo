@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
+import '../widgets/reference_thumbnail_stub.dart'
+    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
 import '../point_detail/point_detail_sheet.dart';
@@ -12,7 +16,7 @@ import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
-import '../map/current_location_resolver.dart';
+import '../map/map_location_tracker.dart';
 import '../utils/selected_item_order.dart';
 import 'add_points_screen.dart';
 import 'plan_group_picker_sheet.dart';
@@ -20,7 +24,11 @@ import 'plan_group_utils.dart';
 import 'plan_memo_screen.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_plan_controller.dart';
+import 'reference_cache_progress_dialog.dart';
 import 'reference_full_cache_runner.dart';
+import 'reference_image_status.dart';
+
+const _planActionSubtitleMinPanelWidth = 380.0;
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({
@@ -32,6 +40,8 @@ class PlanScreen extends StatefulWidget {
     required this.onOpenAddPoints,
     required this.onOpenPointManager,
     required this.onOpenImportExport,
+    this.isActive = true,
+    this.locationTracker,
     super.key,
   });
 
@@ -43,26 +53,68 @@ class PlanScreen extends StatefulWidget {
   final VoidCallback onOpenAddPoints;
   final VoidCallback onOpenPointManager;
   final VoidCallback onOpenImportExport;
+  final bool isActive;
+  final MapLocationTracker? locationTracker;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
 }
 
-class _PlanScreenState extends State<PlanScreen> {
+class _PlanScreenState extends State<PlanScreen>
+    with MapLocationLifecycle<PlanScreen> {
   int _selectedGroupIndex = 0;
   String? _selectedGroupId;
   late String _selectedPlanId;
   PointSortMode _sortMode = PointSortMode.plan;
   bool _sortDescending = false;
   bool _showMap = false;
+  bool _showPlanActions = false;
   bool _showVirtualLocation = false;
   bool _isLocating = false;
   bool _isCachingFullReferences = false;
-  ReferenceFullCacheProgress? _fullReferenceCacheProgress;
   double _mapHeightRatio = 0.42;
   LatLng? _currentLocation;
+  late final _locationTracker = widget.locationTracker ?? MapLocationTracker();
+  String? _locationError;
+
+  @override
+  bool get locationPageEnabled =>
+      widget.isActive && _showMap && controller.points.isNotEmpty;
+
+  @override
+  void onLocationActivityChanged(bool active) => _locationTracker.configure(
+    active: active,
+    continuous: settings.continuousMapLocation,
+  );
+
+  @override
+  void didUpdateWidget(covariant PlanScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    syncLocationActivity(force: true);
+  }
+
+  void _onLocationChanged() {
+    if (!mounted) return;
+    final position = _locationTracker.position;
+    final nextError = _locationTracker.error;
+    if (nextError != null &&
+        nextError != _locationError &&
+        locationPageActive) {
+      _showSnackBar(nextError);
+    }
+    setState(() {
+      if (position != null) {
+        _currentLocation = LatLng(position.latitude, position.longitude);
+      }
+      _isLocating = _locationTracker.locating;
+      _showVirtualLocation = _locationTracker.enabled;
+      _locationError = nextError;
+    });
+  }
+
   final _pointListController = ScrollController();
   final _pointTileKeys = <String, GlobalKey>{};
+  final _planActionsPanelRegionKey = GlobalKey();
 
   PilgrimagePlanController get controller => widget.controller;
 
@@ -73,10 +125,13 @@ class _PlanScreenState extends State<PlanScreen> {
     super.initState();
     _selectedPlanId = controller.plan.id;
     _selectedGroupId = controller.plan.currentGroupId;
+    _locationTracker.addListener(_onLocationChanged);
   }
 
   @override
   void dispose() {
+    _locationTracker.removeListener(_onLocationChanged);
+    _locationTracker.dispose();
     _pointListController.dispose();
     super.dispose();
   }
@@ -89,6 +144,7 @@ class _PlanScreenState extends State<PlanScreen> {
       _selectedGroupId = groupId;
       _showMap = false;
     });
+    syncLocationActivity();
     controller.setCurrentGroup(groupId);
   }
 
@@ -202,43 +258,53 @@ class _PlanScreenState extends State<PlanScreen> {
     });
   }
 
-  Future<void> _toggleCurrentLocation() async {
-    if (_showVirtualLocation && _currentLocation != null) {
-      setState(() {
-        _showVirtualLocation = false;
-      });
+  void _togglePlanActions() {
+    setState(() {
+      _showPlanActions = !_showPlanActions;
+    });
+  }
+
+  void _collapsePlanActions() {
+    if (!_showPlanActions) {
       return;
     }
-
     setState(() {
-      _isLocating = true;
+      _showPlanActions = false;
     });
+  }
 
-    try {
-      final position = await resolveCurrentLocation();
-      if (!mounted) {
-        return;
-      }
+  void _openPlanAction(VoidCallback action) {
+    _collapsePlanActions();
+    action();
+  }
 
-      setState(() {
-        _currentLocation = LatLng(position.latitude, position.longitude);
-        _showVirtualLocation = true;
-      });
-    } on CurrentLocationException catch (error) {
-      _showSnackBar(currentLocationFailureMessage(error));
-    } catch (_) {
-      _showSnackBar('定位失败，请检查权限和定位服务。');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLocating = false;
-        });
-      }
+  void _handlePlanBodyPointerDown(PointerDownEvent event) {
+    if (!_showPlanActions || !settings.dismissPlanActionsOnOutsideTap) {
+      return;
     }
+    final renderBox =
+        _planActionsPanelRegionKey.currentContext?.findRenderObject()
+            as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) {
+      return;
+    }
+    final panelRect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    if (!panelRect.contains(event.position)) {
+      _collapsePlanActions();
+    }
+  }
+
+  Future<void> _toggleCurrentLocation() async {
+    if (_showVirtualLocation && _locationError == null) {
+      _locationTracker.disable();
+      return;
+    }
+    await _locationTracker.locate();
   }
 
   @override
   Widget build(BuildContext context) {
+    syncLocationActivity();
     final plan = controller.plan;
     final groups = planGroupBuckets(plan, controller.completedPointIds);
     if (_selectedPlanId != plan.id) {
@@ -269,162 +335,166 @@ class _PlanScreenState extends State<PlanScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(plan.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        toolbarHeight: kToolbarHeight,
+        actionsPadding: EdgeInsets.zero,
+        title: Text(
+          plan.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+        ),
         actions: [
-          _ReferenceCacheIconButton(
-            isCaching: _isCachingFullReferences,
-            progress: _fullReferenceCacheProgress,
-            onPressed: _handleReferenceCachePressed,
+          IconButton(
+            key: const ValueKey('plan-switch-button'),
+            tooltip: '切换计划',
+            onPressed: widget.onOpenPlanManager,
+            icon: const Icon(LucideIcons.arrowLeftRight),
           ),
-          PopupMenuButton<_PlanMenuAction>(
-            tooltip: '计划操作',
-            icon: const Icon(Icons.more_horiz),
-            onSelected: (action) {
-              switch (action) {
-                case _PlanMenuAction.switchPlan:
-                  widget.onOpenPlanManager();
-                case _PlanMenuAction.addPoints:
-                  widget.onOpenAddPoints();
-                case _PlanMenuAction.managePoints:
-                  widget.onOpenPointManager();
-                case _PlanMenuAction.memo:
-                  _openPlanMemo();
-                case _PlanMenuAction.importExport:
-                  widget.onOpenImportExport();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _PlanMenuAction.switchPlan,
-                child: ListTile(
-                  leading: Icon(Icons.swap_horiz),
-                  title: Text('切换计划'),
-                ),
-              ),
-              PopupMenuItem(
-                value: _PlanMenuAction.addPoints,
-                child: ListTile(
-                  leading: Icon(Icons.add_location_alt_outlined),
-                  title: Text('添加点位'),
-                ),
-              ),
-              PopupMenuItem(
-                value: _PlanMenuAction.managePoints,
-                child: ListTile(
-                  leading: Icon(Icons.tune_outlined),
-                  title: Text('管理计划'),
-                ),
-              ),
-              PopupMenuItem(
-                value: _PlanMenuAction.memo,
-                child: ListTile(
-                  leading: Icon(Icons.sticky_note_2_outlined),
-                  title: Text('计划备忘录'),
-                ),
-              ),
-              PopupMenuItem(
-                value: _PlanMenuAction.importExport,
-                child: ListTile(
-                  leading: Icon(Icons.import_export_outlined),
-                  title: Text('导入导出'),
-                ),
-              ),
-            ],
+          IconButton(
+            key: const ValueKey('plan-actions-toggle'),
+            tooltip: _showPlanActions ? '收起计划操作' : '展开计划操作',
+            onPressed: _togglePlanActions,
+            icon: Icon(
+              _showPlanActions
+                  ? LucideIcons.chevronUp
+                  : LucideIcons.chevronDown,
+            ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (selectedGroup == null || controller.points.isEmpty)
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                children: [
-                  _WorkHeader(plan: plan),
-                  const SizedBox(height: 16),
-                  _EmptyPlanCard(onAddPoints: widget.onOpenAddPoints),
-                ],
-              ),
-            )
-          else ...[
-            if (!_showMap) _PlanMetaStrip(plan: plan),
-            _GroupSwitcher(
-              groups: groups,
-              selectedIndex: _selectedGroupIndex,
-              showProgressRing: widget.settings.showPlanGroupProgress,
-              onSelectGroup: (group) {
-                final currentGroups = planGroupBuckets(
-                  controller.plan,
-                  controller.completedPointIds,
-                );
-                final index = currentGroups.indexWhere(
-                  (candidate) => candidate.id == group.id,
-                );
-                if (index >= 0) {
-                  _selectGroup(index, currentGroups);
-                }
-              },
-              onCreateGroup: () => _createGroupFromPointDetail(context),
-            ),
-            _PlanGroupControls(
-              plan: plan,
-              group: selectedGroup,
-              showMap: _showMap,
-              sortMode: _sortMode,
-              sortDescending: _sortDescending,
-              mapHeightRatio: _mapHeightRatio,
-              settings: settings,
-              showVirtualLocation: _showVirtualLocation,
-              isLocating: _isLocating,
-              currentLocation: _currentLocation,
-              selectedPointId: controller.selectedPoint?.id,
-              onSetSortMode: (mode) {
-                setState(() {
-                  _sortMode = mode;
-                });
-              },
-              onToggleSortDirection: () {
-                setState(() {
-                  _sortDescending = !_sortDescending;
-                });
-              },
-              onToggleMap: () {
-                setState(() {
-                  _showMap = !_showMap;
-                });
-              },
-              onResizeMap: _resizeMap,
-              onToggleVirtualLocation: _toggleCurrentLocation,
-              onSelectPoint: (point) =>
-                  _handleMapPointTap(context, point, groups),
-              completedPointIds: controller.completedPointIds,
-            ),
-            Expanded(
-              child: ListView(
-                controller: _pointListController,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                children: [
-                  for (final point in displayPoints) ...[
-                    _PlanPointTile(
-                      key: _pointTileKey(point.id),
-                      point: point,
-                      status: controller.statusFor(point),
-                      recordCount: controller.recordsForPoint(point.id).length,
-                      onTap: () {
-                        _selectPoint(point, groups);
-                        _showPointDetail(context, point);
-                      },
-                      onOpenCamera: () => _openCamera(context, point),
-                      onComplete: () => controller.completePoint(point),
-                      onReopen: () => controller.reopenPoint(point),
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _handlePlanBodyPointerDown,
+        child: Column(
+          children: [
+            if (selectedGroup == null || controller.points.isEmpty)
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    _WorkHeader(plan: plan),
+                    _PlanActionsReveal(
+                      expanded: _showPlanActions,
+                      child: KeyedSubtree(
+                        key: _planActionsPanelRegionKey,
+                        child: _PlanActionsPanel(
+                          isCachingReferences: _isCachingFullReferences,
+                          onCacheReferences: _handleReferenceCachePressed,
+                          onAddPoints: () =>
+                              _openPlanAction(widget.onOpenAddPoints),
+                          onManagePoints: () =>
+                              _openPlanAction(widget.onOpenPointManager),
+                          onOpenMemo: () => _openPlanAction(_openPlanMemo),
+                          onImportExport: () =>
+                              _openPlanAction(widget.onOpenImportExport),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
+                    _EmptyPlanCard(onAddPoints: widget.onOpenAddPoints),
                   ],
-                ],
+                ),
+              )
+            else ...[
+              _PlanActionsReveal(
+                expanded: _showPlanActions,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: KeyedSubtree(
+                  key: _planActionsPanelRegionKey,
+                  child: _PlanActionsPanel(
+                    isCachingReferences: _isCachingFullReferences,
+                    onCacheReferences: _handleReferenceCachePressed,
+                    onAddPoints: () => _openPlanAction(widget.onOpenAddPoints),
+                    onManagePoints: () =>
+                        _openPlanAction(widget.onOpenPointManager),
+                    onOpenMemo: () => _openPlanAction(_openPlanMemo),
+                    onImportExport: () =>
+                        _openPlanAction(widget.onOpenImportExport),
+                  ),
+                ),
               ),
-            ),
+              _GroupSwitcher(
+                groups: groups,
+                selectedIndex: _selectedGroupIndex,
+                showProgressRing: widget.settings.showPlanGroupProgress,
+                onSelectGroup: (group) {
+                  final currentGroups = planGroupBuckets(
+                    controller.plan,
+                    controller.completedPointIds,
+                  );
+                  final index = currentGroups.indexWhere(
+                    (candidate) => candidate.id == group.id,
+                  );
+                  if (index >= 0) {
+                    _selectGroup(index, currentGroups);
+                  }
+                },
+                onCreateGroup: () => _createGroupFromPointDetail(context),
+              ),
+              _PlanGroupControls(
+                locationError: _locationError,
+                group: selectedGroup,
+                showMap: _showMap,
+                sortMode: _sortMode,
+                sortDescending: _sortDescending,
+                mapHeightRatio: _mapHeightRatio,
+                settings: settings,
+                showVirtualLocation: _showVirtualLocation,
+                isLocating: _isLocating,
+                currentLocation: _currentLocation,
+                selectedPointId: controller.selectedPoint?.id,
+                onSetSortMode: (mode) {
+                  setState(() {
+                    _sortMode = mode;
+                  });
+                },
+                onToggleSortDirection: () {
+                  setState(() {
+                    _sortDescending = !_sortDescending;
+                  });
+                },
+                onToggleMap: () {
+                  setState(() {
+                    _showMap = !_showMap;
+                  });
+                  syncLocationActivity();
+                },
+                onResizeMap: _resizeMap,
+                onToggleVirtualLocation: _toggleCurrentLocation,
+                onSelectPoint: (point) =>
+                    _handleMapPointTap(context, point, groups),
+                completedPointIds: controller.completedPointIds,
+              ),
+              Expanded(
+                child: ListView(
+                  controller: _pointListController,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  children: [
+                    for (final point in displayPoints) ...[
+                      _PlanPointTile(
+                        key: _pointTileKey(point.id),
+                        controller: controller,
+                        point: point,
+                        status: controller.statusFor(point),
+                        recordCount: controller
+                            .recordsForPoint(point.id)
+                            .length,
+                        onTap: () {
+                          _selectPoint(point, groups);
+                          _showPointDetail(context, point);
+                        },
+                        onOpenCamera: () => _openCamera(context, point),
+                        onComplete: () => controller.completePoint(point),
+                        onReopen: () => controller.reopenPoint(point),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -477,7 +547,10 @@ class _PlanScreenState extends State<PlanScreen> {
       onOpenRecords: () => _openPointRecords(context, point),
       onOpenRecord: (record) => _openRecordDetail(context, record),
       onEditPoint: () => _editPoint(context, point),
+      onDelete: controller.deletePoint,
       navigationApp: settings.navigationApp,
+      settings: settings,
+      planController: controller,
     );
   }
 
@@ -572,13 +645,12 @@ class _PlanScreenState extends State<PlanScreen> {
 
   Future<void> _handleReferenceCachePressed() async {
     if (_isCachingFullReferences) {
-      _showSnackBar(_fullReferenceCacheProgress?.label ?? '正在缓存完整参考图...');
       return;
     }
 
     final points = pointsNeedingFullReferenceCache(controller.points);
     if (points.isEmpty) {
-      _showSnackBar('当前计划没有需要缓存的参考图');
+      _showSnackBar('当前计划没有需要缓存的参考图', kind: AppStatusBannerKind.warning);
       return;
     }
 
@@ -593,60 +665,49 @@ class _PlanScreenState extends State<PlanScreen> {
     if (!confirmed || !mounted) {
       return;
     }
+    _collapsePlanActions();
     await _cacheFullReferenceImages();
   }
 
   Future<void> _cacheFullReferenceImages() async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_isCachingFullReferences) {
       return;
     }
     setState(() {
       _isCachingFullReferences = true;
-      _fullReferenceCacheProgress = null;
     });
-    messenger.showReplacingSnackBar(
-      const SnackBar(content: Text('已开始缓存完整参考图')),
-    );
     try {
-      await cacheFullReferenceImages(
-        plan: controller.plan,
-        repository: widget.repository,
-        onPlanUpdated: controller.replacePlan,
-        imageSource: settings.anitabiImageSource,
-        maxConcurrent: settings.mapThumbnailConcurrentLoads,
-        onProgress: (progress) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _fullReferenceCacheProgress = progress;
-          });
+      await showReferenceCacheProgressDialog(
+        context: context,
+        run: (onProgress) {
+          return cacheFullReferenceImages(
+            plan: controller.plan,
+            repository: widget.repository,
+            onPlanUpdated: controller.replacePlan,
+            imageSource: settings.anitabiImageSource,
+            maxConcurrent: settings.mapThumbnailConcurrentLoads,
+            onProgress: onProgress,
+          );
         },
       );
     } finally {
       if (mounted) {
-        final progress = _fullReferenceCacheProgress;
         setState(() {
           _isCachingFullReferences = false;
         });
-        if (progress != null) {
-          messenger.showReplacingSnackBar(
-            SnackBar(content: Text(progress.label)),
-          );
-        }
       }
     }
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(
+    String message, {
+    AppStatusBannerKind kind = AppStatusBannerKind.error,
+  }) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showReplacingSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showStatusSnack(kind: kind, title: message);
   }
 }
 
@@ -690,32 +751,253 @@ class _PlanPointCreateGroupDialogState
   }
 }
 
-enum _PlanMenuAction { switchPlan, addPoints, managePoints, memo, importExport }
-
-class _ReferenceCacheIconButton extends StatelessWidget {
-  const _ReferenceCacheIconButton({
-    required this.isCaching,
-    required this.progress,
-    required this.onPressed,
+class _PlanActionsReveal extends StatelessWidget {
+  const _PlanActionsReveal({
+    required this.expanded,
+    required this.child,
+    this.padding = EdgeInsets.zero,
   });
 
-  final bool isCaching;
-  final ReferenceFullCacheProgress? progress;
-  final VoidCallback onPressed;
+  final bool expanded;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
-    final tooltip = isCaching ? progress?.label ?? '正在缓存完整参考图' : '缓存完整参考图';
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: isCaching
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.download_for_offline_outlined),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? Padding(padding: padding, child: child)
+          : const SizedBox.shrink(),
+    );
+  }
+}
+
+class _PlanActionsPanel extends StatelessWidget {
+  const _PlanActionsPanel({
+    required this.isCachingReferences,
+    required this.onCacheReferences,
+    required this.onAddPoints,
+    required this.onManagePoints,
+    required this.onOpenMemo,
+    required this.onImportExport,
+  });
+
+  final bool isCachingReferences;
+  final VoidCallback onCacheReferences;
+  final VoidCallback onAddPoints;
+  final VoidCallback onManagePoints;
+  final VoidCallback onOpenMemo;
+  final VoidCallback onImportExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < _planActionSubtitleMinPanelWidth;
+        final items = [
+          _PlanActionItem(
+            key: const ValueKey('plan-action-add-points'),
+            icon: const Icon(LucideIcons.mapPinPlus, size: 20),
+            title: '添加点位',
+            subtitle: '加入巡礼场景',
+            compact: compact,
+            onTap: onAddPoints,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-manage-points'),
+            icon: const Icon(LucideIcons.slidersHorizontal, size: 20),
+            title: '管理计划',
+            subtitle: '整理片区点位',
+            compact: compact,
+            onTap: onManagePoints,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-cache-references'),
+            icon: isCachingReferences
+                ? const SizedBox.square(
+                    dimension: 19,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(LucideIcons.cloudDownload, size: 20),
+            title: '缓存参考图',
+            subtitle: '保存完整图片',
+            compact: compact,
+            onTap: onCacheReferences,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-memo'),
+            icon: const Icon(LucideIcons.stickyNote, size: 20),
+            title: '计划备忘录',
+            subtitle: '记录行程要点',
+            compact: compact,
+            onTap: onOpenMemo,
+          ),
+          _PlanActionItem(
+            key: const ValueKey('plan-action-import-export'),
+            icon: const Icon(LucideIcons.import, size: 20),
+            title: '导入导出',
+            subtitle: '备份迁移计划',
+            compact: compact,
+            onTap: onImportExport,
+          ),
+        ];
+        return Container(
+          key: const ValueKey('plan-actions-panel'),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: compact
+              ? _planActionRow(items)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _planActionRow(items.sublist(0, 2)),
+                    const AppHairline(),
+                    _planActionRow(items.sublist(2)),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}
+
+Widget _planActionRow(List<Widget> items) {
+  return IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const _PlanActionDivider(),
+          Expanded(child: items[i]),
+        ],
+      ],
+    ),
+  );
+}
+
+class _PlanActionItem extends StatelessWidget {
+  const _PlanActionItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.compact,
+    required this.onTap,
+    super.key,
+  });
+
+  final Widget icon;
+  final String title;
+  final String subtitle;
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final themedIcon = IconTheme(
+      data: IconThemeData(color: AppColors.accentDark),
+      child: icon,
+    );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: compact
+            ? Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 10,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    themedIcon,
+                    const SizedBox(height: 6),
+                    Tooltip(
+                      message: title,
+                      excludeFromSemantics: true,
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 64),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  child: Row(
+                    children: [
+                      themedIcon,
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _PlanActionDivider extends StatelessWidget {
+  const _PlanActionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      color: AppColors.border,
     );
   }
 }
@@ -739,6 +1021,7 @@ class _GroupSwitcher extends StatelessWidget {
   Widget build(BuildContext context) {
     final group = groups[selectedIndex];
     return Padding(
+      key: const ValueKey('plan-group-switcher'),
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Row(
         children: [
@@ -746,7 +1029,7 @@ class _GroupSwitcher extends StatelessWidget {
             onPressed: selectedIndex == 0
                 ? null
                 : () => onSelectGroup(groups[selectedIndex - 1]),
-            icon: const Icon(Icons.chevron_left),
+            icon: const Icon(LucideIcons.chevronLeft),
             tooltip: '上一个片区',
           ),
           Expanded(
@@ -755,7 +1038,7 @@ class _GroupSwitcher extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.surface,
                 foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
               ),
               child: Text(
                 group.name,
@@ -769,7 +1052,7 @@ class _GroupSwitcher extends StatelessWidget {
             onPressed: selectedIndex == groups.length - 1
                 ? null
                 : () => onSelectGroup(groups[selectedIndex + 1]),
-            icon: const Icon(Icons.chevron_right),
+            icon: const Icon(LucideIcons.chevronRight),
             tooltip: '下一个片区',
           ),
         ],
@@ -791,7 +1074,7 @@ class _GroupSwitcher extends StatelessWidget {
 
 class _PlanGroupControls extends StatelessWidget {
   const _PlanGroupControls({
-    required this.plan,
+    required this.locationError,
     required this.group,
     required this.showMap,
     required this.sortMode,
@@ -811,8 +1094,8 @@ class _PlanGroupControls extends StatelessWidget {
     required this.onSelectPoint,
   });
 
-  final PilgrimagePlan plan;
   final PlanGroupBucket group;
+  final String? locationError;
   final bool showMap;
   final PointSortMode sortMode;
   final bool sortDescending;
@@ -850,10 +1133,6 @@ class _PlanGroupControls extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
       child: Column(
         children: [
-          if (!showMap) ...[
-            _GroupSummary(group: group),
-            const SizedBox(height: 12),
-          ],
           Row(
             children: [
               Expanded(
@@ -871,13 +1150,21 @@ class _PlanGroupControls extends StatelessWidget {
                   minimumSize: const Size(74, 40),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
-                icon: Icon(showMap ? Icons.map : Icons.map_outlined, size: 18),
+                icon: Icon(
+                  showMap ? LucideIcons.map : LucideIcons.map,
+                  size: 18,
+                ),
                 label: Text(showMap ? '收起地图' : '地图'),
               ),
             ],
           ),
           const SizedBox(height: 8),
           if (showMap) ...[
+            if (locationError != null)
+              Text(
+                locationError!,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
             _PlanInlineMap(
               group: group,
               completedPointIds: completedPointIds,
@@ -896,108 +1183,6 @@ class _PlanGroupControls extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _GroupSummary extends StatelessWidget {
-  const _GroupSummary({required this.group});
-
-  final PlanGroupBucket group;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  group.isUngrouped
-                      ? Icons.inventory_2_outlined
-                      : Icons.flag_outlined,
-                  color: AppColors.accentDark,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    group.anchorLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                _GroupMetric(label: '点位', value: '${group.points.length}'),
-                _GroupMetric(label: '完成', value: '${group.completedCount}'),
-                _GroupMetric(label: '模式', value: group.orderModeLabel),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupMetric extends StatelessWidget {
-  const _GroupMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1046,7 +1231,7 @@ class _SortOrderControl extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.sort_outlined, size: 18),
+                          const Icon(LucideIcons.arrowUpDown, size: 18),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1060,7 +1245,7 @@ class _SortOrderControl extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(Icons.expand_more, size: 18),
+                          const Icon(LucideIcons.chevronDown, size: 18),
                         ],
                       ),
                     ),
@@ -1068,19 +1253,19 @@ class _SortOrderControl extends StatelessWidget {
                 },
                 menuChildren: [
                   MenuItemButton(
-                    leadingIcon: const Icon(Icons.format_list_numbered),
+                    leadingIcon: const Icon(LucideIcons.listOrdered),
                     onPressed: () => onChanged(PointSortMode.plan),
                     child: const Text('默认计划顺序'),
                   ),
                   MenuItemButton(
-                    leadingIcon: const Icon(Icons.near_me_outlined),
+                    leadingIcon: const Icon(LucideIcons.navigation),
                     onPressed: () => onChanged(PointSortMode.distance),
                     child: const Text('按距离当前位置'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(
+            SizedBox(
               height: 24,
               child: VerticalDivider(width: 1, color: AppColors.border),
             ),
@@ -1095,7 +1280,7 @@ class _SortOrderControl extends StatelessWidget {
                   width: 40,
                   height: 40,
                   child: Icon(
-                    descending ? Icons.south_outlined : Icons.north_outlined,
+                    descending ? LucideIcons.arrowDown : LucideIcons.arrowUp,
                     size: 18,
                   ),
                 ),
@@ -1162,8 +1347,8 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
     final currentLocation = widget.currentLocation;
     if (widget.showVirtualLocation &&
         currentLocation != null &&
-        currentLocation != oldWidget.currentLocation) {
-      _mapController.move(currentLocation, 16);
+        !oldWidget.showVirtualLocation) {
+      _mapController.move(currentLocation, _mapController.camera.zoom);
       return;
     }
 
@@ -1302,8 +1487,8 @@ class _PlanInlineMapState extends State<_PlanInlineMap> {
                   icon: widget.isLocating
                       ? null
                       : widget.showVirtualLocation
-                      ? Icons.my_location
-                      : Icons.my_location_outlined,
+                      ? LucideIcons.locateFixed
+                      : LucideIcons.locateFixed,
                   onTap: widget.isLocating
                       ? null
                       : widget.onToggleVirtualLocation,
@@ -1342,7 +1527,7 @@ class _MapCompactSummary extends StatelessWidget {
           '${group.anchorLabel} · ${group.completedCount}/${group.points.length} 完成 · ${group.orderModeLabel}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -1431,7 +1616,7 @@ class _MapPointMarker extends StatelessWidget {
         ],
       ),
       child: Icon(
-        completed ? Icons.check : Icons.place,
+        completed ? LucideIcons.check : LucideIcons.mapPin,
         size: selected ? 19 : 15,
         color: Colors.white,
       ),
@@ -1522,7 +1707,7 @@ class _EmptyPlanCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.inventory_2_rounded, color: AppColors.accent),
+              Icon(LucideIcons.package, color: AppColors.accent),
               const SizedBox(width: 10),
               Text(
                 '还没有点位',
@@ -1547,7 +1732,7 @@ class _EmptyPlanCard extends StatelessWidget {
                 minimumSize: const Size.fromHeight(46),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+              icon: const Icon(LucideIcons.mapPinPlus, size: 20),
               label: const Text('添加点位'),
             ),
           ),
@@ -1567,7 +1752,7 @@ class _OnboardingTimeline extends StatelessWidget {
         _OnboardingStep(
           number: 1,
           title: '加作品',
-          body: '点击右上角，选择“添加点位”，点击“作品管理”，在这里搜索你想要加入巡礼计划的作品并添加。',
+          body: '点击右上角展开计划操作，选择“添加点位”，再点击“作品管理”，搜索并添加想要加入巡礼计划的作品。',
         ),
         _OnboardingStep(
           number: 2,
@@ -1579,7 +1764,7 @@ class _OnboardingTimeline extends StatelessWidget {
           number: 3,
           title: '划片区',
           body:
-              '回到“计划”页，点击右上角，选择“管理计划”，在这里你可以对加入计划的点位进行更细致的管理。你可以创建片区，把距离接近的点位放到一起。',
+              '回到“计划”页，点击右上角展开计划操作，选择“管理计划”。在这里可以细致管理已加入计划的点位，创建片区并归纳距离接近的点位。',
           isLast: true,
         ),
       ],
@@ -1646,7 +1831,7 @@ class _OnboardingStep extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -1658,7 +1843,7 @@ class _OnboardingStep extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.35,
@@ -1700,10 +1885,7 @@ class _WorkHeader extends StatelessWidget {
               color: AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.movie_filter_outlined,
-              color: AppColors.accentDark,
-            ),
+            child: Icon(LucideIcons.clapperboard, color: AppColors.accentDark),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1725,7 +1907,7 @@ class _WorkHeader extends StatelessWidget {
                   '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     letterSpacing: 0,
@@ -1747,47 +1929,9 @@ class _WorkHeader extends StatelessWidget {
   }
 }
 
-class _PlanMetaStrip extends StatelessWidget {
-  const _PlanMetaStrip({required this.plan});
-
-  final PilgrimagePlan plan;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-      child: Row(
-        children: [
-          Icon(Icons.movie_filter_outlined, color: AppColors.accentDark),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${plan.area} / ${plan.points.length} 个点位 / ${_workCountText(plan)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _workCountText(PilgrimagePlan plan) {
-    final count = plan.works.isNotEmpty
-        ? plan.works.length
-        : plan.points.map((point) => point.work.id).toSet().length;
-    return '$count 部作品';
-  }
-}
-
 class _PlanPointTile extends StatelessWidget {
   const _PlanPointTile({
+    required this.controller,
     required this.point,
     required this.status,
     required this.recordCount,
@@ -1798,6 +1942,7 @@ class _PlanPointTile extends StatelessWidget {
     super.key,
   });
 
+  final PilgrimagePlanController controller;
   final PilgrimagePoint point;
   final VisitStatus status;
   final int recordCount;
@@ -1824,46 +1969,44 @@ class _PlanPointTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 42,
+                  height: 42,
                   color: colors.background,
-                  borderRadius: BorderRadius.circular(8),
+                  child: _PlanPointThumbnail(
+                    controller: controller,
+                    point: point,
+                    placeholder: Icon(
+                      colors.icon,
+                      color: colors.foreground,
+                      size: 22,
+                    ),
+                  ),
                 ),
-                child: Icon(colors.icon, color: colors.foreground, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            point.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        if (recordCount > 0) ...[
-                          const SizedBox(width: 8),
-                          _PointRecordBadge(count: recordCount),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
                     Text(
-                      '${point.work.title} / ${point.subtitle} / ${point.displayEpisodeLabel}',
+                      point.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      point.work.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         letterSpacing: 0,
@@ -1873,19 +2016,34 @@ class _PlanPointTile extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: '拍摄参考',
-                onPressed: onOpenCamera,
-                icon: const Icon(Icons.photo_camera_outlined),
-              ),
-              IconButton(
                 tooltip: status == VisitStatus.completed ? '撤回打卡' : '完成',
                 onPressed: status == VisitStatus.completed
                     ? onReopen
                     : onComplete,
                 icon: Icon(
                   status == VisitStatus.completed
-                      ? Icons.restart_alt
-                      : Icons.check_outlined,
+                      ? LucideIcons.rotateCcw
+                      : LucideIcons.check,
+                ),
+              ),
+              IconButton(
+                tooltip: '拍摄参考',
+                onPressed: onOpenCamera,
+                icon: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Center(child: Icon(LucideIcons.camera)),
+                      if (recordCount > 0)
+                        Positioned(
+                          top: -5,
+                          right: -5,
+                          child: _PointRecordBadge(stacked: recordCount > 1),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1901,56 +2059,86 @@ class _PlanPointTile extends StatelessWidget {
         background: AppColors.accent,
         foreground: Colors.white,
         border: AppColors.accent,
-        icon: Icons.flag,
+        icon: LucideIcons.flag,
       ),
       VisitStatus.completed => _PointStatusColors(
         background: AppColors.surfaceMuted,
         foreground: AppColors.textSecondary,
         border: AppColors.border,
-        icon: Icons.check_circle_outline,
+        icon: LucideIcons.circleCheckBig,
       ),
       VisitStatus.pending => _PointStatusColors(
         background: AppColors.surfaceMuted,
         foreground: AppColors.accentDark,
         border: AppColors.border,
-        icon: Icons.place_outlined,
+        icon: LucideIcons.mapPin,
       ),
     };
   }
 }
 
-class _PointRecordBadge extends StatelessWidget {
-  const _PointRecordBadge({required this.count});
+class _PlanPointThumbnail extends StatelessWidget {
+  const _PlanPointThumbnail({
+    required this.controller,
+    required this.point,
+    required this.placeholder,
+  });
 
-  final int count;
+  final PilgrimagePlanController controller;
+  final PilgrimagePoint point;
+  final Widget placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final repository = controller.repository;
+    final remoteImageUrl = hasRemoteReferenceImage(point)
+        ? point.referenceImageUrl
+        : null;
+    if (repository == null) {
+      return ReferenceThumbnail(
+        localPath: point.referenceThumbnailPath,
+        imageUrl: remoteImageUrl,
+        placeholder: placeholder,
+      );
+    }
+    return AutoCachingReferenceThumbnail(
+      planId: controller.plan.id,
+      point: point,
+      repository: repository,
+      onPlanUpdated: controller.replacePlan,
+      placeholder: placeholder,
+    );
+  }
+}
+
+class _PointRecordBadge extends StatelessWidget {
+  const _PointRecordBadge({required this.stacked});
+
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      key: const ValueKey('plan-point-shot-badge'),
+      width: 16,
+      height: 16,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 13,
-            color: AppColors.accentDark,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '已拍 $count',
-            style: TextStyle(
-              color: AppColors.accentDark,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
         ],
+      ),
+      child: Icon(
+        stacked ? LucideIcons.images : LucideIcons.image,
+        size: 10,
+        color: AppColors.accentDark,
       ),
     );
   }

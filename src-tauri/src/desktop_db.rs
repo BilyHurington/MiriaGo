@@ -251,6 +251,7 @@ impl DesktopDatabase {
                   anitabi_official_image_base_url TEXT NOT NULL DEFAULT 'https://image.anitabi.cn',
                   anitabi_mirror_image_base_url TEXT NOT NULL DEFAULT 'https://img-tc.anitabi.cn',
                   navigation_app TEXT NOT NULL DEFAULT 'googleMaps',
+                  valhalla_base_url TEXT NOT NULL DEFAULT 'https://valhalla1.openstreetmap.de',
                   custom_xyz_tile_url TEXT NOT NULL DEFAULT '',
                   custom_maplibre_style_url TEXT NOT NULL DEFAULT '',
                   comparison_export_config_json TEXT NOT NULL DEFAULT '',
@@ -400,6 +401,10 @@ impl DesktopDatabase {
                 "TEXT NOT NULL DEFAULT 'https://img-tc.anitabi.cn'",
             ),
             ("navigation_app", "TEXT NOT NULL DEFAULT 'googleMaps'"),
+            (
+                "valhalla_base_url",
+                "TEXT NOT NULL DEFAULT 'https://valhalla1.openstreetmap.de'",
+            ),
             ("custom_xyz_tile_url", "TEXT NOT NULL DEFAULT ''"),
             ("custom_maplibre_style_url", "TEXT NOT NULL DEFAULT ''"),
             ("comparison_export_config_json", "TEXT NOT NULL DEFAULT ''"),
@@ -428,6 +433,7 @@ impl DesktopDatabase {
             ),
             ("map_marker_scale", "REAL NOT NULL DEFAULT 0.9"),
             ("map_max_zoom", "INTEGER NOT NULL DEFAULT 22"),
+            ("continuous_map_location", "INTEGER NOT NULL DEFAULT 1"),
         ] {
             if columns.iter().any(|column| column == name) {
                 continue;
@@ -560,7 +566,8 @@ impl DesktopDatabase {
                         anitabi_site_base_url, anitabi_static_data_base_url,
                         anitabi_api_base_url, anitabi_official_image_base_url,
                         anitabi_mirror_image_base_url,
-                        navigation_app, custom_xyz_tile_url, custom_maplibre_style_url,
+                        navigation_app, valhalla_base_url,
+                        custom_xyz_tile_url, custom_maplibre_style_url,
                         comparison_export_config_json,
                         comparison_export_config_migrated,
                         map_thumbnail_visible_threshold, map_thumbnail_concurrent_loads,
@@ -568,7 +575,7 @@ impl DesktopDatabase {
                         map_marker_clustering_enabled, map_marker_cluster_radius,
                         map_marker_cluster_max_zoom,
                         map_group_area_radius_meters, map_marker_scale,
-                        map_max_zoom
+                        map_max_zoom, continuous_map_location
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -590,19 +597,21 @@ impl DesktopDatabase {
                         "anitabiOfficialImageBaseUrl": row.get::<_, String>(14)?,
                         "anitabiMirrorImageBaseUrl": row.get::<_, String>(15)?,
                         "navigationApp": row.get::<_, String>(16)?,
-                        "customXyzTileUrl": row.get::<_, String>(17)?,
-                        "customMapLibreStyleUrl": row.get::<_, String>(18)?,
-                        "comparisonExportConfigJson": row.get::<_, String>(19)?,
-                        "comparisonExportConfigMigrated": row.get::<_, bool>(20)?,
-                        "mapThumbnailVisibleThreshold": row.get::<_, i64>(21)?,
-                        "mapThumbnailConcurrentLoads": row.get::<_, i64>(22)?,
-                        "showPlanGroupProgress": row.get::<_, bool>(23)?,
-                        "mapMarkerClusteringEnabled": row.get::<_, bool>(24)?,
-                        "mapMarkerClusterRadius": row.get::<_, i64>(25)?,
-                        "mapMarkerClusterMaxZoom": row.get::<_, i64>(26)?,
-                        "mapGroupAreaRadiusMeters": row.get::<_, i64>(27)?,
-                        "mapMarkerScale": row.get::<_, f64>(28)?,
-                        "mapMaxZoom": row.get::<_, i64>(29)?,
+                        "valhallaBaseUrl": row.get::<_, String>(17)?,
+                        "customXyzTileUrl": row.get::<_, String>(18)?,
+                        "customMapLibreStyleUrl": row.get::<_, String>(19)?,
+                        "comparisonExportConfigJson": row.get::<_, String>(20)?,
+                        "comparisonExportConfigMigrated": row.get::<_, bool>(21)?,
+                        "mapThumbnailVisibleThreshold": row.get::<_, i64>(22)?,
+                        "mapThumbnailConcurrentLoads": row.get::<_, i64>(23)?,
+                        "showPlanGroupProgress": row.get::<_, bool>(24)?,
+                        "mapMarkerClusteringEnabled": row.get::<_, bool>(25)?,
+                        "mapMarkerClusterRadius": row.get::<_, i64>(26)?,
+                        "mapMarkerClusterMaxZoom": row.get::<_, i64>(27)?,
+                        "mapGroupAreaRadiusMeters": row.get::<_, i64>(28)?,
+                        "mapMarkerScale": row.get::<_, f64>(29)?,
+                        "mapMaxZoom": row.get::<_, i64>(30)?,
+                        "continuousMapLocation": row.get::<_, bool>(31)?,
                     }))
                 },
             )
@@ -936,15 +945,15 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            open_free_map_style, anitabi_image_source,
            anitabi_site_base_url, anitabi_static_data_base_url,
            anitabi_api_base_url, anitabi_official_image_base_url,
-           anitabi_mirror_image_base_url, navigation_app,
+           anitabi_mirror_image_base_url, navigation_app, valhalla_base_url,
            custom_xyz_tile_url, custom_maplibre_style_url,
            comparison_export_config_json, comparison_export_config_migrated,
            map_thumbnail_visible_threshold, map_thumbnail_concurrent_loads,
            show_plan_group_progress,
            map_marker_clustering_enabled, map_marker_cluster_radius,
            map_marker_cluster_max_zoom, map_group_area_radius_meters,
-           map_marker_scale, map_max_zoom
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)",
+           map_marker_scale, map_max_zoom, continuous_map_location
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -975,6 +984,11 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
                 "https://img-tc.anitabi.cn",
             ),
             string_value(settings, "navigationApp", "googleMaps"),
+            string_value(
+                settings,
+                "valhallaBaseUrl",
+                "https://valhalla1.openstreetmap.de",
+            ),
             string_value(settings, "customXyzTileUrl", ""),
             string_value(settings, "customMapLibreStyleUrl", ""),
             string_value(settings, "comparisonExportConfigJson", ""),
@@ -988,6 +1002,7 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             i64_value(settings, "mapGroupAreaRadiusMeters", 160).clamp(25, 500),
             f64_value(settings, "mapMarkerScale", 0.9).clamp(0.6, 1.2),
             i64_value(settings, "mapMaxZoom", 22).clamp(16, 24),
+            bool_value(settings, "continuousMapLocation", true),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -1193,6 +1208,7 @@ fn default_settings_json() -> Value {
         "anitabiOfficialImageBaseUrl": "https://image.anitabi.cn",
         "anitabiMirrorImageBaseUrl": "https://img-tc.anitabi.cn",
         "navigationApp": "googleMaps",
+        "valhallaBaseUrl": "https://valhalla1.openstreetmap.de",
         "customXyzTileUrl": "",
         "customMapLibreStyleUrl": "",
         "comparisonExportConfigJson": "",
@@ -1206,6 +1222,7 @@ fn default_settings_json() -> Value {
         "mapGroupAreaRadiusMeters": 160,
         "mapMarkerScale": 0.9,
         "mapMaxZoom": 22,
+        "continuousMapLocation": true,
     })
 }
 
@@ -1289,6 +1306,7 @@ mod tests {
             .save_settings_json(
                 r#"{
                   "navigationApp": "amap",
+                  "valhallaBaseUrl": "https://route.example/api",
                   "anitabiSiteBaseUrl": "https://site.example/anitabi",
                   "anitabiStaticDataBaseUrl": "https://static.example/data",
                   "anitabiApiBaseUrl": "https://api.example/v2",
@@ -1302,13 +1320,15 @@ mod tests {
                   "mapMarkerClusterMaxZoom": 20,
                   "mapGroupAreaRadiusMeters": 225,
                   "mapMarkerScale": 1.1,
-                  "mapMaxZoom": 23
+                  "mapMaxZoom": 23,
+                  "continuousMapLocation": false
                 }"#,
             )
             .expect("save settings");
 
         let settings = database.load_settings_json().expect("load settings");
         assert_eq!(settings["navigationApp"], "amap");
+        assert_eq!(settings["valhallaBaseUrl"], "https://route.example/api");
         assert_eq!(
             settings["anitabiSiteBaseUrl"],
             "https://site.example/anitabi"
@@ -1338,6 +1358,35 @@ mod tests {
         assert_eq!(settings["mapGroupAreaRadiusMeters"], 225);
         assert_eq!(settings["mapMarkerScale"], 1.1);
         assert_eq!(settings["mapMaxZoom"], 23);
+        assert_eq!(settings["continuousMapLocation"], false);
+    }
+
+    #[test]
+    fn continuous_location_migrates_existing_settings_without_resetting_them() {
+        let mut database = memory_database();
+        database
+            .save_settings_json(r#"{"mapMaxZoom":23,"navigationApp":"amap"}"#)
+            .unwrap();
+        database
+            .connection
+            .execute(
+                "ALTER TABLE app_settings DROP COLUMN continuous_map_location",
+                [],
+            )
+            .unwrap();
+        database.migrate().unwrap();
+        let settings = database.load_settings_json().unwrap();
+        assert_eq!(settings["continuousMapLocation"], true);
+        assert_eq!(settings["mapMaxZoom"], 23);
+        assert_eq!(settings["navigationApp"], "amap");
+        let mut updated = settings;
+        updated["continuousMapLocation"] = json!(false);
+        database.save_settings_json(&updated.to_string()).unwrap();
+        database.migrate().unwrap();
+        assert_eq!(
+            database.load_settings_json().unwrap()["continuousMapLocation"],
+            false
+        );
     }
 
     #[test]
@@ -1365,6 +1414,10 @@ mod tests {
             .connection
             .execute("ALTER TABLE app_settings DROP COLUMN navigation_app", [])
             .expect("drop navigation column");
+        database
+            .connection
+            .execute("ALTER TABLE app_settings DROP COLUMN valhalla_base_url", [])
+            .expect("drop Valhalla column");
         database
             .connection
             .execute(
@@ -1417,6 +1470,10 @@ mod tests {
         let settings = database.load_settings_json().expect("load settings");
         assert_eq!(settings["uiScale"], 0.9);
         assert_eq!(settings["navigationApp"], "googleMaps");
+        assert_eq!(
+            settings["valhallaBaseUrl"],
+            "https://valhalla1.openstreetmap.de"
+        );
         assert_eq!(settings["anitabiSiteBaseUrl"], "https://ww.anitabi.cn");
         assert_eq!(
             settings["anitabiStaticDataBaseUrl"],

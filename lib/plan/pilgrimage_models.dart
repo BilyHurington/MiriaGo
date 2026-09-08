@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
 import '../data/anitabi_service_config.dart';
+import '../data/valhalla_service_config.dart';
 
 const Object _unset = Object();
 
@@ -96,7 +97,19 @@ enum AppThemePalette {
   }
 }
 
-enum AppThemeMode { light, dark, system }
+enum AppThemeMode {
+  light,
+  dark,
+  system;
+
+  String get label {
+    return switch (this) {
+      AppThemeMode.light => '浅色',
+      AppThemeMode.dark => '深色',
+      AppThemeMode.system => '跟随系统',
+    };
+  }
+}
 
 extension CameraPhotoAspectRatioLabel on CameraPhotoAspectRatio {
   String get label {
@@ -180,6 +193,7 @@ class AppSettings {
     this.anitabiOfficialImageBaseUrl = defaultAnitabiOfficialImageBaseUrl,
     this.anitabiMirrorImageBaseUrl = defaultAnitabiMirrorImageBaseUrl,
     this.navigationApp = NavigationApp.googleMaps,
+    this.valhallaBaseUrl = defaultValhallaBaseUrl,
     this.customXyzTileUrl = '',
     this.customMapLibreStyleUrl = '',
     this.saveVisitPhotoToGallery = true,
@@ -196,12 +210,15 @@ class AppSettings {
     this.mapThumbnailVisibleThreshold = 40,
     this.mapThumbnailConcurrentLoads = 10,
     this.showPlanGroupProgress = true,
+    this.dismissPlanActionsOnOutsideTap = true,
+    this.hideCompletedPointsOnMap = true,
     this.mapMarkerClusteringEnabled = true,
     this.mapMarkerClusterRadius = 40,
     this.mapMarkerClusterMaxZoom = 21,
     this.mapGroupAreaRadiusMeters = 160,
     this.mapMarkerScale = 0.9,
     this.mapMaxZoom = 22,
+    this.continuousMapLocation = true,
   });
 
   final double uiScale;
@@ -224,6 +241,7 @@ class AppSettings {
   final String anitabiOfficialImageBaseUrl;
   final String anitabiMirrorImageBaseUrl;
   final NavigationApp navigationApp;
+  final String valhallaBaseUrl;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
@@ -240,12 +258,15 @@ class AppSettings {
   final int mapThumbnailVisibleThreshold;
   final int mapThumbnailConcurrentLoads;
   final bool showPlanGroupProgress;
+  final bool dismissPlanActionsOnOutsideTap;
+  final bool hideCompletedPointsOnMap;
   final bool mapMarkerClusteringEnabled;
   final int mapMarkerClusterRadius;
   final int mapMarkerClusterMaxZoom;
   final int mapGroupAreaRadiusMeters;
   final double mapMarkerScale;
   final int mapMaxZoom;
+  final bool continuousMapLocation;
 
   AppSettings copyWith({
     double? uiScale,
@@ -268,6 +289,7 @@ class AppSettings {
     String? anitabiOfficialImageBaseUrl,
     String? anitabiMirrorImageBaseUrl,
     NavigationApp? navigationApp,
+    String? valhallaBaseUrl,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
@@ -284,12 +306,15 @@ class AppSettings {
     int? mapThumbnailVisibleThreshold,
     int? mapThumbnailConcurrentLoads,
     bool? showPlanGroupProgress,
+    bool? dismissPlanActionsOnOutsideTap,
+    bool? hideCompletedPointsOnMap,
     bool? mapMarkerClusteringEnabled,
     int? mapMarkerClusterRadius,
     int? mapMarkerClusterMaxZoom,
     int? mapGroupAreaRadiusMeters,
     double? mapMarkerScale,
     int? mapMaxZoom,
+    bool? continuousMapLocation,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -319,6 +344,7 @@ class AppSettings {
       anitabiMirrorImageBaseUrl:
           anitabiMirrorImageBaseUrl ?? this.anitabiMirrorImageBaseUrl,
       navigationApp: navigationApp ?? this.navigationApp,
+      valhallaBaseUrl: valhallaBaseUrl ?? this.valhallaBaseUrl,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -348,6 +374,10 @@ class AppSettings {
           mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
       showPlanGroupProgress:
           showPlanGroupProgress ?? this.showPlanGroupProgress,
+      dismissPlanActionsOnOutsideTap:
+          dismissPlanActionsOnOutsideTap ?? this.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap:
+          hideCompletedPointsOnMap ?? this.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled:
           mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
       mapMarkerClusterRadius:
@@ -358,6 +388,8 @@ class AppSettings {
           mapGroupAreaRadiusMeters ?? this.mapGroupAreaRadiusMeters,
       mapMarkerScale: mapMarkerScale ?? this.mapMarkerScale,
       mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
+      continuousMapLocation:
+          continuousMapLocation ?? this.continuousMapLocation,
     );
   }
 }

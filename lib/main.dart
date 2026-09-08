@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -12,6 +13,7 @@ import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
 import 'desktop/desktop_pilgrimage_repository.dart';
 import 'desktop/tauri_bridge.dart';
+import 'plan/pilgrimage_models.dart';
 import 'widgets/copyable_text.dart';
 
 Future<void> main() async {
@@ -170,7 +172,7 @@ class _DesktopStartupError extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.error_outline,
+                LucideIcons.circleAlert,
                 size: 52,
                 color: Theme.of(context).colorScheme.error,
               ),
@@ -188,7 +190,7 @@ class _DesktopStartupError extends StatelessWidget {
               FilledButton.icon(
                 key: const ValueKey('desktop-startup-retry'),
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(LucideIcons.refreshCw),
                 label: const Text('重试'),
               ),
               if (launcherInfo != null) ...[
@@ -200,12 +202,12 @@ class _DesktopStartupError extends StatelessWidget {
                   children: [
                     OutlinedButton.icon(
                       onPressed: () => _openDirectory(context, 'logs'),
-                      icon: const Icon(Icons.description_outlined),
+                      icon: const Icon(LucideIcons.fileText),
                       label: const Text('打开日志目录'),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _openDirectory(context, 'data'),
-                      icon: const Icon(Icons.folder_open_outlined),
+                      icon: const Icon(LucideIcons.folderOpen),
                       label: const Text('打开数据目录'),
                     ),
                   ],
@@ -239,24 +241,76 @@ class _DesktopStartupError extends StatelessWidget {
   }
 }
 
-class MiriaGoApp extends StatelessWidget {
+class MiriaGoApp extends StatefulWidget {
   const MiriaGoApp({this.repository, super.key});
 
   final PilgrimageRepository? repository;
 
   @override
+  State<MiriaGoApp> createState() => _MiriaGoAppState();
+}
+
+class _MiriaGoAppState extends State<MiriaGoApp> with WidgetsBindingObserver {
+  AppSettings _themeSettings = const AppSettings();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (!mounted) {
+      return;
+    }
+    applyAppColorsFromSettings(
+      _themeSettings,
+      platformBrightness: currentPlatformBrightness(),
+    );
+    setState(() {});
+  }
+
+  void _handleSettingsChanged(AppSettings settings) {
+    if (!mounted) {
+      return;
+    }
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: currentPlatformBrightness(),
+    );
+    setState(() {
+      _themeSettings = settings;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = appThemeFor(
+      _themeSettings,
+      platformBrightness: currentPlatformBrightness(),
+    );
+
     return MaterialApp(
       title: 'MiriaGo',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
+      theme: theme,
+      themeAnimationDuration: Duration.zero,
+      themeAnimationStyle: AnimationStyle.noAnimation,
       navigatorObservers: [copyOverlayNavigatorObserver],
       home: AppShell(
         repository:
-            repository ??
+            widget.repository ??
             (kIsWeb
                 ? SamplePilgrimageRepository()
                 : SqlitePilgrimageRepository()),
+        onSettingsChanged: _handleSettingsChanged,
       ),
     );
   }

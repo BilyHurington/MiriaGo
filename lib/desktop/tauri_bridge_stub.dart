@@ -55,6 +55,15 @@ class DesktopAssetResult {
   final String mimeType;
 }
 
+class DesktopAssetFileResult {
+  const DesktopAssetFileResult({
+    required this.existed,
+    required this.byteLength,
+  });
+  final bool existed;
+  final int byteLength;
+}
+
 bool get isTauriLauncherAvailable => false;
 
 Future<DesktopLauncherInfo?> loadDesktopLauncherInfo() async {
@@ -145,6 +154,18 @@ Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
 Future<DesktopAssetResult> writeDesktopAsset({
   required String path,
   required String dataBase64,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopAssetFileResult> inspectDesktopReferenceCacheAsset({
+  required String path,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<DesktopAssetFileResult> deleteDesktopReferenceCacheAsset({
+  required String path,
 }) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }

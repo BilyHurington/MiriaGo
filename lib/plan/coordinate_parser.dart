@@ -1,5 +1,8 @@
 import 'package:latlong2/latlong.dart';
 
+import 'clipboard_text_stub.dart'
+    if (dart.library.js_interop) 'clipboard_text_web.dart';
+
 LatLng? parseCoordinateText(String input) {
   final normalized = _normalizeCoordinateText(input);
   if (normalized.isEmpty) {
@@ -12,6 +15,11 @@ LatLng? parseCoordinateText(String input) {
   }
 
   return _parseDmsCoordinate(normalized);
+}
+
+Future<LatLng?> parseClipboardCoordinate() async {
+  final text = await readClipboardText();
+  return parseCoordinateText(text ?? '');
 }
 
 String _normalizeCoordinateText(String input) {

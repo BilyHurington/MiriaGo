@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../widgets/app_scaled_route.dart';
@@ -49,7 +50,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
         menuMaxHeight: appScaledOverlayExtent(settings, 360),
         icon: const Padding(
           padding: EdgeInsets.only(right: 8),
-          child: Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+          child: Icon(LucideIcons.chevronDown, size: 20),
         ),
         selectedItemBuilder: (context) => [
           for (final work in works) _WorkDropdownItem(work: work),
@@ -87,7 +88,7 @@ class PilgrimageWorkDropdown extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.border, width: 1.4),
+        borderSide: BorderSide(color: AppColors.border, width: 1.4),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -190,7 +191,7 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
                     letterSpacing: 0,
@@ -200,7 +201,7 @@ class _WorkDropdownItemState extends State<_WorkDropdownItem> {
             ),
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(Icons.check_circle, color: AppColors.accent, size: 18),
+              Icon(LucideIcons.checkCircle, color: AppColors.accent, size: 18),
             ],
           ],
         ),

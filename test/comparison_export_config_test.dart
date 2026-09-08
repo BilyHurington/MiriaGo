@@ -139,7 +139,7 @@ void main() {
       ),
     );
 
-    expect(find.text('自动宽度'), findsOneWidget);
+    expect(find.text('自动宽度'), findsNothing);
     expect(find.text('1080px'), findsNothing);
     expect(
       tester

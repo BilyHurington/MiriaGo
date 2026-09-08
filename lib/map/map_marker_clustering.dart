@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -200,14 +201,14 @@ class MapOverlapPointPager extends StatelessWidget {
           tooltip: '上一个重合点位',
           visualDensity: VisualDensity.compact,
           onPressed: onPrevious,
-          icon: const Icon(Icons.chevron_left),
+          icon: const Icon(LucideIcons.chevronLeft),
         ),
         Expanded(
           child: Text(
             '重合点位  ${currentIndex + 1} / $total',
             textAlign: TextAlign.center,
             maxLines: 1,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -220,7 +221,7 @@ class MapOverlapPointPager extends StatelessWidget {
           tooltip: '下一个重合点位',
           visualDensity: VisualDensity.compact,
           onPressed: onNext,
-          icon: const Icon(Icons.chevron_right),
+          icon: const Icon(LucideIcons.chevronRight),
         ),
       ],
     );

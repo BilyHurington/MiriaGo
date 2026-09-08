@@ -2,27 +2,34 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 
 import '../app_theme.dart';
 import '../app_version.dart';
 import '../camera_reference/camera_zoom_capabilities.dart';
 import '../data/pilgrimage_repository.dart';
+import '../data/reference_cache_cleanup.dart';
+import '../data/valhalla_service_config.dart';
 import '../data/anitabi_service_config.dart';
 import '../desktop/tauri_bridge.dart';
 import '../map/map_tile_config.dart';
+import '../map/valhalla_route_client.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/comparison_export_config.dart';
 import '../records/comparison_export_config_editor.dart';
 import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
-import '../widgets/copyable_text.dart';
+import '../widgets/app_back_button.dart';
+import '../widgets/app_scaled_route.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/copyable_text.dart';
 import '../widgets/input_dialog.dart';
+import '../widgets/responsive_button.dart';
 import '../widgets/snackbar_helper.dart';
 
-bool get _showFutureThemeModeSettings => false;
-bool get _showFutureCacheCleanupSettings => false;
+bool get _showCacheCleanupSettings => isReferenceCacheCleanupSupported;
+bool get _showDebugPhotoLocationSettings => false;
 bool get _shouldShowMobileGallerySettings {
   if (kIsWeb) {
     return false;
@@ -30,6 +37,11 @@ bool get _shouldShowMobileGallerySettings {
   return defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
 }
+
+bool get _shouldShowPhotoLocationSettings =>
+    kDebugMode ||
+    _showDebugPhotoLocationSettings ||
+    _shouldShowMobileGallerySettings;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -102,27 +114,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = widget.settings;
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        key: const ValueKey('settings-app-bar'),
+        toolbarHeight: AppTheme.appBarHeight,
         title: const Text(
           '设置',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
         ),
         actions: [
           IconButton(
+            key: const ValueKey('settings-reset-button'),
             tooltip: '恢复初始设置',
             onPressed: _confirmResetSettings,
-            icon: const Icon(Icons.restart_alt_outlined),
+            icon: const Icon(LucideIcons.rotateCcw),
           ),
+          const SizedBox(width: 16),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _SettingsCard(
+            key: const ValueKey('settings-appearance-card'),
             header: _SettingsCardHeader(
-              icon: Icons.palette_outlined,
+              icon: LucideIcons.palette,
               title: '外观设置',
-              subtitle: '主题色、缩放、显示等',
+              subtitle: '主题色、深浅色、缩放、显示等',
               onTap: () => _pushDetail(
                 _AppearanceSettingsPage(
                   settings: settings,
@@ -134,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SummaryGrid(
                 children: [
                   _SummaryTile(
-                    icon: Icons.circle,
+                    icon: LucideIcons.circle,
                     title: '主题色',
                     value: settings.themePalette.label,
                     swatch: _ThemeSwatch(
@@ -149,9 +167,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   _SummaryTile(
-                    icon: Icons.zoom_out_map_outlined,
-                    title: '页面缩放',
-                    value: '${(settings.uiScale * 100).round()}%',
+                    icon: LucideIcons.moon,
+                    title: '主题模式',
+                    value: settings.themeMode.label,
                     onTap: () => _pushDetail(
                       _AppearanceSettingsPage(
                         settings: settings,
@@ -166,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.photo_camera_outlined,
+              icon: LucideIcons.camera,
               title: '拍摄设置',
               subtitle: '照片比例、参考图比例、备份等',
               onTap: () => _pushDetail(
@@ -181,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SummaryGrid(
                 children: [
                   _SummaryTile(
-                    icon: Icons.crop_outlined,
+                    icon: LucideIcons.crop,
                     title: '拍摄图片比例',
                     value: settings.cameraCaptureAspectRatio.label,
                     onTap: () => _pushDetail(
@@ -193,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   _SummaryTile(
-                    icon: Icons.view_sidebar_outlined,
+                    icon: LucideIcons.panelRight,
                     title: '相机缩放',
                     value:
                         '${settings.cameraMinZoom.toStringAsFixed(1)}x-${settings.cameraMaxZoom.toStringAsFixed(1)}x',
@@ -207,10 +225,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              if (_shouldShowMobileGallerySettings) ...[
-                const _SettingsDivider(),
+              if (_shouldShowMobileGallerySettings)
                 _SummarySwitchTile(
-                  icon: Icons.cloud_upload_outlined,
+                  icon: LucideIcons.cloudUpload,
                   title: '照片备份',
                   subtitle: '保存巡礼照片到相册',
                   value: settings.saveVisitPhotoToGallery,
@@ -220,13 +237,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.compare_arrows_outlined,
+              icon: LucideIcons.arrowLeftRight,
               title: '对比图设置',
               subtitle: '导出样式、自动保存到相册',
               onTap: () => _openComparisonStyleSettings(settings),
@@ -234,7 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               if (_shouldShowMobileGallerySettings) ...[
                 _SummarySwitchTile(
-                  icon: Icons.photo_library_outlined,
+                  icon: LucideIcons.images,
                   title: '自动保存对比图',
                   subtitle: '保存记录时保存到相册',
                   value: settings.autoSaveComparisonToGallery,
@@ -250,7 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.map_outlined,
+              icon: LucideIcons.map,
               title: '数据源设置',
               subtitle: '地图源、图片源等',
               onTap: () => _pushDetail(
@@ -265,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.layers_outlined,
+              icon: LucideIcons.layers,
               title: '地图显示',
               subtitle: '点位、片区、聚合与缩略图',
               onTap: () => _pushDetail(
@@ -276,11 +292,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          if (_showFutureCacheCleanupSettings) ...[
+          if (_showCacheCleanupSettings) ...[
             const SizedBox(height: 12),
             _SettingsCard(
               header: _SettingsCardHeader(
-                icon: Icons.cleaning_services_outlined,
+                icon: LucideIcons.brushCleaning,
                 title: '清除缓存',
                 subtitle: '完整参考图缓存',
                 onTap: () => _pushDetail(
@@ -293,7 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (_shouldShowDesktopSection) ...[
             _SettingsCard(
               header: _SettingsCardHeader(
-                icon: Icons.desktop_windows_outlined,
+                icon: LucideIcons.monitor,
                 title: '桌面端',
                 subtitle: '启动器、数据目录等',
                 onTap: () => _pushDetail(
@@ -308,7 +324,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           _SettingsCard(
             header: _SettingsCardHeader(
-              icon: Icons.info_outline,
+              icon: LucideIcons.info,
               title: '关于 MiriaGo',
               subtitle: '版本信息、开源许可等',
               onTap: () => _pushDetail(
@@ -356,7 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('已恢复初始设置')));
+      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '已恢复初始设置');
     }
     await clearComparisonExportConfig();
   }
@@ -457,6 +473,10 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
   }
 
   void _update(AppSettings settings) {
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: MediaQuery.platformBrightnessOf(context),
+    );
     setState(() {
       _settings = settings;
     });
@@ -493,13 +513,15 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
     final settings = _settings;
     final uiScale = settings.uiScale.clamp(0.8, 1.0);
     final fontScale = settings.fontScale.clamp(0.8, 1.2);
-    AppColors.palette = settings.themePalette;
-    AppColors.customAccentValue = settings.customThemeColorValue;
+    applyAppColorsFromSettings(
+      settings,
+      platformBrightness: MediaQuery.platformBrightnessOf(context),
+    );
 
     return Theme(
-      data: AppTheme.light(
-        palette: settings.themePalette,
-        customAccentValue: settings.customThemeColorValue,
+      data: appThemeFor(
+        settings,
+        platformBrightness: MediaQuery.platformBrightnessOf(context),
       ),
       child: _ScaledDetailScaffold(
         title: '\u5916\u89c2\u8bbe\u7f6e',
@@ -511,9 +533,57 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const _InlineSectionTitle(
-                  title: '\u4e3b\u9898\u8272',
-                  subtitle: '\u5f71\u54cd\u5e94\u7528\u6574\u4f53\u914d\u8272',
+                  title: '主题模式',
+                  subtitle: '影响应用整体浅色或深色显示',
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ModeButton(
+                        key: const ValueKey('appearance-theme-mode-light'),
+                        icon: LucideIcons.sun,
+                        label: '浅色',
+                        selected: settings.themeMode == AppThemeMode.light,
+                        onTap: () {
+                          _update(
+                            settings.copyWith(themeMode: AppThemeMode.light),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ModeButton(
+                        key: const ValueKey('appearance-theme-mode-dark'),
+                        icon: LucideIcons.moon,
+                        label: '深色',
+                        selected: settings.themeMode == AppThemeMode.dark,
+                        onTap: () {
+                          _update(
+                            settings.copyWith(themeMode: AppThemeMode.dark),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ModeButton(
+                        key: const ValueKey('appearance-theme-mode-system'),
+                        icon: LucideIcons.smartphone,
+                        label: '跟随系统',
+                        selected: settings.themeMode == AppThemeMode.system,
+                        onTap: () {
+                          _update(
+                            settings.copyWith(themeMode: AppThemeMode.system),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                const _InlineSectionTitle(title: '主题色', subtitle: '影响应用整体配色'),
                 const SizedBox(height: 16),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -565,56 +635,6 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                     ],
                   ),
                 ),
-                if (_showFutureThemeModeSettings) ...[
-                  const SizedBox(height: 22),
-                  const Text(
-                    '\u4e3b\u9898\u6a21\u5f0f',
-                    style: _titleTextStyle,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ModeButton(
-                          icon: Icons.wb_sunny_outlined,
-                          label: '\u6d45\u8272\u6a21\u5f0f',
-                          selected: settings.themeMode == AppThemeMode.light,
-                          onTap: () {
-                            _update(
-                              settings.copyWith(themeMode: AppThemeMode.light),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ModeButton(
-                          icon: Icons.dark_mode_outlined,
-                          label: '\u6df1\u8272\u6a21\u5f0f',
-                          selected: settings.themeMode == AppThemeMode.dark,
-                          onTap: () {
-                            _update(
-                              settings.copyWith(themeMode: AppThemeMode.dark),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ModeButton(
-                          icon: Icons.phone_iphone_outlined,
-                          label: '\u8ddf\u968f\u7cfb\u7edf',
-                          selected: settings.themeMode == AppThemeMode.system,
-                          onTap: () {
-                            _update(
-                              settings.copyWith(themeMode: AppThemeMode.system),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -625,13 +645,13 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.fit_screen_outlined,
+                    Icon(
+                      LucideIcons.maximize,
                       color: AppColors.textSecondary,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         '\u9875\u9762\u7f29\u653e',
                         style: _titleTextStyle,
@@ -649,8 +669,8 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Padding(
-                  padding: EdgeInsets.only(left: 28, right: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 28, right: 8),
                   child: Text(
                     '\u8c03\u6574\u754c\u9762\u6574\u4f53\u5927\u5c0f\uff08\u4e0d\u5f71\u54cd\u53c2\u8003\u56fe\uff09',
                     style: _captionTextStyle,
@@ -671,7 +691,7 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    const Text('Aa', style: _titleTextStyle),
+                    Text('Aa', style: _titleTextStyle),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Row(
@@ -713,25 +733,58 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
           ),
           const SizedBox(height: 14),
           _AppearancePanel(
-            child: Material(
-              color: Colors.transparent,
-              child: SwitchListTile(
-                key: const ValueKey('plan-group-progress-toggle'),
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
-                  Icons.linear_scale_outlined,
-                  color: AppColors.textSecondary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('个性化功能配置', style: _cardTitleTextStyle),
+                const SizedBox(height: 4),
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    key: const ValueKey('plan-group-progress-toggle'),
+                    contentPadding: EdgeInsets.zero,
+                    secondary: Icon(
+                      LucideIcons.moveHorizontal,
+                      color: AppColors.textSecondary,
+                    ),
+                    title: Text('显示片区进度条', style: _titleTextStyle),
+                    subtitle: Text(
+                      '在片区选择弹窗中显示未完成片区的进度背景；完成后仅显示对勾。',
+                      style: _secondaryTextStyle,
+                    ),
+                    value: settings.showPlanGroupProgress,
+                    onChanged: (value) {
+                      _update(settings.copyWith(showPlanGroupProgress: value));
+                    },
+                  ),
                 ),
-                title: const Text('显示片区进度条', style: _titleTextStyle),
-                subtitle: const Text(
-                  '在片区选择弹窗中显示未完成片区的进度背景；完成后仅显示对勾。',
-                  style: _secondaryTextStyle,
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    key: const ValueKey(
+                      'dismiss-plan-actions-on-outside-tap-toggle',
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    secondary: Icon(
+                      LucideIcons.pointer,
+                      color: AppColors.textSecondary,
+                    ),
+                    title: Text('点击空白收回计划操作', style: _titleTextStyle),
+                    subtitle: Text(
+                      '展开计划操作后，点击面板外的空白区域自动收回',
+                      style: _secondaryTextStyle,
+                    ),
+                    value: settings.dismissPlanActionsOnOutsideTap,
+                    onChanged: (value) {
+                      _update(
+                        settings.copyWith(
+                          dismissPlanActionsOnOutsideTap: value,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                value: settings.showPlanGroupProgress,
-                onChanged: (value) {
-                  _update(settings.copyWith(showPlanGroupProgress: value));
-                },
-              ),
+              ],
             ),
           ),
         ],
@@ -833,7 +886,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
           title: '\u62cd\u6444\u56fe\u7247\u6bd4\u4f8b',
           titleSpacing: 6,
           children: [
-            const Text(
+            Text(
               '\u81ea\u52a8\u4f1a\u4f18\u5148\u8ddf\u968f\u53c2\u8003\u56fe\u6bd4\u4f8b\uff1b\u9009\u62e9\u56fa\u5b9a\u6bd4\u4f8b\u540e\u4f1a\u6309\u8be5\u6bd4\u4f8b\u62cd\u6444\u3002',
               style: _secondaryTextStyle,
             ),
@@ -868,7 +921,7 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
           title: '\u65e0\u53c2\u8003\u56fe\u65f6\u6bd4\u4f8b',
           titleSpacing: 6,
           children: [
-            const Text(
+            Text(
               '\u62cd\u6444\u56fe\u7247\u6bd4\u4f8b\u4e3a\u81ea\u52a8\u3001\u4e14\u6ca1\u6709\u53c2\u8003\u56fe\u53ef\u5bf9\u9f50\u65f6\u4f7f\u7528\u3002',
               style: _secondaryTextStyle,
             ),
@@ -962,26 +1015,15 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
             ),
           ],
         ),
-        if (_shouldShowMobileGallerySettings) ...[
+        if (_shouldShowPhotoLocationSettings) ...[
           const SizedBox(height: 12),
           _SettingsSection(
             title: '照片定位信息',
+            titleSpacing: 6,
             children: [
-              DropdownButtonFormField<PhotoLocationStrategy>(
-                initialValue: settings.photoLocationStrategy,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                  labelText: '定位写入策略',
-                ),
-                items: PhotoLocationStrategy.values
-                    .map(
-                      (strategy) => DropdownMenuItem(
-                        value: strategy,
-                        child: Text(strategy.label),
-                      ),
-                    )
-                    .toList(growable: false),
+              _PhotoLocationStrategyDropdown(
+                value: settings.photoLocationStrategy,
+                settings: settings,
                 onChanged: (strategy) {
                   if (strategy != null) {
                     _update(settings.copyWith(photoLocationStrategy: strategy));
@@ -997,21 +1039,20 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
               ),
             ],
           ),
+        ],
+        if (_shouldShowMobileGallerySettings) ...[
           const SizedBox(height: 12),
           _SettingsSection(
             title: '照片备份',
             children: [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
-                  Icons.cloud_upload_outlined,
+                secondary: Icon(
+                  LucideIcons.cloudUpload,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('保存巡礼照片到相册', style: _titleTextStyle),
-                subtitle: const Text(
-                  '保存记录时同时备份一张巡礼照片。',
-                  style: _secondaryTextStyle,
-                ),
+                title: Text('保存巡礼照片到相册', style: _titleTextStyle),
+                subtitle: Text('保存记录时同时备份一张巡礼照片。', style: _secondaryTextStyle),
                 value: settings.saveVisitPhotoToGallery,
                 onChanged: (value) {
                   _update(settings.copyWith(saveVisitPhotoToGallery: value));
@@ -1033,6 +1074,251 @@ String _photoLocationStrategyDescription(PhotoLocationStrategy strategy) {
       '拍摄时优先使用设备最近的有效定位；没有可用定位时尝试获取一次。',
     PhotoLocationStrategy.waitOnConfirmation => '拍摄后在确认记录页面获取新定位，完成或失败后再允许保存。',
   };
+}
+
+String _photoLocationStrategyBadge(PhotoLocationStrategy strategy) {
+  return switch (strategy) {
+    PhotoLocationStrategy.askOnFirstCapture => '询问',
+    PhotoLocationStrategy.disabled => '关闭',
+    PhotoLocationStrategy.useRecentLocation => '最近',
+    PhotoLocationStrategy.waitOnConfirmation => '推荐',
+  };
+}
+
+String _photoLocationStrategyMenuLabel(PhotoLocationStrategy strategy) {
+  return switch (strategy) {
+    PhotoLocationStrategy.waitOnConfirmation => '确认记录时获取定位',
+    _ => strategy.label,
+  };
+}
+
+class _PhotoLocationStrategyDropdown extends StatelessWidget {
+  const _PhotoLocationStrategyDropdown({
+    required this.value,
+    required this.settings,
+    required this.onChanged,
+  });
+
+  final PhotoLocationStrategy value;
+  final AppSettings settings;
+  final ValueChanged<PhotoLocationStrategy?> onChanged;
+
+  static const _strategies = PhotoLocationStrategy.values;
+  static const _maxItemsWithoutScrollbar = 7;
+
+  @override
+  Widget build(BuildContext context) {
+    final omitScrollbarInset = _strategies.length <= _maxItemsWithoutScrollbar;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        highlightColor: AppColors.accent.withValues(alpha: 0.075),
+        splashColor: Colors.transparent,
+      ),
+      child: DropdownButtonFormField<PhotoLocationStrategy>(
+        key: ValueKey(value),
+        initialValue: value,
+        decoration: _decoration(),
+        isExpanded: true,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(8),
+        dropdownColor: AppColors.surface,
+        itemHeight: null,
+        menuMaxHeight: appScaledOverlayExtent(settings, 360),
+        icon: const Padding(
+          padding: EdgeInsets.only(right: 8),
+          child: Icon(LucideIcons.chevronDown, size: 20),
+        ),
+        selectedItemBuilder: (context) => [
+          for (final strategy in _strategies)
+            _PhotoLocationStrategyDropdownItem(strategy: strategy),
+        ],
+        items: [
+          for (final strategy in _strategies)
+            DropdownMenuItem<PhotoLocationStrategy>(
+              value: strategy,
+              child: SizedBox(
+                height: appScaledOverlayExtent(settings, 48),
+                child: AppScaledOverlayContent(
+                  settings: settings,
+                  child: _PhotoLocationStrategyDropdownItem(
+                    strategy: strategy,
+                    selected: strategy == value,
+                    menuItem: true,
+                    omitScrollbarInset: omitScrollbarInset,
+                  ),
+                ),
+              ),
+            ),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  InputDecoration _decoration() {
+    return InputDecoration(
+      isDense: true,
+      filled: true,
+      fillColor: AppColors.surface,
+      hoverColor: AppColors.accent.withValues(alpha: 0.035),
+      contentPadding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: AppColors.border, width: 1.4),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: AppColors.accent, width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
+    );
+  }
+}
+
+class _PhotoLocationStrategyDropdownItem extends StatefulWidget {
+  const _PhotoLocationStrategyDropdownItem({
+    required this.strategy,
+    this.selected = false,
+    this.menuItem = false,
+    this.omitScrollbarInset = false,
+  });
+
+  final PhotoLocationStrategy strategy;
+  final bool selected;
+  final bool menuItem;
+  final bool omitScrollbarInset;
+
+  @override
+  State<_PhotoLocationStrategyDropdownItem> createState() =>
+      _PhotoLocationStrategyDropdownItemState();
+}
+
+class _PhotoLocationStrategyDropdownItemState
+    extends State<_PhotoLocationStrategyDropdownItem> {
+  static const _hoverOffset = 12.0;
+  static const _menuTrailingInset = 10.0;
+  static const _menuBackgroundTrailingInset = 6.0;
+
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final strategy = widget.strategy;
+    final selected = widget.selected;
+    final reserveScrollbarSpace = widget.menuItem && !widget.omitScrollbarInset;
+
+    final item = SizedBox(
+      width: double.infinity,
+      height: widget.menuItem ? double.infinity : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.centerLeft,
+        transform: Matrix4.translationValues(
+          _hovered && !selected ? _hoverOffset : 0,
+          0,
+          0,
+        ),
+        transformAlignment: Alignment.centerLeft,
+        padding: EdgeInsets.only(
+          right: reserveScrollbarSpace ? _menuTrailingInset : 0,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.42),
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                _photoLocationStrategyBadge(strategy),
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Transform.translate(
+                offset: Offset(0, widget.menuItem ? 0 : -1),
+                child: Text(
+                  _photoLocationStrategyMenuLabel(strategy),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: 8),
+              Icon(LucideIcons.checkCircle, color: AppColors.accent, size: 18),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    final content = SizedBox(
+      width: double.infinity,
+      height: widget.menuItem ? double.infinity : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        fit: widget.menuItem ? StackFit.expand : StackFit.loose,
+        children: [
+          Positioned(
+            left: -8,
+            top: 6,
+            right: reserveScrollbarSpace ? _menuBackgroundTrailingInset : -8,
+            bottom: 6,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(
+                  alpha: selected ? 0.1 : (_hovered ? 0.05 : 0),
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+          item,
+        ],
+      ),
+    );
+
+    return MouseRegion(
+      onEnter: widget.menuItem && !selected
+          ? (_) => setState(() => _hovered = true)
+          : null,
+      onExit: widget.menuItem && !selected
+          ? (_) => setState(() => _hovered = false)
+          : null,
+      child: content,
+    );
+  }
 }
 
 class _AnitabiServiceSettingsPage extends StatefulWidget {
@@ -1102,17 +1388,17 @@ class _AnitabiServiceSettingsPageState
     });
     final config = _config;
     final probes = <String, Uri>{
-      '主站': config.siteUri('/'),
-      '静态数据': config.staticDataUri('g.json'),
+      '主站地址': config.siteUri('/'),
+      '静态地图数据': config.staticDataUri('g.json'),
       '数据 API': config.apiUri('bangumi/115908/lite'),
-      '官方图片': Uri.parse(
+      '官方图片服务': Uri.parse(
         config.officialImageUrl(
           Uri.parse(
             'https://image.anitabi.cn/points/115908/qys7fu.jpg?plan=h160',
           ),
         ),
       ),
-      '备用图片': Uri.parse(
+      '备用图片服务': Uri.parse(
         config.mirrorImageUrl(
           Uri.parse(
             'https://image.anitabi.cn/points/115908/qys7fu.jpg?plan=h160',
@@ -1156,7 +1442,18 @@ class _AnitabiServiceSettingsPageState
     }
   }
 
-  void _restoreDefaults() {
+  Future<void> _restoreDefaults() async {
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '恢复默认地址',
+      message: '将把全部 Anitabi 服务地址恢复为官方默认值。',
+      confirmLabel: '恢复默认',
+      notice: '当前自定义地址不会被保留',
+      emphasizedValues: const ['全部 Anitabi 服务地址'],
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
     _update(
       _settings.copyWith(
         anitabiSiteBaseUrl: defaultAnitabiSiteBaseUrl,
@@ -1171,6 +1468,57 @@ class _AnitabiServiceSettingsPageState
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
+    final services =
+        <
+          ({
+            Key key,
+            IconData icon,
+            String title,
+            String value,
+            ValueChanged<String> onSaved,
+          })
+        >[
+          (
+            key: const ValueKey('anitabi-site-base-url'),
+            icon: LucideIcons.globe,
+            title: '主站地址',
+            value: settings.anitabiSiteBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiSiteBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-static-data-base-url'),
+            icon: LucideIcons.braces,
+            title: '静态地图数据',
+            value: settings.anitabiStaticDataBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiStaticDataBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-api-base-url'),
+            icon: LucideIcons.webhook,
+            title: '数据 API',
+            value: settings.anitabiApiBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiApiBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-official-image-base-url'),
+            icon: LucideIcons.image,
+            title: '官方图片服务',
+            value: settings.anitabiOfficialImageBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiOfficialImageBaseUrl: value)),
+          ),
+          (
+            key: const ValueKey('anitabi-mirror-image-base-url'),
+            icon: LucideIcons.cloud,
+            title: '备用图片服务',
+            value: settings.anitabiMirrorImageBaseUrl,
+            onSaved: (value) =>
+                _update(settings.copyWith(anitabiMirrorImageBaseUrl: value)),
+          ),
+        ];
     return _ScaledDetailScaffold(
       title: 'Anitabi 服务地址',
       uiScale: settings.uiScale,
@@ -1178,62 +1526,28 @@ class _AnitabiServiceSettingsPageState
       children: [
         _SettingsSection(
           title: '服务地址',
+          titleSpacing: 4,
           children: [
-            _serviceRow(
-              key: const ValueKey('anitabi-site-base-url'),
-              icon: Icons.public_outlined,
-              title: '主站地址',
-              value: settings.anitabiSiteBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiSiteBaseUrl: value)),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-static-data-base-url'),
-              icon: Icons.data_object_outlined,
-              title: '静态地图数据',
-              value: settings.anitabiStaticDataBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiStaticDataBaseUrl: value)),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-api-base-url'),
-              icon: Icons.api_outlined,
-              title: '数据 API',
-              value: settings.anitabiApiBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiApiBaseUrl: value)),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-official-image-base-url'),
-              icon: Icons.image_outlined,
-              title: '官方图片服务',
-              value: settings.anitabiOfficialImageBaseUrl,
-              onSaved: (value) => _update(
-                settings.copyWith(anitabiOfficialImageBaseUrl: value),
+            for (var index = 0; index < services.length; index += 1) ...[
+              if (index > 0)
+                Divider(height: 1, thickness: 1, color: AppColors.border),
+              _AnitabiServiceRow(
+                key: services[index].key,
+                icon: services[index].icon,
+                title: services[index].title,
+                url: services[index].value,
+                status: _testResults[services[index].title],
+                testing:
+                    _testing &&
+                    !_testResults.containsKey(services[index].title),
+                onTap: () => _edit(
+                  title: services[index].title,
+                  value: services[index].value,
+                  onSaved: services[index].onSaved,
+                ),
               ),
-            ),
-            _serviceRow(
-              key: const ValueKey('anitabi-mirror-image-base-url'),
-              icon: Icons.cloud_outlined,
-              title: '备用图片服务',
-              value: settings.anitabiMirrorImageBaseUrl,
-              onSaved: (value) =>
-                  _update(settings.copyWith(anitabiMirrorImageBaseUrl: value)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SettingsSection(
-          title: '连接测试',
-          children: [
-            for (final entry in _testResults.entries)
-              _InfoRow(
-                icon: entry.value.startsWith('连接成功')
-                    ? Icons.check_circle_outline
-                    : Icons.error_outline,
-                text: '${entry.key}：${entry.value}',
-              ),
-            if (_testResults.isNotEmpty) const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -1244,7 +1558,7 @@ class _AnitabiServiceSettingsPageState
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.network_check_outlined),
+                    : const Icon(LucideIcons.wifi),
                 label: Text(_testing ? '正在测试连接' : '测试全部连接'),
               ),
             ),
@@ -1254,31 +1568,13 @@ class _AnitabiServiceSettingsPageState
               child: OutlinedButton.icon(
                 key: const ValueKey('anitabi-service-restore-defaults'),
                 onPressed: _testing ? null : _restoreDefaults,
-                icon: const Icon(Icons.restore),
+                icon: const Icon(LucideIcons.history),
                 label: const Text('恢复默认地址'),
               ),
             ),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _serviceRow({
-    required Key key,
-    required IconData icon,
-    required String title,
-    required String value,
-    required ValueChanged<String> onSaved,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: _MapUrlRow(
-        key: key,
-        icon: icon,
-        label: '$title\n$value',
-        onTap: () => _edit(title: title, value: value, onSaved: onSaved),
-      ),
     );
   }
 }
@@ -1400,6 +1696,7 @@ class _DataSourceSettingsPage extends StatefulWidget {
 
 class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
   late AppSettings _settings;
+  var _testingValhalla = false;
 
   @override
   void initState() {
@@ -1412,6 +1709,29 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
       _settings = settings;
     });
     widget.onChanged(settings);
+  }
+
+  Future<void> _testValhalla() async {
+    setState(() => _testingValhalla = true);
+    try {
+      await ValhallaRouteClient().testConnection(_settings.valhallaBaseUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.success,
+          title: '路径规划服务连接正常',
+        );
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '路径规划服务连接失败',
+          subtitle: error.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testingValhalla = false);
+    }
   }
 
   @override
@@ -1441,7 +1761,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             if (settings.mapTileProvider == MapTileProvider.openFreeMap) ...[
               const SizedBox(height: 12),
               _SettingsSubheading(
-                icon: Icons.layers_outlined,
+                icon: LucideIcons.layers,
                 title:
                     'OpenFreeMap 样式 ${openFreeMapStyleOption(settings.openFreeMapStyle).label}',
               ),
@@ -1461,7 +1781,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             if (settings.mapTileProvider == MapTileProvider.customXyz) ...[
               const SizedBox(height: 12),
               _MapUrlRow(
-                icon: Icons.grid_3x3_outlined,
+                icon: LucideIcons.grid3X3,
                 label: settings.customXyzTileUrl.trim().isEmpty
                     ? '未设置自定义 XYZ URL'
                     : settings.customXyzTileUrl.trim(),
@@ -1481,7 +1801,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
                 MapTileProvider.customMapLibreStyle) ...[
               const SizedBox(height: 12),
               _MapUrlRow(
-                icon: Icons.data_object_outlined,
+                icon: LucideIcons.braces,
                 label: settings.customMapLibreStyleUrl.trim().isEmpty
                     ? '未设置 MapLibre style URL'
                     : settings.customMapLibreStyleUrl.trim(),
@@ -1506,7 +1826,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             if (validateMapTileSettings(settings) != null) ...[
               const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.error_outline,
+                icon: LucideIcons.circleAlert,
                 text: validateMapTileSettings(settings)!,
               ),
             ],
@@ -1514,12 +1834,15 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
         ),
         const SizedBox(height: 12),
         _SettingsSection(
-          title: 'Anitabi 服务地址',
+          title: '',
+          showTitle: false,
           children: [
-            _MapUrlRow(
+            const _SettingsSubheading(title: 'Anitabi 服务地址'),
+            const SizedBox(height: 8),
+            _AnitabiServiceEntryRow(
               key: const ValueKey('anitabi-service-settings-entry'),
-              icon: Icons.dns_outlined,
-              label: '主站、静态数据、API 与图片服务',
+              siteUrl: settings.anitabiSiteBaseUrl,
+              usingDefaults: _usesDefaultAnitabiService(settings),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => _AnitabiServiceSettingsPage(
@@ -1531,17 +1854,20 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              '服务域名变化时可单独调整，不会改写计划中的标准图片链接。',
-              style: _secondaryTextStyle,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SettingsSection(
-          title:
+            Text('服务域名变化时可单独调整，不会改写计划中的标准图片链接。', style: _secondaryTextStyle),
+            const SizedBox(height: 20),
+            Divider(height: 1, thickness: 1, color: AppColors.surfaceMuted),
+            const SizedBox(height: 18),
+            Text(
               'Anitabi 图片源 ${_anitabiImageSourceLabel(settings.anitabiImageSource)}',
-          children: [
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 12),
             _AnitabiImageSourceGrid(
               selectedSource: settings.anitabiImageSource,
               onSelected: (source) {
@@ -1552,6 +1878,22 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             Text(
               _anitabiImageSourceDescription(settings),
               style: _secondaryTextStyle,
+            ),
+            const SizedBox(height: 20),
+            Divider(height: 1, thickness: 1, color: AppColors.surfaceMuted),
+            const SizedBox(height: 18),
+            _NumberStepperSetting(
+              icon: LucideIcons.cloudDownload,
+              title: '图片同时请求数',
+              subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
+              value: settings.mapThumbnailConcurrentLoads,
+              min: 1,
+              max: 30,
+              step: 1,
+              valueLabel: '${settings.mapThumbnailConcurrentLoads} 个',
+              onChanged: (value) {
+                _update(settings.copyWith(mapThumbnailConcurrentLoads: value));
+              },
             ),
           ],
         ),
@@ -1574,21 +1916,59 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
         ),
         const SizedBox(height: 12),
         _SettingsSection(
-          title: '图片加载',
+          title: '步行路径规划',
           children: [
-            _NumberStepperSetting(
-              icon: Icons.download_for_offline_outlined,
-              title: '图片同时请求数',
-              subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
-              value: settings.mapThumbnailConcurrentLoads,
-              min: 1,
-              max: 30,
-              step: 1,
-              valueLabel: '${settings.mapThumbnailConcurrentLoads} 个',
-              onChanged: (value) {
-                _update(settings.copyWith(mapThumbnailConcurrentLoads: value));
-              },
+            _MapUrlRow(
+              icon: LucideIcons.route,
+              label: settings.valhallaBaseUrl,
+              onTap: () => widget.showMapUrlDialog(
+                title: 'Valhalla 服务地址',
+                initialValue: settings.valhallaBaseUrl,
+                helperText: '用于应用内步行路线规划。公开服务没有可用性保证。',
+                validator: validateValhallaBaseUrl,
+                onSaved: (value) {
+                  _update(
+                    settings.copyWith(
+                      valhallaBaseUrl: normalizeValhallaBaseUrl(value),
+                    ),
+                  );
+                },
+              ),
             ),
+            const SizedBox(height: 10),
+            ResponsiveTwoButtonRow(
+              first: OutlinedButton(
+                onPressed: _testingValhalla ? null : _testValhalla,
+                child: _testingValhalla
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const ResponsiveButtonContent(
+                        icon: LucideIcons.radio,
+                        label: '测试连接',
+                        shortLabel: '测试',
+                        semanticLabel: '测试 Valhalla 连接',
+                      ),
+              ),
+              second: OutlinedButton(
+                onPressed: settings.valhallaBaseUrl == defaultValhallaBaseUrl
+                    ? null
+                    : () => _update(
+                        settings.copyWith(
+                          valhallaBaseUrl: defaultValhallaBaseUrl,
+                        ),
+                      ),
+                child: const ResponsiveButtonContent(
+                  icon: LucideIcons.history,
+                  label: '恢复默认',
+                  shortLabel: '恢复',
+                  semanticLabel: '恢复默认 Valhalla 地址',
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text('仅发送路线坐标，不会上传计划、作品或照片信息。', style: _secondaryTextStyle),
           ],
         ),
       ],
@@ -1636,13 +2016,31 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
       fontScale: settings.fontScale,
       children: [
         _SettingsSection(
+          title: '当前位置',
+          children: [
+            SwitchListTile(
+              key: const ValueKey('continuous-map-location-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: Text('持续更新当前位置', style: _titleTextStyle),
+              subtitle: Text(
+                '开启定位后持续更新；关闭时仅在点击定位时获取一次。',
+                style: _secondaryTextStyle,
+              ),
+              value: settings.continuousMapLocation,
+              onChanged: (value) =>
+                  _update(settings.copyWith(continuousMapLocation: value)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
           title: '地图缩放',
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.zoom_in_outlined,
+                Icon(
+                  LucideIcons.zoomIn,
                   color: AppColors.textSecondary,
                   size: 22,
                 ),
@@ -1653,7 +2051,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text('最大缩放倍率', style: _titleTextStyle),
                           ),
                           Text(
@@ -1668,10 +2066,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      const Text(
-                        '控制所有地图能够放大的最大级别。',
-                        style: _secondaryTextStyle,
-                      ),
+                      Text('控制所有地图能够放大的最大级别。', style: _secondaryTextStyle),
                       Slider(
                         key: const ValueKey('map-max-zoom-slider'),
                         min: 16,
@@ -1693,7 +2088,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                           );
                         },
                       ),
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1717,11 +2112,32 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
         _SettingsSection(
           title: '地图标记',
           children: [
+            Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                key: const ValueKey('hide-completed-points-on-map-toggle'),
+                contentPadding: EdgeInsets.zero,
+                secondary: Icon(
+                  LucideIcons.eyeOff,
+                  color: AppColors.textSecondary,
+                ),
+                title: Text('隐藏已完成点位', style: _titleTextStyle),
+                subtitle: Text(
+                  '在地图页不显示已标记完成的点位。关闭后仍可在地图上看到全部点位。',
+                  style: _secondaryTextStyle,
+                ),
+                value: settings.hideCompletedPointsOnMap,
+                onChanged: (value) {
+                  _update(settings.copyWith(hideCompletedPointsOnMap: value));
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.location_on_outlined,
+                Icon(
+                  LucideIcons.mapPin,
                   color: AppColors.textSecondary,
                   size: 22,
                 ),
@@ -1730,9 +2146,9 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('地图标记大小', style: _titleTextStyle),
+                      Text('地图标记大小', style: _titleTextStyle),
                       const SizedBox(height: 3),
-                      const Text(
+                      Text(
                         '统一调整点位、缩略图、聚合标记、当前位置和片区关键点的大小。',
                         style: _secondaryTextStyle,
                       ),
@@ -1759,7 +2175,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
           title: '片区范围',
           children: [
             _NumberStepperSetting(
-              icon: Icons.gesture_outlined,
+              icon: LucideIcons.hand,
               title: '片区范围半径',
               subtitle: '每个点位向外扩张的距离，用于生成地图上的片区轮廓。',
               value: settings.mapGroupAreaRadiusMeters,
@@ -1781,12 +2197,12 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               color: Colors.transparent,
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                secondary: const Icon(
-                  Icons.hub_outlined,
+                secondary: Icon(
+                  LucideIcons.gitBranch,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text('自动聚合密集点位', style: _titleTextStyle),
-                subtitle: const Text(
+                title: Text('自动聚合密集点位', style: _titleTextStyle),
+                subtitle: Text(
                   '仅合并地图标记的显示；点位数据、选择和导入功能不受影响。',
                   style: _secondaryTextStyle,
                 ),
@@ -1799,7 +2215,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
             if (settings.mapMarkerClusteringEnabled) ...[
               const SizedBox(height: 8),
               _NumberStepperSetting(
-                icon: Icons.blur_circular_outlined,
+                icon: LucideIcons.circleDashed,
                 title: '聚合范围',
                 subtitle: '屏幕上相距较近的点位会合并为一个带数量的聚合标记。',
                 value: settings.mapMarkerClusterRadius,
@@ -1813,7 +2229,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               ),
               const SizedBox(height: 12),
               _NumberStepperSetting(
-                icon: Icons.zoom_in_map_outlined,
+                icon: LucideIcons.maximize,
                 title: '停止聚合级别',
                 subtitle: '地图放大超过该级别后显示每个原始点位。',
                 value: settings.mapMarkerClusterMaxZoom,
@@ -1833,7 +2249,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
           title: '地图缩略图',
           children: [
             _NumberStepperSetting(
-              icon: Icons.photo_size_select_large_outlined,
+              icon: LucideIcons.maximize,
               title: '缩略图显示阈值',
               subtitle:
                   '视图内点位不超过 ${settings.mapThumbnailVisibleThreshold} 个时显示缩略图；超过时仅显示圆点。',
@@ -1847,7 +2263,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
               },
             ),
             const SizedBox(height: 8),
-            const Text('阈值为 0 时不会在地图上显示缩略图。', style: _secondaryTextStyle),
+            Text('阈值为 0 时不会在地图上显示缩略图。', style: _secondaryTextStyle),
           ],
         ),
       ],
@@ -1868,6 +2284,9 @@ class _CacheCleanupSettingsPage extends StatefulWidget {
 class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
   final Set<String> _selectedPlanIds = <String>{};
   Future<List<PilgrimagePlan>>? _plansFuture;
+  var _busy = false;
+  var _completed = 0;
+  var _total = 0;
 
   @override
   void initState() {
@@ -1902,7 +2321,10 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
               return _SettingsSection(
                 title: '计划',
                 children: [
-                  const _InfoRow(icon: Icons.error_outline, text: '计划列表读取失败'),
+                  const _InfoRow(
+                    icon: LucideIcons.circleAlert,
+                    text: '计划列表读取失败',
+                  ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () {
@@ -1910,7 +2332,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                         _plansFuture = widget.repository.loadPlans();
                       });
                     },
-                    icon: const Icon(Icons.refresh, size: 18),
+                    icon: const Icon(LucideIcons.refreshCw, size: 18),
                     label: const Text('重试'),
                   ),
                 ],
@@ -1943,7 +2365,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                                 ..addAll(plans.map((plan) => plan.id));
                             });
                           },
-                          icon: const Icon(Icons.select_all_outlined),
+                          icon: const Icon(LucideIcons.scan),
                         ),
                         IconButton(
                           tooltip: '清空',
@@ -1954,7 +2376,7 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                                     _selectedPlanIds.clear();
                                   });
                                 },
-                          icon: const Icon(Icons.deselect_outlined),
+                          icon: const Icon(LucideIcons.square),
                         ),
                       ],
                     ),
@@ -1988,12 +2410,23 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _selectedPlanIds.isEmpty
+                    onPressed: _selectedPlanIds.isEmpty || _busy
                         ? null
-                        : _showCachePlaceholder,
-                    icon: const Icon(Icons.cleaning_services_outlined),
-                    label: const Text(
-                      '\u6e05\u9664\u5b8c\u6574\u53c2\u8003\u56fe\u7f13\u5b58',
+                        : () => _confirmAndClean(
+                            plans.where(
+                              (plan) => _selectedPlanIds.contains(plan.id),
+                            ),
+                          ),
+                    icon: _busy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(LucideIcons.brushCleaning),
+                    label: Text(
+                      _busy && _total > 0
+                          ? '正在清理 $_completed / $_total'
+                          : '清除下载的参考图缓存',
                     ),
                   ),
                 ),
@@ -2005,10 +2438,92 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
     );
   }
 
-  void _showCachePlaceholder() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('清除缓存功能尚未接入，仅展示界面。')));
+  Future<void> _confirmAndClean(Iterable<PilgrimagePlan> selected) async {
+    setState(() => _busy = true);
+    final plans = selected.toList(growable: false);
+    late ReferenceCacheScan scan;
+    try {
+      scan = await scanDownloadedReferenceCaches(plans);
+    } on Object catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '缓存扫描失败',
+          subtitle: error.toString(),
+        );
+      }
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (scan.fileCount == 0) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '所选计划没有可清理的下载缓存',
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清除参考图缓存？'),
+        content: Text(
+          '将删除 ${scan.fileCount} 个下载缓存，约 ${_formatByteSize(scan.byteCount)}。'
+          '本地上传图片和计划包导入图片不会被删除。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _completed = 0;
+      _total = scan.paths.length;
+    });
+    try {
+      final result = await cleanupDownloadedReferenceCaches(
+        repository: widget.repository,
+        plans: plans,
+        onProgress: (completed, total) {
+          if (!mounted) return;
+          setState(() {
+            _completed = completed;
+            _total = total;
+          });
+        },
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: result.failedFileCount == 0
+            ? AppStatusBannerKind.success
+            : AppStatusBannerKind.warning,
+        title: '已清理 ${result.deletedFileCount} 个缓存文件',
+        subtitle: result.failedFileCount == 0
+            ? '释放 ${_formatByteSize(result.reclaimedBytes)}'
+            : '${result.failedFileCount} 个文件清理失败',
+      );
+      setState(() {
+        _plansFuture = widget.repository.loadPlans();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _completed = 0;
+          _total = 0;
+        });
+      }
+    }
   }
 }
 
@@ -2030,18 +2545,18 @@ class _DesktopSettingsPage extends StatelessWidget {
           title: '启动器',
           children: [
             _InfoRow(
-              icon: Icons.desktop_windows_outlined,
+              icon: LucideIcons.monitor,
               text: desktopLauncherStatusText,
             ),
             if (desktopLauncherInfo != null) ...[
               const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.folder_outlined,
+                icon: LucideIcons.folder,
                 text: desktopLauncherInfo!.dataDir,
               ),
               const SizedBox(height: 10),
               _InfoRow(
-                icon: Icons.inventory_2_outlined,
+                icon: LucideIcons.package,
                 text: desktopLauncherInfo!.assetsDir,
               ),
             ],
@@ -2050,6 +2565,15 @@ class _DesktopSettingsPage extends StatelessWidget {
       ],
     );
   }
+}
+
+String _formatByteSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kilobytes = bytes / 1024;
+  if (kilobytes < 1024) return '${kilobytes.toStringAsFixed(1)} KB';
+  final megabytes = kilobytes / 1024;
+  if (megabytes < 1024) return '${megabytes.toStringAsFixed(1)} MB';
+  return '${(megabytes / 1024).toStringAsFixed(2)} GB';
 }
 
 class _AboutSettingsPage extends StatelessWidget {
@@ -2069,7 +2593,7 @@ class _AboutSettingsPage extends StatelessWidget {
               children: [
                 const _AppIconMark(),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2091,27 +2615,27 @@ class _AboutSettingsPage extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _AboutInfoTile(
-              icon: Icons.new_releases_outlined,
+              icon: LucideIcons.badge,
               label: '当前版本',
               value: appVersionLabel ?? '读取中',
             ),
             const _AboutInfoTile(
-              icon: Icons.person_outline,
+              icon: LucideIcons.user,
               label: '作者',
               value: 'BilyHurington',
             ),
             const _AboutInfoTile(
-              icon: Icons.mail_outline,
+              icon: LucideIcons.mail,
               label: '联系邮箱',
               value: 'bilyhurington@gmail.com',
             ),
             const _AboutInfoTile(
-              icon: Icons.code_outlined,
+              icon: LucideIcons.code,
               label: '开源仓库',
               value: 'github.com/BilyHurington/MiriaGo',
             ),
             const _AboutInfoTile(
-              icon: Icons.balance_outlined,
+              icon: LucideIcons.scale,
               label: '开源许可',
               value: 'MIT License',
             ),
@@ -2122,27 +2646,27 @@ class _AboutSettingsPage extends StatelessWidget {
           title: '数据与版权',
           children: [
             _AboutDataItem(
-              icon: Icons.map_outlined,
+              icon: LucideIcons.map,
               label: '地图',
               description: '可使用 OpenFreeMap、OpenStreetMap 或自定义地图服务。',
             ),
             _AboutDataItem(
-              icon: Icons.search_outlined,
+              icon: LucideIcons.search,
               label: '作品',
               description: '作品搜索数据来自 Bangumi。',
             ),
             _AboutDataItem(
-              icon: Icons.place_outlined,
+              icon: LucideIcons.mapPin,
               label: '巡礼内容',
               description: '巡礼点位与参考图来自 Anitabi。',
             ),
             _AboutDataItem(
-              icon: Icons.image_outlined,
+              icon: LucideIcons.image,
               label: '图片源',
               description: '图片源设置只影响访问域名，远端链接统一保留 Anitabi 默认格式。',
             ),
             _AboutDataItem(
-              icon: Icons.copyright_outlined,
+              icon: LucideIcons.copyright,
               label: '版权归属',
               description: '第三方数据、截图和图片版权归原平台、贡献者或权利方所有。',
               bottomSpacing: 0,
@@ -2163,7 +2687,11 @@ class _DetailScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
+        title: Text(title),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: children,
@@ -2239,25 +2767,54 @@ extension _ZoomStepSnap on double {
   double snapToZoomStep() => (this * 10).round() / 10;
 }
 
+class _SettingsChrome extends StatelessWidget {
+  const _SettingsChrome({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: scheme.outline),
+      ),
+      child: padding == null ? child : Padding(padding: padding!, child: child),
+    );
+  }
+}
+
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.header, this.children = const []});
+  const _SettingsCard({
+    required this.header,
+    this.children = const [],
+    super.key,
+  });
 
   final _SettingsCardHeader header;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
+    final outline = Theme.of(context).colorScheme.outline;
+    return _SettingsChrome(
       child: Column(
         children: [
           header,
-          if (children.isNotEmpty) ...[const _SettingsDivider(), ...children],
+          for (final child in children) ...[
+            ColoredBox(
+              color: outline,
+              child: const SizedBox(height: 1, width: double.infinity),
+            ),
+            child,
+          ],
         ],
       ),
     );
@@ -2279,28 +2836,39 @@ class _SettingsCardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.textSecondary, size: 30),
+            Icon(icon, color: scheme.onSurfaceVariant, size: 30),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: _cardTitleTextStyle),
+                  Text(
+                    title,
+                    style: _cardTitleTextStyle.copyWith(
+                      color: scheme.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: 3),
-                  Text(subtitle, style: _secondaryTextStyle),
+                  Text(
+                    subtitle,
+                    style: _secondaryTextStyle.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textSecondary,
+            Icon(
+              LucideIcons.chevronRight,
+              color: scheme.onSurfaceVariant,
               size: 30,
             ),
           ],
@@ -2317,25 +2885,21 @@ class _SummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tiles = <Widget>[];
-    for (var index = 0; index < children.length; index += 1) {
-      tiles.add(
-        Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: index == children.length - 1
-                  ? null
-                  : const Border(right: BorderSide(color: Color(0xFFE8ECF1))),
-            ),
-            child: children[index],
-          ),
-        ),
-      );
-    }
-
+    final outline = Theme.of(context).colorScheme.outline;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: tiles),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var index = 0; index < children.length; index += 1) ...[
+              if (index > 0)
+                ColoredBox(color: outline, child: const SizedBox(width: 1)),
+              Expanded(child: children[index]),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2364,7 +2928,12 @@ class _SummaryTile extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            swatch ?? Icon(icon, color: AppColors.textSecondary, size: 28),
+            swatch ??
+                Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 28,
+                ),
             const SizedBox(width: 10),
             Flexible(
               child: Column(
@@ -2375,7 +2944,9 @@ class _SummaryTile extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: _titleTextStyle,
+                    style: _titleTextStyle.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -2453,21 +3024,16 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _SettingsChrome(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (showTitle) ...[
             Text(
               title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0,
@@ -2483,28 +3049,30 @@ class _SettingsSection extends StatelessWidget {
 }
 
 class _SettingsSubheading extends StatelessWidget {
-  const _SettingsSubheading({required this.icon, required this.title});
+  const _SettingsSubheading({this.icon, required this.title});
 
-  final IconData icon;
+  final IconData? icon;
   final String title;
 
   @override
   Widget build(BuildContext context) {
+    final titleText = Text(
+      title,
+      style: TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
+      ),
+    );
+    if (icon == null) {
+      return titleText;
+    }
     return Row(
       children: [
         Icon(icon, size: 18, color: AppColors.textSecondary),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
+        Expanded(child: titleText),
       ],
     );
   }
@@ -2557,7 +3125,7 @@ class _NumberStepperSetting extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _NumberStepperIconButton(
-              icon: Icons.remove,
+              icon: LucideIcons.minus,
               tooltip: '减少',
               onTap: canDecrease
                   ? () => onChanged((value - step).clamp(min, max))
@@ -2577,7 +3145,7 @@ class _NumberStepperSetting extends StatelessWidget {
                 valueLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -2586,7 +3154,7 @@ class _NumberStepperSetting extends StatelessWidget {
               ),
             ),
             _NumberStepperIconButton(
-              icon: Icons.add,
+              icon: LucideIcons.plus,
               tooltip: '增加',
               onTap: canIncrease
                   ? () => onChanged((value + step).clamp(min, max))
@@ -2624,7 +3192,7 @@ class _NumberStepperIconButton extends StatelessWidget {
           disabledForegroundColor: AppColors.textSecondary.withValues(
             alpha: 0.5,
           ),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         icon: Icon(icon, size: 18),
@@ -2693,7 +3261,7 @@ class _FullReferenceCacheSection extends StatelessWidget {
       title: '\u7f13\u5b58\u5185\u5bb9',
       children: [
         _CacheTargetCard(
-          icon: Icons.photo_library_outlined,
+          icon: LucideIcons.images,
           title: '\u5b8c\u6574\u53c2\u8003\u56fe\u7f13\u5b58',
           subtitle:
               '\u6e05\u9664\u76f8\u673a\u53c2\u8003\u548c\u5927\u56fe\u67e5\u770b\u4f7f\u7528\u7684\u5b8c\u6574\u53c2\u8003\u56fe\u3002\u7f29\u7565\u56fe\u7f13\u5b58\u4f1a\u4fdd\u7559\uff0c\u4ee5\u4fdd\u6301\u5217\u8868\u548c\u5730\u56fe\u52a0\u8f7d\u901f\u5ea6\u3002',
@@ -2814,6 +3382,7 @@ class _CustomAspectRatioDialog extends StatefulWidget {
 class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
   late final TextEditingController _widthController;
   late final TextEditingController _heightController;
+  String? _errorText;
 
   @override
   void initState() {
@@ -2837,11 +3406,7 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
     final width = double.tryParse(_widthController.text.trim());
     final height = double.tryParse(_heightController.text.trim());
     if (width == null || height == null || width <= 0 || height <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('\u8bf7\u8f93\u5165\u6709\u6548\u6bd4\u4f8b'),
-        ),
-      );
+      setState(() => _errorText = '请输入有效比例');
       return;
     }
     Navigator.of(context).pop((width: width, height: height));
@@ -2851,6 +3416,7 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
   Widget build(BuildContext context) {
     return AppInputDialog(
       title: '\u81ea\u5b9a\u4e49\u6bd4\u4f8b',
+      errorText: _errorText,
       content: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -2860,6 +3426,11 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
               child: TextField(
                 onTapOutside: dismissKeyboardOnTapOutside,
                 controller: _widthController,
+                onChanged: (_) {
+                  if (_errorText != null) {
+                    setState(() => _errorText = null);
+                  }
+                },
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -2880,6 +3451,11 @@ class _CustomAspectRatioDialogState extends State<_CustomAspectRatioDialog> {
               child: TextField(
                 onTapOutside: dismissKeyboardOnTapOutside,
                 controller: _heightController,
+                onChanged: (_) {
+                  if (_errorText != null) {
+                    setState(() => _errorText = null);
+                  }
+                },
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -2946,7 +3522,7 @@ class _AspectRatioOption extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (selected) ...[
-                  Icon(Icons.check, size: 13, color: AppColors.onAccent),
+                  Icon(LucideIcons.check, size: 13, color: AppColors.onAccent),
                   const SizedBox(width: 4),
                 ],
                 Flexible(
@@ -2994,22 +3570,7 @@ class _AppearancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
+    return _SettingsChrome(padding: const EdgeInsets.all(14), child: child);
   }
 }
 
@@ -3021,12 +3582,18 @@ class _InlineSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title, style: _titleTextStyle),
+        Text(title, style: _titleTextStyle.copyWith(color: scheme.onSurface)),
         const SizedBox(width: 10),
-        Flexible(child: Text(subtitle, style: _captionTextStyle)),
+        Flexible(
+          child: Text(
+            subtitle,
+            style: _captionTextStyle.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
       ],
     );
   }
@@ -3085,7 +3652,7 @@ class _CustomThemeColorOption extends StatelessWidget {
       color: Color(color.value),
       label: color.name,
       selected: selected,
-      icon: selected ? Icons.check : null,
+      icon: selected ? LucideIcons.check : null,
       onTap: onTap,
     );
   }
@@ -3110,7 +3677,7 @@ class _AddThemeColorOption extends StatelessWidget {
       color: Color(colorValue),
       label: label.trim().isEmpty ? '\u81ea\u5b9a\u4e49' : label.trim(),
       selected: selected,
-      icon: Icons.add,
+      icon: LucideIcons.plus,
       onTap: onTap,
     );
   }
@@ -3142,8 +3709,7 @@ class _ThemeColorButton extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
+          Container(
             width: selected ? 42 : 38,
             height: selected ? 42 : 38,
             padding: const EdgeInsets.all(4),
@@ -3197,6 +3763,7 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _hexController;
   late Color _color;
+  String? _errorText;
 
   @override
   void initState() {
@@ -3235,11 +3802,7 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
     final name = _nameController.text.trim();
     final color = _colorFromHex(_hexController.text) ?? _color;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('\u8bf7\u8f93\u5165\u989c\u8272\u540d\u79f0'),
-        ),
-      );
+      setState(() => _errorText = '请输入颜色名称');
       return;
     }
     Navigator.of(
@@ -3251,6 +3814,7 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
   Widget build(BuildContext context) {
     return AppInputDialog(
       title: '\u81ea\u5b9a\u4e49\u4e3b\u9898\u8272',
+      errorText: _errorText,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -3280,6 +3844,11 @@ class _CustomThemeColorDialogState extends State<_CustomThemeColorDialog> {
             child: TextField(
               onTapOutside: dismissKeyboardOnTapOutside,
               controller: _nameController,
+              onChanged: (_) {
+                if (_errorText != null) {
+                  setState(() => _errorText = null);
+                }
+              },
               decoration: appDialogInputDecoration(),
             ),
           ),
@@ -3553,6 +4122,7 @@ class _ModeButton extends StatelessWidget {
     required this.label,
     this.selected = false,
     this.onTap,
+    super.key,
   });
 
   final IconData icon;
@@ -3562,43 +4132,42 @@ class _ModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final border = selected ? AppColors.accent : scheme.outline;
+    final foreground = selected ? AppColors.accent : scheme.onSurfaceVariant;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
-      child: Container(
-        height: 40,
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: selected
               ? AppColors.accent.withValues(alpha: 0.08)
-              : AppColors.surface,
+              : scheme.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
-          ),
+          border: Border.all(color: border),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: selected ? AppColors.accent : AppColors.textSecondary,
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? AppColors.accent : AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+        child: SizedBox(
+          height: 40,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: foreground, size: 18),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -3627,11 +4196,11 @@ class _ScaleStepper extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _StepperIconButton(icon: Icons.remove, onTap: onDecrease),
+          _StepperIconButton(icon: LucideIcons.minus, onTap: onDecrease),
           Container(
             width: 72,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border.symmetric(
                 vertical: BorderSide(color: AppColors.border),
               ),
@@ -3645,7 +4214,7 @@ class _ScaleStepper extends StatelessWidget {
               ),
             ),
           ),
-          _StepperIconButton(icon: Icons.add, onTap: onIncrease),
+          _StepperIconButton(icon: LucideIcons.plus, onTap: onIncrease),
         ],
       ),
     );
@@ -3787,18 +4356,176 @@ class _FontSizeButton extends StatelessWidget {
   }
 }
 
-class _SettingsDivider extends StatelessWidget {
-  const _SettingsDivider();
+class _AnitabiServiceRow extends StatelessWidget {
+  const _AnitabiServiceRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.url,
+    required this.onTap,
+    this.status,
+    this.testing = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String url;
+  final VoidCallback onTap;
+  final String? status;
+  final bool testing;
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, thickness: 1, color: Color(0xFFE8ECF1));
+    final compactStatus = status == null
+        ? null
+        : _compactAnitabiProbeStatus(status!);
+    final succeeded = status?.startsWith('连接成功') ?? false;
+    final statusColor = succeeded ? AppColors.accent : AppColors.error;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.accent, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _secondaryTextStyle,
+                  ),
+                ],
+              ),
+            ),
+            if (testing) ...[
+              const SizedBox(width: 8),
+              const SizedBox.square(
+                dimension: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ] else if (compactStatus != null) ...[
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 108),
+                child: Text(
+                  compactStatus,
+                  key: ValueKey('anitabi-service-status-$title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 2),
+            Icon(
+              LucideIcons.chevronRight,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _compactAnitabiProbeStatus(String result) {
+  if (result.startsWith('连接成功')) {
+    final match = RegExp(r'(\d+)\s*ms').firstMatch(result);
+    if (match != null) {
+      return '成功 · ${match.group(1)}ms';
+    }
+    return '成功';
+  }
+  return '失败';
+}
+
+class _AnitabiServiceEntryRow extends StatelessWidget {
+  const _AnitabiServiceEntryRow({
+    super.key,
+    required this.siteUrl,
+    required this.usingDefaults,
+    required this.onTap,
+  });
+
+  final String siteUrl;
+  final bool usingDefaults;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(LucideIcons.network, color: AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    siteUrl,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    usingDefaults ? '使用默认地址，点击管理全部服务' : '已自定义，点击管理全部服务',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _secondaryTextStyle,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              LucideIcons.chevronRight,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class _MapUrlRow extends StatelessWidget {
   const _MapUrlRow({
-    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
@@ -3828,11 +4555,7 @@ class _MapUrlRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Icon(
-              Icons.edit_outlined,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            Icon(LucideIcons.edit, color: AppColors.textSecondary, size: 20),
           ],
         ),
       ),
@@ -3892,7 +4615,7 @@ class _OpenFreeMapStyleGrid extends StatelessWidget {
           _CompactOptionChip(
             label: option.label,
             selected: selectedStyle == option.style,
-            icon: Icons.layers_outlined,
+            icon: LucideIcons.layers,
             onTap: () => onSelected(option.style),
           ),
       ],
@@ -3968,7 +4691,7 @@ class _CompactOptionChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              selected ? Icons.check : icon,
+              selected ? LucideIcons.check : icon,
               color: selected ? AppColors.onAccent : AppColors.textSecondary,
               size: 18,
             ),
@@ -4019,7 +4742,7 @@ class _MapSourceOptionCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              selected ? Icons.check : _mapProviderIcon(option.provider),
+              selected ? LucideIcons.check : _mapProviderIcon(option.provider),
               color: selected ? AppColors.onAccent : AppColors.textSecondary,
               size: 18,
             ),
@@ -4131,7 +4854,7 @@ class _NavigationAppOptionCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              selected ? Icons.check : _navigationAppIcon(app),
+              selected ? LucideIcons.check : _navigationAppIcon(app),
               color: selected ? AppColors.onAccent : AppColors.textSecondary,
               size: 18,
             ),
@@ -4180,19 +4903,19 @@ class _NavigationAppOptionCard extends StatelessWidget {
 
 IconData _mapProviderIcon(MapTileProvider provider) {
   return switch (provider) {
-    MapTileProvider.openFreeMap => Icons.map_outlined,
-    MapTileProvider.openStreetMap => Icons.public_outlined,
-    MapTileProvider.customXyz => Icons.grid_3x3_outlined,
-    MapTileProvider.customMapLibreStyle => Icons.data_object_outlined,
+    MapTileProvider.openFreeMap => LucideIcons.map,
+    MapTileProvider.openStreetMap => LucideIcons.globe,
+    MapTileProvider.customXyz => LucideIcons.grid3X3,
+    MapTileProvider.customMapLibreStyle => LucideIcons.braces,
   };
 }
 
 IconData _navigationAppIcon(NavigationApp app) {
   return switch (app) {
-    NavigationApp.googleMaps => Icons.explore_outlined,
-    NavigationApp.amap => Icons.near_me_outlined,
-    NavigationApp.appleMaps => Icons.map_outlined,
-    NavigationApp.baiduMaps => Icons.assistant_direction_outlined,
+    NavigationApp.googleMaps => LucideIcons.compass,
+    NavigationApp.amap => LucideIcons.navigation,
+    NavigationApp.appleMaps => LucideIcons.map,
+    NavigationApp.baiduMaps => LucideIcons.signpost,
   };
 }
 
@@ -4223,6 +4946,15 @@ String _mapProviderHint(MapTileProvider provider) {
   };
 }
 
+bool _usesDefaultAnitabiService(AppSettings settings) {
+  return settings.anitabiSiteBaseUrl == defaultAnitabiSiteBaseUrl &&
+      settings.anitabiStaticDataBaseUrl == defaultAnitabiStaticDataBaseUrl &&
+      settings.anitabiApiBaseUrl == defaultAnitabiApiBaseUrl &&
+      settings.anitabiOfficialImageBaseUrl ==
+          defaultAnitabiOfficialImageBaseUrl &&
+      settings.anitabiMirrorImageBaseUrl == defaultAnitabiMirrorImageBaseUrl;
+}
+
 String _anitabiImageSourceLabel(AnitabiImageSource source) {
   return switch (source) {
     AnitabiImageSource.auto => '自动选择',
@@ -4243,9 +4975,9 @@ String _anitabiImageSourceDescription(AppSettings settings) {
 
 IconData _anitabiImageSourceIcon(AnitabiImageSource source) {
   return switch (source) {
-    AnitabiImageSource.auto => Icons.auto_awesome_outlined,
-    AnitabiImageSource.official => Icons.image_outlined,
-    AnitabiImageSource.mirror => Icons.swap_horiz_outlined,
+    AnitabiImageSource.auto => LucideIcons.sparkles,
+    AnitabiImageSource.official => LucideIcons.image,
+    AnitabiImageSource.mirror => LucideIcons.arrowLeftRight,
   };
 }
 
@@ -4376,8 +5108,7 @@ class _ThemeSwatch extends StatelessWidget {
         customColorValue ?? AppColors.customAccentValue,
       ),
     };
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
+    return Container(
       width: selected ? 42 : 38,
       height: selected ? 42 : 38,
       padding: const EdgeInsets.all(4),
@@ -4391,7 +5122,7 @@ class _ThemeSwatch extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: selected
-            ? Icon(Icons.check, color: AppColors.onAccent, size: 18)
+            ? Icon(LucideIcons.check, color: AppColors.onAccent, size: 18)
             : null,
       ),
     );
@@ -4422,34 +5153,31 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-const _cardTitleTextStyle = TextStyle(
+TextStyle get _cardTitleTextStyle => TextStyle(
   color: AppColors.textPrimary,
   fontSize: 16,
   fontWeight: FontWeight.w900,
   letterSpacing: 0,
 );
 
-const _titleTextStyle = TextStyle(
+TextStyle get _titleTextStyle => TextStyle(
   color: AppColors.textPrimary,
   fontSize: 15,
   fontWeight: FontWeight.w800,
   letterSpacing: 0,
 );
 
-const _secondaryTextStyle = TextStyle(
-  color: AppColors.textSecondary,
-  fontSize: 13,
-  letterSpacing: 0,
-);
+TextStyle get _secondaryTextStyle =>
+    TextStyle(color: AppColors.textSecondary, fontSize: 13, letterSpacing: 0);
 
-const _captionTextStyle = TextStyle(
+TextStyle get _captionTextStyle => TextStyle(
   color: AppColors.textSecondary,
   fontSize: 12,
   fontWeight: FontWeight.w700,
   letterSpacing: 0,
 );
 
-const _secondaryParagraphTextStyle = TextStyle(
+TextStyle get _secondaryParagraphTextStyle => TextStyle(
   color: AppColors.textSecondary,
   fontSize: 13,
   height: 1.45,

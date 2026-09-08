@@ -373,3 +373,82 @@ LatLng _worldPixelToLatLng(math.Point<double> point, double zoom) {
 double _sinh(double value) {
   return (math.exp(value) - math.exp(-value)) / 2;
 }
+
+class InAppNavigationTour {
+  const InAppNavigationTour({
+    required this.stops,
+    this.groupName,
+    this.startIndex = 0,
+  });
+
+  final List<PilgrimagePoint> stops;
+  final String? groupName;
+  final int startIndex;
+
+  List<PilgrimagePoint> get remainingStops {
+    if (stops.isEmpty) {
+      return const [];
+    }
+    final index = startIndex.clamp(0, stops.length - 1);
+    return stops.sublist(index);
+  }
+}
+
+int navigationStartIndex({
+  required PilgrimagePoint point,
+  required List<PilgrimagePoint> stops,
+}) {
+  final index = stops.indexWhere((stop) => stop.id == point.id);
+  return index < 0 ? 0 : index;
+}
+
+List<PilgrimagePoint> remainingNavigationStops({
+  required PilgrimagePoint point,
+  required List<PilgrimagePoint> stops,
+}) {
+  if (stops.isEmpty) {
+    return const [];
+  }
+  return stops.sublist(navigationStartIndex(point: point, stops: stops));
+}
+
+InAppNavigationTour inAppNavigationTourFor({
+  required PilgrimagePoint point,
+  List<PlanGroupBucket> buckets = const [],
+}) {
+  PlanGroupBucket? bucket;
+  for (final candidate in buckets) {
+    if (point.groupId == null) {
+      if (candidate.isUngrouped) {
+        bucket = candidate;
+        break;
+      }
+      continue;
+    }
+    if (!candidate.isUngrouped && candidate.id == point.groupId) {
+      bucket = candidate;
+      break;
+    }
+  }
+
+  if (bucket == null || bucket.isUngrouped) {
+    final stops = [if (point.hasCoordinate) point];
+    return InAppNavigationTour(stops: stops);
+  }
+
+  final stops = [
+    for (final stop in bucket.points)
+      if (stop.hasCoordinate) stop,
+  ];
+  if (stops.isEmpty) {
+    return InAppNavigationTour(
+      groupName: bucket.name,
+      stops: [if (point.hasCoordinate) point],
+    );
+  }
+  return InAppNavigationTour(
+    groupName: bucket.name,
+    stops: stops,
+    startIndex: navigationStartIndex(point: point, stops: stops),
+  );
+}

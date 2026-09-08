@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
-import '../widgets/input_dialog.dart';
+import '../widgets/app_back_button.dart';
+import '../widgets/clear_anchor_selection_button.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../map/map_tile_config.dart';
 import '../map/map_marker_scale.dart';
 import '../utils/selected_item_order.dart';
+import 'coordinate_input_dialog.dart';
 import 'pilgrimage_models.dart';
 
 class GroupAnchorSelection {
@@ -80,12 +84,13 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: appBackButtonIfCanPop(context),
         title: const Text('选择关键点'),
         actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(const GroupAnchorSelection.clear()),
-            child: const Text('清除'),
+          ClearAnchorSelectionButton(
+            onPressed: _selectedPoint == null && _manualPosition == null
+                ? null
+                : _confirmClearSelection,
           ),
         ],
       ),
@@ -174,14 +179,14 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
                         _manualPickMode = !_manualPickMode;
                       });
                     },
-                    icon: Icons.ads_click_outlined,
+                    icon: LucideIcons.mousePointerClick,
                   ),
                   const SizedBox(height: 8),
                   _MapToolButton(
                     tooltip: '输入经纬度',
                     selected: false,
                     onTap: _showCoordinateInput,
-                    icon: Icons.edit_location_alt_outlined,
+                    icon: LucideIcons.mapPinPen,
                   ),
                 ],
               ),
@@ -222,6 +227,23 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
     return LatLng(latitude, longitude);
   }
 
+  Future<void> _confirmClearSelection() async {
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '清除选点',
+      message: '将清除当前选择的关键点，可继续在本页重新选择。',
+      confirmLabel: '清除选点',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() {
+      _selectedPoint = null;
+      _manualPosition = null;
+      _manualPickMode = false;
+    });
+  }
+
   void _selectPoint(PilgrimagePoint point) {
     setState(() {
       _selectedPoint = point;
@@ -234,66 +256,10 @@ class _GroupAnchorPickerScreenState extends State<GroupAnchorPickerScreen> {
   Future<void> _showCoordinateInput() async {
     final current =
         _manualPosition ?? _selectedPoint?.position ?? _pointsCenter;
-    final latitudeController = TextEditingController(
-      text: current.latitude.toStringAsFixed(6),
-    );
-    final longitudeController = TextEditingController(
-      text: current.longitude.toStringAsFixed(6),
-    );
-    final result = await showDialog<LatLng>(
+    final result = await showCoordinateInputDialog(
       context: context,
-      builder: (context) {
-        return AppInputDialog(
-          title: '输入经纬度',
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppDialogField(
-                label: '纬度',
-                child: TextField(
-                  onTapOutside: dismissKeyboardOnTapOutside,
-                  controller: latitudeController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    signed: true,
-                    decimal: true,
-                  ),
-                  decoration: appDialogInputDecoration(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppDialogField(
-                label: '经度',
-                child: TextField(
-                  onTapOutside: dismissKeyboardOnTapOutside,
-                  controller: longitudeController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    signed: true,
-                    decimal: true,
-                  ),
-                  decoration: appDialogInputDecoration(),
-                ),
-              ),
-            ],
-          ),
-          confirmLabel: '确定',
-          onConfirm: () {
-            final latitude = double.tryParse(latitudeController.text.trim());
-            final longitude = double.tryParse(longitudeController.text.trim());
-            if (latitude == null ||
-                longitude == null ||
-                latitude < -90 ||
-                latitude > 90 ||
-                longitude < -180 ||
-                longitude > 180) {
-              return;
-            }
-            Navigator.of(context).pop(LatLng(latitude, longitude));
-          },
-        );
-      },
+      current: current,
     );
-    latitudeController.dispose();
-    longitudeController.dispose();
     if (result == null || !mounted) {
       return;
     }
@@ -350,7 +316,7 @@ class _AnchorPointMarker extends StatelessWidget {
           width: selected ? 2 : 1,
         ),
       ),
-      icon: const Icon(Icons.place, size: 21),
+      icon: const Icon(LucideIcons.mapPin, size: 21),
     );
   }
 }
@@ -366,7 +332,7 @@ class _ManualAnchorMarker extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white, width: 3),
       ),
-      child: const Icon(Icons.add_location_alt, color: Colors.white),
+      child: const Icon(LucideIcons.mapPinPlus, color: Colors.white),
     );
   }
 }
@@ -434,7 +400,7 @@ class _AnchorSelectionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.flag_outlined, color: AppColors.accent, size: 28),
+          Icon(LucideIcons.flag, color: AppColors.accent, size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -458,7 +424,7 @@ class _AnchorSelectionCard extends StatelessWidget {
                       : '$subtitle\n${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     letterSpacing: 0,

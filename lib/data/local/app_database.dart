@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../anitabi_service_config.dart';
+import '../valhalla_service_config.dart';
 
 part 'app_database.g.dart';
 
@@ -139,6 +140,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(defaultAnitabiMirrorImageBaseUrl))();
   TextColumn get navigationApp =>
       text().withDefault(const Constant('googleMaps'))();
+  TextColumn get valhallaBaseUrl =>
+      text().withDefault(const Constant(defaultValhallaBaseUrl))();
   TextColumn get customXyzTileUrl => text().withDefault(const Constant(''))();
   TextColumn get customMapLibreStyleUrl =>
       text().withDefault(const Constant(''))();
@@ -170,6 +173,10 @@ class AppSettingsEntries extends Table {
       integer().withDefault(const Constant(10))();
   BoolColumn get showPlanGroupProgress =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get dismissPlanActionsOnOutsideTap =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get hideCompletedPointsOnMap =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get mapMarkerClusteringEnabled =>
       boolean().withDefault(const Constant(true))();
   IntColumn get mapMarkerClusterRadius =>
@@ -180,6 +187,8 @@ class AppSettingsEntries extends Table {
       integer().withDefault(const Constant(160))();
   RealColumn get mapMarkerScale => real().withDefault(const Constant(0.9))();
   IntColumn get mapMaxZoom => integer().withDefault(const Constant(22))();
+  BoolColumn get continuousMapLocation =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -192,7 +201,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 38;
+  int get schemaVersion => 42;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -624,6 +633,42 @@ class AppDatabase extends _$AppDatabase {
           'photo_location_strategy',
           appSettingsEntries,
           appSettingsEntries.photoLocationStrategy,
+        );
+      }
+      if (from < 39) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'dismiss_plan_actions_on_outside_tap',
+          appSettingsEntries,
+          appSettingsEntries.dismissPlanActionsOnOutsideTap,
+        );
+      }
+      if (from < 40) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'hide_completed_points_on_map',
+          appSettingsEntries,
+          appSettingsEntries.hideCompletedPointsOnMap,
+        );
+      }
+      if (from < 41) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'valhalla_base_url',
+          appSettingsEntries,
+          appSettingsEntries.valhallaBaseUrl,
+        );
+      }
+      if (from < 42) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'continuous_map_location',
+          appSettingsEntries,
+          appSettingsEntries.continuousMapLocation,
         );
       }
     },

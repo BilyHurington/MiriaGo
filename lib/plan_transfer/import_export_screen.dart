@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 
 import '../app_theme.dart';
@@ -8,6 +9,7 @@ import '../platform/platform_flags_stub.dart'
 import '../plan/pilgrimage_models.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
 import 'my_maps_csv_export.dart';
 import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
@@ -68,11 +70,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: '返回',
-            onPressed: _handleBack,
-            icon: const Icon(Icons.arrow_back),
-          ),
+          leading: AppBackButton(onPressed: _handleBack),
           title: const Text('导入导出'),
         ),
         body: ListView(
@@ -81,7 +79,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             _PlanExportSummary(plan: widget.plan),
             const SizedBox(height: 16),
             _SectionTitle(
-              icon: Icons.import_export_outlined,
+              icon: LucideIcons.import,
               title: '导入',
               subtitle: _usesExternalIosImport
                   ? '从文件、聊天、浏览器或网盘等位置用 MiriaGo 打开 .sjhplan。'
@@ -90,10 +88,10 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             const SizedBox(height: 10),
             _ActionTile(
               icon: _importing
-                  ? Icons.hourglass_empty_outlined
+                  ? LucideIcons.hourglass
                   : _usesExternalIosImport
-                  ? Icons.open_in_new_outlined
-                  : Icons.import_export_outlined,
+                  ? LucideIcons.externalLink
+                  : LucideIcons.import,
               title: _importing
                   ? '读取中...'
                   : _usesExternalIosImport
@@ -109,7 +107,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             ),
             const SizedBox(height: 20),
             _SectionTitle(
-              icon: Icons.inventory_2_outlined,
+              icon: LucideIcons.package,
               title: 'MiriaGo 数据包',
               subtitle: '新版 .sjhplan，内部为 zip，包含 manifest.json。',
             ),
@@ -132,15 +130,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             ),
             const SizedBox(height: 20),
             _SectionTitle(
-              icon: Icons.map_outlined,
+              icon: LucideIcons.map,
               title: 'Google My Maps',
               subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
             ),
             const SizedBox(height: 10),
             _ActionTile(
-              icon: _exporting
-                  ? Icons.hourglass_empty_outlined
-                  : Icons.table_chart_outlined,
+              icon: _exporting ? LucideIcons.hourglass : LucideIcons.table2,
               title: '导出 My Maps CSV',
               subtitle: '前 6 列贴近示例格式，作品、集数、来源等拆成独立列。',
               enabled: !_exporting && !_importing,
@@ -157,7 +153,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     if (_exporting) {
       _exportGeneration++;
       setState(() => _exporting = false);
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+      messenger.showReplacingSnackBar(
+        appStatusSnackBar(
+          kind: AppStatusBannerKind.running,
+          title: '已取消导出',
+          icon: LucideIcons.circleX,
+        ),
+      );
     }
     Navigator.of(context).pop();
   }
@@ -214,8 +216,9 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (!mounted) {
         return;
       }
-      messenger.showReplacingSnackBar(
-        const SnackBar(content: Text('导入文件读取失败')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '导入文件读取失败',
       );
     } finally {
       if (mounted) {
@@ -225,21 +228,12 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   }
 
   Future<void> _showExternalIosImportHelp() async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('从其他 App 打开 .sjhplan'),
-        content: const Text(
+    await showInfoActionDialog(
+      context,
+      title: '从其他 App 打开 .sjhplan',
+      message:
           '请在文件、聊天、浏览器下载页、网盘或其他保存位置找到 .sjhplan 文件，然后点开文件，或使用分享/更多菜单选择 MiriaGo。\n\n'
           'MiriaGo 收到文件后会自动进入导入预览页面。若列表里没有 MiriaGo，可以先把文件保存到“文件”App，再长按文件选择分享或打开方式。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('知道了'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -411,24 +405,40 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final generation = ++_exportGeneration;
     setState(() => _exporting = true);
-    messenger.showReplacingSnackBar(const SnackBar(content: Text('正在导出...')));
+    messenger.showReplacingSnackBar(
+      appStatusSnackBar(
+        kind: AppStatusBannerKind.running,
+        title: '正在导出...',
+        icon: LucideIcons.share2,
+      ),
+    );
     try {
       final result = await action(generation);
       if (!_isCurrentExport(generation)) {
         return;
       }
       if (result.delivery.action == PlanExportDeliveryAction.canceled) {
-        messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+        messenger.showReplacingSnackBar(
+          appStatusSnackBar(
+            kind: AppStatusBannerKind.running,
+            title: '已取消导出',
+            icon: LucideIcons.circleX,
+          ),
+        );
         return;
       }
-      messenger.showReplacingSnackBar(
-        SnackBar(content: Text(result.successMessage(successMessage))),
-      );
+      messenger.showReplacingSnackBar(result.statusSnackBar(successMessage));
     } on PlanExportCanceledException {
       if (!_isCurrentExport(generation)) {
         return;
       }
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('已取消导出')));
+      messenger.showReplacingSnackBar(
+        appStatusSnackBar(
+          kind: AppStatusBannerKind.running,
+          title: '已取消导出',
+          icon: LucideIcons.circleX,
+        ),
+      );
     } on _ExportAbortedException {
       return;
     } catch (error, stackTrace) {
@@ -437,7 +447,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (!_isCurrentExport(generation)) {
         return;
       }
-      messenger.showReplacingSnackBar(const SnackBar(content: Text('导出失败')));
+      messenger.showReplacingSnackBar(
+        appStatusSnackBar(
+          kind: AppStatusBannerKind.error,
+          title: '导出失败',
+          subtitle: '请稍后重试',
+        ),
+      );
     } finally {
       if (_isCurrentExport(generation)) {
         setState(() => _exporting = false);
@@ -465,15 +481,24 @@ class _PlanExportRunResult {
   final List<String> warnings;
   final Map<String, int> warningCounts;
 
-  String successMessage(String fallback) {
+  SnackBar statusSnackBar(String title) {
     if (warnings.isEmpty) {
-      return fallback;
+      return appStatusSnackBar(
+        kind: AppStatusBannerKind.success,
+        title: title,
+        subtitle: switch (delivery.action) {
+          PlanExportDeliveryAction.saved => '已保存到本地',
+          PlanExportDeliveryAction.shared => '已通过系统分享送出',
+          PlanExportDeliveryAction.canceled => null,
+        },
+      );
     }
     final summary = _warningSummary(warningCounts);
-    if (summary.isEmpty) {
-      return '$fallback，部分资源未能加入';
-    }
-    return '$fallback，$summary';
+    return appStatusSnackBar(
+      kind: AppStatusBannerKind.warning,
+      title: title,
+      subtitle: summary.isEmpty ? '部分资源未能加入' : summary,
+    );
   }
 }
 
@@ -524,7 +549,7 @@ class _PlanExportSummary extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.archive_outlined, color: AppColors.accentDark),
+            child: Icon(LucideIcons.archive, color: AppColors.accentDark),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -544,7 +569,7 @@ class _PlanExportSummary extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   '${plan.groups.length} 个片区 / ${plan.points.length} 个点位',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     letterSpacing: 0,
@@ -592,7 +617,7 @@ class _SectionTitle extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   letterSpacing: 0,
@@ -639,23 +664,31 @@ class _BackupOptions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SegmentedButton<PlanExportV2Mode>(
-            segments: const [
-              ButtonSegment(
-                value: PlanExportV2Mode.planOnly,
-                icon: Icon(Icons.route_outlined),
-                label: Text('纯计划'),
-              ),
-              ButtonSegment(
-                value: PlanExportV2Mode.planWithRecords,
-                icon: Icon(Icons.collections_bookmark_outlined),
-                label: Text('计划+记录'),
-              ),
-            ],
-            selected: {mode},
-            onSelectionChanged: exporting
-                ? null
-                : (values) => onModeChanged(values.first),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              return SegmentedButton<PlanExportV2Mode>(
+                direction: constraints.maxWidth < 260 * textScale
+                    ? Axis.vertical
+                    : Axis.horizontal,
+                segments: const [
+                  ButtonSegment(
+                    value: PlanExportV2Mode.planOnly,
+                    icon: Icon(LucideIcons.route),
+                    label: Text('纯计划'),
+                  ),
+                  ButtonSegment(
+                    value: PlanExportV2Mode.planWithRecords,
+                    icon: Icon(LucideIcons.folders),
+                    label: Text('计划+记录'),
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: exporting
+                    ? null
+                    : (values) => onModeChanged(values.first),
+              );
+            },
           ),
           const SizedBox(height: 10),
           SwitchListTile(
@@ -682,7 +715,7 @@ class _BackupOptions extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.ios_share_outlined, size: 18),
+                : const Icon(LucideIcons.share2, size: 18),
             label: Text(exporting ? '导出中...' : '导出 MiriaGo 数据包'),
           ),
         ],
@@ -711,16 +744,12 @@ class _ExportSizeEstimateRow extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         else
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
+          Icon(LucideIcons.package, size: 18, color: AppColors.textSecondary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             estimating ? '正在估算数据包大小...' : estimate?.label ?? '预计数据包大小：暂时无法估算',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -786,7 +815,7 @@ class _ActionTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         letterSpacing: 0,
@@ -796,7 +825,7 @@ class _ActionTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                LucideIcons.chevronRight,
                 color: enabled ? AppColors.textSecondary : AppColors.border,
               ),
             ],

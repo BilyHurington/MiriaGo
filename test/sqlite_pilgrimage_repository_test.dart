@@ -29,6 +29,94 @@ class _FakePathProviderPlatform extends PathProviderPlatform {
 }
 
 void main() {
+  test(
+    'schema 41 file upgrades on reopen and keeps explicit preference after restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'miriago-location-migration-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File(p.join(directory.path, 'app.sqlite'));
+      final oldDatabase = AppDatabase(NativeDatabase(file));
+      final oldRepository = SqlitePilgrimageRepository(database: oldDatabase);
+      final plan = await oldRepository.createPlan(
+        name: 'Existing plan',
+        area: 'Tokyo',
+      );
+      await oldRepository.saveAppSettings(
+        const AppSettings(mapMaxZoom: 23, fontScale: 1.1),
+      );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries DROP COLUMN continuous_map_location',
+      );
+      await oldDatabase.customStatement('PRAGMA user_version = 41');
+      await oldDatabase.close();
+
+      final database = AppDatabase(NativeDatabase(file));
+      final repository = SqlitePilgrimageRepository(database: database);
+      final migrated = await repository.loadAppSettings();
+      expect(migrated.continuousMapLocation, isTrue);
+      expect(migrated.fontScale, 1.1);
+      expect(migrated.mapMaxZoom, 23);
+      expect(
+        (await repository.loadPlans()).any((item) => item.id == plan.id),
+        isTrue,
+      );
+      await repository.saveAppSettings(
+        migrated.copyWith(continuousMapLocation: false),
+      );
+      await database.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      expect(
+        (await SqlitePilgrimageRepository(
+          database: reopened,
+        ).loadAppSettings()).continuousMapLocation,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'schema 41 to 42 preserves data and defaults continuous location on',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(
+        name: 'Location migration',
+        area: 'Tokyo',
+      );
+      await repository.saveAppSettings(
+        const AppSettings(mapMaxZoom: 23, continuousMapLocation: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).continuousMapLocation,
+        isFalse,
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries DROP COLUMN continuous_map_location',
+      );
+      await database.migration.onUpgrade(database.createMigrator(), 41, 42);
+      final settings = await repository.loadAppSettings();
+      expect(settings.continuousMapLocation, isTrue);
+      expect(settings.mapMaxZoom, 23);
+      expect(
+        (await repository.loadPlans()).any((item) => item.id == plan.id),
+        isTrue,
+      );
+      await repository.saveAppSettings(
+        settings.copyWith(continuousMapLocation: false),
+      );
+      await database.migration.onUpgrade(database.createMigrator(), 41, 42);
+      expect(
+        (await repository.loadAppSettings()).continuousMapLocation,
+        isFalse,
+      );
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('persists completed point and next current target', () async {
@@ -65,6 +153,110 @@ void main() {
     final ungrouped = await repository.loadActivePlan();
     expect(ungrouped.currentGroupId, 'ungrouped');
   });
+
+  test('persists plan action outside-tap preference', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+
+    await repository.saveAppSettings(
+      const AppSettings(dismissPlanActionsOnOutsideTap: false),
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.dismissPlanActionsOnOutsideTap, isFalse);
+  });
+
+  test('persists appearance theme mode', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+
+    await repository.saveAppSettings(
+      const AppSettings(themeMode: AppThemeMode.dark),
+    );
+
+    final settings = await repository.loadAppSettings();
+    expect(settings.themeMode, AppThemeMode.dark);
+  });
+
+  test(
+    'seeds and persists uji-station zone chain across repository instances',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.loadActivePlan();
+
+      expect(plan.currentGroupId, 'sample-group-uji-station');
+      expect(
+        _ujiStationChain(plan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      expect(_ujiStationChain(plan).map((point) => point.groupOrderIndex), [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+      ]);
+
+      final reloaded = SqlitePilgrimageRepository(database: database);
+      final reloadedPlan = await reloaded.loadActivePlan();
+      expect(
+        _ujiStationChain(reloadedPlan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+    },
+  );
+
+  test(
+    'sqlite file persists theme mode and uji-station chain after reopen',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_sqlite_persist_',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final file = File(p.join(tempDirectory.path, 'seichi_junrei.sqlite'));
+
+      final database = AppDatabase(NativeDatabase(file));
+      final repository = SqlitePilgrimageRepository(database: database);
+      await repository.saveAppSettings(
+        const AppSettings(themeMode: AppThemeMode.system),
+      );
+      final seeded = await repository.loadActivePlan();
+      expect(
+        _ujiStationChain(seeded).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      await database.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      final reloaded = SqlitePilgrimageRepository(database: reopened);
+      final settings = await reloaded.loadAppSettings();
+      final plan = await reloaded.loadActivePlan();
+
+      expect(settings.themeMode, AppThemeMode.system);
+      expect(
+        _ujiStationChain(plan).map((point) => point.name),
+        _ujiStationChainNames,
+      );
+      expect(_ujiStationChain(plan).map((point) => point.groupOrderIndex), [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+      ]);
+    },
+  );
 
   test('persists work type and cover metadata', () async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -220,6 +412,7 @@ void main() {
     expect(migratedPlan.name, plan.name);
     expect(settings.customXyzTileUrl, 'https://example.com/{z}/{x}/{y}.png');
     expect(settings.mapMarkerClusteringEnabled, isTrue);
+    expect(settings.hideCompletedPointsOnMap, isTrue);
     expect(settings.mapMarkerClusterRadius, 40);
     expect(settings.mapMarkerClusterMaxZoom, 21);
   });
@@ -506,6 +699,120 @@ void main() {
       );
     },
   );
+
+  test(
+    'schema 38 to 39 adds plan action dismissal preference without data loss',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(name: '计划操作设置迁移', area: '东京');
+      await repository.saveAppSettings(
+        const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN dismiss_plan_actions_on_outside_tap',
+      );
+
+      await database.migration.onUpgrade(
+        database.createMigrator(),
+        38,
+        database.schemaVersion,
+      );
+
+      expect(
+        await _tableColumnNames(database, 'app_settings_entries'),
+        contains('dismiss_plan_actions_on_outside_tap'),
+      );
+      final migratedPlan = (await repository.loadPlans()).singleWhere(
+        (candidate) => candidate.id == plan.id,
+      );
+      final settings = await repository.loadAppSettings();
+      expect(migratedPlan.name, plan.name);
+      expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+      expect(settings.dismissPlanActionsOnOutsideTap, isTrue);
+
+      await repository.saveAppSettings(
+        settings.copyWith(dismissPlanActionsOnOutsideTap: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).dismissPlanActionsOnOutsideTap,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'schema 39 to 40 adds hide completed map points preference without data loss',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      final plan = await repository.createPlan(name: '隐藏完成点位迁移', area: '东京');
+      await repository.saveAppSettings(
+        const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+      );
+      await database.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN hide_completed_points_on_map',
+      );
+
+      await database.migration.onUpgrade(
+        database.createMigrator(),
+        39,
+        database.schemaVersion,
+      );
+
+      expect(
+        await _tableColumnNames(database, 'app_settings_entries'),
+        contains('hide_completed_points_on_map'),
+      );
+      final migratedPlan = (await repository.loadPlans()).singleWhere(
+        (candidate) => candidate.id == plan.id,
+      );
+      final settings = await repository.loadAppSettings();
+      expect(migratedPlan.name, plan.name);
+      expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+      expect(settings.hideCompletedPointsOnMap, isTrue);
+
+      await repository.saveAppSettings(
+        settings.copyWith(hideCompletedPointsOnMap: false),
+      );
+      expect(
+        (await repository.loadAppSettings()).hideCompletedPointsOnMap,
+        isFalse,
+      );
+    },
+  );
+
+  test('schema 40 to 41 adds Valhalla service URL without data loss', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.createPlan(name: '路径服务迁移', area: '东京');
+    await repository.saveAppSettings(
+      const AppSettings(customXyzTileUrl: 'https://example.com/tiles'),
+    );
+    await database.customStatement(
+      'ALTER TABLE app_settings_entries DROP COLUMN valhalla_base_url',
+    );
+
+    await database.migration.onUpgrade(
+      database.createMigrator(),
+      40,
+      database.schemaVersion,
+    );
+
+    expect(
+      await _tableColumnNames(database, 'app_settings_entries'),
+      contains('valhalla_base_url'),
+    );
+    expect((await repository.loadPlans()).single.id, plan.id);
+    final settings = await repository.loadAppSettings();
+    expect(settings.customXyzTileUrl, 'https://example.com/tiles');
+    expect(settings.valhallaBaseUrl, 'https://valhalla1.openstreetmap.de');
+  });
 
   test(
     'pending-coordinate point is never promoted to current target',
@@ -1623,6 +1930,7 @@ void main() {
         fontScale: 1.2,
         themeMode: AppThemeMode.system,
         navigationApp: NavigationApp.amap,
+        valhallaBaseUrl: 'https://route.example',
         saveVisitPhotoToGallery: false,
         autoSaveComparisonToGallery: true,
         comparisonShowPilgrimName: true,
@@ -1640,6 +1948,7 @@ void main() {
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
         showPlanGroupProgress: false,
+        hideCompletedPointsOnMap: false,
         mapMarkerClusteringEnabled: false,
         mapMarkerClusterRadius: 88,
         mapMarkerClusterMaxZoom: 20,
@@ -1677,6 +1986,7 @@ void main() {
     expect(settings.fontScale, 1.2);
     expect(settings.themeMode, AppThemeMode.system);
     expect(settings.navigationApp, NavigationApp.amap);
+    expect(settings.valhallaBaseUrl, 'https://route.example');
     expect(settings.saveVisitPhotoToGallery, isFalse);
     expect(settings.autoSaveComparisonToGallery, isTrue);
     expect(settings.comparisonShowPilgrimName, isTrue);
@@ -1693,6 +2003,7 @@ void main() {
     expect(settings.mapThumbnailVisibleThreshold, 55);
     expect(settings.mapThumbnailConcurrentLoads, 12);
     expect(settings.showPlanGroupProgress, isFalse);
+    expect(settings.hideCompletedPointsOnMap, isFalse);
     expect(settings.mapMarkerClusteringEnabled, isFalse);
     expect(settings.mapMarkerClusterRadius, 88);
     expect(settings.mapMarkerClusterMaxZoom, 20);
@@ -2342,4 +2653,23 @@ Future<void> _insertLegacyPoint(
           sortOrder: Value(sortOrder),
         ),
       );
+}
+
+const _ujiStationChainNames = [
+  '井用机前步行道',
+  '宇治桥',
+  'JR 宇治站',
+  '宇治文化中心 停车场',
+  '宇治川河畔',
+  '京阪宇治站前',
+];
+
+List<PilgrimagePoint> _ujiStationChain(PilgrimagePlan plan) {
+  return [
+    for (final point in plan.points)
+      if (point.groupId == 'sample-group-uji-station') point,
+  ]..sort(
+    (left, right) =>
+        (left.groupOrderIndex ?? 0).compareTo(right.groupOrderIndex ?? 0),
+  );
 }

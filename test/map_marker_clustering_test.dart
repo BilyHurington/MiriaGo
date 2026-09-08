@@ -372,4 +372,90 @@ void main() {
       );
     },
   );
+
+  testWidgets('hides completed point markers on the map by default', (
+    tester,
+  ) async {
+    const work = PilgrimageWork(
+      id: 'work',
+      title: '测试作品',
+      subtitle: '',
+      city: '',
+      source: WorkSource.manual,
+    );
+    const pending = PilgrimagePoint(
+      id: 'point-pending',
+      work: work,
+      name: '未完成点位',
+      subtitle: '',
+      position: LatLng(35, 139),
+      episodeLabel: '',
+      referenceLabel: '',
+    );
+    const completed = PilgrimagePoint(
+      id: 'point-completed',
+      work: work,
+      name: '已完成点位',
+      subtitle: '',
+      position: LatLng(35.001, 139.001),
+      episodeLabel: '',
+      referenceLabel: '',
+    );
+    final now = DateTime(2026);
+    final controller = PilgrimagePlanController(
+      plan: PilgrimagePlan(
+        id: 'plan',
+        name: '测试计划',
+        area: '',
+        works: const [work],
+        points: const [pending, completed],
+        createdAt: now,
+        updatedAt: now,
+        currentPointId: pending.id,
+        completedPointIds: {completed.id},
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PilgrimageMapScreen(
+          controller: controller,
+          settings: const AppSettings(mapMarkerClusteringEnabled: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('plan-map-marker-point-pending')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('plan-map-marker-point-completed')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PilgrimageMapScreen(
+          controller: controller,
+          settings: const AppSettings(
+            mapMarkerClusteringEnabled: false,
+            hideCompletedPointsOnMap: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('plan-map-marker-point-pending')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('plan-map-marker-point-completed')),
+      findsOneWidget,
+    );
+  });
 }

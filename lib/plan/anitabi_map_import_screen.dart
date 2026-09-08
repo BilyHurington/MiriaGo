@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -27,7 +28,9 @@ import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../widgets/responsive_button.dart';
 import '../widgets/app_scaled_route.dart';
+import '../widgets/app_back_button.dart';
 import '../utils/limited_concurrency.dart';
 import '../utils/selected_item_order.dart';
 import 'nearest_group_assign_screen.dart';
@@ -169,8 +172,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   Future<void> _refreshAnitabiData() async {
     widget.anitabiClient.clearStaticCache();
-    ScaffoldMessenger.of(context).showReplacingSnackBar(
-      const SnackBar(content: Text('正在清除缓存并重新加载 Anitabi 点位...')),
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.running,
+      title: '正在清除缓存并重新加载 Anitabi 点位...',
+      icon: LucideIcons.brushCleaning,
     );
 
     final initialBangumiId = widget.initialBangumiId;
@@ -294,8 +299,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   }
 
   void _showManualWorkMessage() {
-    ScaffoldMessenger.of(context).showReplacingSnackBar(
-      const SnackBar(content: Text('手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。')),
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.warning,
+      title: '手动添加的作品没有 Bangumi ID，无法从 Anitabi 地图导入点位。',
     );
   }
 
@@ -842,9 +848,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   Future<void> _importSelectedBoxPoints() async {
     final points = _pointsInSelection();
     if (points.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showReplacingSnackBar(const SnackBar(content: Text('框选范围内没有可添加点位')));
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '框选范围内没有可添加点位',
+      );
       return;
     }
 
@@ -895,8 +902,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     var shouldShowOrganizeGuide = false;
     try {
       final messenger = ScaffoldMessenger.of(context);
-      messenger.showReplacingSnackBar(
-        SnackBar(content: Text('正在导入 ${pilgrimagePoints.length} 个点位...')),
+      messenger.showStatusSnack(
+        kind: AppStatusBannerKind.running,
+        title: '正在导入 ${pilgrimagePoints.length} 个点位...',
+        icon: LucideIcons.mapPinPlus,
       );
       var importedPlan = pilgrimagePoints.length == 1
           ? await widget.repository.addPointToPlan(
@@ -983,13 +992,11 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                   const Duration(milliseconds: 450);
           if (shouldShowProgressSnackBar) {
             lastProgressSnackBarAt = now;
-            messenger.showReplacingSnackBar(
-              SnackBar(
-                duration: const Duration(milliseconds: 1200),
-                content: Text(
-                  '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
-                ),
-              ),
+            messenger.showStatusSnack(
+              kind: AppStatusBannerKind.running,
+              title: '正在缓存缩略图 $processed/${pilgrimagePoints.length}，成功 $cached',
+              icon: LucideIcons.images,
+              duration: const Duration(milliseconds: 1200),
             );
           }
         },
@@ -1015,14 +1022,13 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           _isBoxSelecting = false;
         }
       });
-      messenger.showReplacingSnackBar(
-        SnackBar(
-          content: Text(
-            cacheFailed == 0
-                ? successMessage
-                : '已导入 ${pilgrimagePoints.length} 个点位，缩略图缓存 $cached/${pilgrimagePoints.length}，其余稍后会自动补齐。',
-          ),
-        ),
+      messenger.showStatusSnack(
+        kind: cacheFailed == 0
+            ? AppStatusBannerKind.success
+            : AppStatusBannerKind.warning,
+        title: cacheFailed == 0
+            ? successMessage
+            : '已导入 ${pilgrimagePoints.length} 个点位，缩略图缓存 $cached/${pilgrimagePoints.length}，其余稍后会自动补齐。',
       );
       shouldShowOrganizeGuide = pilgrimagePoints.length > 1;
     } catch (error, stackTrace) {
@@ -1034,7 +1040,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showReplacingSnackBar(SnackBar(content: Text(failureMessage)));
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: failureMessage);
       return;
     } finally {
       if (mounted) {
@@ -1054,8 +1060,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       debugPrint('Failed to organize imported Anitabi points: $error');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
-        ScaffoldMessenger.of(context).showReplacingSnackBar(
-          const SnackBar(content: Text('点位已导入，但整理流程打开失败，可以稍后在计划中调整片区。')),
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.warning,
+          title: '点位已导入，但整理流程打开失败，可以稍后在计划中调整片区。',
         );
       }
     }
@@ -1152,14 +1159,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                     .map((group) => group.name)
                     .firstOrNull ??
                 '所选片区';
-      ScaffoldMessenger.of(context).showReplacingSnackBar(
-        SnackBar(content: Text('已将 ${pointIds.length} 个点位分配到「$groupName」')),
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已将 ${pointIds.length} 个点位分配到「$groupName」',
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('点位分配失败，请稍后重试。')));
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '点位分配失败，请稍后重试。',
+        );
       }
     }
   }
@@ -1204,9 +1213,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           .firstOrNull;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showReplacingSnackBar(const SnackBar(content: Text('片区创建失败，请稍后重试。')));
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '片区创建失败，请稍后重试。',
+        );
       }
       return null;
     }
@@ -1431,6 +1441,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: appBackButtonIfCanPop(context),
           title: const Text('从作品地图导入'),
           actions: [
             Tooltip(
@@ -1439,8 +1450,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                 onPressed: _toggleThumbnailMarkers,
                 icon: Icon(
                   _showThumbnailMarkers
-                      ? Icons.location_on_outlined
-                      : Icons.image_outlined,
+                      ? LucideIcons.mapPin
+                      : LucideIcons.image,
                 ),
               ),
             ),
@@ -1450,7 +1461,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                 onPressed: _isLoading || _isImporting
                     ? null
                     : _refreshAnitabiData,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(LucideIcons.refreshCw),
               ),
             ),
           ],
@@ -1888,7 +1899,7 @@ class _ImportOrganizeDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 '整理刚导入的点位',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -1904,7 +1915,7 @@ class _ImportOrganizeDialog extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '$importedCount 个点位',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1912,7 +1923,7 @@ class _ImportOrganizeDialog extends StatelessWidget {
                     const TextSpan(text: '，并暂时放在未分组。可以直接分配到片区，或按最近关键点快速分配。'),
                   ],
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
                   height: 1.55,
@@ -2047,7 +2058,7 @@ class _ImportMarker extends StatelessWidget {
           width: selected ? 2 : 1,
         ),
       ),
-      icon: Icon(imported ? Icons.check : Icons.place, size: 22),
+      icon: Icon(imported ? LucideIcons.check : LucideIcons.mapPin, size: 22),
     );
   }
 }
@@ -2086,7 +2097,7 @@ class _ImportSummary extends StatelessWidget {
     final expected = expectedCount;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(8),
@@ -2104,7 +2115,7 @@ class _ImportSummary extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                Icon(Icons.map_outlined, color: AppColors.accent),
+                Icon(LucideIcons.map, color: AppColors.accent),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -2112,7 +2123,7 @@ class _ImportSummary extends StatelessWidget {
                       ? '正在加载 Anitabi 点位'
                       : importProgress?.label ??
                             '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -2123,31 +2134,31 @@ class _ImportSummary extends StatelessWidget {
             ],
           ),
           if (!isLoading) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 SizedBox(
-                  width: 36,
+                  width: 44,
                   height: 36,
                   child: IconButton.outlined(
                     tooltip: '添加所有点位',
                     onPressed: isImporting || availableCount == 0
                         ? null
                         : onImportAll,
-                    icon: const Icon(Icons.playlist_add_check, size: 18),
+                    icon: const Icon(LucideIcons.listChecks, size: 18),
                     style: _summaryIconButtonStyle(false),
                   ),
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
-                  width: 36,
+                  width: 44,
                   height: 36,
                   child: IconButton.outlined(
                     tooltip: boxSelectionEnabled ? '退出框选' : '框选点位',
                     isSelected: boxSelectionEnabled,
                     onPressed: isImporting ? null : onToggleBoxSelection,
-                    icon: const Icon(Icons.select_all_outlined, size: 18),
-                    selectedIcon: const Icon(Icons.select_all, size: 18),
+                    icon: const Icon(LucideIcons.scan, size: 18),
+                    selectedIcon: const Icon(LucideIcons.scan, size: 18),
                     style: _summaryIconButtonStyle(boxSelectionEnabled),
                   ),
                 ),
@@ -2155,17 +2166,13 @@ class _ImportSummary extends StatelessWidget {
                 Expanded(
                   child: SizedBox(
                     height: 36,
-                    child: FilledButton.icon(
+                    child: FilledButton(
                       onPressed:
                           isImporting ||
                               !boxSelectionEnabled ||
                               selectedBoxCount == 0
                           ? null
                           : onImportSelection,
-                      icon: const Icon(
-                        Icons.add_location_alt_outlined,
-                        size: 16,
-                      ),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         textStyle: const TextStyle(
@@ -2174,10 +2181,14 @@ class _ImportSummary extends StatelessWidget {
                           letterSpacing: 0,
                         ),
                       ),
-                      label: Text(
-                        selectedBoxCount == 0
-                            ? '添加框选'
-                            : '添加 $selectedBoxCount 个',
+                      child: ResponsiveButtonContent(
+                        icon: LucideIcons.mapPinPlus,
+                        iconSize: 16,
+                        label: selectedBoxCount == 0
+                            ? '导入框选结果'
+                            : '导入 $selectedBoxCount 个',
+                        shortLabel: '导入',
+                        semanticLabel: '导入框选结果',
                       ),
                     ),
                   ),
@@ -2321,8 +2332,9 @@ class _AnitabiPointCard extends StatelessWidget {
         navigationApp,
       );
       if (!opened && context.mounted) {
-        ScaffoldMessenger.of(context).showReplacingSnackBar(
-          SnackBar(content: Text('无法打开${navigationApp.label}。')),
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '无法打开${navigationApp.label}。',
         );
       }
     }
@@ -2333,7 +2345,7 @@ class _AnitabiPointCard extends StatelessWidget {
         color: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -2349,7 +2361,7 @@ class _AnitabiPointCard extends StatelessWidget {
                   onNext: onNextOverlapPoint!,
                 ),
               ),
-              const Divider(
+              Divider(
                 key: ValueKey('anitabi-import-overlap-point-divider'),
                 height: 1,
                 indent: 14,
@@ -2362,129 +2374,136 @@ class _AnitabiPointCard extends StatelessWidget {
               onTap: openDetail,
               child: Padding(
                 padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Material(
-                        color: AppColors.surfaceMuted,
-                        child: InkWell(
-                          onTap: fullImageUrl == null ? null : openFullImage,
-                          child: SizedBox(
-                            width: 86,
-                            height: 86,
-                            child: importedPoint == null
-                                ? ReferenceThumbnail(
-                                    localPath: localThumbnailPath,
-                                    imageUrl: imageUrl,
-                                    placeholder: const Icon(
-                                      Icons.image_outlined,
-                                    ),
-                                  )
-                                : AutoCachingReferenceThumbnail(
-                                    planId: planId,
-                                    point: importedPoint!,
-                                    repository: repository,
-                                    onPlanUpdated: onPlanUpdated,
-                                    placeholder: const Icon(
-                                      Icons.image_outlined,
-                                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Material(
+                            color: AppColors.surfaceMuted,
+                            child: InkWell(
+                              onTap: fullImageUrl == null
+                                  ? null
+                                  : openFullImage,
+                              child: SizedBox(
+                                key: ValueKey(
+                                  'anitabi-point-thumbnail-${point.id}',
+                                ),
+                                width: 80,
+                                height: 80,
+                                child: importedPoint == null
+                                    ? ReferenceThumbnail(
+                                        localPath: localThumbnailPath,
+                                        imageUrl: imageUrl,
+                                        placeholder: const Icon(
+                                          LucideIcons.image,
+                                        ),
+                                      )
+                                    : AutoCachingReferenceThumbnail(
+                                        planId: planId,
+                                        point: importedPoint!,
+                                        repository: repository,
+                                        onPlanUpdated: onPlanUpdated,
+                                        placeholder: const Icon(
+                                          LucideIcons.image,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ConstrainedBox(
+                            key: ValueKey('anitabi-point-text-${point.id}'),
+                            constraints: const BoxConstraints(minHeight: 80),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CopyableText(
+                                  text: point.name,
+                                  copyLabel: '点位名称',
+                                  onTap: openDetail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0,
                                   ),
+                                ),
+                                const SizedBox(height: 3),
+                                CopyableText(
+                                  text:
+                                      '${point.subtitle} / ${point.episodeLabel}',
+                                  copyText: _copySummary,
+                                  copyLabel: '点位信息',
+                                  onTap: openDetail,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                CopyableText(
+                                  text: point.origin,
+                                  copyLabel: '来源',
+                                  onTap: openDetail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ResponsiveTwoButtonRow(
+                      first: SizedBox(
+                        height: 40,
+                        child: OutlinedButton(
+                          key: ValueKey('anitabi-point-navigation-${point.id}'),
+                          onPressed: openNavigation,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                          ),
+                          child: const ResponsiveButtonContent(
+                            icon: LucideIcons.navigation,
+                            iconSize: 17,
+                            label: '导航',
+                            semanticLabel: '打开导航',
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CopyableText(
-                            text: point.name,
-                            copyLabel: '点位名称',
-                            onTap: openDetail,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
+                      second: SizedBox(
+                        height: 40,
+                        child: FilledButton(
+                          key: ValueKey('anitabi-point-import-${point.id}'),
+                          onPressed: imported || isImporting ? null : onImport,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
                           ),
-                          const SizedBox(height: 3),
-                          CopyableText(
-                            text: '${point.subtitle} / ${point.episodeLabel}',
-                            copyText: _copySummary,
-                            copyLabel: '点位信息',
-                            onTap: openDetail,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              letterSpacing: 0,
-                            ),
+                          child: ResponsiveButtonContent(
+                            icon: imported
+                                ? LucideIcons.check
+                                : LucideIcons.mapPinPlus,
+                            label: imported ? '已加入计划' : '加入计划',
+                            shortLabel: imported ? '已加入' : '加入',
+                            semanticLabel: imported ? '已加入计划' : '加入计划',
                           ),
-                          const SizedBox(height: 3),
-                          CopyableText(
-                            text: point.origin,
-                            copyLabel: '来源',
-                            onTap: openDetail,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              SizedBox(
-                                height: 40,
-                                child: OutlinedButton.icon(
-                                  onPressed: openNavigation,
-                                  icon: const Icon(
-                                    Icons.navigation_outlined,
-                                    size: 17,
-                                  ),
-                                  label: const Text('导航'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 40,
-                                  child: FilledButton.icon(
-                                    onPressed: imported || isImporting
-                                        ? null
-                                        : onImport,
-                                    icon: Icon(
-                                      imported
-                                          ? Icons.check
-                                          : Icons.add_location_alt_outlined,
-                                      size: 18,
-                                    ),
-                                    label: Text(imported ? '已加入' : '加入计划'),
-                                    style: FilledButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -2596,7 +2615,7 @@ class _AnitabiPointDetailSheet extends StatelessWidget {
                             localPath: localThumbnailPath,
                             imageUrl: imageUrl,
                             fit: BoxFit.cover,
-                            placeholder: const Icon(Icons.image_outlined),
+                            placeholder: const Icon(LucideIcons.image),
                           ),
                         ),
                       ),
@@ -2620,27 +2639,27 @@ class _AnitabiPointDetailSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         _AnitabiDetailInfoLine(
-                          icon: Icons.local_movies_outlined,
+                          icon: LucideIcons.film,
                           label: '场景',
                           value: '${point.subtitle} / ${point.episodeLabel}',
                         ),
                         if (point.note?.trim().isNotEmpty == true) ...[
                           const SizedBox(height: 6),
                           _AnitabiDetailInfoLine(
-                            icon: Icons.sticky_note_2_outlined,
+                            icon: LucideIcons.stickyNote,
                             label: '备注',
                             value: point.note!,
                           ),
                         ],
                         const SizedBox(height: 6),
                         _AnitabiDetailInfoLine(
-                          icon: Icons.source_outlined,
+                          icon: LucideIcons.fileCode,
                           label: '来源',
                           value: point.origin,
                         ),
                         const SizedBox(height: 6),
                         _AnitabiDetailInfoLine(
-                          icon: Icons.location_on_outlined,
+                          icon: LucideIcons.mapPin,
                           label: '坐标',
                           value:
                               '${point.position.latitude.toStringAsFixed(5)}, ${point.position.longitude.toStringAsFixed(5)}',
@@ -2654,18 +2673,19 @@ class _AnitabiPointDetailSheet extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 44,
-                child: FilledButton.icon(
+                child: FilledButton(
                   onPressed: imported || isImporting
                       ? null
                       : () {
                           Navigator.of(context).pop();
                           onImport();
                         },
-                  icon: Icon(
-                    imported ? Icons.check : Icons.add_location_alt_outlined,
-                    size: 18,
+                  child: ResponsiveButtonContent(
+                    icon: imported ? LucideIcons.check : LucideIcons.mapPinPlus,
+                    label: imported ? '已加入计划' : '加入计划',
+                    shortLabel: imported ? '已加入' : '加入',
+                    semanticLabel: imported ? '已加入计划' : '加入计划',
                   ),
-                  label: Text(imported ? '已加入计划' : '加入计划'),
                 ),
               ),
             ],
@@ -2698,7 +2718,7 @@ class _AnitabiDetailInfoLine extends StatelessWidget {
           width: 38,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -2711,7 +2731,7 @@ class _AnitabiDetailInfoLine extends StatelessWidget {
           child: CopyableText(
             text: value,
             copyLabel: label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
               letterSpacing: 0,
@@ -2751,7 +2771,7 @@ class _NoPointSelectedCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.touch_app_outlined, color: AppColors.accent),
+          Icon(LucideIcons.pointer, color: AppColors.accent),
           SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2807,7 +2827,7 @@ class _EmptyImportState extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.movie_filter_outlined, color: AppColors.accent),
+                  Icon(LucideIcons.clapperboard, color: AppColors.accent),
                   const SizedBox(width: 8),
                   Text(
                     '还没有作品',
@@ -2831,7 +2851,7 @@ class _EmptyImportState extends StatelessWidget {
                     minimumSize: const Size.fromHeight(46),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  icon: const Icon(Icons.movie_filter_outlined, size: 20),
+                  icon: const Icon(LucideIcons.clapperboard, size: 20),
                   label: const Text('作品管理'),
                 ),
               ),
@@ -2912,7 +2932,7 @@ class _ImportWorkGuideStep extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -2922,7 +2942,7 @@ class _ImportWorkGuideStep extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.35,
@@ -2944,7 +2964,7 @@ class _ManualWorkImportState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Text(
@@ -2975,7 +2995,7 @@ class _NoAnitabiPointsState extends StatelessWidget {
         child: Text(
           '「$workTitle」暂无可导入的 Anitabi 点位。',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 14,
             height: 1.45,
@@ -2992,7 +3012,7 @@ class _ImportLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Column(
@@ -3035,7 +3055,7 @@ class _ImportErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.map_outlined, color: AppColors.textSecondary, size: 32),
+            Icon(LucideIcons.map, color: AppColors.textSecondary, size: 32),
             const SizedBox(height: 12),
             Text(
               message,
@@ -3050,7 +3070,7 @@ class _ImportErrorState extends StatelessWidget {
             Text(
               detail,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 letterSpacing: 0,
@@ -3059,7 +3079,7 @@ class _ImportErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(LucideIcons.refreshCw),
               label: const Text('清除缓存并重新加载 Anitabi 点位'),
             ),
           ],

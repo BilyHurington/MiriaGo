@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_maplibre/flutter_map_maplibre.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 
 const openFreeMapStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
@@ -130,13 +131,37 @@ String xyzTileUrl(AppSettings settings) {
   return openStreetMapTileUrl;
 }
 
-Widget configuredMapTileLayer(AppSettings settings) {
-  final layerKey = ValueKey(mapTileConfigSignature(settings));
-  if (mapProviderUsesMapLibre(settings.mapTileProvider) &&
+Widget configuredNavigationMapTileLayer(
+  AppSettings settings, {
+  required bool dark,
+}) {
+  return configuredMapTileLayer(settings, dark: dark);
+}
+
+Widget configuredMapTileLayer(AppSettings settings, {bool? dark}) {
+  final effectiveSettings = _mapTileSettingsForBrightness(
+    settings,
+    dark: dark ?? AppColors.isDark,
+  );
+  final layerKey = ValueKey(mapTileConfigSignature(effectiveSettings));
+  if (mapProviderUsesMapLibre(effectiveSettings.mapTileProvider) &&
       !_isFlutterWidgetTest) {
-    return MapLibreLayer(key: layerKey, initStyle: mapLibreStyleUrl(settings));
+    return MapLibreLayer(
+      key: layerKey,
+      initStyle: mapLibreStyleUrl(effectiveSettings),
+    );
   }
-  return configuredRasterTileLayer(settings, key: layerKey);
+  return configuredRasterTileLayer(effectiveSettings, key: layerKey);
+}
+
+AppSettings _mapTileSettingsForBrightness(
+  AppSettings settings, {
+  required bool dark,
+}) {
+  if (dark && settings.mapTileProvider == MapTileProvider.openFreeMap) {
+    return settings.copyWith(openFreeMapStyle: OpenFreeMapStyle.dark);
+  }
+  return settings;
 }
 
 TileLayer configuredRasterTileLayer(AppSettings settings, {Key? key}) {

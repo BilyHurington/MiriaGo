@@ -39,6 +39,8 @@ fn main() {
             commands::restore_import_assets,
             commands::write_asset,
             commands::read_asset,
+            commands::inspect_reference_cache_asset,
+            commands::delete_reference_cache_asset,
             commands::fetch_anitabi_static_json
         ])
         .run(tauri::generate_context!());

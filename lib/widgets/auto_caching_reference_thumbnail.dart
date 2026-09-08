@@ -39,10 +39,10 @@ class AutoCachingReferenceThumbnail extends StatefulWidget {
 
 class _AutoCachingReferenceThumbnailState
     extends State<AutoCachingReferenceThumbnail> {
-  static final Set<String> _inFlightPointIds = <String>{};
+  static final Map<String, Future<String?>> _inFlight = {};
 
   String? _thumbnailPath;
-  bool _isAttempting = false;
+  int _requestVersion = 0;
   AnitabiImageSource? _imageSource;
 
   @override
@@ -68,10 +68,7 @@ class _AutoCachingReferenceThumbnailState
         oldWidget.point.referenceThumbnailPath !=
             widget.point.referenceThumbnailPath ||
         oldWidget.point.referenceImageUrl != widget.point.referenceImageUrl) {
-      _thumbnailPath =
-          oldWidget.point.referenceImageUrl == widget.point.referenceImageUrl
-          ? widget.point.referenceThumbnailPath
-          : null;
+      _thumbnailPath = widget.point.referenceThumbnailPath;
       _maybeCacheThumbnail();
     }
   }
@@ -93,51 +90,63 @@ class _AutoCachingReferenceThumbnailState
   }
 
   void _maybeCacheThumbnail() {
+    final version = ++_requestVersion;
     if (!hasRemoteReferenceImage(widget.point)) {
       return;
     }
 
-    final key = '${widget.planId}:${widget.point.id}';
-    if (_isAttempting || !_inFlightPointIds.add(key)) {
-      return;
-    }
-    _isAttempting = true;
+    final point = widget.point;
+    final planId = widget.planId;
+    final repository = widget.repository;
     final imageSource = _imageSource ?? AnitabiImageSource.auto;
+    final key = '${point.referenceImageUrl}:${imageSource.name}';
 
     Future<void>(() async {
+      if (!mounted || version != _requestVersion) return;
       try {
-        final path = await reference_image_cache.ensureReferenceThumbnailCached(
-          widget.point,
-          imageSource: imageSource,
-        );
+        final path = await _inFlight.putIfAbsent(key, () async {
+          try {
+            return await reference_image_cache.ensureReferenceThumbnailCached(
+              point,
+              imageSource: imageSource,
+            );
+          } finally {
+            _inFlight.remove(key);
+          }
+        });
         if (path == null || path.isEmpty) {
           return;
         }
-        if (!mounted) {
+        if (!mounted || version != _requestVersion) {
           return;
         }
         if (path == _thumbnailPath) {
           return;
         }
 
-        setState(() {
-          _thumbnailPath = path;
-        });
-        final updatedPlan = await widget.repository.updatePointImageCache(
-          planId: widget.planId,
-          pointId: widget.point.id,
-          referenceThumbnailPath: path,
-          referenceFullImagePath: widget.point.referenceFullImagePath,
+        final updatedPlan = await repository.updatePointImageCaches(
+          planId: planId,
+          updatesByPointId: {
+            point.id: PointImageCacheUpdate(
+              referenceThumbnailPath: path,
+              expectedReferenceImageUrl: point.referenceImageUrl,
+              preserveFullImagePath: true,
+            ),
+          },
         );
+        if (!mounted || version != _requestVersion) return;
+        final updatedPoint = updatedPlan.points
+            .where((p) => p.id == point.id)
+            .firstOrNull;
+        if (updatedPoint?.referenceImageUrl != point.referenceImageUrl ||
+            updatedPoint?.referenceThumbnailPath != path) {
+          return;
+        }
+        setState(() => _thumbnailPath = path);
         widget.onPlanUpdated?.call(updatedPlan);
       } catch (_) {
         // Thumbnail self-healing is best-effort. The UI can still use the
         // normalized network thumbnail fallback.
-      } finally {
-        _inFlightPointIds.remove(key);
-        if (mounted) {
-          _isAttempting = false;
-        }
       }
     });
   }

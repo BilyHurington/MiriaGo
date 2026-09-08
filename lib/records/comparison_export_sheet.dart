@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/image_viewer_screen.dart';
+import '../widgets/responsive_button.dart';
+import '../widgets/snackbar_helper.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_config_editor.dart';
 import 'comparison_exporter_stub.dart'
@@ -160,9 +163,10 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       ImageViewerScreen.show(context, filePath: result.path);
     } else {
       setState(() => _exporting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_failureMessage(result))));
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: _failureMessage(result),
+      );
     }
   }
 
@@ -200,7 +204,7 @@ class _SheetHeader extends StatelessWidget {
           IconButton(
             tooltip: '关闭',
             onPressed: exporting ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
+            icon: const Icon(LucideIcons.x),
           ),
         ],
       ),
@@ -222,42 +226,40 @@ class _SheetFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: exporting ? null : () => Navigator.of(context).pop(),
-                child: const Text('取消'),
-              ),
+        child: ResponsiveTwoButtonRow(
+          spacing: 12,
+          stackBelowWidth: 250,
+          first: OutlinedButton(
+            onPressed: exporting ? null : () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          second: FilledButton(
+            onPressed: exporting ? null : onExport,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: FilledButton.icon(
-                onPressed: exporting ? null : onExport,
-                icon: exporting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.download, size: 18),
-                label: Text(exporting ? '导出中...' : '导出'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(46),
-                ),
-              ),
-            ),
-          ],
+            child: exporting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const ResponsiveButtonContent(
+                    icon: LucideIcons.download,
+                    label: '导出对比图',
+                    shortLabel: '导出',
+                    semanticLabel: '导出对比图',
+                  ),
+          ),
         ),
       ),
     );

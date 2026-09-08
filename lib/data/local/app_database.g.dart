@@ -4369,6 +4369,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant('googleMaps'),
   );
+  static const VerificationMeta _valhallaBaseUrlMeta = const VerificationMeta(
+    'valhallaBaseUrl',
+  );
+  @override
+  late final GeneratedColumn<String> valhallaBaseUrl = GeneratedColumn<String>(
+    'valhalla_base_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(defaultValhallaBaseUrl),
+  );
   static const VerificationMeta _customXyzTileUrlMeta = const VerificationMeta(
     'customXyzTileUrl',
   );
@@ -4575,6 +4587,36 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(true),
       );
+  static const VerificationMeta _dismissPlanActionsOnOutsideTapMeta =
+      const VerificationMeta('dismissPlanActionsOnOutsideTap');
+  @override
+  late final GeneratedColumn<bool> dismissPlanActionsOnOutsideTap =
+      GeneratedColumn<bool>(
+        'dismiss_plan_actions_on_outside_tap',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("dismiss_plan_actions_on_outside_tap" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _hideCompletedPointsOnMapMeta =
+      const VerificationMeta('hideCompletedPointsOnMap');
+  @override
+  late final GeneratedColumn<bool> hideCompletedPointsOnMap =
+      GeneratedColumn<bool>(
+        'hide_completed_points_on_map',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("hide_completed_points_on_map" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   static const VerificationMeta _mapMarkerClusteringEnabledMeta =
       const VerificationMeta('mapMarkerClusteringEnabled');
   @override
@@ -4649,6 +4691,21 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(22),
   );
+  static const VerificationMeta _continuousMapLocationMeta =
+      const VerificationMeta('continuousMapLocation');
+  @override
+  late final GeneratedColumn<bool> continuousMapLocation =
+      GeneratedColumn<bool>(
+        'continuous_map_location',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("continuous_map_location" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4672,6 +4729,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     anitabiOfficialImageBaseUrl,
     anitabiMirrorImageBaseUrl,
     navigationApp,
+    valhallaBaseUrl,
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
@@ -4688,12 +4746,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     mapThumbnailVisibleThreshold,
     mapThumbnailConcurrentLoads,
     showPlanGroupProgress,
+    dismissPlanActionsOnOutsideTap,
+    hideCompletedPointsOnMap,
     mapMarkerClusteringEnabled,
     mapMarkerClusterRadius,
     mapMarkerClusterMaxZoom,
     mapGroupAreaRadiusMeters,
     mapMarkerScale,
     mapMaxZoom,
+    continuousMapLocation,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4883,6 +4944,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('valhalla_base_url')) {
+      context.handle(
+        _valhallaBaseUrlMeta,
+        valhallaBaseUrl.isAcceptableOrUnknown(
+          data['valhalla_base_url']!,
+          _valhallaBaseUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('custom_xyz_tile_url')) {
       context.handle(
         _customXyzTileUrlMeta,
@@ -5027,6 +5097,24 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('dismiss_plan_actions_on_outside_tap')) {
+      context.handle(
+        _dismissPlanActionsOnOutsideTapMeta,
+        dismissPlanActionsOnOutsideTap.isAcceptableOrUnknown(
+          data['dismiss_plan_actions_on_outside_tap']!,
+          _dismissPlanActionsOnOutsideTapMeta,
+        ),
+      );
+    }
+    if (data.containsKey('hide_completed_points_on_map')) {
+      context.handle(
+        _hideCompletedPointsOnMapMeta,
+        hideCompletedPointsOnMap.isAcceptableOrUnknown(
+          data['hide_completed_points_on_map']!,
+          _hideCompletedPointsOnMapMeta,
+        ),
+      );
+    }
     if (data.containsKey('map_marker_clustering_enabled')) {
       context.handle(
         _mapMarkerClusteringEnabledMeta,
@@ -5078,6 +5166,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         mapMaxZoom.isAcceptableOrUnknown(
           data['map_max_zoom']!,
           _mapMaxZoomMeta,
+        ),
+      );
+    }
+    if (data.containsKey('continuous_map_location')) {
+      context.handle(
+        _continuousMapLocationMeta,
+        continuousMapLocation.isAcceptableOrUnknown(
+          data['continuous_map_location']!,
+          _continuousMapLocationMeta,
         ),
       );
     }
@@ -5174,6 +5271,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}navigation_app'],
       )!,
+      valhallaBaseUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}valhalla_base_url'],
+      )!,
       customXyzTileUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}custom_xyz_tile_url'],
@@ -5238,6 +5339,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}show_plan_group_progress'],
       )!,
+      dismissPlanActionsOnOutsideTap: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}dismiss_plan_actions_on_outside_tap'],
+      )!,
+      hideCompletedPointsOnMap: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}hide_completed_points_on_map'],
+      )!,
       mapMarkerClusteringEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}map_marker_clustering_enabled'],
@@ -5261,6 +5370,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
       mapMaxZoom: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}map_max_zoom'],
+      )!,
+      continuousMapLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}continuous_map_location'],
       )!,
     );
   }
@@ -5294,6 +5407,7 @@ class AppSettingsEntry extends DataClass
   final String anitabiOfficialImageBaseUrl;
   final String anitabiMirrorImageBaseUrl;
   final String navigationApp;
+  final String valhallaBaseUrl;
   final String customXyzTileUrl;
   final String customMapLibreStyleUrl;
   final bool saveVisitPhotoToGallery;
@@ -5310,12 +5424,15 @@ class AppSettingsEntry extends DataClass
   final int mapThumbnailVisibleThreshold;
   final int mapThumbnailConcurrentLoads;
   final bool showPlanGroupProgress;
+  final bool dismissPlanActionsOnOutsideTap;
+  final bool hideCompletedPointsOnMap;
   final bool mapMarkerClusteringEnabled;
   final int mapMarkerClusterRadius;
   final int mapMarkerClusterMaxZoom;
   final int mapGroupAreaRadiusMeters;
   final double mapMarkerScale;
   final int mapMaxZoom;
+  final bool continuousMapLocation;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -5338,6 +5455,7 @@ class AppSettingsEntry extends DataClass
     required this.anitabiOfficialImageBaseUrl,
     required this.anitabiMirrorImageBaseUrl,
     required this.navigationApp,
+    required this.valhallaBaseUrl,
     required this.customXyzTileUrl,
     required this.customMapLibreStyleUrl,
     required this.saveVisitPhotoToGallery,
@@ -5354,12 +5472,15 @@ class AppSettingsEntry extends DataClass
     required this.mapThumbnailVisibleThreshold,
     required this.mapThumbnailConcurrentLoads,
     required this.showPlanGroupProgress,
+    required this.dismissPlanActionsOnOutsideTap,
+    required this.hideCompletedPointsOnMap,
     required this.mapMarkerClusteringEnabled,
     required this.mapMarkerClusterRadius,
     required this.mapMarkerClusterMaxZoom,
     required this.mapGroupAreaRadiusMeters,
     required this.mapMarkerScale,
     required this.mapMaxZoom,
+    required this.continuousMapLocation,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5395,6 +5516,7 @@ class AppSettingsEntry extends DataClass
       anitabiMirrorImageBaseUrl,
     );
     map['navigation_app'] = Variable<String>(navigationApp);
+    map['valhalla_base_url'] = Variable<String>(valhallaBaseUrl);
     map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl);
     map['custom_map_libre_style_url'] = Variable<String>(
       customMapLibreStyleUrl,
@@ -5431,6 +5553,12 @@ class AppSettingsEntry extends DataClass
       mapThumbnailConcurrentLoads,
     );
     map['show_plan_group_progress'] = Variable<bool>(showPlanGroupProgress);
+    map['dismiss_plan_actions_on_outside_tap'] = Variable<bool>(
+      dismissPlanActionsOnOutsideTap,
+    );
+    map['hide_completed_points_on_map'] = Variable<bool>(
+      hideCompletedPointsOnMap,
+    );
     map['map_marker_clustering_enabled'] = Variable<bool>(
       mapMarkerClusteringEnabled,
     );
@@ -5441,6 +5569,7 @@ class AppSettingsEntry extends DataClass
     );
     map['map_marker_scale'] = Variable<double>(mapMarkerScale);
     map['map_max_zoom'] = Variable<int>(mapMaxZoom);
+    map['continuous_map_location'] = Variable<bool>(continuousMapLocation);
     return map;
   }
 
@@ -5467,6 +5596,7 @@ class AppSettingsEntry extends DataClass
       anitabiOfficialImageBaseUrl: Value(anitabiOfficialImageBaseUrl),
       anitabiMirrorImageBaseUrl: Value(anitabiMirrorImageBaseUrl),
       navigationApp: Value(navigationApp),
+      valhallaBaseUrl: Value(valhallaBaseUrl),
       customXyzTileUrl: Value(customXyzTileUrl),
       customMapLibreStyleUrl: Value(customMapLibreStyleUrl),
       saveVisitPhotoToGallery: Value(saveVisitPhotoToGallery),
@@ -5483,12 +5613,15 @@ class AppSettingsEntry extends DataClass
       mapThumbnailVisibleThreshold: Value(mapThumbnailVisibleThreshold),
       mapThumbnailConcurrentLoads: Value(mapThumbnailConcurrentLoads),
       showPlanGroupProgress: Value(showPlanGroupProgress),
+      dismissPlanActionsOnOutsideTap: Value(dismissPlanActionsOnOutsideTap),
+      hideCompletedPointsOnMap: Value(hideCompletedPointsOnMap),
       mapMarkerClusteringEnabled: Value(mapMarkerClusteringEnabled),
       mapMarkerClusterRadius: Value(mapMarkerClusterRadius),
       mapMarkerClusterMaxZoom: Value(mapMarkerClusterMaxZoom),
       mapGroupAreaRadiusMeters: Value(mapGroupAreaRadiusMeters),
       mapMarkerScale: Value(mapMarkerScale),
       mapMaxZoom: Value(mapMaxZoom),
+      continuousMapLocation: Value(continuousMapLocation),
     );
   }
 
@@ -5537,6 +5670,7 @@ class AppSettingsEntry extends DataClass
         json['anitabiMirrorImageBaseUrl'],
       ),
       navigationApp: serializer.fromJson<String>(json['navigationApp']),
+      valhallaBaseUrl: serializer.fromJson<String>(json['valhallaBaseUrl']),
       customXyzTileUrl: serializer.fromJson<String>(json['customXyzTileUrl']),
       customMapLibreStyleUrl: serializer.fromJson<String>(
         json['customMapLibreStyleUrl'],
@@ -5583,6 +5717,12 @@ class AppSettingsEntry extends DataClass
       showPlanGroupProgress: serializer.fromJson<bool>(
         json['showPlanGroupProgress'],
       ),
+      dismissPlanActionsOnOutsideTap: serializer.fromJson<bool>(
+        json['dismissPlanActionsOnOutsideTap'],
+      ),
+      hideCompletedPointsOnMap: serializer.fromJson<bool>(
+        json['hideCompletedPointsOnMap'],
+      ),
       mapMarkerClusteringEnabled: serializer.fromJson<bool>(
         json['mapMarkerClusteringEnabled'],
       ),
@@ -5597,6 +5737,9 @@ class AppSettingsEntry extends DataClass
       ),
       mapMarkerScale: serializer.fromJson<double>(json['mapMarkerScale']),
       mapMaxZoom: serializer.fromJson<int>(json['mapMaxZoom']),
+      continuousMapLocation: serializer.fromJson<bool>(
+        json['continuousMapLocation'],
+      ),
     );
   }
   @override
@@ -5634,6 +5777,7 @@ class AppSettingsEntry extends DataClass
         anitabiMirrorImageBaseUrl,
       ),
       'navigationApp': serializer.toJson<String>(navigationApp),
+      'valhallaBaseUrl': serializer.toJson<String>(valhallaBaseUrl),
       'customXyzTileUrl': serializer.toJson<String>(customXyzTileUrl),
       'customMapLibreStyleUrl': serializer.toJson<String>(
         customMapLibreStyleUrl,
@@ -5670,6 +5814,12 @@ class AppSettingsEntry extends DataClass
         mapThumbnailConcurrentLoads,
       ),
       'showPlanGroupProgress': serializer.toJson<bool>(showPlanGroupProgress),
+      'dismissPlanActionsOnOutsideTap': serializer.toJson<bool>(
+        dismissPlanActionsOnOutsideTap,
+      ),
+      'hideCompletedPointsOnMap': serializer.toJson<bool>(
+        hideCompletedPointsOnMap,
+      ),
       'mapMarkerClusteringEnabled': serializer.toJson<bool>(
         mapMarkerClusteringEnabled,
       ),
@@ -5682,6 +5832,7 @@ class AppSettingsEntry extends DataClass
       ),
       'mapMarkerScale': serializer.toJson<double>(mapMarkerScale),
       'mapMaxZoom': serializer.toJson<int>(mapMaxZoom),
+      'continuousMapLocation': serializer.toJson<bool>(continuousMapLocation),
     };
   }
 
@@ -5707,6 +5858,7 @@ class AppSettingsEntry extends DataClass
     String? anitabiOfficialImageBaseUrl,
     String? anitabiMirrorImageBaseUrl,
     String? navigationApp,
+    String? valhallaBaseUrl,
     String? customXyzTileUrl,
     String? customMapLibreStyleUrl,
     bool? saveVisitPhotoToGallery,
@@ -5723,12 +5875,15 @@ class AppSettingsEntry extends DataClass
     int? mapThumbnailVisibleThreshold,
     int? mapThumbnailConcurrentLoads,
     bool? showPlanGroupProgress,
+    bool? dismissPlanActionsOnOutsideTap,
+    bool? hideCompletedPointsOnMap,
     bool? mapMarkerClusteringEnabled,
     int? mapMarkerClusterRadius,
     int? mapMarkerClusterMaxZoom,
     int? mapGroupAreaRadiusMeters,
     double? mapMarkerScale,
     int? mapMaxZoom,
+    bool? continuousMapLocation,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -5756,6 +5911,7 @@ class AppSettingsEntry extends DataClass
     anitabiMirrorImageBaseUrl:
         anitabiMirrorImageBaseUrl ?? this.anitabiMirrorImageBaseUrl,
     navigationApp: navigationApp ?? this.navigationApp,
+    valhallaBaseUrl: valhallaBaseUrl ?? this.valhallaBaseUrl,
     customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
     customMapLibreStyleUrl:
         customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -5782,6 +5938,10 @@ class AppSettingsEntry extends DataClass
     mapThumbnailConcurrentLoads:
         mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
     showPlanGroupProgress: showPlanGroupProgress ?? this.showPlanGroupProgress,
+    dismissPlanActionsOnOutsideTap:
+        dismissPlanActionsOnOutsideTap ?? this.dismissPlanActionsOnOutsideTap,
+    hideCompletedPointsOnMap:
+        hideCompletedPointsOnMap ?? this.hideCompletedPointsOnMap,
     mapMarkerClusteringEnabled:
         mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
     mapMarkerClusterRadius:
@@ -5792,6 +5952,7 @@ class AppSettingsEntry extends DataClass
         mapGroupAreaRadiusMeters ?? this.mapGroupAreaRadiusMeters,
     mapMarkerScale: mapMarkerScale ?? this.mapMarkerScale,
     mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
+    continuousMapLocation: continuousMapLocation ?? this.continuousMapLocation,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -5850,6 +6011,9 @@ class AppSettingsEntry extends DataClass
       navigationApp: data.navigationApp.present
           ? data.navigationApp.value
           : this.navigationApp,
+      valhallaBaseUrl: data.valhallaBaseUrl.present
+          ? data.valhallaBaseUrl.value
+          : this.valhallaBaseUrl,
       customXyzTileUrl: data.customXyzTileUrl.present
           ? data.customXyzTileUrl.value
           : this.customXyzTileUrl,
@@ -5899,6 +6063,13 @@ class AppSettingsEntry extends DataClass
       showPlanGroupProgress: data.showPlanGroupProgress.present
           ? data.showPlanGroupProgress.value
           : this.showPlanGroupProgress,
+      dismissPlanActionsOnOutsideTap:
+          data.dismissPlanActionsOnOutsideTap.present
+          ? data.dismissPlanActionsOnOutsideTap.value
+          : this.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap: data.hideCompletedPointsOnMap.present
+          ? data.hideCompletedPointsOnMap.value
+          : this.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled: data.mapMarkerClusteringEnabled.present
           ? data.mapMarkerClusteringEnabled.value
           : this.mapMarkerClusteringEnabled,
@@ -5917,6 +6088,9 @@ class AppSettingsEntry extends DataClass
       mapMaxZoom: data.mapMaxZoom.present
           ? data.mapMaxZoom.value
           : this.mapMaxZoom,
+      continuousMapLocation: data.continuousMapLocation.present
+          ? data.continuousMapLocation.value
+          : this.continuousMapLocation,
     );
   }
 
@@ -5944,6 +6118,7 @@ class AppSettingsEntry extends DataClass
           ..write('anitabiOfficialImageBaseUrl: $anitabiOfficialImageBaseUrl, ')
           ..write('anitabiMirrorImageBaseUrl: $anitabiMirrorImageBaseUrl, ')
           ..write('navigationApp: $navigationApp, ')
+          ..write('valhallaBaseUrl: $valhallaBaseUrl, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
@@ -5968,12 +6143,17 @@ class AppSettingsEntry extends DataClass
           )
           ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads, ')
           ..write('showPlanGroupProgress: $showPlanGroupProgress, ')
+          ..write(
+            'dismissPlanActionsOnOutsideTap: $dismissPlanActionsOnOutsideTap, ',
+          )
+          ..write('hideCompletedPointsOnMap: $hideCompletedPointsOnMap, ')
           ..write('mapMarkerClusteringEnabled: $mapMarkerClusteringEnabled, ')
           ..write('mapMarkerClusterRadius: $mapMarkerClusterRadius, ')
           ..write('mapMarkerClusterMaxZoom: $mapMarkerClusterMaxZoom, ')
           ..write('mapGroupAreaRadiusMeters: $mapGroupAreaRadiusMeters, ')
           ..write('mapMarkerScale: $mapMarkerScale, ')
-          ..write('mapMaxZoom: $mapMaxZoom')
+          ..write('mapMaxZoom: $mapMaxZoom, ')
+          ..write('continuousMapLocation: $continuousMapLocation')
           ..write(')'))
         .toString();
   }
@@ -6001,6 +6181,7 @@ class AppSettingsEntry extends DataClass
     anitabiOfficialImageBaseUrl,
     anitabiMirrorImageBaseUrl,
     navigationApp,
+    valhallaBaseUrl,
     customXyzTileUrl,
     customMapLibreStyleUrl,
     saveVisitPhotoToGallery,
@@ -6017,12 +6198,15 @@ class AppSettingsEntry extends DataClass
     mapThumbnailVisibleThreshold,
     mapThumbnailConcurrentLoads,
     showPlanGroupProgress,
+    dismissPlanActionsOnOutsideTap,
+    hideCompletedPointsOnMap,
     mapMarkerClusteringEnabled,
     mapMarkerClusterRadius,
     mapMarkerClusterMaxZoom,
     mapGroupAreaRadiusMeters,
     mapMarkerScale,
     mapMaxZoom,
+    continuousMapLocation,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6051,6 +6235,7 @@ class AppSettingsEntry extends DataClass
               this.anitabiOfficialImageBaseUrl &&
           other.anitabiMirrorImageBaseUrl == this.anitabiMirrorImageBaseUrl &&
           other.navigationApp == this.navigationApp &&
+          other.valhallaBaseUrl == this.valhallaBaseUrl &&
           other.customXyzTileUrl == this.customXyzTileUrl &&
           other.customMapLibreStyleUrl == this.customMapLibreStyleUrl &&
           other.saveVisitPhotoToGallery == this.saveVisitPhotoToGallery &&
@@ -6073,12 +6258,16 @@ class AppSettingsEntry extends DataClass
           other.mapThumbnailConcurrentLoads ==
               this.mapThumbnailConcurrentLoads &&
           other.showPlanGroupProgress == this.showPlanGroupProgress &&
+          other.dismissPlanActionsOnOutsideTap ==
+              this.dismissPlanActionsOnOutsideTap &&
+          other.hideCompletedPointsOnMap == this.hideCompletedPointsOnMap &&
           other.mapMarkerClusteringEnabled == this.mapMarkerClusteringEnabled &&
           other.mapMarkerClusterRadius == this.mapMarkerClusterRadius &&
           other.mapMarkerClusterMaxZoom == this.mapMarkerClusterMaxZoom &&
           other.mapGroupAreaRadiusMeters == this.mapGroupAreaRadiusMeters &&
           other.mapMarkerScale == this.mapMarkerScale &&
-          other.mapMaxZoom == this.mapMaxZoom);
+          other.mapMaxZoom == this.mapMaxZoom &&
+          other.continuousMapLocation == this.continuousMapLocation);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -6103,6 +6292,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> anitabiOfficialImageBaseUrl;
   final Value<String> anitabiMirrorImageBaseUrl;
   final Value<String> navigationApp;
+  final Value<String> valhallaBaseUrl;
   final Value<String> customXyzTileUrl;
   final Value<String> customMapLibreStyleUrl;
   final Value<bool> saveVisitPhotoToGallery;
@@ -6119,12 +6309,15 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<int> mapThumbnailVisibleThreshold;
   final Value<int> mapThumbnailConcurrentLoads;
   final Value<bool> showPlanGroupProgress;
+  final Value<bool> dismissPlanActionsOnOutsideTap;
+  final Value<bool> hideCompletedPointsOnMap;
   final Value<bool> mapMarkerClusteringEnabled;
   final Value<int> mapMarkerClusterRadius;
   final Value<int> mapMarkerClusterMaxZoom;
   final Value<int> mapGroupAreaRadiusMeters;
   final Value<double> mapMarkerScale;
   final Value<int> mapMaxZoom;
+  final Value<bool> continuousMapLocation;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -6148,6 +6341,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.anitabiOfficialImageBaseUrl = const Value.absent(),
     this.anitabiMirrorImageBaseUrl = const Value.absent(),
     this.navigationApp = const Value.absent(),
+    this.valhallaBaseUrl = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
@@ -6164,12 +6358,15 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapThumbnailVisibleThreshold = const Value.absent(),
     this.mapThumbnailConcurrentLoads = const Value.absent(),
     this.showPlanGroupProgress = const Value.absent(),
+    this.dismissPlanActionsOnOutsideTap = const Value.absent(),
+    this.hideCompletedPointsOnMap = const Value.absent(),
     this.mapMarkerClusteringEnabled = const Value.absent(),
     this.mapMarkerClusterRadius = const Value.absent(),
     this.mapMarkerClusterMaxZoom = const Value.absent(),
     this.mapGroupAreaRadiusMeters = const Value.absent(),
     this.mapMarkerScale = const Value.absent(),
     this.mapMaxZoom = const Value.absent(),
+    this.continuousMapLocation = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -6194,6 +6391,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.anitabiOfficialImageBaseUrl = const Value.absent(),
     this.anitabiMirrorImageBaseUrl = const Value.absent(),
     this.navigationApp = const Value.absent(),
+    this.valhallaBaseUrl = const Value.absent(),
     this.customXyzTileUrl = const Value.absent(),
     this.customMapLibreStyleUrl = const Value.absent(),
     this.saveVisitPhotoToGallery = const Value.absent(),
@@ -6210,12 +6408,15 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapThumbnailVisibleThreshold = const Value.absent(),
     this.mapThumbnailConcurrentLoads = const Value.absent(),
     this.showPlanGroupProgress = const Value.absent(),
+    this.dismissPlanActionsOnOutsideTap = const Value.absent(),
+    this.hideCompletedPointsOnMap = const Value.absent(),
     this.mapMarkerClusteringEnabled = const Value.absent(),
     this.mapMarkerClusterRadius = const Value.absent(),
     this.mapMarkerClusterMaxZoom = const Value.absent(),
     this.mapGroupAreaRadiusMeters = const Value.absent(),
     this.mapMarkerScale = const Value.absent(),
     this.mapMaxZoom = const Value.absent(),
+    this.continuousMapLocation = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -6240,6 +6441,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? anitabiOfficialImageBaseUrl,
     Expression<String>? anitabiMirrorImageBaseUrl,
     Expression<String>? navigationApp,
+    Expression<String>? valhallaBaseUrl,
     Expression<String>? customXyzTileUrl,
     Expression<String>? customMapLibreStyleUrl,
     Expression<bool>? saveVisitPhotoToGallery,
@@ -6256,12 +6458,15 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<int>? mapThumbnailVisibleThreshold,
     Expression<int>? mapThumbnailConcurrentLoads,
     Expression<bool>? showPlanGroupProgress,
+    Expression<bool>? dismissPlanActionsOnOutsideTap,
+    Expression<bool>? hideCompletedPointsOnMap,
     Expression<bool>? mapMarkerClusteringEnabled,
     Expression<int>? mapMarkerClusterRadius,
     Expression<int>? mapMarkerClusterMaxZoom,
     Expression<int>? mapGroupAreaRadiusMeters,
     Expression<double>? mapMarkerScale,
     Expression<int>? mapMaxZoom,
+    Expression<bool>? continuousMapLocation,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6295,6 +6500,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (anitabiMirrorImageBaseUrl != null)
         'anitabi_mirror_image_base_url': anitabiMirrorImageBaseUrl,
       if (navigationApp != null) 'navigation_app': navigationApp,
+      if (valhallaBaseUrl != null) 'valhalla_base_url': valhallaBaseUrl,
       if (customXyzTileUrl != null) 'custom_xyz_tile_url': customXyzTileUrl,
       if (customMapLibreStyleUrl != null)
         'custom_map_libre_style_url': customMapLibreStyleUrl,
@@ -6326,6 +6532,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'map_thumbnail_concurrent_loads': mapThumbnailConcurrentLoads,
       if (showPlanGroupProgress != null)
         'show_plan_group_progress': showPlanGroupProgress,
+      if (dismissPlanActionsOnOutsideTap != null)
+        'dismiss_plan_actions_on_outside_tap': dismissPlanActionsOnOutsideTap,
+      if (hideCompletedPointsOnMap != null)
+        'hide_completed_points_on_map': hideCompletedPointsOnMap,
       if (mapMarkerClusteringEnabled != null)
         'map_marker_clustering_enabled': mapMarkerClusteringEnabled,
       if (mapMarkerClusterRadius != null)
@@ -6336,6 +6546,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'map_group_area_radius_meters': mapGroupAreaRadiusMeters,
       if (mapMarkerScale != null) 'map_marker_scale': mapMarkerScale,
       if (mapMaxZoom != null) 'map_max_zoom': mapMaxZoom,
+      if (continuousMapLocation != null)
+        'continuous_map_location': continuousMapLocation,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6362,6 +6574,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? anitabiOfficialImageBaseUrl,
     Value<String>? anitabiMirrorImageBaseUrl,
     Value<String>? navigationApp,
+    Value<String>? valhallaBaseUrl,
     Value<String>? customXyzTileUrl,
     Value<String>? customMapLibreStyleUrl,
     Value<bool>? saveVisitPhotoToGallery,
@@ -6378,12 +6591,15 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<int>? mapThumbnailVisibleThreshold,
     Value<int>? mapThumbnailConcurrentLoads,
     Value<bool>? showPlanGroupProgress,
+    Value<bool>? dismissPlanActionsOnOutsideTap,
+    Value<bool>? hideCompletedPointsOnMap,
     Value<bool>? mapMarkerClusteringEnabled,
     Value<int>? mapMarkerClusterRadius,
     Value<int>? mapMarkerClusterMaxZoom,
     Value<int>? mapGroupAreaRadiusMeters,
     Value<double>? mapMarkerScale,
     Value<int>? mapMaxZoom,
+    Value<bool>? continuousMapLocation,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -6414,6 +6630,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       anitabiMirrorImageBaseUrl:
           anitabiMirrorImageBaseUrl ?? this.anitabiMirrorImageBaseUrl,
       navigationApp: navigationApp ?? this.navigationApp,
+      valhallaBaseUrl: valhallaBaseUrl ?? this.valhallaBaseUrl,
       customXyzTileUrl: customXyzTileUrl ?? this.customXyzTileUrl,
       customMapLibreStyleUrl:
           customMapLibreStyleUrl ?? this.customMapLibreStyleUrl,
@@ -6444,6 +6661,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           mapThumbnailConcurrentLoads ?? this.mapThumbnailConcurrentLoads,
       showPlanGroupProgress:
           showPlanGroupProgress ?? this.showPlanGroupProgress,
+      dismissPlanActionsOnOutsideTap:
+          dismissPlanActionsOnOutsideTap ?? this.dismissPlanActionsOnOutsideTap,
+      hideCompletedPointsOnMap:
+          hideCompletedPointsOnMap ?? this.hideCompletedPointsOnMap,
       mapMarkerClusteringEnabled:
           mapMarkerClusteringEnabled ?? this.mapMarkerClusteringEnabled,
       mapMarkerClusterRadius:
@@ -6454,6 +6675,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           mapGroupAreaRadiusMeters ?? this.mapGroupAreaRadiusMeters,
       mapMarkerScale: mapMarkerScale ?? this.mapMarkerScale,
       mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
+      continuousMapLocation:
+          continuousMapLocation ?? this.continuousMapLocation,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6538,6 +6761,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     if (navigationApp.present) {
       map['navigation_app'] = Variable<String>(navigationApp.value);
     }
+    if (valhallaBaseUrl.present) {
+      map['valhalla_base_url'] = Variable<String>(valhallaBaseUrl.value);
+    }
     if (customXyzTileUrl.present) {
       map['custom_xyz_tile_url'] = Variable<String>(customXyzTileUrl.value);
     }
@@ -6616,6 +6842,16 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         showPlanGroupProgress.value,
       );
     }
+    if (dismissPlanActionsOnOutsideTap.present) {
+      map['dismiss_plan_actions_on_outside_tap'] = Variable<bool>(
+        dismissPlanActionsOnOutsideTap.value,
+      );
+    }
+    if (hideCompletedPointsOnMap.present) {
+      map['hide_completed_points_on_map'] = Variable<bool>(
+        hideCompletedPointsOnMap.value,
+      );
+    }
     if (mapMarkerClusteringEnabled.present) {
       map['map_marker_clustering_enabled'] = Variable<bool>(
         mapMarkerClusteringEnabled.value,
@@ -6641,6 +6877,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     }
     if (mapMaxZoom.present) {
       map['map_max_zoom'] = Variable<int>(mapMaxZoom.value);
+    }
+    if (continuousMapLocation.present) {
+      map['continuous_map_location'] = Variable<bool>(
+        continuousMapLocation.value,
+      );
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -6672,6 +6913,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('anitabiOfficialImageBaseUrl: $anitabiOfficialImageBaseUrl, ')
           ..write('anitabiMirrorImageBaseUrl: $anitabiMirrorImageBaseUrl, ')
           ..write('navigationApp: $navigationApp, ')
+          ..write('valhallaBaseUrl: $valhallaBaseUrl, ')
           ..write('customXyzTileUrl: $customXyzTileUrl, ')
           ..write('customMapLibreStyleUrl: $customMapLibreStyleUrl, ')
           ..write('saveVisitPhotoToGallery: $saveVisitPhotoToGallery, ')
@@ -6696,12 +6938,17 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           )
           ..write('mapThumbnailConcurrentLoads: $mapThumbnailConcurrentLoads, ')
           ..write('showPlanGroupProgress: $showPlanGroupProgress, ')
+          ..write(
+            'dismissPlanActionsOnOutsideTap: $dismissPlanActionsOnOutsideTap, ',
+          )
+          ..write('hideCompletedPointsOnMap: $hideCompletedPointsOnMap, ')
           ..write('mapMarkerClusteringEnabled: $mapMarkerClusteringEnabled, ')
           ..write('mapMarkerClusterRadius: $mapMarkerClusterRadius, ')
           ..write('mapMarkerClusterMaxZoom: $mapMarkerClusterMaxZoom, ')
           ..write('mapGroupAreaRadiusMeters: $mapGroupAreaRadiusMeters, ')
           ..write('mapMarkerScale: $mapMarkerScale, ')
           ..write('mapMaxZoom: $mapMaxZoom, ')
+          ..write('continuousMapLocation: $continuousMapLocation, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9590,6 +9837,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> anitabiOfficialImageBaseUrl,
       Value<String> anitabiMirrorImageBaseUrl,
       Value<String> navigationApp,
+      Value<String> valhallaBaseUrl,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
@@ -9606,12 +9854,15 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<int> mapThumbnailVisibleThreshold,
       Value<int> mapThumbnailConcurrentLoads,
       Value<bool> showPlanGroupProgress,
+      Value<bool> dismissPlanActionsOnOutsideTap,
+      Value<bool> hideCompletedPointsOnMap,
       Value<bool> mapMarkerClusteringEnabled,
       Value<int> mapMarkerClusterRadius,
       Value<int> mapMarkerClusterMaxZoom,
       Value<int> mapGroupAreaRadiusMeters,
       Value<double> mapMarkerScale,
       Value<int> mapMaxZoom,
+      Value<bool> continuousMapLocation,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -9637,6 +9888,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> anitabiOfficialImageBaseUrl,
       Value<String> anitabiMirrorImageBaseUrl,
       Value<String> navigationApp,
+      Value<String> valhallaBaseUrl,
       Value<String> customXyzTileUrl,
       Value<String> customMapLibreStyleUrl,
       Value<bool> saveVisitPhotoToGallery,
@@ -9653,12 +9905,15 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<int> mapThumbnailVisibleThreshold,
       Value<int> mapThumbnailConcurrentLoads,
       Value<bool> showPlanGroupProgress,
+      Value<bool> dismissPlanActionsOnOutsideTap,
+      Value<bool> hideCompletedPointsOnMap,
       Value<bool> mapMarkerClusteringEnabled,
       Value<int> mapMarkerClusterRadius,
       Value<int> mapMarkerClusterMaxZoom,
       Value<int> mapGroupAreaRadiusMeters,
       Value<double> mapMarkerScale,
       Value<int> mapMaxZoom,
+      Value<bool> continuousMapLocation,
       Value<int> rowid,
     });
 
@@ -9776,6 +10031,11 @@ class $$AppSettingsEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get valhallaBaseUrl => $composableBuilder(
+    column: $table.valhallaBaseUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => ColumnFilters(column),
@@ -9856,6 +10116,16 @@ class $$AppSettingsEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get dismissPlanActionsOnOutsideTap => $composableBuilder(
+    column: $table.dismissPlanActionsOnOutsideTap,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hideCompletedPointsOnMap => $composableBuilder(
+    column: $table.hideCompletedPointsOnMap,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get mapMarkerClusteringEnabled => $composableBuilder(
     column: $table.mapMarkerClusteringEnabled,
     builder: (column) => ColumnFilters(column),
@@ -9883,6 +10153,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<int> get mapMaxZoom => $composableBuilder(
     column: $table.mapMaxZoom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get continuousMapLocation => $composableBuilder(
+    column: $table.continuousMapLocation,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10001,6 +10276,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get valhallaBaseUrl => $composableBuilder(
+    column: $table.valhallaBaseUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => ColumnOrderings(column),
@@ -10084,6 +10364,17 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get dismissPlanActionsOnOutsideTap =>
+      $composableBuilder(
+        column: $table.dismissPlanActionsOnOutsideTap,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<bool> get hideCompletedPointsOnMap => $composableBuilder(
+    column: $table.hideCompletedPointsOnMap,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get mapMarkerClusteringEnabled => $composableBuilder(
     column: $table.mapMarkerClusteringEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -10111,6 +10402,11 @@ class $$AppSettingsEntriesTableOrderingComposer
 
   ColumnOrderings<int> get mapMaxZoom => $composableBuilder(
     column: $table.mapMaxZoom,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get continuousMapLocation => $composableBuilder(
+    column: $table.continuousMapLocation,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -10221,6 +10517,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get valhallaBaseUrl => $composableBuilder(
+    column: $table.valhallaBaseUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get customXyzTileUrl => $composableBuilder(
     column: $table.customXyzTileUrl,
     builder: (column) => column,
@@ -10304,6 +10605,17 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get dismissPlanActionsOnOutsideTap =>
+      $composableBuilder(
+        column: $table.dismissPlanActionsOnOutsideTap,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<bool> get hideCompletedPointsOnMap => $composableBuilder(
+    column: $table.hideCompletedPointsOnMap,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get mapMarkerClusteringEnabled => $composableBuilder(
     column: $table.mapMarkerClusteringEnabled,
     builder: (column) => column,
@@ -10331,6 +10643,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<int> get mapMaxZoom => $composableBuilder(
     column: $table.mapMaxZoom,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get continuousMapLocation => $composableBuilder(
+    column: $table.continuousMapLocation,
     builder: (column) => column,
   );
 }
@@ -10398,6 +10715,7 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> anitabiMirrorImageBaseUrl = const Value.absent(),
                 Value<String> navigationApp = const Value.absent(),
+                Value<String> valhallaBaseUrl = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
@@ -10417,12 +10735,16 @@ class $$AppSettingsEntriesTableTableManager
                 Value<int> mapThumbnailVisibleThreshold = const Value.absent(),
                 Value<int> mapThumbnailConcurrentLoads = const Value.absent(),
                 Value<bool> showPlanGroupProgress = const Value.absent(),
+                Value<bool> dismissPlanActionsOnOutsideTap =
+                    const Value.absent(),
+                Value<bool> hideCompletedPointsOnMap = const Value.absent(),
                 Value<bool> mapMarkerClusteringEnabled = const Value.absent(),
                 Value<int> mapMarkerClusterRadius = const Value.absent(),
                 Value<int> mapMarkerClusterMaxZoom = const Value.absent(),
                 Value<int> mapGroupAreaRadiusMeters = const Value.absent(),
                 Value<double> mapMarkerScale = const Value.absent(),
                 Value<int> mapMaxZoom = const Value.absent(),
+                Value<bool> continuousMapLocation = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -10446,6 +10768,7 @@ class $$AppSettingsEntriesTableTableManager
                 anitabiOfficialImageBaseUrl: anitabiOfficialImageBaseUrl,
                 anitabiMirrorImageBaseUrl: anitabiMirrorImageBaseUrl,
                 navigationApp: navigationApp,
+                valhallaBaseUrl: valhallaBaseUrl,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
@@ -10462,12 +10785,15 @@ class $$AppSettingsEntriesTableTableManager
                 mapThumbnailVisibleThreshold: mapThumbnailVisibleThreshold,
                 mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
                 showPlanGroupProgress: showPlanGroupProgress,
+                dismissPlanActionsOnOutsideTap: dismissPlanActionsOnOutsideTap,
+                hideCompletedPointsOnMap: hideCompletedPointsOnMap,
                 mapMarkerClusteringEnabled: mapMarkerClusteringEnabled,
                 mapMarkerClusterRadius: mapMarkerClusterRadius,
                 mapMarkerClusterMaxZoom: mapMarkerClusterMaxZoom,
                 mapGroupAreaRadiusMeters: mapGroupAreaRadiusMeters,
                 mapMarkerScale: mapMarkerScale,
                 mapMaxZoom: mapMaxZoom,
+                continuousMapLocation: continuousMapLocation,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10495,6 +10821,7 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<String> anitabiMirrorImageBaseUrl = const Value.absent(),
                 Value<String> navigationApp = const Value.absent(),
+                Value<String> valhallaBaseUrl = const Value.absent(),
                 Value<String> customXyzTileUrl = const Value.absent(),
                 Value<String> customMapLibreStyleUrl = const Value.absent(),
                 Value<bool> saveVisitPhotoToGallery = const Value.absent(),
@@ -10514,12 +10841,16 @@ class $$AppSettingsEntriesTableTableManager
                 Value<int> mapThumbnailVisibleThreshold = const Value.absent(),
                 Value<int> mapThumbnailConcurrentLoads = const Value.absent(),
                 Value<bool> showPlanGroupProgress = const Value.absent(),
+                Value<bool> dismissPlanActionsOnOutsideTap =
+                    const Value.absent(),
+                Value<bool> hideCompletedPointsOnMap = const Value.absent(),
                 Value<bool> mapMarkerClusteringEnabled = const Value.absent(),
                 Value<int> mapMarkerClusterRadius = const Value.absent(),
                 Value<int> mapMarkerClusterMaxZoom = const Value.absent(),
                 Value<int> mapGroupAreaRadiusMeters = const Value.absent(),
                 Value<double> mapMarkerScale = const Value.absent(),
                 Value<int> mapMaxZoom = const Value.absent(),
+                Value<bool> continuousMapLocation = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -10543,6 +10874,7 @@ class $$AppSettingsEntriesTableTableManager
                 anitabiOfficialImageBaseUrl: anitabiOfficialImageBaseUrl,
                 anitabiMirrorImageBaseUrl: anitabiMirrorImageBaseUrl,
                 navigationApp: navigationApp,
+                valhallaBaseUrl: valhallaBaseUrl,
                 customXyzTileUrl: customXyzTileUrl,
                 customMapLibreStyleUrl: customMapLibreStyleUrl,
                 saveVisitPhotoToGallery: saveVisitPhotoToGallery,
@@ -10559,12 +10891,15 @@ class $$AppSettingsEntriesTableTableManager
                 mapThumbnailVisibleThreshold: mapThumbnailVisibleThreshold,
                 mapThumbnailConcurrentLoads: mapThumbnailConcurrentLoads,
                 showPlanGroupProgress: showPlanGroupProgress,
+                dismissPlanActionsOnOutsideTap: dismissPlanActionsOnOutsideTap,
+                hideCompletedPointsOnMap: hideCompletedPointsOnMap,
                 mapMarkerClusteringEnabled: mapMarkerClusteringEnabled,
                 mapMarkerClusterRadius: mapMarkerClusterRadius,
                 mapMarkerClusterMaxZoom: mapMarkerClusterMaxZoom,
                 mapGroupAreaRadiusMeters: mapGroupAreaRadiusMeters,
                 mapMarkerScale: mapMarkerScale,
                 mapMaxZoom: mapMaxZoom,
+                continuousMapLocation: continuousMapLocation,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

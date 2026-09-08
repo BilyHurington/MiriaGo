@@ -130,6 +130,13 @@ pub struct ReadAssetResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AssetFileResult {
+    pub existed: bool,
+    pub byte_length: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestoreImportAssetsResult {
     pub restored_paths: HashMap<String, String>,
 }
@@ -448,6 +455,55 @@ pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> 
 }
 
 #[tauri::command]
+pub fn inspect_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFileResult, String> {
+    let dirs = storage::ensure_data_dirs()?;
+    let relative_path = safe_reference_cache_path(&request.path)?;
+    let full_path = dirs.data_dir.join(relative_path);
+    match fs::metadata(&full_path) {
+        Ok(metadata) => Ok(AssetFileResult {
+            existed: metadata.is_file(),
+            byte_length: if metadata.is_file() {
+                metadata.len()
+            } else {
+                0
+            },
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(AssetFileResult {
+            existed: false,
+            byte_length: 0,
+        }),
+        Err(error) => Err(format!(
+            "failed to inspect {}: {error}",
+            full_path.display()
+        )),
+    }
+}
+
+#[tauri::command]
+pub fn delete_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFileResult, String> {
+    let dirs = storage::ensure_data_dirs()?;
+    let relative_path = safe_reference_cache_path(&request.path)?;
+    let full_path = dirs.data_dir.join(relative_path);
+    let byte_length = match fs::metadata(&full_path) {
+        Ok(metadata) if metadata.is_file() => metadata.len(),
+        Ok(_) => return Err("reference cache path is not a file".to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(AssetFileResult {
+                existed: false,
+                byte_length: 0,
+            })
+        }
+        Err(error) => return Err(error.to_string()),
+    };
+    fs::remove_file(&full_path)
+        .map_err(|error| format!("failed to delete {}: {error}", full_path.display()))?;
+    Ok(AssetFileResult {
+        existed: true,
+        byte_length,
+    })
+}
+
+#[tauri::command]
 pub fn fetch_anitabi_static_json(
     request: FetchAnitabiStaticJsonRequest,
 ) -> Result<AnitabiStaticJsonResult, String> {
@@ -557,6 +613,19 @@ fn safe_local_asset_path(path: &str) -> Result<PathBuf, String> {
     Ok(relative)
 }
 
+fn safe_reference_cache_path(path: &str) -> Result<PathBuf, String> {
+    let relative = safe_local_asset_path(path)?;
+    if path.starts_with("assets/reference_full/")
+        || path.starts_with("assets/reference_thumbnails/")
+    {
+        Ok(relative)
+    } else {
+        Err(format!(
+            "path is not a downloadable reference cache: {path}"
+        ))
+    }
+}
+
 fn safe_anitabi_static_file_name(file_name: &str) -> Result<String, String> {
     let Some(stem) = file_name
         .strip_prefix('g')
@@ -645,7 +714,10 @@ fn safe_directory_name(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{safe_asset_path, safe_local_asset_path, safe_public_https_base_url};
+    use super::{
+        safe_asset_path, safe_local_asset_path, safe_public_https_base_url,
+        safe_reference_cache_path,
+    };
 
     #[test]
     fn anitabi_static_base_url_rejects_unsafe_hosts() {
@@ -663,6 +735,17 @@ mod tests {
     fn asset_paths_allow_safe_relative_assets() {
         assert!(safe_asset_path("assets/full_references/point.jpg").is_ok());
         assert!(safe_local_asset_path("assets/reference_full/point.webp").is_ok());
+    }
+
+    #[test]
+    fn cache_cleanup_only_accepts_downloaded_reference_namespaces() {
+        assert!(safe_reference_cache_path("assets/reference_full/point.webp").is_ok());
+        assert!(safe_reference_cache_path("assets/reference_thumbnails/point.webp").is_ok());
+        assert!(safe_reference_cache_path(
+            "assets/imported_plan_assets/pkg/assets/full_references/point.webp"
+        )
+        .is_err());
+        assert!(safe_reference_cache_path("assets/user_reference_images/point.webp").is_err());
     }
 
     #[test]
