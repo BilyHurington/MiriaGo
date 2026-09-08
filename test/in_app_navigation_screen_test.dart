@@ -35,6 +35,7 @@ void main() {
     PilgrimagePoint? startPoint,
     Stream<NavigationLocationSample>? locationStream,
     Stream<double?>? headingStream,
+    ValhallaRouteClient? routeClient,
   }) async {
     final selected = startPoint ?? point;
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -53,6 +54,7 @@ void main() {
                         ? null
                         : (_) => headingStream,
                     point: selected,
+                    routeClient: routeClient,
                     settings: settings,
                     initialRoute: _testRoute(selected, stops),
                     initialLocation: LatLng(
@@ -320,6 +322,124 @@ void main() {
     expect(find.text('前往下一点'), findsOneWidget);
   });
 
+  testWidgets(
+    'manual and queued automatic arrival share one sheet and advance once',
+    (tester) async {
+      final next = point.copyWith(
+        id: 'next',
+        name: 'Next stop',
+        position: const LatLng(34.9, 135.82),
+      );
+      final positions = StreamController<NavigationLocationSample>.broadcast(
+        sync: true,
+      );
+      final routes = _RecordingRouteClient();
+      await pumpScreen(
+        tester,
+        stops: [point, next],
+        locationStream: positions.stream,
+        routeClient: routes,
+      );
+      await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+      await tester.pumpAndSettle();
+      final arrive = tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey('in-app-navigation-arrive')),
+          )
+          .onPressed!;
+      positions.add(NavigationLocationSample(position: point.position));
+      arrive();
+      arrive();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('in-app-navigation-arrival-sheet')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('前往下一点'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('in-app-navigation-arrival-sheet')),
+        findsNothing,
+      );
+      expect(routes.requests, hasLength(1));
+      expect(routes.requests.single.last, next.position);
+      await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+      await tester.pumpAndSettle();
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey('in-app-navigation-arrive')),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+      expect(find.text('前往下一点'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('in-app-navigation-arrival-sheet')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await positions.close();
+    },
+  );
+
+  testWidgets(
+    'rapid target changes bypass throttle and ignore older route responses',
+    (tester) async {
+      final next = point.copyWith(
+        id: 'next',
+        position: const LatLng(34.9, 135.82),
+      );
+      final last = point.copyWith(
+        id: 'last',
+        position: const LatLng(34.91, 135.83),
+      );
+      final routes = _DeferredRouteClient();
+      await pumpScreen(tester, stops: [point, next, last], routeClient: routes);
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(
+          find.byKey(const ValueKey('in-app-navigation-expand')),
+        );
+        await tester.pumpAndSettle();
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const ValueKey('in-app-navigation-arrive')),
+            )
+            .onPressed!();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('前往下一点'));
+        await tester.pumpAndSettle();
+      }
+      expect(routes.requests, hasLength(2));
+      expect(routes.requests.last, hasLength(2));
+      expect(routes.requests.last.last, last.position);
+      NavigationRoute response(int index) => NavigationRoute(
+        shape: routes.requests[index],
+        maneuvers: const [],
+        distanceKm: 1,
+        duration: const Duration(minutes: 10),
+      );
+      routes.responses[1].complete(response(1));
+      await tester.pumpAndSettle();
+      final latest = tester
+          .widget<PolylineLayer>(find.byType(PolylineLayer))
+          .polylines
+          .first
+          .points;
+      expect(latest, routes.requests[1]);
+      routes.responses[0].complete(response(0));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<PolylineLayer>(find.byType(PolylineLayer))
+            .polylines
+            .first
+            .points,
+        latest,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('trip summary stays visible after collapsing the panel', (
     tester,
   ) async {
@@ -529,6 +649,39 @@ void main() {
     expect(find.textContaining('下一个:'), findsNothing);
     expect(find.textContaining('终点: 京阪宇治站前'), findsOneWidget);
   });
+}
+
+class _DeferredRouteClient extends ValhallaRouteClient {
+  final requests = <List<LatLng>>[];
+  final responses = <Completer<NavigationRoute>>[];
+  @override
+  Future<NavigationRoute> route({
+    required String baseUrl,
+    required List<LatLng> locations,
+  }) {
+    requests.add(List.of(locations));
+    final response = Completer<NavigationRoute>();
+    responses.add(response);
+    return response.future;
+  }
+}
+
+class _RecordingRouteClient extends ValhallaRouteClient {
+  final requests = <List<LatLng>>[];
+
+  @override
+  Future<NavigationRoute> route({
+    required String baseUrl,
+    required List<LatLng> locations,
+  }) async {
+    requests.add(List.of(locations));
+    return NavigationRoute(
+      shape: locations,
+      maneuvers: const [],
+      distanceKm: 1,
+      duration: const Duration(minutes: 10),
+    );
+  }
 }
 
 NavigationRoute _testRoute(

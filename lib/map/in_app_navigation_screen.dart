@@ -192,6 +192,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
   var _offRouteSamples = 0;
   var _arrivalSheetOpen = false;
   DateTime? _lastRerouteAt;
+  int _rerouteVersion = 0;
   StreamSubscription<NavigationLocationSample>? _locationSubscription;
   final _heading = NavigationHeading();
   Future<void> _locationCancelled = Future<void>.value();
@@ -388,14 +389,17 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     return true;
   }
 
-  Future<void> _reroute() async {
+  Future<void> _reroute({bool force = false}) async {
     final now = DateTime.now();
-    if (_lastRerouteAt != null &&
+    if (!force &&
+        _lastRerouteAt != null &&
         now.difference(_lastRerouteAt!) < const Duration(seconds: 25)) {
       return;
     }
     _lastRerouteAt = now;
     _offRouteSamples = 0;
+    final version = ++_rerouteVersion;
+    final targetId = _currentTarget.id;
     try {
       final route = await _routeClient.route(
         baseUrl: widget.settings.valhallaBaseUrl,
@@ -404,7 +408,11 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
           for (final stop in _activeStops.skip(_targetIndex)) stop.position,
         ],
       );
-      if (!mounted) return;
+      if (!mounted ||
+          version != _rerouteVersion ||
+          targetId != _currentTarget.id) {
+        return;
+      }
       setState(() {
         _navigationRoute = route;
         _route = route.shape;
@@ -468,7 +476,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                     _targetIndex++;
                     _sheetExpanded = false;
                   });
-                  _reroute();
+                  _reroute(force: true);
                 },
         );
       },
