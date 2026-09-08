@@ -175,7 +175,12 @@ class PointDetailSheet extends StatelessWidget {
     if (!point.hasCoordinate) {
       return;
     }
-    final opened = await navigationLauncher.openWalking(point, navigationApp);
+    var opened = false;
+    try {
+      opened = await navigationLauncher.openWalking(point, navigationApp);
+    } catch (_) {
+      // Platform launchers can throw instead of returning false.
+    }
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showStatusSnack(
         kind: AppStatusBannerKind.error,
