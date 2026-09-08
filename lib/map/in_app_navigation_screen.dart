@@ -433,6 +433,9 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     BuildContext context,
     _NavigationChrome chrome,
   ) async {
+    if (_arrivalSheetOpen) {
+      return;
+    }
     final arrived = _currentTarget;
     final next = _nextStop;
     final remainingCount = _activeStops.isEmpty ? 1 : _activeStops.length;
@@ -655,6 +658,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                       setState(() => _sheetExpanded = !_sheetExpanded);
                     },
                     onShowAllStops: () => _showAllStops(context, chrome),
+                    onArrive: () => _showArrival(context, chrome),
                     onEndRoute: () => Navigator.of(context).maybePop(),
                   ),
                 ],
@@ -927,6 +931,7 @@ class _BottomPanel extends StatelessWidget {
     required this.bottomInset,
     required this.onToggleExpanded,
     required this.onShowAllStops,
+    required this.onArrive,
     required this.onEndRoute,
   });
 
@@ -939,6 +944,7 @@ class _BottomPanel extends StatelessWidget {
   final double bottomInset;
   final VoidCallback onToggleExpanded;
   final VoidCallback onShowAllStops;
+  final VoidCallback onArrive;
   final VoidCallback onEndRoute;
 
   @override
@@ -997,6 +1003,28 @@ class _BottomPanel extends StatelessWidget {
                       onTap: onShowAllStops,
                     ),
                     const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton(
+                        key: const ValueKey('in-app-navigation-arrive'),
+                        onPressed: onArrive,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: chrome.primaryText,
+                          side: BorderSide(color: chrome.iconButton),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        child: const Text('已到达'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       height: 52,

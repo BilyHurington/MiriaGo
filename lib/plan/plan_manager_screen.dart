@@ -504,7 +504,13 @@ class _PlanCardState extends State<_PlanCard> {
     if (_menuOpen == open) {
       return;
     }
-    setState(() => _menuOpen = open);
+    setState(() {
+      _menuOpen = open;
+      _cardHovered = false;
+      if (!open) {
+        _actionHovered = false;
+      }
+    });
   }
 
   @override
@@ -537,6 +543,9 @@ class _PlanCardState extends State<_PlanCard> {
         child: InkWell(
           onTap: selected ? null : widget.onSwitch,
           hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Stack(
             children: [
               Padding(
@@ -720,6 +729,7 @@ class _PlanCardState extends State<_PlanCard> {
                           onDuplicate: widget.onDuplicate!,
                           onDelete: widget.onDelete!,
                           onMenuOpenChanged: _setMenuOpen,
+                          onMenuHoverChanged: _setActionHovered,
                         ),
                     ],
                   ),
@@ -769,6 +779,7 @@ class _PlanMoreButton extends StatefulWidget {
     required this.onDuplicate,
     required this.onDelete,
     required this.onMenuOpenChanged,
+    required this.onMenuHoverChanged,
   });
 
   final PilgrimagePlan plan;
@@ -777,6 +788,7 @@ class _PlanMoreButton extends StatefulWidget {
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
   final ValueChanged<bool> onMenuOpenChanged;
+  final ValueChanged<bool> onMenuHoverChanged;
 
   @override
   State<_PlanMoreButton> createState() => _PlanMoreButtonState();
@@ -800,11 +812,15 @@ class _PlanMoreButtonState extends State<_PlanMoreButton> {
         alignment: AlignmentDirectional.bottomStart,
         backgroundColor: WidgetStatePropertyAll(Colors.transparent),
         surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+        shadowColor: WidgetStatePropertyAll(Colors.transparent),
         padding: WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: WidgetStatePropertyAll(Size(_menuWidth, 0)),
         maximumSize: WidgetStatePropertyAll(Size(_menuWidth, 520)),
         elevation: WidgetStatePropertyAll(0),
-        shadowColor: WidgetStatePropertyAll(Colors.transparent),
+        side: WidgetStatePropertyAll(BorderSide.none),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(side: BorderSide.none),
+        ),
       ),
       menuChildren: [
         _PlanActionsMenuPanel(
@@ -812,6 +828,7 @@ class _PlanMoreButtonState extends State<_PlanMoreButton> {
           onExport: widget.onExport,
           onDuplicate: widget.onDuplicate,
           onDelete: widget.onDelete,
+          onHoverChanged: widget.onMenuHoverChanged,
         ),
       ],
       child: _PlanActionButton(
@@ -837,64 +854,70 @@ class _PlanActionsMenuPanel extends StatelessWidget {
     required this.onExport,
     required this.onDuplicate,
     required this.onDelete,
+    required this.onHoverChanged,
   });
 
   final bool canDelete;
   final VoidCallback onExport;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
+  final ValueChanged<bool> onHoverChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      key: const ValueKey('plan-actions-menu'),
-      width: _PlanMoreButtonState._menuWidth,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          CustomPaint(
-            key: const ValueKey('plan-actions-menu-panel'),
-            painter: const _PlanMenuSurfacePainter(),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 23, 10, 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _PlanMenuActionItem(
-                    actionKey: const ValueKey('plan-menu-action-transfer'),
-                    label: '导入导出',
-                    icon: LucideIcons.import,
-                    onPressed: onExport,
-                  ),
-                  const SizedBox(height: 6),
-                  _PlanMenuActionItem(
-                    actionKey: const ValueKey('plan-menu-action-copy'),
-                    label: '复制计划',
-                    icon: LucideIcons.copy,
-                    onPressed: onDuplicate,
-                  ),
-                  Divider(height: 17, color: AppColors.border),
-                  _PlanMenuActionItem(
-                    actionKey: const ValueKey('plan-menu-action-delete'),
-                    label: '删除计划',
-                    icon: LucideIcons.trash2,
-                    onPressed: canDelete ? onDelete : null,
-                    isDangerous: true,
-                  ),
-                ],
+    return MouseRegion(
+      onEnter: (_) => onHoverChanged(true),
+      onExit: (_) => onHoverChanged(false),
+      child: SizedBox(
+        key: const ValueKey('plan-actions-menu'),
+        width: _PlanMoreButtonState._menuWidth,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CustomPaint(
+              key: const ValueKey('plan-actions-menu-panel'),
+              painter: const _PlanMenuSurfacePainter(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 23, 10, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _PlanMenuActionItem(
+                      actionKey: const ValueKey('plan-menu-action-transfer'),
+                      label: '导入导出',
+                      icon: LucideIcons.import,
+                      onPressed: onExport,
+                    ),
+                    const SizedBox(height: 6),
+                    _PlanMenuActionItem(
+                      actionKey: const ValueKey('plan-menu-action-copy'),
+                      label: '复制计划',
+                      icon: LucideIcons.copy,
+                      onPressed: onDuplicate,
+                    ),
+                    Divider(height: 17, color: AppColors.border),
+                    _PlanMenuActionItem(
+                      actionKey: const ValueKey('plan-menu-action-delete'),
+                      label: '删除计划',
+                      icon: LucideIcons.trash2,
+                      onPressed: canDelete ? onDelete : null,
+                      isDangerous: true,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const Positioned(
-            top: 0,
-            right: 8,
-            child: SizedBox(
-              key: ValueKey('plan-actions-menu-pointer'),
-              width: 22,
-              height: 13,
+            const Positioned(
+              top: 0,
+              right: 8,
+              child: SizedBox(
+                key: ValueKey('plan-actions-menu-pointer'),
+                width: 22,
+                height: 13,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1044,9 +1067,18 @@ class _PlanActionButton extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: onPressed,
+              borderRadius: BorderRadius.circular(8),
               hoverColor: AppColors.surfaceMuted,
               highlightColor: AppColors.surfaceMuted,
               splashColor: AppColors.accent.withValues(alpha: 0.08),
+              focusColor: Colors.transparent,
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.hovered) ||
+                    states.contains(WidgetState.pressed)) {
+                  return AppColors.surfaceMuted;
+                }
+                return Colors.transparent;
+              }),
               child: Center(
                 child: Icon(
                   icon,

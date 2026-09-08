@@ -20,6 +20,7 @@ import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../utils/selected_item_order.dart';
 import '../widgets/copyable_text.dart';
+import '../widgets/split_navigation_button.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/image_load_limiter.dart';
@@ -1058,6 +1059,16 @@ class _CurrentLocationMarker extends StatelessWidget {
 const _mapPointActionExtent = 44.0;
 const _mapPointPrimaryActionWidth = 52.0;
 
+ButtonStyle _mapPointIconButtonStyle(double width) {
+  return IconButton.styleFrom(
+    minimumSize: Size(width, _mapPointActionExtent),
+    maximumSize: Size(width, _mapPointActionExtent),
+    padding: EdgeInsets.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+  );
+}
+
 class _PointCard extends StatelessWidget {
   const _PointCard({
     required this.controller,
@@ -1182,10 +1193,11 @@ class _PointCard extends StatelessWidget {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              final navigation = _SplitNavigationButton(
+              final navigation = SplitNavigationButton(
                 inAppLabel: point.hasCoordinate ? '导航' : '坐标待补充',
                 onOpenInAppNavigation: onOpenInAppNavigation,
                 onOpenExternalNavigation: onOpenExternalNavigation,
+                height: _mapPointActionExtent,
               );
               final showCurrent =
                   point.hasCoordinate &&
@@ -1198,6 +1210,9 @@ class _PointCard extends StatelessWidget {
                   child: IconButton.outlined(
                     tooltip: '拍摄参考',
                     onPressed: onOpenCamera,
+                    style: _mapPointIconButtonStyle(
+                      _mapPointPrimaryActionWidth,
+                    ),
                     icon: SizedBox(
                       width: 24,
                       height: 24,
@@ -1206,10 +1221,10 @@ class _PointCard extends StatelessWidget {
                         children: [
                           const Center(child: Icon(LucideIcons.camera)),
                           if (recordCount > 0)
-                            const Positioned(
+                            Positioned(
                               top: -5,
                               right: -5,
-                              child: _MapRecordBadge(),
+                              child: _MapRecordBadge(stacked: recordCount > 1),
                             ),
                         ],
                       ),
@@ -1223,6 +1238,9 @@ class _PointCard extends StatelessWidget {
                   child: IconButton.outlined(
                     tooltip: status == VisitStatus.completed ? '撤回打卡' : '标记完成',
                     onPressed: onComplete,
+                    style: _mapPointIconButtonStyle(
+                      _mapPointPrimaryActionWidth,
+                    ),
                     icon: Icon(
                       status == VisitStatus.completed
                           ? LucideIcons.undo2
@@ -1238,6 +1256,7 @@ class _PointCard extends StatelessWidget {
                     child: IconButton.outlined(
                       tooltip: '设为当前目标',
                       onPressed: onSetCurrent,
+                      style: _mapPointIconButtonStyle(_mapPointActionExtent),
                       icon: const Icon(LucideIcons.flag),
                     ),
                   ),
@@ -1263,6 +1282,7 @@ class _PointCard extends StatelessWidget {
                 );
               }
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(child: navigation),
                   const SizedBox(width: 4),
@@ -1294,94 +1314,6 @@ class _PointCard extends StatelessWidget {
           ? '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}'
           : '坐标待补充',
     ].where((value) => value.trim().isNotEmpty).join('\n');
-  }
-}
-
-class _SplitNavigationButton extends StatelessWidget {
-  const _SplitNavigationButton({
-    required this.inAppLabel,
-    required this.onOpenInAppNavigation,
-    required this.onOpenExternalNavigation,
-  });
-
-  final String inAppLabel;
-  final VoidCallback? onOpenInAppNavigation;
-  final VoidCallback? onOpenExternalNavigation;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final enabled =
-        onOpenInAppNavigation != null || onOpenExternalNavigation != null;
-    final foregroundColor = enabled
-        ? colorScheme.onPrimary
-        : colorScheme.onSurface.withValues(alpha: 0.38);
-    final backgroundColor = enabled
-        ? colorScheme.primary
-        : colorScheme.onSurface.withValues(alpha: 0.12);
-
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(8),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        height: _mapPointActionExtent,
-        child: Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                button: true,
-                enabled: onOpenInAppNavigation != null,
-                label: '应用内导航：$inAppLabel',
-                child: InkWell(
-                  key: const ValueKey('map-in-app-navigation-button'),
-                  onTap: onOpenInAppNavigation,
-                  child: Center(
-                    child: IconTheme(
-                      data: IconThemeData(color: foregroundColor),
-                      child: Tooltip(
-                        message: '应用内导航：$inAppLabel',
-                        excludeFromSemantics: true,
-                        child: const Icon(LucideIcons.footprints, size: 20),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Container(
-              key: const ValueKey('map-navigation-button-divider'),
-              width: 1,
-              height: 28,
-              color: foregroundColor.withValues(alpha: 0.38),
-            ),
-            Expanded(
-              child: Semantics(
-                button: true,
-                enabled: onOpenExternalNavigation != null,
-                label: '打开外部地图',
-                child: Tooltip(
-                  message: '打开外部地图',
-                  excludeFromSemantics: true,
-                  child: InkWell(
-                    key: const ValueKey('map-external-navigation-button'),
-                    onTap: onOpenExternalNavigation,
-                    child: SizedBox(
-                      height: _mapPointActionExtent,
-                      child: Icon(
-                        LucideIcons.navigation,
-                        size: 21,
-                        color: foregroundColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -1435,7 +1367,9 @@ class _PointThumbnail extends StatelessWidget {
 }
 
 class _MapRecordBadge extends StatelessWidget {
-  const _MapRecordBadge();
+  const _MapRecordBadge({required this.stacked});
+
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
@@ -1456,7 +1390,11 @@ class _MapRecordBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(LucideIcons.images, size: 10, color: AppColors.accentDark),
+      child: Icon(
+        stacked ? LucideIcons.images : LucideIcons.image,
+        size: 10,
+        color: AppColors.accentDark,
+      ),
     );
   }
 }

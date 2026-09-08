@@ -733,52 +733,58 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
           ),
           const SizedBox(height: 14),
           _AppearancePanel(
-            child: Material(
-              color: Colors.transparent,
-              child: SwitchListTile(
-                key: const ValueKey('plan-group-progress-toggle'),
-                contentPadding: EdgeInsets.zero,
-                secondary: Icon(
-                  LucideIcons.moveHorizontal,
-                  color: AppColors.textSecondary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('个性化功能配置', style: _cardTitleTextStyle),
+                const SizedBox(height: 4),
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    key: const ValueKey('plan-group-progress-toggle'),
+                    contentPadding: EdgeInsets.zero,
+                    secondary: Icon(
+                      LucideIcons.moveHorizontal,
+                      color: AppColors.textSecondary,
+                    ),
+                    title: Text('显示片区进度条', style: _titleTextStyle),
+                    subtitle: Text(
+                      '在片区选择弹窗中显示未完成片区的进度背景；完成后仅显示对勾。',
+                      style: _secondaryTextStyle,
+                    ),
+                    value: settings.showPlanGroupProgress,
+                    onChanged: (value) {
+                      _update(settings.copyWith(showPlanGroupProgress: value));
+                    },
+                  ),
                 ),
-                title: Text('显示片区进度条', style: _titleTextStyle),
-                subtitle: Text(
-                  '在片区选择弹窗中显示未完成片区的进度背景；完成后仅显示对勾。',
-                  style: _secondaryTextStyle,
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    key: const ValueKey(
+                      'dismiss-plan-actions-on-outside-tap-toggle',
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    secondary: Icon(
+                      LucideIcons.pointer,
+                      color: AppColors.textSecondary,
+                    ),
+                    title: Text('点击空白收回计划操作', style: _titleTextStyle),
+                    subtitle: Text(
+                      '展开计划操作后，点击面板外的空白区域自动收回',
+                      style: _secondaryTextStyle,
+                    ),
+                    value: settings.dismissPlanActionsOnOutsideTap,
+                    onChanged: (value) {
+                      _update(
+                        settings.copyWith(
+                          dismissPlanActionsOnOutsideTap: value,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                value: settings.showPlanGroupProgress,
-                onChanged: (value) {
-                  _update(settings.copyWith(showPlanGroupProgress: value));
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _AppearancePanel(
-            child: Material(
-              color: Colors.transparent,
-              child: SwitchListTile(
-                key: const ValueKey(
-                  'dismiss-plan-actions-on-outside-tap-toggle',
-                ),
-                contentPadding: EdgeInsets.zero,
-                secondary: Icon(
-                  LucideIcons.pointer,
-                  color: AppColors.textSecondary,
-                ),
-                title: Text('点击空白收回计划操作', style: _titleTextStyle),
-                subtitle: Text(
-                  '展开计划操作后，点击面板外的空白区域自动收回',
-                  style: _secondaryTextStyle,
-                ),
-                value: settings.dismissPlanActionsOnOutsideTap,
-                onChanged: (value) {
-                  _update(
-                    settings.copyWith(dismissPlanActionsOnOutsideTap: value),
-                  );
-                },
-              ),
+              ],
             ),
           ),
         ],
@@ -1828,8 +1834,11 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
         ),
         const SizedBox(height: 12),
         _SettingsSection(
-          title: 'Anitabi 服务地址',
+          title: '',
+          showTitle: false,
           children: [
+            const _SettingsSubheading(title: 'Anitabi 服务地址'),
+            const SizedBox(height: 8),
             _AnitabiServiceEntryRow(
               key: const ValueKey('anitabi-service-settings-entry'),
               siteUrl: settings.anitabiSiteBaseUrl,
@@ -1846,13 +1855,19 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             ),
             const SizedBox(height: 10),
             Text('服务域名变化时可单独调整，不会改写计划中的标准图片链接。', style: _secondaryTextStyle),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SettingsSection(
-          title:
+            const SizedBox(height: 20),
+            Divider(height: 1, thickness: 1, color: AppColors.surfaceMuted),
+            const SizedBox(height: 18),
+            Text(
               'Anitabi 图片源 ${_anitabiImageSourceLabel(settings.anitabiImageSource)}',
-          children: [
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 12),
             _AnitabiImageSourceGrid(
               selectedSource: settings.anitabiImageSource,
               onSelected: (source) {
@@ -1863,6 +1878,22 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             Text(
               _anitabiImageSourceDescription(settings),
               style: _secondaryTextStyle,
+            ),
+            const SizedBox(height: 20),
+            Divider(height: 1, thickness: 1, color: AppColors.surfaceMuted),
+            const SizedBox(height: 18),
+            _NumberStepperSetting(
+              icon: LucideIcons.cloudDownload,
+              title: '图片同时请求数',
+              subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
+              value: settings.mapThumbnailConcurrentLoads,
+              min: 1,
+              max: 30,
+              step: 1,
+              valueLabel: '${settings.mapThumbnailConcurrentLoads} 个',
+              onChanged: (value) {
+                _update(settings.copyWith(mapThumbnailConcurrentLoads: value));
+              },
             ),
           ],
         ),
@@ -1940,25 +1971,6 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             Text('仅发送路线坐标，不会上传计划、作品或照片信息。', style: _secondaryTextStyle),
           ],
         ),
-        const SizedBox(height: 12),
-        _SettingsSection(
-          title: '图片加载',
-          children: [
-            _NumberStepperSetting(
-              icon: LucideIcons.cloudDownload,
-              title: '图片同时请求数',
-              subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
-              value: settings.mapThumbnailConcurrentLoads,
-              min: 1,
-              max: 30,
-              step: 1,
-              valueLabel: '${settings.mapThumbnailConcurrentLoads} 个',
-              onChanged: (value) {
-                _update(settings.copyWith(mapThumbnailConcurrentLoads: value));
-              },
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -2020,6 +2032,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
         _SettingsSection(
           title: '地图缩放',
           children: [
@@ -3036,28 +3049,30 @@ class _SettingsSection extends StatelessWidget {
 }
 
 class _SettingsSubheading extends StatelessWidget {
-  const _SettingsSubheading({required this.icon, required this.title});
+  const _SettingsSubheading({this.icon, required this.title});
 
-  final IconData icon;
+  final IconData? icon;
   final String title;
 
   @override
   Widget build(BuildContext context) {
+    final titleText = Text(
+      title,
+      style: TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
+      ),
+    );
+    if (icon == null) {
+      return titleText;
+    }
     return Row(
       children: [
         Icon(icon, size: 18, color: AppColors.textSecondary),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
+        Expanded(child: titleText),
       ],
     );
   }

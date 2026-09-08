@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
@@ -184,6 +185,20 @@ void main() {
         matching: find.text('2'),
       ),
       findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('plan-point-shot-badge')),
+        matching: find.byIcon(LucideIcons.images),
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('plan-point-shot-badge')),
+        matching: find.byIcon(LucideIcons.image),
+      ),
+      findsWidgets,
     );
     final planTitle = tester.widget<Text>(
       find.descendant(of: find.byType(AppBar), matching: find.text('示例计划')),
@@ -756,11 +771,13 @@ void main() {
       tester
           .getSize(find.byKey(const ValueKey('box-assign-group-picker-button')))
           .height,
-      44,
+      tester
+          .getSize(find.byKey(const ValueKey('box-assign-toggle-button')))
+          .height,
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('box-assign-toggle-button'))),
-      const Size(112, 44),
+      const Size(112, AppButtonStyles.compactHeight),
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('box-assign-submit-button'))),
@@ -852,6 +869,72 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('box-assign-toggle-button')));
     await tester.pumpAndSettle();
     expect(tester.getSize(find.text('结束框选')).height, lessThanOrEqualTo(20));
+  });
+
+  testWidgets('box assign point card uses selection status labels', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: BoxGroupAssignScreen(
+          plan: plan,
+          repository: repository,
+          settings: const AppSettings(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<IconButton>(
+          find.widgetWithIcon(IconButton, LucideIcons.mapPin),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.text('宇治上神社参道'), findsWidgets);
+    expect(find.text('未框选'), findsOneWidget);
+    expect(find.text('超出最大距离'), findsNothing);
+    expect(find.text('在最大距离范围内'), findsNothing);
+  });
+
+  testWidgets('nearest assign keeps distance status and puts assign beside slider', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: NearestGroupAssignScreen(
+          plan: plan,
+          repository: repository,
+          settings: const AppSettings(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sliderRect = tester.getRect(find.byType(Slider));
+    final assignRect = tester.getRect(find.widgetWithText(FilledButton, '分配'));
+    expect(assignRect.left, greaterThan(sliderRect.center.dx));
+    expect(assignRect.top, closeTo(sliderRect.center.dy - assignRect.height / 2, 8));
+
+    tester
+        .widget<IconButton>(
+          find.widgetWithIcon(IconButton, LucideIcons.mapPin),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.text('未框选'), findsNothing);
+    expect(find.text('已框选'), findsNothing);
+    expect(
+      find.text('超出最大距离').evaluate().isNotEmpty ||
+          find.text('在最大距离范围内').evaluate().isNotEmpty,
+      isTrue,
+    );
   });
 
   testWidgets('app shell uses the Lucide bottom navigation icons', (
@@ -1624,10 +1707,24 @@ void main() {
     expect(find.text('当前目标'), findsWidgets);
     expect(find.text('坐标'), findsOneWidget);
     expect(find.text('来源'), findsOneWidget);
-    expect(find.text('导航'), findsOneWidget);
+    expect(find.byIcon(Icons.directions_walk), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('point-detail-external-navigation-button')),
+      findsOneWidget,
+    );
     expect(find.text('拍摄参考'), findsWidgets);
     expect(find.text('标记完成'), findsWidgets);
     expect(find.text('编辑点位'), findsOneWidget);
+    expect(find.text('本点记录 2'), findsOneWidget);
+    expect(find.text('06/01 09:26'), findsOneWidget);
+    expect(
+      tester
+          .widget<ClipRRect>(
+            find.byKey(const ValueKey('point-record-preview-photo')).first,
+          )
+          .borderRadius,
+      BorderRadius.circular(8),
+    );
   });
 
   testWidgets('plan point detail uses the region picker with create action', (
@@ -1822,16 +1919,21 @@ void main() {
     await tester.pumpAndSettle();
 
     final deleteButton = find.byKey(const ValueKey('point-detail-delete'));
+    final statusBadge = find.byKey(const ValueKey('point-detail-status-badge'));
     expect(deleteButton, findsOneWidget);
-    expect(tester.getSize(deleteButton), const Size(44, 44));
+    expect(statusBadge, findsOneWidget);
     expect(
-      tester
-          .widget<Icon>(
-            find.descendant(of: deleteButton, matching: find.byType(Icon)),
-          )
-          .size,
-      18,
+      tester.getSize(deleteButton).height,
+      tester.getSize(statusBadge).height,
     );
+    expect(
+      tester.getSize(deleteButton).width,
+      tester.getSize(deleteButton).height,
+    );
+    final deleteIcon = tester.widget<Icon>(
+      find.descendant(of: deleteButton, matching: find.byType(Icon)),
+    );
+    expect(deleteIcon.size, lessThanOrEqualTo(tester.getSize(deleteButton).height));
     expect(
       tester.getCenter(find.text('待访问')).dy,
       closeTo(tester.getCenter(deleteButton).dy, 0.1),
@@ -1933,6 +2035,13 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-point-shot-badge')),
+        matching: find.byIcon(LucideIcons.images),
+      ),
+      findsOneWidget,
+    );
+    expect(
       tester
           .widgetList<PolygonLayer>(find.byType(PolygonLayer))
           .any((layer) => layer.simplificationTolerance == 0),
@@ -1963,7 +2072,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(LucideIcons.info), findsNothing);
-      expect(find.byIcon(LucideIcons.footprints), findsOneWidget);
+      expect(find.byIcon(Icons.directions_walk), findsOneWidget);
+      expect(tester.widget<Icon>(find.byIcon(Icons.directions_walk)).size, 24);
       expect(find.byIcon(LucideIcons.navigation), findsOneWidget);
       expect(
         find.byKey(const ValueKey('map-navigation-button-divider')),
@@ -2018,6 +2128,8 @@ void main() {
         expect(navigation.height, closeTo(44, 0.1));
         expect(camera.height, closeTo(navigation.height, 0.1));
         expect(complete.height, closeTo(navigation.height, 0.1));
+        expect(camera.top, closeTo(navigation.top, 0.1));
+        expect(complete.top, closeTo(navigation.top, 0.1));
         expect(camera.width, closeTo(52, 0.1));
         expect(complete.width, closeTo(52, 0.1));
         expect(navigation.width, greaterThanOrEqualTo(44));
@@ -2074,10 +2186,31 @@ void main() {
 
     await tester.tap(find.text('井用机前步行道').first);
     await tester.pumpAndSettle();
-    final navigationButton = tester.widget<FilledButton>(
+    final navigationButton = tester.widget<InkWell>(
       find.byKey(const ValueKey('point-detail-in-app-navigation-button')),
     );
-    expect(navigationButton.onPressed, isNotNull);
+    final externalNavigationButton = tester.widget<InkWell>(
+      find.byKey(const ValueKey('point-detail-external-navigation-button')),
+    );
+    expect(navigationButton.onTap, isNotNull);
+    expect(externalNavigationButton.onTap, isNotNull);
+    final sheet = find.byType(PointDetailSheet);
+    final navigationRect = tester.getRect(
+      find.descendant(
+        of: sheet,
+        matching: find.byKey(
+          const ValueKey('point-detail-in-app-navigation-button'),
+        ),
+      ),
+    );
+    final cameraRect = tester.getRect(
+      find.descendant(
+        of: sheet,
+        matching: find.widgetWithText(OutlinedButton, '拍摄参考'),
+      ),
+    );
+    expect(navigationRect.height, closeTo(cameraRect.height, 0.1));
+    expect(cameraRect.top, closeTo(navigationRect.top, 0.1));
     expect(find.byType(PointDetailSheet), findsOneWidget);
   });
 
@@ -2100,7 +2233,7 @@ void main() {
 
     expect(find.text('坐标'), findsOneWidget);
     expect(find.text('来源'), findsOneWidget);
-    expect(find.text('导航'), findsOneWidget);
+    expect(find.byIcon(Icons.directions_walk), findsOneWidget);
   });
 
   testWidgets('shows plan manager', (tester) async {
@@ -2525,6 +2658,7 @@ void main() {
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.text('显示片区进度条'), findsOneWidget);
+    expect(find.text('个性化功能配置'), findsOneWidget);
     final progressToggle = tester.widget<SwitchListTile>(
       find.byKey(const ValueKey('plan-group-progress-toggle')),
     );
@@ -2643,6 +2777,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
+      find.text('图片同时请求数'),
+      280,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('图片同时请求数'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
       find.text('步行路径规划'),
       280,
       scrollable: find.byType(Scrollable).last,
@@ -2650,13 +2791,6 @@ void main() {
     expect(find.text('步行路径规划'), findsOneWidget);
     expect(find.text('https://valhalla1.openstreetmap.de'), findsOneWidget);
     expect(find.text('测试连接'), findsOneWidget);
-
-    await tester.scrollUntilVisible(
-      find.text('图片同时请求数'),
-      280,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.text('图片同时请求数'), findsOneWidget);
     expect(find.text('地图标记大小'), findsNothing);
     expect(find.text('片区范围半径'), findsNothing);
     expect(find.text('自动聚合密集点位'), findsNothing);
@@ -3162,6 +3296,45 @@ void main() {
     await tester.tap(find.text('可切换').first);
     await tester.pumpAndSettle();
     expect(find.text('切换计划'), findsNothing);
+  });
+
+  testWidgets('plan more menu hover does not leave the card highlighted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MiriaGoApp(repository: SamplePilgrimageRepository()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('plan-switch-button')));
+    await tester.pumpAndSettle();
+
+    final planCard = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is Material &&
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith('plan-card-'),
+        )
+        .first;
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+
+    await gesture.moveTo(tester.getCenter(planCard));
+    await tester.pump();
+    await tester.tap(find.byTooltip('更多计划操作').first);
+    await tester.pumpAndSettle();
+    expect(find.text('导入导出'), findsOneWidget);
+    await gesture.moveTo(tester.getCenter(find.text('导入导出')));
+    await tester.pump();
+    await gesture.moveTo(const Offset(8, 8));
+    await tester.pump();
+
+    expect(tester.widget<Material>(planCard).color, AppColors.surface);
+    await tester.tap(find.byTooltip('更多计划操作').first);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Material>(planCard).color, AppColors.surface);
   });
 
   testWidgets('work manager opens a compact delete menu', (tester) async {

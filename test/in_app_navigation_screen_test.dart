@@ -257,7 +257,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('结束路线'), findsOneWidget);
-    expect(find.text('已到达'), findsNothing);
+    expect(find.text('已到达'), findsOneWidget);
     expect(find.text('全部点位'), findsOneWidget);
     expect(find.text('到达'), findsOneWidget);
     expect(find.text('小时'), findsOneWidget);
@@ -293,6 +293,31 @@ void main() {
       find.byKey(const ValueKey('in-app-navigation-screen')),
       findsNothing,
     );
+  });
+
+  testWidgets('expanded sheet can mark arrival manually', (tester) async {
+    const lastPoint = PilgrimagePoint(
+      id: 'point-2',
+      work: work,
+      name: '京阪宇治站前',
+      subtitle: '京阪宇治駅前',
+      position: LatLng(34.8942, 135.8069),
+      episodeLabel: 'EP 5',
+      referenceLabel: '手动',
+    );
+    await pumpScreen(tester, stops: const [point, lastPoint]);
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-arrive')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-arrival-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('打开相机'), findsOneWidget);
+    expect(find.text('前往下一点'), findsOneWidget);
   });
 
   testWidgets('trip summary stays visible after collapsing the panel', (
