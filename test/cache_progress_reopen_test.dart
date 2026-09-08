@@ -205,8 +205,11 @@ void main() {
         var toggle = tester.widget<SwitchListTile>(finder);
         expect(toggle.value, isFalse);
         expect(toggle.onChanged, isNotNull);
-        expect(toggle.thumbColor!.resolve({}), AppColors.accent);
-        expect(toggle.trackOutlineColor!.resolve({}), AppColors.accent);
+        expect(toggle.thumbColor!.resolve({}), AppColors.accentForeground);
+        expect(
+          toggle.trackOutlineColor!.resolve({}),
+          AppColors.accentForeground,
+        );
         expect(toggle.thumbColor!.resolve({WidgetState.disabled}), isNull);
         toggle.onChanged!(true);
         await tester.pump();

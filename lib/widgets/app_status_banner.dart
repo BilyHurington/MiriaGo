@@ -155,7 +155,15 @@ class _AutoClosingStatusOverlayState extends State<_AutoClosingStatusOverlay> {
     super.initState();
     _timer = Timer(appStatusSnackDuration, () {
       if (mounted) {
-        Navigator.of(context).pop();
+        final route = ModalRoute.of(context);
+        final navigator = route?.navigator;
+        if (route == null || navigator == null || !route.isActive) return;
+        if (route.isCurrent) {
+          navigator.pop();
+        } else {
+          // A newer page may cover this overlay; never pop that page.
+          navigator.removeRoute(route);
+        }
       }
     });
   }

@@ -57,7 +57,7 @@ Future<PilgrimagePlan> cacheFullReferenceImages({
   required ValueChangedPlan onPlanUpdated,
   required ValueChangedProgress onProgress,
   AnitabiImageSource imageSource = AnitabiImageSource.auto,
-  int maxConcurrent = 4,
+  int maxConcurrent = 10,
 }) async {
   final points = pointsNeedingFullReferenceCache(plan.points);
   if (points.isEmpty) {
@@ -74,7 +74,7 @@ Future<PilgrimagePlan> cacheFullReferenceImages({
   final updates = <String, PointImageCacheUpdate>{};
   await runLimitedConcurrent<PilgrimagePoint, _FullReferenceCacheResult>(
     items: points,
-    maxConcurrent: maxConcurrent.clamp(1, 4),
+    maxConcurrent: maxConcurrent,
     task: (point, _) async {
       try {
         final path = await reference_image_cache.cacheReferenceFullImage(

@@ -699,11 +699,11 @@ class _BackupOptions extends StatelessWidget {
                 if (states.contains(WidgetState.disabled)) return null;
                 return states.contains(WidgetState.selected)
                     ? AppColors.onAccent
-                    : AppColors.accent;
+                    : AppColors.accentForeground;
               }),
               trackOutlineColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.disabled)) return null;
-                return AppColors.accent;
+                return AppColors.accentForeground;
               }),
               contentPadding: EdgeInsets.zero,
               title: const Text(
