@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/clear_anchor_selection_button.dart';
 import '../widgets/confirm_action_dialog.dart';
@@ -309,10 +310,10 @@ class _AnchorPointMarker extends StatelessWidget {
       tooltip: '选择点位',
       onPressed: onTap,
       style: IconButton.styleFrom(
-        backgroundColor: selected ? AppColors.accent : AppColors.surface,
-        foregroundColor: selected ? Colors.white : AppColors.accent,
+        backgroundColor: selected ? MapColors.accent : MapColors.surface,
+        foregroundColor: selected ? MapColors.onAccent : MapColors.accent,
         side: BorderSide(
-          color: selected ? AppColors.warning : AppColors.border,
+          color: selected ? AppColors.warning : MapColors.border,
           width: selected ? 2 : 1,
         ),
       ),

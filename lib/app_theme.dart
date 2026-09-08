@@ -90,6 +90,7 @@ class AppColors {
   }
 
   static Color get onAccent {
+    if (isDark) return foregroundOn(accent);
     return switch (palette) {
       AppThemePalette.classicGreen => Colors.white,
       AppThemePalette.deepBlue => Colors.white,
@@ -99,6 +100,40 @@ class AppColors {
       AppThemePalette.graphite => isDark ? _lightTextPrimary : Colors.white,
       AppThemePalette.aurora => _foregroundFor(Color(customAccentValue)),
     };
+  }
+
+  /// Foregrounds on neutral or lightly tinted surfaces, not brand fills.
+  static Color get accentForeground => _readableAccent(accent);
+  static Color get accentStrongForeground => _readableAccent(accentDark);
+
+  static Color _readableAccent(Color color) {
+    if (!isDark) return color;
+    final surfaces = [
+      background,
+      surface,
+      surfaceMuted,
+      Color.alphaBlend(accent.withValues(alpha: 0.16), surface),
+    ];
+    final opaque = color.withValues(alpha: 1);
+    for (var step = 0; step <= 20; step++) {
+      final candidate = Color.lerp(opaque, Colors.white, step / 20)!;
+      if (surfaces.every((surface) => _contrast(candidate, surface) >= 4.5)) {
+        return candidate;
+      }
+    }
+    return Colors.white;
+  }
+
+  static double _contrast(Color a, Color b) {
+    final values = [a.computeLuminance(), b.computeLuminance()]..sort();
+    return (values.last + 0.05) / (values.first + 0.05);
+  }
+
+  static Color foregroundOn(Color fill) {
+    final opaque = Color.alphaBlend(fill, surface);
+    return _contrast(Colors.white, opaque) >= _contrast(Colors.black, opaque)
+        ? Colors.white
+        : Colors.black;
   }
 
   static Color _darken(Color color) {
@@ -256,7 +291,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.accentDark,
+          foregroundColor: AppColors.accentStrongForeground,
           minimumSize: const Size(44, 44),
           textStyle: const TextStyle(
             fontSize: 15,

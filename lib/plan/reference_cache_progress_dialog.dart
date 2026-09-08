@@ -6,47 +6,85 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../app_theme.dart';
 import '../widgets/app_status_banner.dart';
 import 'reference_full_cache_runner.dart';
+import 'pilgrimage_models.dart';
 
-Future<void> showReferenceCacheProgressDialog({
-  required BuildContext context,
-  required Future<void> Function(
-    void Function(ReferenceFullCacheProgress progress) onProgress,
-  )
-  run,
-}) async {
-  final runDone = Completer<void>();
-  var runStarted = false;
+typedef ReferenceCacheRun =
+    Future<void> Function(ValueChangedProgress onProgress);
 
-  await showStatusBannerOverlay(
-    context: context,
-    builder: (dialogContext) {
-      return ReferenceCacheProgressDialog(
-        run: (onProgress) async {
-          runStarted = true;
-          try {
-            await run(onProgress);
-          } finally {
-            if (!runDone.isCompleted) {
-              runDone.complete();
-            }
-          }
-        },
-      );
-    },
-  );
+/// Task state outlives its dismissible progress view.
+class ReferenceCacheTask extends ChangeNotifier {
+  static final _tasks = Expando<Map<String, ReferenceCacheTask>>();
 
-  if (runStarted) {
-    await runDone.future;
+  static ReferenceCacheTask forPlan(Object repository, String planId) {
+    final tasks = _tasks[repository] ??= {};
+    return tasks.putIfAbsent(planId, ReferenceCacheTask.new);
+  }
+
+  ReferenceFullCacheProgress? progress;
+  PilgrimagePlan? updatedPlan;
+  bool isRunning = false;
+  bool hasError = false;
+  Future<void> _finished = Future.value();
+  Future<void> get finished => _finished;
+
+  Future<void> start(ReferenceCacheRun run) {
+    if (isRunning) return _finished;
+    final done = Completer<void>();
+    _finished = done.future;
+    isRunning = true;
+    hasError = false;
+    updatedPlan = null;
+    progress = ReferenceFullCacheProgress(total: progress?.total ?? 0);
+    notifyListeners();
+    unawaited(_execute(run, done));
+    return _finished;
+  }
+
+  Future<void> _execute(ReferenceCacheRun run, Completer<void> done) async {
+    try {
+      await run((value) {
+        progress = value;
+        notifyListeners();
+      });
+    } catch (_) {
+      hasError = true;
+    } finally {
+      isRunning = false;
+      notifyListeners();
+      done.complete();
+    }
   }
 }
 
-class ReferenceCacheProgressDialog extends StatefulWidget {
-  const ReferenceCacheProgressDialog({required this.run, super.key});
+Future<void> showReferenceCacheProgressDialog({
+  required BuildContext context,
+  required ReferenceCacheRun run,
+  ReferenceCacheTask? task,
+  bool startOnOpen = true,
+}) async {
+  final activeTask = task ?? ReferenceCacheTask();
+  await showStatusBannerOverlay(
+    context: context,
+    builder: (_) => ReferenceCacheProgressDialog(
+      run: run,
+      task: activeTask,
+      startOnOpen: startOnOpen,
+    ),
+  );
+  await activeTask.finished;
+}
 
-  final Future<void> Function(
-    void Function(ReferenceFullCacheProgress progress) onProgress,
-  )
-  run;
+class ReferenceCacheProgressDialog extends StatefulWidget {
+  const ReferenceCacheProgressDialog({
+    required this.run,
+    this.task,
+    this.startOnOpen = true,
+    super.key,
+  });
+
+  final ReferenceCacheRun run;
+  final ReferenceCacheTask? task;
+  final bool startOnOpen;
 
   @override
   State<ReferenceCacheProgressDialog> createState() =>
@@ -57,93 +95,48 @@ enum _CacheDialogStatus { running, success, partial, failed }
 
 class _ReferenceCacheProgressDialogState
     extends State<ReferenceCacheProgressDialog> {
-  var _isRunning = true;
-  ReferenceFullCacheProgress? _progress;
-
-  _CacheDialogStatus get _status {
-    final progress = _progress;
-    if (_isRunning || progress == null || !progress.done) {
-      return _CacheDialogStatus.running;
-    }
-    if (progress.failed == 0) {
-      return _CacheDialogStatus.success;
-    }
-    if (progress.succeeded == 0) {
-      return _CacheDialogStatus.failed;
-    }
-    return _CacheDialogStatus.partial;
-  }
+  late final _task = widget.task ?? ReferenceCacheTask();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _start();
+      if (mounted && widget.startOnOpen && !_task.isRunning) {
+        _task.start(widget.run);
       }
     });
-  }
-
-  Future<void> _start() async {
-    setState(() {
-      _isRunning = true;
-      final previous = _progress;
-      if (previous != null && previous.done) {
-        _progress = ReferenceFullCacheProgress(total: previous.total);
-      }
-    });
-    try {
-      await widget.run((progress) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _progress = progress;
-        });
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      final current = _progress;
-      setState(() {
-        _progress = ReferenceFullCacheProgress(
-          total: current?.total ?? 0,
-          processed: current?.processed ?? 0,
-          succeeded: current?.succeeded ?? 0,
-          failed: (current?.failed ?? 0) > 0
-              ? current!.failed
-              : (current?.total ?? 0),
-          done: true,
-        );
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRunning = false;
-        });
-      }
-    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final status = _status;
-    final progress = _progress;
-    return _CacheBannerCard(
-      bannerKey: const ValueKey('reference-cache-progress-dialog'),
-      status: status,
-      total: progress?.total ?? 0,
-      processed: progress?.processed ?? 0,
-      succeeded: progress?.succeeded ?? 0,
-      failed: progress?.failed ?? 0,
-      onRetry:
-          status == _CacheDialogStatus.partial ||
-              status == _CacheDialogStatus.failed
-          ? _start
-          : null,
-    );
-  }
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _task,
+    builder: (context, _) {
+      final progress = _task.progress;
+      final status = _task.isRunning || progress == null
+          ? _CacheDialogStatus.running
+          : _task.hasError
+          ? _CacheDialogStatus.failed
+          : progress.failed == 0
+          ? _CacheDialogStatus.success
+          : progress.succeeded == 0
+          ? _CacheDialogStatus.failed
+          : _CacheDialogStatus.partial;
+      return _CacheBannerCard(
+        bannerKey: const ValueKey('reference-cache-progress-dialog'),
+        status: status,
+        total: progress?.total ?? 0,
+        processed: progress?.processed ?? 0,
+        succeeded: progress?.succeeded ?? 0,
+        failed: progress?.failed ?? 0,
+        interrupted: _task.hasError,
+        onRetry:
+            status == _CacheDialogStatus.partial ||
+                status == _CacheDialogStatus.failed
+            ? () => _task.start(widget.run)
+            : null,
+      );
+    },
+  );
 }
 
 class _CacheBannerCard extends StatelessWidget {
@@ -155,6 +148,7 @@ class _CacheBannerCard extends StatelessWidget {
     required this.succeeded,
     required this.failed,
     this.onRetry,
+    this.interrupted = false,
   });
 
   final Key bannerKey;
@@ -164,6 +158,7 @@ class _CacheBannerCard extends StatelessWidget {
   final int succeeded;
   final int failed;
   final VoidCallback? onRetry;
+  final bool interrupted;
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +181,9 @@ class _CacheBannerCard extends StatelessWidget {
       kind: kind,
       icon: status == _CacheDialogStatus.running ? LucideIcons.refreshCw : null,
       title: _titleFor(status),
-      subtitle: status == _CacheDialogStatus.running
+      subtitle: interrupted
+          ? '缓存中断，请重试；已保存的图片不会删除。'
+          : status == _CacheDialogStatus.running
           ? null
           : _subtitleFor(
               status: status,

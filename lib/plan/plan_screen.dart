@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../widgets/confirm_action_dialog.dart';
@@ -71,7 +72,24 @@ class _PlanScreenState extends State<PlanScreen>
   bool _showPlanActions = false;
   bool _showVirtualLocation = false;
   bool _isLocating = false;
-  bool _isCachingFullReferences = false;
+  ReferenceCacheTask? _observedCacheTask;
+  PilgrimagePlan? _seenCachedPlan;
+  ReferenceCacheTask get _cacheTask =>
+      ReferenceCacheTask.forPlan(widget.repository, controller.plan.id);
+  bool get _isCachingFullReferences => _cacheTask.isRunning;
+
+  void _onCacheChanged() {
+    final updated = _observedCacheTask?.updatedPlan;
+    if (mounted &&
+        updated != null &&
+        !identical(_seenCachedPlan, updated) &&
+        controller.plan.id == updated.id) {
+      _seenCachedPlan = updated;
+      controller.replacePlan(updated);
+    }
+    if (mounted) setState(() {});
+  }
+
   double _mapHeightRatio = 0.42;
   LatLng? _currentLocation;
   late final _locationTracker = widget.locationTracker ?? MapLocationTracker();
@@ -130,6 +148,7 @@ class _PlanScreenState extends State<PlanScreen>
 
   @override
   void dispose() {
+    _observedCacheTask?.removeListener(_onCacheChanged);
     _locationTracker.removeListener(_onLocationChanged);
     _locationTracker.dispose();
     _pointListController.dispose();
@@ -305,6 +324,10 @@ class _PlanScreenState extends State<PlanScreen>
   @override
   Widget build(BuildContext context) {
     syncLocationActivity();
+    if (_observedCacheTask != _cacheTask) {
+      _observedCacheTask?.removeListener(_onCacheChanged);
+      _observedCacheTask = _cacheTask..addListener(_onCacheChanged);
+    }
     final plan = controller.plan;
     final groups = planGroupBuckets(plan, controller.completedPointIds);
     if (_selectedPlanId != plan.id) {
@@ -645,6 +668,7 @@ class _PlanScreenState extends State<PlanScreen>
 
   Future<void> _handleReferenceCachePressed() async {
     if (_isCachingFullReferences) {
+      await _cacheFullReferenceImages(startOnOpen: false);
       return;
     }
 
@@ -669,34 +693,32 @@ class _PlanScreenState extends State<PlanScreen>
     await _cacheFullReferenceImages();
   }
 
-  Future<void> _cacheFullReferenceImages() async {
-    if (_isCachingFullReferences) {
-      return;
-    }
-    setState(() {
-      _isCachingFullReferences = true;
-    });
-    try {
-      await showReferenceCacheProgressDialog(
-        context: context,
-        run: (onProgress) {
-          return cacheFullReferenceImages(
-            plan: controller.plan,
-            repository: widget.repository,
-            onPlanUpdated: controller.replacePlan,
-            imageSource: settings.anitabiImageSource,
-            maxConcurrent: settings.mapThumbnailConcurrentLoads,
-            onProgress: onProgress,
-          );
-        },
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCachingFullReferences = false;
-        });
-      }
-    }
+  Future<void> _cacheFullReferenceImages({bool startOnOpen = true}) async {
+    final planId = controller.plan.id;
+    final task = _cacheTask;
+    final repository = widget.repository;
+    final imageSource = settings.anitabiImageSource;
+    final maxConcurrent = settings.mapThumbnailConcurrentLoads;
+    await showReferenceCacheProgressDialog(
+      context: context,
+      task: task,
+      startOnOpen: startOnOpen,
+      run: (onProgress) async {
+        final plan = (await repository.loadPlans()).firstWhere(
+          (plan) => plan.id == planId,
+        );
+        await cacheFullReferenceImages(
+          plan: plan,
+          repository: repository,
+          onPlanUpdated: (updated) {
+            task.updatedPlan = updated;
+          },
+          imageSource: imageSource,
+          maxConcurrent: maxConcurrent,
+          onProgress: onProgress,
+        );
+      },
+    );
   }
 
   void _showSnackBar(
@@ -823,7 +845,7 @@ class _PlanActionsPanel extends StatelessWidget {
                   )
                 : const Icon(LucideIcons.cloudDownload, size: 20),
             title: '缓存参考图',
-            subtitle: '保存完整图片',
+            subtitle: isCachingReferences ? '查看当前进度' : '保存完整图片',
             compact: compact,
             onTap: onCacheReferences,
           ),
@@ -1598,10 +1620,10 @@ class _MapPointMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final markerColor = selected
-        ? AppColors.accentDark
+        ? MapColors.accentDark
         : completed
         ? AppColors.textSecondary
-        : AppColors.accent;
+        : MapColors.accent;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: markerColor,
@@ -1618,7 +1640,7 @@ class _MapPointMarker extends StatelessWidget {
       child: Icon(
         completed ? LucideIcons.check : LucideIcons.mapPin,
         size: selected ? 19 : 15,
-        color: Colors.white,
+        color: AppColors.isDark ? MapColors.onAccent : Colors.white,
       ),
     );
   }

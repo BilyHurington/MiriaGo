@@ -7,6 +7,35 @@ import 'package:miriago/plan/pilgrimage_models.dart';
 
 void main() {
   test(
+    'map appearance round trips and missing or unknown values follow theme',
+    () {
+      final repository = SamplePilgrimageRepository(
+        settings: const AppSettings(mapAppearance: MapAppearance.light),
+      );
+      final encoded = encodeDesktopRepositoryState(repository.snapshot());
+      expect(
+        decodeDesktopRepositoryState(encoded)!.settings.mapAppearance,
+        MapAppearance.light,
+      );
+      final legacy = jsonDecode(encoded) as Map<String, dynamic>;
+      final settings = legacy['settings'] as Map<String, dynamic>;
+      settings.remove('mapAppearance');
+      expect(
+        decodeDesktopRepositoryState(
+          jsonEncode(legacy),
+        )!.settings.mapAppearance,
+        MapAppearance.automatic,
+      );
+      settings['mapAppearance'] = 'future-value';
+      expect(
+        decodeDesktopRepositoryState(
+          jsonEncode(legacy),
+        )!.settings.mapAppearance,
+        MapAppearance.automatic,
+      );
+    },
+  );
+  test(
     'continuous location defaults on for legacy settings and round trips off',
     () {
       expect(const AppSettings().continuousMapLocation, isTrue);

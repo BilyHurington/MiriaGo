@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_tile_config.dart';
 import '../map/map_marker_scale.dart';
@@ -70,8 +72,33 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   var _selectedGroupIndex = 0;
   var _didUpdate = false;
   var _isSaving = false;
-  var _isCachingFullReferences = false;
-  ReferenceFullCacheProgress? _fullReferenceCacheProgress;
+  ReferenceCacheTask? _observedCacheTask;
+  PilgrimagePlan? _seenCachedPlan;
+  ReferenceCacheTask get _cacheTask =>
+      ReferenceCacheTask.forPlan(widget.repository, _plan.id);
+  bool get _isCachingFullReferences => _cacheTask.isRunning;
+  ReferenceFullCacheProgress? get _fullReferenceCacheProgress =>
+      _cacheTask.progress;
+
+  void _onCacheChanged() {
+    final updated = _observedCacheTask?.updatedPlan;
+    if (mounted &&
+        updated != null &&
+        !identical(_seenCachedPlan, updated) &&
+        _plan.id == updated.id) {
+      _seenCachedPlan = updated;
+      _plan = updated;
+      _didUpdate = true;
+    }
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _observedCacheTask?.removeListener(_onCacheChanged);
+    super.dispose();
+  }
+
   var _selectionMode = false;
 
   List<PlanGroupBucket> get _groups =>
@@ -94,6 +121,10 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedGroup = _selectedGroup;
+    if (_observedCacheTask != _cacheTask) {
+      _observedCacheTask?.removeListener(_onCacheChanged);
+      _observedCacheTask = _cacheTask..addListener(_onCacheChanged);
+    }
 
     return PopScope(
       canPop: !_isSaving,
@@ -132,7 +163,9 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                 tooltip: _isCachingFullReferences
                     ? _fullReferenceCacheProgress?.label ?? '正在缓存完整参考图'
                     : '缓存完整参考图',
-                onPressed: _selectionMode ? null : _handleReferenceCachePressed,
+                onPressed: _selectionMode && !_isCachingFullReferences
+                    ? null
+                    : _handleReferenceCachePressed,
                 icon: _isCachingFullReferences
                     ? const SizedBox(
                         width: 20,
@@ -156,9 +189,10 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
             : Stack(
                 children: [
                   _buildGroupPage(selectedGroup),
-                  if (_selectionMode)
-                    Align(
-                      alignment: Alignment.bottomCenter,
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: AppReveal(
+                      visible: _selectionMode,
                       child: _BatchActionBar(
                         selectedCount: _selectedPointIds.length,
                         allSelected:
@@ -173,6 +207,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
                         onDelete: _confirmDeleteSelected,
                       ),
                     ),
+                  ),
                 ],
               ),
       ),
@@ -1010,55 +1045,37 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     }
   }
 
-  Future<void> _cacheFullReferenceImages() async {
-    if (_isCachingFullReferences) {
-      return;
-    }
-    setState(() {
-      _isCachingFullReferences = true;
-      _fullReferenceCacheProgress = null;
-    });
-    try {
-      await showReferenceCacheProgressDialog(
-        context: context,
-        run: (onProgress) {
-          return cacheFullReferenceImages(
-            plan: _plan,
-            repository: widget.repository,
-            imageSource: widget.settings.anitabiImageSource,
-            maxConcurrent: widget.settings.mapThumbnailConcurrentLoads,
-            onPlanUpdated: (plan) {
-              if (!mounted) {
-                return;
-              }
-              setState(() {
-                _plan = plan;
-                _didUpdate = true;
-              });
-            },
-            onProgress: (progress) {
-              onProgress(progress);
-              if (!mounted) {
-                return;
-              }
-              setState(() {
-                _fullReferenceCacheProgress = progress;
-              });
-            },
-          );
-        },
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCachingFullReferences = false;
-        });
-      }
-    }
+  Future<void> _cacheFullReferenceImages({bool startOnOpen = true}) async {
+    final planId = _plan.id;
+    final task = _cacheTask;
+    final repository = widget.repository;
+    final imageSource = widget.settings.anitabiImageSource;
+    final maxConcurrent = widget.settings.mapThumbnailConcurrentLoads;
+    await showReferenceCacheProgressDialog(
+      context: context,
+      task: task,
+      startOnOpen: startOnOpen,
+      run: (onProgress) async {
+        final plan = (await repository.loadPlans()).firstWhere(
+          (plan) => plan.id == planId,
+        );
+        await cacheFullReferenceImages(
+          plan: plan,
+          repository: repository,
+          imageSource: imageSource,
+          maxConcurrent: maxConcurrent,
+          onPlanUpdated: (plan) {
+            task.updatedPlan = plan;
+          },
+          onProgress: onProgress,
+        );
+      },
+    );
   }
 
   Future<void> _handleReferenceCachePressed() async {
     if (_isCachingFullReferences) {
+      await _cacheFullReferenceImages(startOnOpen: false);
       return;
     }
     final points = pointsNeedingFullReferenceCache(_plan.points);
@@ -2427,10 +2444,10 @@ class _AnchorPointMarker extends StatelessWidget {
       tooltip: '选择点位',
       onPressed: onTap,
       style: IconButton.styleFrom(
-        backgroundColor: selected ? AppColors.accent : AppColors.surface,
-        foregroundColor: selected ? Colors.white : AppColors.accent,
+        backgroundColor: selected ? MapColors.accent : MapColors.surface,
+        foregroundColor: selected ? MapColors.onAccent : MapColors.accent,
         side: BorderSide(
-          color: selected ? AppColors.warning : AppColors.border,
+          color: selected ? AppColors.warning : MapColors.border,
           width: selected ? 2 : 1,
         ),
       ),

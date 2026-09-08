@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import 'map_colors.dart';
 
 class MapMarkerCluster<T> {
   const MapMarkerCluster({required this.items, required this.position});
@@ -144,11 +145,11 @@ class MapMarkerClusterBadge extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.accent,
+                color: MapColors.accent,
                 border: Border.all(color: Colors.white, width: 2.5),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.28),
+                    color: MapColors.accent.withValues(alpha: 0.28),
                     blurRadius: 0,
                     spreadRadius: 4,
                   ),
@@ -163,7 +164,7 @@ class MapMarkerClusterBadge extends StatelessWidget {
                 label,
                 maxLines: 1,
                 style: TextStyle(
-                  color: AppColors.onAccent,
+                  color: MapColors.onAccent,
                   fontSize: fontSize,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0,

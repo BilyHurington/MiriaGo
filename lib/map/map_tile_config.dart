@@ -5,8 +5,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
+import 'map_colors.dart';
 
 const openFreeMapStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+const readableDarkMapStyleAsset = 'assets/maps/readable_dark.json';
+
+String darkMapStyleAsset(OpenFreeMapStyle style) =>
+    style == OpenFreeMapStyle.dark
+    ? readableDarkMapStyleAsset
+    : 'assets/maps/${style.name}_dark.json';
 const openStreetMapTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const mapUserAgentPackageName = 'app.miriago.miriago';
 
@@ -121,6 +128,27 @@ String mapLibreStyleUrl(AppSettings settings) {
   return openFreeMapStyleOption(settings.openFreeMapStyle).styleUrl;
 }
 
+String resolvedMapLibreStyle(AppSettings settings, {required bool dark}) {
+  if (settings.mapTileProvider != MapTileProvider.openFreeMap) {
+    return mapLibreStyleUrl(settings);
+  }
+  if (usesDarkMapStyle(settings, dark: dark)) {
+    return darkMapStyleAsset(settings.openFreeMapStyle);
+  }
+  return openFreeMapStyleOption(settings.openFreeMapStyle).styleUrl;
+}
+
+bool usesDarkMapStyle(AppSettings settings, {required bool dark}) {
+  if (settings.mapTileProvider != MapTileProvider.openFreeMap) return false;
+  // Dark is a named, intrinsically dark style, not a substitute for other styles.
+  if (settings.openFreeMapStyle == OpenFreeMapStyle.dark) return true;
+  return switch (settings.mapAppearance) {
+    MapAppearance.automatic => dark,
+    MapAppearance.light => false,
+    MapAppearance.dark => true,
+  };
+}
+
 String xyzTileUrl(AppSettings settings) {
   if (settings.mapTileProvider == MapTileProvider.customXyz) {
     final custom = settings.customXyzTileUrl.trim();
@@ -131,6 +159,18 @@ String xyzTileUrl(AppSettings settings) {
   return openStreetMapTileUrl;
 }
 
+Color configuredMapRouteColor(AppSettings settings, {required bool dark}) {
+  return MapColors.readable(
+    AppColors.accent,
+    dark:
+        dark ||
+        usesDarkMapStyle(settings, dark: dark) ||
+        // The upstream Fiord preset is also intrinsically dark.
+        (settings.mapTileProvider == MapTileProvider.openFreeMap &&
+            settings.openFreeMapStyle == OpenFreeMapStyle.fiord),
+  );
+}
+
 Widget configuredNavigationMapTileLayer(
   AppSettings settings, {
   required bool dark,
@@ -139,29 +179,13 @@ Widget configuredNavigationMapTileLayer(
 }
 
 Widget configuredMapTileLayer(AppSettings settings, {bool? dark}) {
-  final effectiveSettings = _mapTileSettingsForBrightness(
-    settings,
-    dark: dark ?? AppColors.isDark,
-  );
-  final layerKey = ValueKey(mapTileConfigSignature(effectiveSettings));
-  if (mapProviderUsesMapLibre(effectiveSettings.mapTileProvider) &&
+  final style = resolvedMapLibreStyle(settings, dark: dark ?? AppColors.isDark);
+  final layerKey = ValueKey('${mapTileConfigSignature(settings)}|$style');
+  if (mapProviderUsesMapLibre(settings.mapTileProvider) &&
       !_isFlutterWidgetTest) {
-    return MapLibreLayer(
-      key: layerKey,
-      initStyle: mapLibreStyleUrl(effectiveSettings),
-    );
+    return MapLibreLayer(key: layerKey, initStyle: style);
   }
-  return configuredRasterTileLayer(effectiveSettings, key: layerKey);
-}
-
-AppSettings _mapTileSettingsForBrightness(
-  AppSettings settings, {
-  required bool dark,
-}) {
-  if (dark && settings.mapTileProvider == MapTileProvider.openFreeMap) {
-    return settings.copyWith(openFreeMapStyle: OpenFreeMapStyle.dark);
-  }
-  return settings;
+  return configuredRasterTileLayer(settings, key: layerKey);
 }
 
 TileLayer configuredRasterTileLayer(AppSettings settings, {Key? key}) {
@@ -176,6 +200,7 @@ String mapTileConfigSignature(AppSettings settings) {
   return [
     settings.mapTileProvider.name,
     settings.openFreeMapStyle.name,
+    settings.mapAppearance.name,
     settings.customXyzTileUrl.trim(),
     settings.customMapLibreStyleUrl.trim(),
   ].join('|');
@@ -186,6 +211,15 @@ RichAttributionWidget configuredMapAttribution(AppSettings settings) {
   if (mapProviderUsesMapLibre(provider)) {
     return RichAttributionWidget(
       attributions: [
+        TextSourceAttribution(
+          'OpenMapTiles',
+          onTap: () => launchUrl(Uri.parse('https://openmaptiles.org/')),
+        ),
+        TextSourceAttribution(
+          '© OpenStreetMap contributors',
+          onTap: () =>
+              launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
+        ),
         TextSourceAttribution(
           'OpenFreeMap / OpenMapTiles contributors',
           onTap: () {

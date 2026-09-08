@@ -1171,7 +1171,7 @@ class _PhotoLocationStrategyDropdown extends StatelessWidget {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.accent, width: 1.4),
+        borderSide: BorderSide(color: AppColors.accentForeground, width: 1.4),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -1248,7 +1248,7 @@ class _PhotoLocationStrategyDropdownItemState
               child: Text(
                 _photoLocationStrategyBadge(strategy),
                 style: TextStyle(
-                  color: AppColors.accent,
+                  color: AppColors.accentForeground,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   height: 1.15,
@@ -1274,7 +1274,11 @@ class _PhotoLocationStrategyDropdownItemState
             ),
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(LucideIcons.checkCircle, color: AppColors.accent, size: 18),
+              Icon(
+                LucideIcons.checkCircle,
+                color: AppColors.accentForeground,
+                size: 18,
+              ),
             ],
           ],
         ),
@@ -1885,7 +1889,7 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             _NumberStepperSetting(
               icon: LucideIcons.cloudDownload,
               title: '图片同时请求数',
-              subtitle: '用于地图缩略图显示、导入点位时缓存缩略图，以及批量缓存参考图。数值越大速度可能越快，但网络压力也更高。',
+              subtitle: '缩略图和完整参考图均按此数量并发请求。数值越大速度可能越快，但网络和内存占用也更高。',
               value: settings.mapThumbnailConcurrentLoads,
               min: 1,
               max: 30,
@@ -2016,6 +2020,43 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
       fontScale: settings.fontScale,
       children: [
         _SettingsSection(
+          title: '底图明暗',
+          children: [
+            Row(
+              children: [
+                for (final appearance in MapAppearance.values) ...[
+                  if (appearance != MapAppearance.values.first)
+                    const SizedBox(width: 10),
+                  Expanded(
+                    child: _ModeButton(
+                      key: ValueKey('map-appearance-${appearance.name}'),
+                      icon: switch (appearance) {
+                        MapAppearance.automatic => LucideIcons.smartphone,
+                        MapAppearance.light => LucideIcons.sun,
+                        MapAppearance.dark => LucideIcons.moon,
+                      },
+                      label: switch (appearance) {
+                        MapAppearance.automatic => '跟随主题',
+                        MapAppearance.light => '浅色',
+                        MapAppearance.dark => '深色',
+                      },
+                      selected: settings.mapAppearance == appearance,
+                      onTap: () =>
+                          _update(settings.copyWith(mapAppearance: appearance)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '适用于 OpenFreeMap；Dark 始终使用深色，其他地图源保留原始样式。',
+              style: _secondaryTextStyle,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
           title: '当前位置',
           children: [
             SwitchListTile(
@@ -2057,7 +2098,7 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
                           Text(
                             '${settings.mapMaxZoom} 级',
                             style: TextStyle(
-                              color: AppColors.accent,
+                              color: AppColors.accentForeground,
                               fontSize: 13,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 0,
@@ -2954,7 +2995,7 @@ class _SummaryTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: AppColors.accent,
+                      color: AppColors.accentForeground,
                       fontSize: 13,
                       letterSpacing: 0,
                     ),
@@ -3301,7 +3342,7 @@ class _CacheTargetCard extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: AppColors.accent, size: 21),
+            child: Icon(icon, color: AppColors.accentForeground, size: 21),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -3339,7 +3380,7 @@ class _CustomAspectRatioOption extends StatelessWidget {
           color: selected ? AppColors.accent : AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
+            color: selected ? AppColors.accentForeground : AppColors.border,
           ),
           boxShadow: selected
               ? [
@@ -3503,7 +3544,7 @@ class _AspectRatioOption extends StatelessWidget {
           color: selected ? AppColors.accent : AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
+            color: selected ? AppColors.accentForeground : AppColors.border,
           ),
           boxShadow: selected
               ? [
@@ -3623,7 +3664,9 @@ class _ThemeColorOption extends StatelessWidget {
           Text(
             palette.label,
             style: TextStyle(
-              color: selected ? AppColors.accent : AppColors.textPrimary,
+              color: selected
+                  ? AppColors.accentForeground
+                  : AppColors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 0,
@@ -3700,7 +3743,9 @@ class _ThemeColorButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = color.computeLuminance() > 0.55
+    final foreground = AppColors.isDark
+        ? AppColors.foregroundOn(color)
+        : color.computeLuminance() > 0.55
         ? AppColors.textPrimary
         : Colors.white;
     return InkWell(
@@ -3716,7 +3761,7 @@ class _ThemeColorButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: selected ? AppColors.accent : AppColors.border,
+                color: selected ? AppColors.accentForeground : AppColors.border,
                 width: selected ? 2 : 1,
               ),
             ),
@@ -3736,7 +3781,9 @@ class _ThemeColorButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: selected ? AppColors.accent : AppColors.textPrimary,
+                color: selected
+                    ? AppColors.accentForeground
+                    : AppColors.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
@@ -4133,8 +4180,10 @@ class _ModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final border = selected ? AppColors.accent : scheme.outline;
-    final foreground = selected ? AppColors.accent : scheme.onSurfaceVariant;
+    final border = selected ? AppColors.accentForeground : scheme.outline;
+    final foreground = selected
+        ? AppColors.accentForeground
+        : scheme.onSurfaceVariant;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -4338,13 +4387,15 @@ class _FontSizeButton extends StatelessWidget {
                 : AppColors.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? AppColors.accent : AppColors.border,
+              color: selected ? AppColors.accentForeground : AppColors.border,
             ),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? AppColors.accent : AppColors.textPrimary,
+              color: selected
+                  ? AppColors.accentForeground
+                  : AppColors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 0,
@@ -4380,14 +4431,16 @@ class _AnitabiServiceRow extends StatelessWidget {
         ? null
         : _compactAnitabiProbeStatus(status!);
     final succeeded = status?.startsWith('连接成功') ?? false;
-    final statusColor = succeeded ? AppColors.accent : AppColors.error;
+    final statusColor = succeeded
+        ? AppColors.accentForeground
+        : AppColors.error;
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.accent, size: 22),
+            Icon(icon, color: AppColors.accentForeground, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -4684,7 +4737,7 @@ class _CompactOptionChip extends StatelessWidget {
           color: selected ? AppColors.accent : AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
+            color: selected ? AppColors.accentForeground : AppColors.border,
           ),
         ),
         child: Row(
@@ -4736,7 +4789,7 @@ class _MapSourceOptionCard extends StatelessWidget {
           color: selected ? AppColors.accent : AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
+            color: selected ? AppColors.accentForeground : AppColors.border,
           ),
         ),
         child: Row(
@@ -4848,7 +4901,7 @@ class _NavigationAppOptionCard extends StatelessWidget {
           color: selected ? AppColors.accent : AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
+            color: selected ? AppColors.accentForeground : AppColors.border,
           ),
         ),
         child: Row(
@@ -5115,14 +5168,20 @@ class _ThemeSwatch extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? AppColors.accent : AppColors.border,
+          color: selected ? AppColors.accentForeground : AppColors.border,
           width: selected ? 2 : 1,
         ),
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: selected
-            ? Icon(LucideIcons.check, color: AppColors.onAccent, size: 18)
+            ? Icon(
+                LucideIcons.check,
+                color: AppColors.isDark
+                    ? AppColors.foregroundOn(color)
+                    : AppColors.onAccent,
+                size: 18,
+              )
             : null,
       ),
     );

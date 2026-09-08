@@ -3,11 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../map/map_marker_clustering.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_navigation_launcher.dart';
@@ -2051,10 +2053,10 @@ class _ImportMarker extends StatelessWidget {
       tooltip: imported ? '已导入点位' : '可导入点位',
       onPressed: onTap,
       style: IconButton.styleFrom(
-        backgroundColor: imported ? AppColors.surfaceMuted : AppColors.surface,
-        foregroundColor: imported ? AppColors.textSecondary : AppColors.accent,
+        backgroundColor: imported ? MapColors.surfaceMuted : MapColors.surface,
+        foregroundColor: imported ? AppColors.textSecondary : MapColors.accent,
         side: BorderSide(
-          color: selected ? AppColors.warning : AppColors.border,
+          color: selected ? AppColors.warning : MapColors.border,
           width: selected ? 2 : 1,
         ),
       ),
@@ -2118,16 +2120,19 @@ class _ImportSummary extends StatelessWidget {
                 Icon(LucideIcons.map, color: AppColors.accent),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  isLoading
-                      ? '正在加载 Anitabi 点位'
-                      : importProgress?.label ??
-                            '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
+                child: AppContentFade(
+                  revision: (isLoading, isImporting),
+                  child: Text(
+                    isLoading
+                        ? '正在加载 Anitabi 点位'
+                        : importProgress?.label ??
+                              '已导入 $importedCount / 当前显示 $totalCount${expected == null ? '' : ' / 共 $expected'}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
                   ),
                 ),
               ),

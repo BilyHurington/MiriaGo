@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import 'map_colors.dart';
 import 'map_marker_scale.dart';
 import '../widgets/snackbar_helper.dart';
 import '../camera_reference/camerawesome_reference_screen.dart';
@@ -20,6 +21,7 @@ import '../records/point_visit_records_screen.dart';
 import '../records/visit_record_detail_screen.dart';
 import '../utils/selected_item_order.dart';
 import '../widgets/copyable_text.dart';
+import '../widgets/app_motion.dart';
 import '../widgets/split_navigation_button.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
@@ -926,7 +928,7 @@ class _MapGroupFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: const ValueKey('map-group-filter-bar'),
-      color: AppColors.surface.withValues(alpha: 0.94),
+      color: MapColors.surface.withValues(alpha: 0.94),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -976,15 +978,15 @@ class _MapFloatingIconButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: selected
-            ? AppColors.accent.withValues(alpha: 0.95)
-            : AppColors.surface.withValues(alpha: 0.94),
+            ? MapColors.accent.withValues(alpha: 0.95)
+            : MapColors.surface.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: IconTheme(
             data: IconThemeData(
-              color: selected ? AppColors.onAccent : AppColors.textPrimary,
+              color: selected ? MapColors.onAccent : AppColors.textPrimary,
             ),
             child: SizedBox(width: 38, height: 38, child: Center(child: child)),
           ),
@@ -1008,12 +1010,12 @@ class _PointMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final markerColors = switch (status) {
-      VisitStatus.current => (AppColors.accent, Colors.white),
+      VisitStatus.current => (MapColors.accent, MapColors.onAccent),
       VisitStatus.completed => (
-        AppColors.surfaceMuted,
+        MapColors.surfaceMuted,
         AppColors.textSecondary,
       ),
-      VisitStatus.pending => (AppColors.surface, AppColors.accentDark),
+      VisitStatus.pending => (MapColors.surface, MapColors.accentDark),
     };
 
     return IconButton(
@@ -1023,7 +1025,7 @@ class _PointMarker extends StatelessWidget {
         backgroundColor: markerColors.$1,
         foregroundColor: markerColors.$2,
         side: BorderSide(
-          color: selected ? AppColors.warning : AppColors.border,
+          color: selected ? AppColors.warning : MapColors.border,
           width: selected ? 2 : 1,
         ),
       ),
@@ -1047,7 +1049,7 @@ class _CurrentLocationMarker extends StatelessWidget {
         width: 22,
         height: 22,
         decoration: BoxDecoration(
-          color: AppColors.accent,
+          color: MapColors.accent,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 3),
         ),
@@ -1115,9 +1117,9 @@ class _PointCard extends StatelessWidget {
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
       padding: EdgeInsets.fromLTRB(16, showOverlapPager ? 6 : 16, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: MapColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: MapColors.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1133,12 +1135,12 @@ class _PointCard extends StatelessWidget {
             Divider(
               key: ValueKey('map-overlap-point-divider'),
               height: 1,
-              color: AppColors.border,
+              color: MapColors.border,
             ),
             const SizedBox(height: 6),
           ],
           GestureDetector(
-            key: ValueKey('map-point-card-content-${point.id}'),
+            key: const ValueKey('map-point-card-content'),
             behavior: HitTestBehavior.opaque,
             onTap: onOpenDetail,
             child: Row(
@@ -1147,44 +1149,50 @@ class _PointCard extends StatelessWidget {
                 _PointThumbnail(controller: controller, point: point),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          _StatusBadge(status: status),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: CopyableText(
-                              text: point.name,
-                              copyLabel: '点位名称',
-                              onTap: onOpenDetail,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0,
+                  child: AppContentFade(
+                    revision: (point.id, status),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _StatusBadge(status: status),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CopyableText(
+                                key: ValueKey(
+                                  'map-point-card-content-${point.id}',
+                                ),
+                                text: point.name,
+                                copyLabel: '点位名称',
+                                onTap: onOpenDetail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      CopyableText(
-                        text: _metaText,
-                        copyText: _copySummary,
-                        copyLabel: '点位信息',
-                        onTap: onOpenDetail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          letterSpacing: 0,
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        CopyableText(
+                          text: _metaText,
+                          copyText: _copySummary,
+                          copyLabel: '点位信息',
+                          onTap: onOpenDetail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1340,14 +1348,14 @@ class _PointThumbnail extends StatelessWidget {
         child: Container(
           width: 64,
           height: 64,
-          color: AppColors.surfaceMuted,
+          color: MapColors.surfaceMuted,
           child: repository == null
               ? ReferenceThumbnail(
                   localPath: point.referenceThumbnailPath,
                   imageUrl: remoteImageUrl,
                   placeholder: Icon(
                     LucideIcons.image,
-                    color: AppColors.accentDark,
+                    color: MapColors.accentDark,
                   ),
                 )
               : AutoCachingReferenceThumbnail(
@@ -1357,7 +1365,7 @@ class _PointThumbnail extends StatelessWidget {
                   onPlanUpdated: controller.replacePlan,
                   placeholder: Icon(
                     LucideIcons.image,
-                    color: AppColors.accentDark,
+                    color: MapColors.accentDark,
                   ),
                 ),
         ),
@@ -1379,9 +1387,9 @@ class _MapRecordBadge extends StatelessWidget {
       height: 16,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: MapColors.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.42)),
+        border: Border.all(color: MapColors.accent.withValues(alpha: 0.42)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -1393,7 +1401,7 @@ class _MapRecordBadge extends StatelessWidget {
       child: Icon(
         stacked ? LucideIcons.images : LucideIcons.image,
         size: 10,
-        color: AppColors.accentDark,
+        color: MapColors.accentDark,
       ),
     );
   }
@@ -1411,14 +1419,14 @@ class _EmptyMapCard extends StatelessWidget {
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: MapColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: MapColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.map, color: AppColors.accent),
+          Icon(LucideIcons.map, color: MapColors.accent),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1428,7 +1436,7 @@ class _EmptyMapCard extends StatelessWidget {
                 Text(
                   '当前计划还没有点位',
                   style: TextStyle(
-                    color: AppColors.accentDark,
+                    color: MapColors.accentDark,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0,
@@ -1467,7 +1475,7 @@ class _StatusBadge extends StatelessWidget {
     };
 
     final color = switch (status) {
-      VisitStatus.current => AppColors.accent,
+      VisitStatus.current => MapColors.accent,
       VisitStatus.completed => AppColors.textSecondary,
       VisitStatus.pending => AppColors.warning,
     };

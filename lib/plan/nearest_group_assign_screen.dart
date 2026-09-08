@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../widgets/responsive_button.dart';
 import '../data/anitabi_image_source_scope.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
@@ -1691,17 +1692,17 @@ class _AssignPointMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = assignable ? AppColors.accent : AppColors.surfaceMuted;
+    final color = assignable ? MapColors.accent : MapColors.surfaceMuted;
     return IconButton(
       tooltip: assignable ? '可分配点位' : '距离外点位',
       onPressed: onTap,
       style: IconButton.styleFrom(
-        backgroundColor: selected ? AppColors.accentDark : color,
+        backgroundColor: selected ? MapColors.accentDark : color,
         foregroundColor: selected || assignable
-            ? Colors.white
+            ? MapColors.onAccent
             : AppColors.textSecondary,
         side: BorderSide(
-          color: selected ? AppColors.warning : AppColors.border,
+          color: selected ? AppColors.warning : MapColors.border,
           width: selected ? 2 : 1,
         ),
       ),
@@ -1721,9 +1722,9 @@ class _AnchorMarker extends StatelessWidget {
       message: name,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: MapColors.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.accentDark, width: 2),
+          border: Border.all(color: MapColors.accentDark, width: 2),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.16),
@@ -1732,7 +1733,7 @@ class _AnchorMarker extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(LucideIcons.flag, color: AppColors.accentDark),
+        child: Icon(LucideIcons.flag, color: MapColors.accentDark),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
@@ -288,10 +289,16 @@ class _VisitRecordConfirmationScreenState
                     : null,
               ),
             ],
-            if (_savingStage != null) ...[
-              const SizedBox(height: 12),
-              _SavingProgressPanel(label: _savingStage!),
-            ],
+            AppReveal(
+              visible: _savingStage != null,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: AppContentFade(
+                  revision: _savingStage,
+                  child: _SavingProgressPanel(label: _savingStage ?? ''),
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: _saving || _locating

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
@@ -719,7 +720,7 @@ class _RecordScopeEntry extends StatelessWidget {
               children: [
                 Icon(
                   LucideIcons.checkCircle,
-                  color: AppColors.accent,
+                  color: AppColors.accentForeground,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -1032,7 +1033,7 @@ class _RecordScopeOptionTileState extends State<_RecordScopeOptionTile> {
                           child: Text(
                             widget.badgeLabel,
                             style: TextStyle(
-                              color: AppColors.accent,
+                              color: AppColors.accentForeground,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               height: 1.15,
@@ -1150,7 +1151,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                   children: [
                     Icon(
                       LucideIcons.listFilter,
-                      color: AppColors.accent,
+                      color: AppColors.accentForeground,
                       size: 20,
                     ),
                     const SizedBox(width: 6),
@@ -1168,7 +1169,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                     ),
                     Icon(
                       _isOpen ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                      color: AppColors.accentDark,
+                      color: AppColors.accentStrongForeground,
                       size: 20,
                     ),
                   ],
@@ -1208,7 +1209,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                       leadingIcon: option.$1 == widget.statusFilter
                           ? Icon(
                               LucideIcons.check,
-                              color: accentColor,
+                              color: AppColors.accentForeground,
                               size: 19,
                             )
                           : const SizedBox(width: 19),
@@ -1226,7 +1227,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
                         ),
                         foregroundColor: WidgetStatePropertyAll(
                           option.$1 == widget.statusFilter
-                              ? accentColor
+                              ? AppColors.accentForeground
                               : AppColors.textPrimary,
                         ),
                         overlayColor: WidgetStateProperty.resolveWith((states) {
@@ -1515,7 +1516,7 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                         Icon(
                           key: ValueKey('records-group-icon-${section.id}'),
                           _sectionIcon(section, widget.expanded),
-                          color: AppColors.accent,
+                          color: AppColors.accentForeground,
                           size: 27,
                         ),
                         const SizedBox(width: 10),
@@ -1566,7 +1567,7 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                                   child: Text(
                                     '${section.entries.length}',
                                     style: TextStyle(
-                                      color: AppColors.accentDark,
+                                      color: AppColors.accentStrongForeground,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0,
@@ -1578,12 +1579,14 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Icon(
-                          widget.expanded
-                              ? LucideIcons.chevronUp
-                              : LucideIcons.chevronDown,
-                          color: AppColors.textSecondary,
-                          size: 24,
+                        AnimatedRotation(
+                          turns: widget.expanded ? 0.5 : 0,
+                          duration: AppMotion.durationOf(context),
+                          child: Icon(
+                            LucideIcons.chevronDown,
+                            color: AppColors.textSecondary,
+                            size: 24,
+                          ),
                         ),
                       ],
                     ),
@@ -1640,7 +1643,7 @@ class _RecordsSummary extends StatelessWidget {
                   child: _RecordsDashboardMetric(
                     value: TextSpan(
                       text: '${controller.visitRecords.length}',
-                      style: TextStyle(color: AppColors.accent),
+                      style: TextStyle(color: AppColors.accentForeground),
                     ),
                     label: '条巡礼记录',
                   ),
@@ -1774,8 +1777,8 @@ class _VisitRecordCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
-          height: 112,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 112),
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: Row(
@@ -1821,6 +1824,7 @@ class _VisitRecordCard extends StatelessWidget {
                       const SizedBox(height: 10),
                       Row(
                         key: ValueKey('record-captured-row-${record.id}'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             LucideIcons.calendarClock,
@@ -1828,13 +1832,15 @@ class _VisitRecordCard extends StatelessWidget {
                             color: AppColors.textSecondary,
                           ),
                           const SizedBox(width: 5),
-                          Text(
-                            _formatCapturedAt(record.capturedAt),
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0,
+                          Flexible(
+                            child: Text(
+                              _formatCapturedAt(record.capturedAt),
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0,
+                              ),
                             ),
                           ),
                         ],
@@ -1905,7 +1911,7 @@ class _EmptyRecords extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: AppColors.accent, size: 42),
+                Icon(icon, color: AppColors.accentForeground, size: 42),
                 const SizedBox(height: 14),
                 Text(
                   title,

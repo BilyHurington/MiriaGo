@@ -551,12 +551,18 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                   polylines: [
                     Polyline(
                       points: _route,
-                      color: AppColors.accent.withValues(alpha: 0.28),
+                      color: configuredMapRouteColor(
+                        widget.settings,
+                        dark: chrome.isDark,
+                      ).withValues(alpha: 0.28),
                       strokeWidth: 12,
                     ),
                     Polyline(
                       points: _route,
-                      color: AppColors.accent,
+                      color: configuredMapRouteColor(
+                        widget.settings,
+                        dark: chrome.isDark,
+                      ),
                       strokeWidth: 6,
                     ),
                   ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import 'app_motion.dart';
 
 enum AppStatusBannerKind { running, success, warning, error }
 
@@ -99,7 +100,7 @@ Future<void> showStatusBannerOverlay({
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 180),
+    transitionDuration: AppMotion.durationOf(context, milliseconds: 180),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return _AutoClosingStatusOverlay(
         child: SafeArea(
@@ -154,7 +155,15 @@ class _AutoClosingStatusOverlayState extends State<_AutoClosingStatusOverlay> {
     super.initState();
     _timer = Timer(appStatusSnackDuration, () {
       if (mounted) {
-        Navigator.of(context).pop();
+        final route = ModalRoute.of(context);
+        final navigator = route?.navigator;
+        if (route == null || navigator == null || !route.isActive) return;
+        if (route.isCurrent) {
+          navigator.pop();
+        } else {
+          // A newer page may cover this overlay; never pop that page.
+          navigator.removeRoute(route);
+        }
       }
     });
   }
@@ -216,11 +225,14 @@ class AppStatusBanner extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _StatusIcon(
-                  kind: kind,
-                  palette: palette,
-                  title: title,
-                  icon: icon,
+                AppContentFade(
+                  revision: kind,
+                  child: _StatusIcon(
+                    kind: kind,
+                    palette: palette,
+                    title: title,
+                    icon: icon,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'pilgrimage_models.dart';
+import '../app_theme.dart';
+import '../map/map_colors.dart';
 
 enum PointSortMode { plan, distance }
 
@@ -21,12 +23,14 @@ const planGroupMapColors = [
 const ungroupedMapMarkerColor = Color(0xFF6B7280);
 
 Color planGroupMapColorAt(int index) {
-  return planGroupMapColors[index % planGroupMapColors.length];
+  return MapColors.readable(
+    planGroupMapColors[index % planGroupMapColors.length],
+  );
 }
 
 Color mapColorForGroupBucket(PlanGroupBucket group, int index) {
   return group.isUngrouped
-      ? ungroupedMapMarkerColor
+      ? MapColors.readable(ungroupedMapMarkerColor)
       : planGroupMapColorAt(index);
 }
 
@@ -40,7 +44,7 @@ Color mapColorForPoint(PilgrimagePoint point, List<PlanGroupBucket> groups) {
       return mapColorForGroupBucket(group, index);
     }
   }
-  return ungroupedMapMarkerColor;
+  return MapColors.readable(ungroupedMapMarkerColor);
 }
 
 class PlanGroupBucket {
@@ -256,7 +260,11 @@ List<Polygon> groupAreaPolygons(
     polygons.add(
       Polygon(
         points: points,
-        color: color.withValues(alpha: isSelected ? 0.28 : 0.14),
+        color: color.withValues(
+          alpha: AppColors.isDark
+              ? (isSelected ? 0.17 : 0.09)
+              : (isSelected ? 0.28 : 0.14),
+        ),
         borderColor: color.withValues(alpha: isSelected ? 0.92 : 0.62),
         borderStrokeWidth: isSelected ? 3.5 : 2,
       ),

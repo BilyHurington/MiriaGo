@@ -189,6 +189,8 @@ class AppSettingsEntries extends Table {
   IntColumn get mapMaxZoom => integer().withDefault(const Constant(22))();
   BoolColumn get continuousMapLocation =>
       boolean().withDefault(const Constant(true))();
+  TextColumn get mapAppearance =>
+      text().withDefault(const Constant('automatic'))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -201,7 +203,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 42;
+  int get schemaVersion => 43;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -669,6 +671,15 @@ class AppDatabase extends _$AppDatabase {
           'continuous_map_location',
           appSettingsEntries,
           appSettingsEntries.continuousMapLocation,
+        );
+      }
+      if (from < 43) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'map_appearance',
+          appSettingsEntries,
+          appSettingsEntries.mapAppearance,
         );
       }
     },

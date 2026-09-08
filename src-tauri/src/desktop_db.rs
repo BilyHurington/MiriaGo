@@ -434,6 +434,7 @@ impl DesktopDatabase {
             ("map_marker_scale", "REAL NOT NULL DEFAULT 0.9"),
             ("map_max_zoom", "INTEGER NOT NULL DEFAULT 22"),
             ("continuous_map_location", "INTEGER NOT NULL DEFAULT 1"),
+            ("map_appearance", "TEXT NOT NULL DEFAULT 'automatic'"),
         ] {
             if columns.iter().any(|column| column == name) {
                 continue;
@@ -575,7 +576,7 @@ impl DesktopDatabase {
                         map_marker_clustering_enabled, map_marker_cluster_radius,
                         map_marker_cluster_max_zoom,
                         map_group_area_radius_meters, map_marker_scale,
-                        map_max_zoom, continuous_map_location
+                        map_max_zoom, continuous_map_location, map_appearance
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -612,6 +613,7 @@ impl DesktopDatabase {
                         "mapMarkerScale": row.get::<_, f64>(29)?,
                         "mapMaxZoom": row.get::<_, i64>(30)?,
                         "continuousMapLocation": row.get::<_, bool>(31)?,
+                        "mapAppearance": row.get::<_, String>(32)?,
                     }))
                 },
             )
@@ -952,8 +954,8 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            show_plan_group_progress,
            map_marker_clustering_enabled, map_marker_cluster_radius,
            map_marker_cluster_max_zoom, map_group_area_radius_meters,
-           map_marker_scale, map_max_zoom, continuous_map_location
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)",
+           map_marker_scale, map_max_zoom, continuous_map_location, map_appearance
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -1003,6 +1005,7 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             f64_value(settings, "mapMarkerScale", 0.9).clamp(0.6, 1.2),
             i64_value(settings, "mapMaxZoom", 22).clamp(16, 24),
             bool_value(settings, "continuousMapLocation", true),
+            string_value(settings, "mapAppearance", "automatic"),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -1223,6 +1226,7 @@ fn default_settings_json() -> Value {
         "mapMarkerScale": 0.9,
         "mapMaxZoom": 22,
         "continuousMapLocation": true,
+        "mapAppearance": "automatic",
     })
 }
 
@@ -1386,6 +1390,30 @@ mod tests {
         assert_eq!(
             database.load_settings_json().unwrap()["continuousMapLocation"],
             false
+        );
+    }
+
+    #[test]
+    fn map_appearance_migrates_and_round_trips_without_resetting_settings() {
+        let mut database = memory_database();
+        database
+            .save_settings_json(r#"{"mapMaxZoom":23,"continuousMapLocation":false}"#)
+            .unwrap();
+        database
+            .connection
+            .execute("ALTER TABLE app_settings DROP COLUMN map_appearance", [])
+            .unwrap();
+        database.migrate().unwrap();
+        let mut settings = database.load_settings_json().unwrap();
+        assert_eq!(settings["mapAppearance"], "automatic");
+        assert_eq!(settings["mapMaxZoom"], 23);
+        assert_eq!(settings["continuousMapLocation"], false);
+        settings["mapAppearance"] = json!("light");
+        database.save_settings_json(&settings.to_string()).unwrap();
+        database.migrate().unwrap();
+        assert_eq!(
+            database.load_settings_json().unwrap()["mapAppearance"],
+            "light"
         );
     }
 

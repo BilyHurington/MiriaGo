@@ -4706,6 +4706,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(true),
       );
+  static const VerificationMeta _mapAppearanceMeta = const VerificationMeta(
+    'mapAppearance',
+  );
+  @override
+  late final GeneratedColumn<String> mapAppearance = GeneratedColumn<String>(
+    'map_appearance',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('automatic'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4755,6 +4767,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     mapMarkerScale,
     mapMaxZoom,
     continuousMapLocation,
+    mapAppearance,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5178,6 +5191,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('map_appearance')) {
+      context.handle(
+        _mapAppearanceMeta,
+        mapAppearance.isAcceptableOrUnknown(
+          data['map_appearance']!,
+          _mapAppearanceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5375,6 +5397,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}continuous_map_location'],
       )!,
+      mapAppearance: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}map_appearance'],
+      )!,
     );
   }
 
@@ -5433,6 +5459,7 @@ class AppSettingsEntry extends DataClass
   final double mapMarkerScale;
   final int mapMaxZoom;
   final bool continuousMapLocation;
+  final String mapAppearance;
   const AppSettingsEntry({
     required this.id,
     required this.uiScale,
@@ -5481,6 +5508,7 @@ class AppSettingsEntry extends DataClass
     required this.mapMarkerScale,
     required this.mapMaxZoom,
     required this.continuousMapLocation,
+    required this.mapAppearance,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5570,6 +5598,7 @@ class AppSettingsEntry extends DataClass
     map['map_marker_scale'] = Variable<double>(mapMarkerScale);
     map['map_max_zoom'] = Variable<int>(mapMaxZoom);
     map['continuous_map_location'] = Variable<bool>(continuousMapLocation);
+    map['map_appearance'] = Variable<String>(mapAppearance);
     return map;
   }
 
@@ -5622,6 +5651,7 @@ class AppSettingsEntry extends DataClass
       mapMarkerScale: Value(mapMarkerScale),
       mapMaxZoom: Value(mapMaxZoom),
       continuousMapLocation: Value(continuousMapLocation),
+      mapAppearance: Value(mapAppearance),
     );
   }
 
@@ -5740,6 +5770,7 @@ class AppSettingsEntry extends DataClass
       continuousMapLocation: serializer.fromJson<bool>(
         json['continuousMapLocation'],
       ),
+      mapAppearance: serializer.fromJson<String>(json['mapAppearance']),
     );
   }
   @override
@@ -5833,6 +5864,7 @@ class AppSettingsEntry extends DataClass
       'mapMarkerScale': serializer.toJson<double>(mapMarkerScale),
       'mapMaxZoom': serializer.toJson<int>(mapMaxZoom),
       'continuousMapLocation': serializer.toJson<bool>(continuousMapLocation),
+      'mapAppearance': serializer.toJson<String>(mapAppearance),
     };
   }
 
@@ -5884,6 +5916,7 @@ class AppSettingsEntry extends DataClass
     double? mapMarkerScale,
     int? mapMaxZoom,
     bool? continuousMapLocation,
+    String? mapAppearance,
   }) => AppSettingsEntry(
     id: id ?? this.id,
     uiScale: uiScale ?? this.uiScale,
@@ -5953,6 +5986,7 @@ class AppSettingsEntry extends DataClass
     mapMarkerScale: mapMarkerScale ?? this.mapMarkerScale,
     mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
     continuousMapLocation: continuousMapLocation ?? this.continuousMapLocation,
+    mapAppearance: mapAppearance ?? this.mapAppearance,
   );
   AppSettingsEntry copyWithCompanion(AppSettingsEntriesCompanion data) {
     return AppSettingsEntry(
@@ -6091,6 +6125,9 @@ class AppSettingsEntry extends DataClass
       continuousMapLocation: data.continuousMapLocation.present
           ? data.continuousMapLocation.value
           : this.continuousMapLocation,
+      mapAppearance: data.mapAppearance.present
+          ? data.mapAppearance.value
+          : this.mapAppearance,
     );
   }
 
@@ -6153,7 +6190,8 @@ class AppSettingsEntry extends DataClass
           ..write('mapGroupAreaRadiusMeters: $mapGroupAreaRadiusMeters, ')
           ..write('mapMarkerScale: $mapMarkerScale, ')
           ..write('mapMaxZoom: $mapMaxZoom, ')
-          ..write('continuousMapLocation: $continuousMapLocation')
+          ..write('continuousMapLocation: $continuousMapLocation, ')
+          ..write('mapAppearance: $mapAppearance')
           ..write(')'))
         .toString();
   }
@@ -6207,6 +6245,7 @@ class AppSettingsEntry extends DataClass
     mapMarkerScale,
     mapMaxZoom,
     continuousMapLocation,
+    mapAppearance,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6267,7 +6306,8 @@ class AppSettingsEntry extends DataClass
           other.mapGroupAreaRadiusMeters == this.mapGroupAreaRadiusMeters &&
           other.mapMarkerScale == this.mapMarkerScale &&
           other.mapMaxZoom == this.mapMaxZoom &&
-          other.continuousMapLocation == this.continuousMapLocation);
+          other.continuousMapLocation == this.continuousMapLocation &&
+          other.mapAppearance == this.mapAppearance);
 }
 
 class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
@@ -6318,6 +6358,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<double> mapMarkerScale;
   final Value<int> mapMaxZoom;
   final Value<bool> continuousMapLocation;
+  final Value<String> mapAppearance;
   final Value<int> rowid;
   const AppSettingsEntriesCompanion({
     this.id = const Value.absent(),
@@ -6367,6 +6408,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapMarkerScale = const Value.absent(),
     this.mapMaxZoom = const Value.absent(),
     this.continuousMapLocation = const Value.absent(),
+    this.mapAppearance = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsEntriesCompanion.insert({
@@ -6417,6 +6459,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapMarkerScale = const Value.absent(),
     this.mapMaxZoom = const Value.absent(),
     this.continuousMapLocation = const Value.absent(),
+    this.mapAppearance = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<AppSettingsEntry> custom({
@@ -6467,6 +6510,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<double>? mapMarkerScale,
     Expression<int>? mapMaxZoom,
     Expression<bool>? continuousMapLocation,
+    Expression<String>? mapAppearance,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6548,6 +6592,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (mapMaxZoom != null) 'map_max_zoom': mapMaxZoom,
       if (continuousMapLocation != null)
         'continuous_map_location': continuousMapLocation,
+      if (mapAppearance != null) 'map_appearance': mapAppearance,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6600,6 +6645,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<double>? mapMarkerScale,
     Value<int>? mapMaxZoom,
     Value<bool>? continuousMapLocation,
+    Value<String>? mapAppearance,
     Value<int>? rowid,
   }) {
     return AppSettingsEntriesCompanion(
@@ -6677,6 +6723,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
       continuousMapLocation:
           continuousMapLocation ?? this.continuousMapLocation,
+      mapAppearance: mapAppearance ?? this.mapAppearance,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6883,6 +6930,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         continuousMapLocation.value,
       );
     }
+    if (mapAppearance.present) {
+      map['map_appearance'] = Variable<String>(mapAppearance.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6949,6 +6999,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('mapMarkerScale: $mapMarkerScale, ')
           ..write('mapMaxZoom: $mapMaxZoom, ')
           ..write('continuousMapLocation: $continuousMapLocation, ')
+          ..write('mapAppearance: $mapAppearance, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9863,6 +9914,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<double> mapMarkerScale,
       Value<int> mapMaxZoom,
       Value<bool> continuousMapLocation,
+      Value<String> mapAppearance,
       Value<int> rowid,
     });
 typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
@@ -9914,6 +9966,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<double> mapMarkerScale,
       Value<int> mapMaxZoom,
       Value<bool> continuousMapLocation,
+      Value<String> mapAppearance,
       Value<int> rowid,
     });
 
@@ -10158,6 +10211,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<bool> get continuousMapLocation => $composableBuilder(
     column: $table.continuousMapLocation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mapAppearance => $composableBuilder(
+    column: $table.mapAppearance,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10409,6 +10467,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     column: $table.continuousMapLocation,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get mapAppearance => $composableBuilder(
+    column: $table.mapAppearance,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsEntriesTableAnnotationComposer
@@ -10650,6 +10713,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     column: $table.continuousMapLocation,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get mapAppearance => $composableBuilder(
+    column: $table.mapAppearance,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsEntriesTableTableManager
@@ -10745,6 +10813,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<double> mapMarkerScale = const Value.absent(),
                 Value<int> mapMaxZoom = const Value.absent(),
                 Value<bool> continuousMapLocation = const Value.absent(),
+                Value<String> mapAppearance = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion(
                 id: id,
@@ -10794,6 +10863,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapMarkerScale: mapMarkerScale,
                 mapMaxZoom: mapMaxZoom,
                 continuousMapLocation: continuousMapLocation,
+                mapAppearance: mapAppearance,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10851,6 +10921,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<double> mapMarkerScale = const Value.absent(),
                 Value<int> mapMaxZoom = const Value.absent(),
                 Value<bool> continuousMapLocation = const Value.absent(),
+                Value<String> mapAppearance = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsEntriesCompanion.insert(
                 id: id,
@@ -10900,6 +10971,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapMarkerScale: mapMarkerScale,
                 mapMaxZoom: mapMaxZoom,
                 continuousMapLocation: continuousMapLocation,
+                mapAppearance: mapAppearance,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
