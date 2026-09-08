@@ -283,12 +283,18 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     final updatedPlan = plan.copyWith(
       points: [
         for (final point in plan.points)
-          updatesByPointId.containsKey(point.id)
+          updatesByPointId.containsKey(point.id) &&
+                  (updatesByPointId[point.id]!.expectedReferenceImageUrl ==
+                          null ||
+                      updatesByPointId[point.id]!.expectedReferenceImageUrl ==
+                          point.referenceImageUrl)
               ? point.copyWith(
                   referenceThumbnailPath:
                       updatesByPointId[point.id]!.referenceThumbnailPath,
                   referenceFullImagePath:
-                      updatesByPointId[point.id]!.referenceFullImagePath,
+                      updatesByPointId[point.id]!.preserveFullImagePath
+                      ? point.referenceFullImagePath
+                      : updatesByPointId[point.id]!.referenceFullImagePath,
                 )
               : point,
       ],

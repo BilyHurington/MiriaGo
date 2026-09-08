@@ -196,8 +196,12 @@ class PointImageCacheUpdate {
   const PointImageCacheUpdate({
     this.referenceThumbnailPath,
     this.referenceFullImagePath,
+    this.expectedReferenceImageUrl,
+    this.preserveFullImagePath = false,
   });
 
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
+  final String? expectedReferenceImageUrl;
+  final bool preserveFullImagePath;
 }

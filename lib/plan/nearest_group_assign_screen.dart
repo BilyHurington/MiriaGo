@@ -7,15 +7,14 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../widgets/responsive_button.dart';
-import '../widgets/reference_thumbnail_stub.dart'
-    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../data/anitabi_image_source_scope.dart';
+import '../widgets/auto_caching_reference_thumbnail.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../point_detail/point_detail_sheet.dart';
-import 'reference_image_status.dart';
 import '../utils/selected_item_order.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
@@ -216,6 +215,12 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                       groupCount: _targetGroups.length,
                     )
                   : _NearestAssignPointCard(
+                      planId: _plan.id,
+                      repository: widget.repository,
+                      imageSource: widget.settings.anitabiImageSource,
+                      onThumbnailCached: () {
+                        if (mounted) _didUpdate = true;
+                      },
                       point: _selectedPoint!,
                       nearestGroup: _nearestGroupFor(_selectedPoint!),
                       distanceMeters: _nearestDistanceFor(_selectedPoint!),
@@ -661,6 +666,12 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                       groupCount: _groups.length,
                     )
                   : _NearestAssignPointCard(
+                      planId: _plan.id,
+                      repository: widget.repository,
+                      imageSource: widget.settings.anitabiImageSource,
+                      onThumbnailCached: () {
+                        if (mounted) _didUpdate = true;
+                      },
                       point: _selectedPoint!,
                       nearestGroup: targetGroup,
                       distanceMeters: null,
@@ -1508,6 +1519,10 @@ class _NearestAssignPanel extends StatelessWidget {
 
 class _NearestAssignPointCard extends StatelessWidget {
   const _NearestAssignPointCard({
+    required this.planId,
+    required this.repository,
+    required this.imageSource,
+    required this.onThumbnailCached,
     required this.point,
     required this.nearestGroup,
     required this.distanceMeters,
@@ -1517,6 +1532,10 @@ class _NearestAssignPointCard extends StatelessWidget {
     this.unassignableLabel = '超出最大距离',
   });
 
+  final String planId;
+  final PilgrimageRepository repository;
+  final AnitabiImageSource imageSource;
+  final VoidCallback onThumbnailCached;
   final PilgrimagePoint point;
   final PilgrimagePlanGroup? nearestGroup;
   final double? distanceMeters;
@@ -1548,12 +1567,17 @@ class _NearestAssignPointCard extends StatelessWidget {
                   child: SizedBox(
                     width: 56,
                     height: 56,
-                    child: ReferenceThumbnail(
-                      localPath: point.referenceThumbnailPath,
-                      imageUrl: hasRemoteReferenceImage(point)
-                          ? point.referenceImageUrl
-                          : null,
-                      placeholder: const Icon(LucideIcons.image),
+                    child: AnitabiImageSourceScope(
+                      source: imageSource,
+                      child: AutoCachingReferenceThumbnail(
+                        key: ValueKey('$planId:${point.id}'),
+                        planId: planId,
+                        point: point,
+                        repository: repository,
+                        // Cache completion must not replace concurrent group edits.
+                        onPlanUpdated: (_) => onThumbnailCached(),
+                        placeholder: const Icon(LucideIcons.image),
+                      ),
                     ),
                   ),
                 ),

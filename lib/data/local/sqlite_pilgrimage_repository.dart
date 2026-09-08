@@ -503,16 +503,22 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         final storagePointId = _storageId(planId, entry.key);
         await (_database.update(_database.points)..where(
               (table) =>
-                  table.planId.equals(planId) & table.id.equals(storagePointId),
+                  table.planId.equals(planId) &
+                  table.id.equals(storagePointId) &
+                  (entry.value.expectedReferenceImageUrl == null
+                      ? const Constant(true)
+                      : table.referenceImageUrl.equals(
+                          entry.value.expectedReferenceImageUrl!,
+                        )),
             ))
             .write(
               PointsCompanion(
                 referenceThumbnailPath: Value(
                   entry.value.referenceThumbnailPath,
                 ),
-                referenceFullImagePath: Value(
-                  entry.value.referenceFullImagePath,
-                ),
+                referenceFullImagePath: entry.value.preserveFullImagePath
+                    ? const Value.absent()
+                    : Value(entry.value.referenceFullImagePath),
               ),
             );
       }
