@@ -139,6 +139,8 @@ enum MapTileProvider {
 
 enum OpenFreeMapStyle { liberty, bright, positron, dark, fiord }
 
+enum MapAppearance { automatic, light, dark }
+
 enum AnitabiImageSource { auto, official, mirror }
 
 enum NavigationApp {
@@ -219,6 +221,7 @@ class AppSettings {
     this.mapMarkerScale = 0.9,
     this.mapMaxZoom = 22,
     this.continuousMapLocation = true,
+    this.mapAppearance = MapAppearance.automatic,
   });
 
   final double uiScale;
@@ -267,6 +270,7 @@ class AppSettings {
   final double mapMarkerScale;
   final int mapMaxZoom;
   final bool continuousMapLocation;
+  final MapAppearance mapAppearance;
 
   AppSettings copyWith({
     double? uiScale,
@@ -315,6 +319,7 @@ class AppSettings {
     double? mapMarkerScale,
     int? mapMaxZoom,
     bool? continuousMapLocation,
+    MapAppearance? mapAppearance,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -390,6 +395,7 @@ class AppSettings {
       mapMaxZoom: mapMaxZoom ?? this.mapMaxZoom,
       continuousMapLocation:
           continuousMapLocation ?? this.continuousMapLocation,
+      mapAppearance: mapAppearance ?? this.mapAppearance,
     );
   }
 }

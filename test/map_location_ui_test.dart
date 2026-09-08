@@ -56,6 +56,16 @@ void main() {
       await tester.pump();
       expect(settings.continuousMapLocation, isFalse);
       expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+      final appearance = find.byKey(const ValueKey('map-appearance-dark'));
+      final choice = find.descendant(
+        of: appearance,
+        matching: find.byType(InkWell),
+      );
+      tester.widget<InkWell>(choice).onTap!();
+      await tester.pump();
+      expect(settings.mapAppearance, MapAppearance.dark);
+      expect(settings.continuousMapLocation, isFalse);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -74,31 +84,30 @@ void main() {
           resolve: (_) async => fix(34.88),
           streamFactory: (_) => stream.stream,
         );
-        const settings = AppSettings(
+        var settings = const AppSettings(
           mapTileProvider: MapTileProvider.openStreetMap,
         );
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light(),
-            home: inline
-                ? PlanScreen(
-                    controller: controller,
-                    repository: repository,
-                    settings: settings,
-                    locationTracker: tracker,
-                    onOpenMap: () {},
-                    onOpenPlanManager: () {},
-                    onOpenAddPoints: () {},
-                    onOpenPointManager: () {},
-                    onOpenImportExport: () {},
-                  )
-                : PilgrimageMapScreen(
-                    controller: controller,
-                    settings: settings,
-                    locationTracker: tracker,
-                  ),
-          ),
+        Widget app() => MaterialApp(
+          theme: AppTheme.light(),
+          home: inline
+              ? PlanScreen(
+                  controller: controller,
+                  repository: repository,
+                  settings: settings,
+                  locationTracker: tracker,
+                  onOpenMap: () {},
+                  onOpenPlanManager: () {},
+                  onOpenAddPoints: () {},
+                  onOpenPointManager: () {},
+                  onOpenImportExport: () {},
+                )
+              : PilgrimageMapScreen(
+                  controller: controller,
+                  settings: settings,
+                  locationTracker: tracker,
+                ),
         );
+        await tester.pumpWidget(app());
         if (inline) {
           final button = find
               .ancestor(
@@ -128,6 +137,20 @@ void main() {
               .any((marker) => marker.point == const LatLng(34.885, 135.8)),
           isTrue,
         );
+        for (final style in OpenFreeMapStyle.values) {
+          settings = settings.copyWith(
+            mapTileProvider: MapTileProvider.openFreeMap,
+            openFreeMapStyle: style,
+            mapAppearance: MapAppearance.dark,
+          );
+          await tester.pumpWidget(app());
+          expect(
+            tester.widget<FlutterMap>(find.byType(FlutterMap)).mapController,
+            same(map),
+          );
+          expect(map.camera.center, movedCenter);
+          expect(map.camera.zoom, 18);
+        }
         await tester.pumpWidget(const SizedBox());
         controller.dispose();
         await stream.close();

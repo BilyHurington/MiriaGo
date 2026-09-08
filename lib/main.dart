@@ -15,9 +15,15 @@ import 'desktop/desktop_pilgrimage_repository.dart';
 import 'desktop/tauri_bridge.dart';
 import 'plan/pilgrimage_models.dart';
 import 'widgets/copyable_text.dart';
+import 'widgets/app_motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'MiriaGo Readable Dark / OpenFreeMap / OpenMapTiles',
+    ], await rootBundle.loadString('assets/maps/LICENSE.txt'));
+  });
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
@@ -304,6 +310,7 @@ class _MiriaGoAppState extends State<MiriaGoApp> with WidgetsBindingObserver {
       themeAnimationDuration: Duration.zero,
       themeAnimationStyle: AnimationStyle.noAnimation,
       navigatorObservers: [copyOverlayNavigatorObserver],
+      builder: (context, child) => AppMotionScope(child: child!),
       home: AppShell(
         repository:
             widget.repository ??

@@ -691,15 +691,29 @@ class _BackupOptions extends StatelessWidget {
             },
           ),
           const SizedBox(height: 10),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              '包含完整参考图缓存',
-              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0),
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
+              key: const ValueKey('export-include-reference-cache'),
+              thumbColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.disabled)) return null;
+                return states.contains(WidgetState.selected)
+                    ? AppColors.onAccent
+                    : AppColors.accent;
+              }),
+              trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.disabled)) return null;
+                return AppColors.accent;
+              }),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                '包含完整参考图缓存',
+                style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0),
+              ),
+              subtitle: const Text('开启后才会把完整参考图写入数据包；默认仍会包含缩略图和用户自己添加的参考图。'),
+              value: includeFullReferenceCache,
+              onChanged: exporting ? null : onFullReferenceChanged,
             ),
-            subtitle: const Text('开启后才会把完整参考图写入数据包；默认仍会包含缩略图和用户自己添加的参考图。'),
-            value: includeFullReferenceCache,
-            onChanged: exporting ? null : onFullReferenceChanged,
           ),
           const SizedBox(height: 2),
           _ExportSizeEstimateRow(

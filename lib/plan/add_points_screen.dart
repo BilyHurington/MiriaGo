@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/anitabi_link_parser.dart';
 import '../data/pilgrimage_repository.dart';
@@ -3685,11 +3686,11 @@ class _ManualPointPositionMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.accent,
+        color: MapColors.accent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white, width: 3),
       ),
-      child: const Icon(LucideIcons.mapPinPlus, color: Colors.white),
+      child: Icon(LucideIcons.mapPinPlus, color: MapColors.onAccent),
     );
   }
 }

@@ -530,12 +530,15 @@ class _RoutePreviewMap extends StatelessWidget {
           polylines: [
             Polyline(
               points: routePoints,
-              color: AppColors.accent.withValues(alpha: 0.28),
+              color: configuredMapRouteColor(
+                settings,
+                dark: dark,
+              ).withValues(alpha: 0.28),
               strokeWidth: 12,
             ),
             Polyline(
               points: routePoints,
-              color: AppColors.accent,
+              color: configuredMapRouteColor(settings, dark: dark),
               strokeWidth: 6,
             ),
           ],

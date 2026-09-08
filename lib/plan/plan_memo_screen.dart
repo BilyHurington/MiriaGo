@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -370,27 +371,31 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
           leading: AppBackButton(onPressed: _handleBack),
           title: const Text('计划备忘录'),
           actions: [
-            if (_isEditing)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilledButton.icon(
-                  onPressed: _isSaving ? null : _saveMemo,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(LucideIcons.save),
-                  label: const Text('保存'),
-                ),
-              )
-            else
-              IconButton(
-                tooltip: '编辑',
-                onPressed: _startEditing,
-                icon: const Icon(LucideIcons.edit),
-              ),
+            AppContentFade(
+              revision: (_isEditing, _isSaving),
+              child: _isEditing
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilledButton.icon(
+                        onPressed: _isSaving ? null : _saveMemo,
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(LucideIcons.save),
+                        label: const Text('保存'),
+                      ),
+                    )
+                  : IconButton(
+                      tooltip: '编辑',
+                      onPressed: _startEditing,
+                      icon: const Icon(LucideIcons.edit),
+                    ),
+            ),
           ],
         ),
         body: SafeArea(

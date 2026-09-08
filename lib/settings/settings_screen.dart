@@ -2016,6 +2016,43 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
       fontScale: settings.fontScale,
       children: [
         _SettingsSection(
+          title: '底图明暗',
+          children: [
+            Row(
+              children: [
+                for (final appearance in MapAppearance.values) ...[
+                  if (appearance != MapAppearance.values.first)
+                    const SizedBox(width: 10),
+                  Expanded(
+                    child: _ModeButton(
+                      key: ValueKey('map-appearance-${appearance.name}'),
+                      icon: switch (appearance) {
+                        MapAppearance.automatic => LucideIcons.smartphone,
+                        MapAppearance.light => LucideIcons.sun,
+                        MapAppearance.dark => LucideIcons.moon,
+                      },
+                      label: switch (appearance) {
+                        MapAppearance.automatic => '跟随主题',
+                        MapAppearance.light => '浅色',
+                        MapAppearance.dark => '深色',
+                      },
+                      selected: settings.mapAppearance == appearance,
+                      onTap: () =>
+                          _update(settings.copyWith(mapAppearance: appearance)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '适用于 OpenFreeMap；Dark 始终使用深色，其他地图源保留原始样式。',
+              style: _secondaryTextStyle,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SettingsSection(
           title: '当前位置',
           children: [
             SwitchListTile(

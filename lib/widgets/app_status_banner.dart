@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import 'app_motion.dart';
 
 enum AppStatusBannerKind { running, success, warning, error }
 
@@ -99,7 +100,7 @@ Future<void> showStatusBannerOverlay({
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 180),
+    transitionDuration: AppMotion.durationOf(context, milliseconds: 180),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return _AutoClosingStatusOverlay(
         child: SafeArea(
@@ -216,11 +217,14 @@ class AppStatusBanner extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _StatusIcon(
-                  kind: kind,
-                  palette: palette,
-                  title: title,
-                  icon: icon,
+                AppContentFade(
+                  revision: kind,
+                  child: _StatusIcon(
+                    kind: kind,
+                    palette: palette,
+                    title: title,
+                    icon: icon,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

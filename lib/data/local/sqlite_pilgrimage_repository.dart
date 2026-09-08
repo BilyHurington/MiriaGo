@@ -140,6 +140,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       mapGroupAreaRadiusMeters: row.mapGroupAreaRadiusMeters.clamp(25, 500),
       mapMarkerScale: row.mapMarkerScale.clamp(0.6, 1.2),
       mapMaxZoom: row.mapMaxZoom.clamp(16, 24),
+      mapAppearance: MapAppearance.values.firstWhere(
+        (value) => value.name == row.mapAppearance,
+        orElse: () => MapAppearance.automatic,
+      ),
       continuousMapLocation: row.continuousMapLocation,
     );
   }
@@ -1205,6 +1209,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             mapMarkerScale: Value(settings.mapMarkerScale.clamp(0.6, 1.2)),
             mapMaxZoom: Value(settings.mapMaxZoom.clamp(16, 24)),
+            mapAppearance: Value(settings.mapAppearance.name),
             continuousMapLocation: Value(settings.continuousMapLocation),
           ),
         );

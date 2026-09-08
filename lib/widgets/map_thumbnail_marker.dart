@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import '../map/map_colors.dart';
 import '../plan/pilgrimage_models.dart';
 import 'image_load_limiter.dart';
+import 'app_motion.dart';
 import 'reference_thumbnail_stub.dart'
     if (dart.library.io) 'reference_thumbnail_io.dart';
 
@@ -35,8 +37,9 @@ class MapThumbnailMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pinColor =
-        markerColor ?? (imported ? AppColors.textSecondary : AppColors.accent);
+    final pinColor = MapColors.readable(
+      markerColor ?? (imported ? AppColors.textSecondary : MapColors.accent),
+    );
     final bubbleWidth = selected ? 76.0 : 64.0;
     final bubbleHeight = selected ? 56.0 : 48.0;
     final markerWidth = showThumbnail ? 84.0 : 24.0;
@@ -159,11 +162,13 @@ class _ThumbnailBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: AppMotion.durationOf(context),
+      curve: Curves.easeOutCubic,
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: MapColors.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor, width: 2.5),
         boxShadow: [
@@ -177,14 +182,14 @@ class _ThumbnailBubble extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(5.5),
         child: ColoredBox(
-          color: AppColors.surfaceMuted,
+          color: MapColors.surfaceMuted,
           child: ReferenceThumbnail(
             localPath: localPath,
             imageUrl: imageUrl,
             imageSource: imageSource,
             loadLimiter: imageLoadLimiter,
-            width: width,
-            height: height,
+            width: double.infinity,
+            height: double.infinity,
             fit: BoxFit.cover,
             gaplessPlayback: true,
             placeholder: Center(child: placeholder),

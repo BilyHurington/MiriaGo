@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
@@ -1578,12 +1579,14 @@ class _RecordGroupHeaderState extends State<_RecordGroupHeader> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Icon(
-                          widget.expanded
-                              ? LucideIcons.chevronUp
-                              : LucideIcons.chevronDown,
-                          color: AppColors.textSecondary,
-                          size: 24,
+                        AnimatedRotation(
+                          turns: widget.expanded ? 0.5 : 0,
+                          duration: AppMotion.durationOf(context),
+                          child: Icon(
+                            LucideIcons.chevronDown,
+                            color: AppColors.textSecondary,
+                            size: 24,
+                          ),
                         ),
                       ],
                     ),
