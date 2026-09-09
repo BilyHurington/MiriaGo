@@ -55,7 +55,6 @@ jobs:
             fuse_package=libfuse2t64
           fi
           sudo apt-get install -y --no-install-recommends \
-            appmenu-gtk-module \
             libwebkit2gtk-4.1-dev \
             build-essential \
             curl \
