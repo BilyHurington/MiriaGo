@@ -32,7 +32,10 @@ void main() {
             as Map<String, dynamic>;
     final scripts = package['scripts'] as Map<String, dynamic>;
     expect(scripts['build:web:desktop'], contains('--no-web-resources-cdn'));
-    expect(scripts['desktop:build:linux'], contains('--bundles deb,appimage'));
+    expect(
+      scripts['desktop:build:linux'],
+      contains('--bundles deb,rpm,appimage'),
+    );
   });
 
   test('desktop release workflow builds Linux artifacts', () {
@@ -44,6 +47,7 @@ void main() {
     expect(workflow, contains('MiriaGo-linux'));
     expect(workflow, contains('*.AppImage'));
     expect(workflow, contains('*.deb'));
+    expect(workflow, contains('*.rpm'));
   });
 
   test('desktop bootstrap skips service workers inside Tauri', () {

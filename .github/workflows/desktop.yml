@@ -67,6 +67,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
+            rpm \
             "$fuse_package" \
             xdg-utils \
             zip
@@ -164,6 +165,9 @@ jobs:
           for bundle in src-tauri/target/release/bundle/deb/*.deb; do
             cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.deb"
           done
+          for bundle in src-tauri/target/release/bundle/rpm/*.rpm; do
+            cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.rpm"
+          done
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
@@ -174,6 +178,7 @@ jobs:
             dist/desktop/*.exe
             dist/desktop/*.AppImage
             dist/desktop/*.deb
+            dist/desktop/*.rpm
 
       - name: Attach desktop artifacts to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -184,3 +189,4 @@ jobs:
             dist/desktop/*.exe
             dist/desktop/*.AppImage
             dist/desktop/*.deb
+            dist/desktop/*.rpm
