@@ -32,6 +32,18 @@ void main() {
             as Map<String, dynamic>;
     final scripts = package['scripts'] as Map<String, dynamic>;
     expect(scripts['build:web:desktop'], contains('--no-web-resources-cdn'));
+    expect(scripts['desktop:build:linux'], contains('--bundles deb,appimage'));
+  });
+
+  test('desktop release workflow builds Linux artifacts', () {
+    final workflow = File('.github/workflows/desktop.yml').readAsStringSync();
+    expect(workflow, contains('ubuntu-22.04'));
+    expect(workflow, contains('miriago-desktop-linux'));
+    expect(workflow, contains('libwebkit2gtk-4.1-dev'));
+    expect(workflow, contains('npm run desktop:build:linux'));
+    expect(workflow, contains('MiriaGo-linux'));
+    expect(workflow, contains('*.AppImage'));
+    expect(workflow, contains('*.deb'));
   });
 
   test('desktop bootstrap skips service workers inside Tauri', () {

@@ -21,6 +21,9 @@ jobs:
           - os: macos-latest
             artifact-name: miriago-desktop-macos
             platform-name: macos
+          - os: ubuntu-22.04
+            artifact-name: miriago-desktop-linux
+            platform-name: linux-x64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -43,6 +46,31 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          fuse_package=libfuse2
+          if ! apt-cache show "$fuse_package" >/dev/null 2>&1; then
+            fuse_package=libfuse2t64
+          fi
+          sudo apt-get install -y --no-install-recommends \
+            appmenu-gtk-module \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libgtk-3-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            "$fuse_package" \
+            xdg-utils \
+            zip
+
       - name: Install dependencies
         run: |
           flutter pub get
@@ -64,7 +92,12 @@ jobs:
         run: npm run build:web:desktop
 
       - name: Build Tauri desktop app
+        if: runner.os != 'Linux'
         run: npm run desktop:build
+
+      - name: Build Tauri Linux desktop app
+        if: runner.os == 'Linux'
+        run: npm run desktop:build:linux
 
       - name: Package macOS zip
         if: runner.os == 'macOS'
@@ -108,6 +141,30 @@ jobs:
           }
           Copy-Item $setupPath.FullName "dist\desktop\MiriaGo-v$env:APP_VERSION-windows-x64-setup.exe"
 
+      - name: Package Linux zip
+        if: runner.os == 'Linux'
+        run: |
+          exe_path="src-tauri/target/release/miriago-desktop"
+          package_dir="dist/desktop/MiriaGo-linux"
+          if [ ! -x "$exe_path" ]; then
+            echo "Missing Linux executable: $exe_path" >&2
+            exit 1
+          fi
+
+          rm -rf dist/desktop
+          mkdir -p "$package_dir/MiriaGoData"
+          cp "$exe_path" "$package_dir/MiriaGo"
+          chmod +x "$package_dir/MiriaGo"
+          (cd dist/desktop && zip -r "$ZIP_NAME" "MiriaGo-linux")
+
+          shopt -s nullglob
+          for bundle in src-tauri/target/release/bundle/appimage/*.AppImage; do
+            cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.AppImage"
+          done
+          for bundle in src-tauri/target/release/bundle/deb/*.deb; do
+            cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.deb"
+          done
+
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -115,11 +172,15 @@ jobs:
           path: |
             dist/desktop/*.zip
             dist/desktop/*.exe
+            dist/desktop/*.AppImage
+            dist/desktop/*.deb
 
-      - name: Attach zip to GitHub Release
+      - name: Attach desktop artifacts to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/desktop/*.zip
             dist/desktop/*.exe
+            dist/desktop/*.AppImage
+            dist/desktop/*.deb

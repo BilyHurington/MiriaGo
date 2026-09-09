@@ -14,12 +14,13 @@
   <img alt="Platform: iOS" src="https://img.shields.io/badge/Platform-iOS-0F8B8D.svg">
   <img alt="Platform: macOS" src="https://img.shields.io/badge/Platform-macOS-0F8B8D.svg">
   <img alt="Platform: Windows" src="https://img.shields.io/badge/Platform-Windows-0F8B8D.svg">
+  <img alt="Platform: Linux" src="https://img.shields.io/badge/Platform-Linux-0F8B8D.svg">
   <img alt="Built with Flutter" src="https://img.shields.io/badge/Built%20with-Flutter-0F8B8D.svg">
 </p>
 
 MiriaGo 使用 Flutter 开发，用于规划动漫圣地巡礼、从 Anitabi 导入点位、在现场拍摄时对照参考图，并整理巡礼记录、自动调色与分享用对比图。
 
-当前目标平台包括 Android、iOS、macOS 和 Windows。桌面端由 Tauri 启动器承载 Web 前端，并使用本地数据库和资源目录保存数据；普通 Web 版本主要用于开发预览。
+当前目标平台包括 Android、iOS、macOS、Windows 和 Linux。桌面端由 Tauri 启动器承载 Web 前端，并使用本地数据库和资源目录保存数据；普通 Web 版本主要用于开发预览。
 
 ## 视频介绍
 
@@ -48,7 +49,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 
 - Android APK：请前往 [Releases](https://github.com/BilyHurington/MiriaGo/releases) 下载最新版本。
 - iOS：当前通过 TestFlight 分发测试版本。
-- macOS / Windows：Release 中提供 zip 包，解压后直接运行。macOS 使用系统应用数据目录，Windows 使用随包的 `MiriaGoData` 文件夹。
+- macOS / Windows / Linux：Release 中提供 zip 包，解压后直接运行。macOS 使用系统应用数据目录，Windows / Linux zip 优先使用随包的 `MiriaGoData` 文件夹；Linux 同时提供 AppImage 和 Debian 包。
 - 使用指南：[docs/USAGE.md](docs/USAGE.md)
 - 数据源默认使用 OpenFreeMap + MapLibre 显示地图，并使用 Anitabi 默认图片源读取参考图。设置中可以切换 OpenFreeMap 样式、OpenStreetMap、自定义 XYZ 瓦片 URL、自定义 MapLibre style URL，以及 Anitabi 参考图备用图片源。导航仍交给外部地图应用，例如 Google Maps 或系统地图。
 
@@ -64,7 +65,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - 自动调色：根据参考图生成可解释的调色参数，用强度滑块控制应用比例。
 - 对比图导出：导出适合分享的参考图/巡礼图对比图，支持主题、元数据和巡礼者名称。
 - 计划数据包：`.sjhplan` v2 数据包可包含计划结构、记录、照片和参考图资源，导入时可恢复本地资源。
-- 桌面端本地存储：macOS 使用系统应用数据目录，Windows 使用随包的 `MiriaGoData` 文件夹；导出数据包与 CSV 时可选择保存位置。
+- 桌面端本地存储：macOS 使用系统应用数据目录，Windows / Linux zip 优先使用随包的 `MiriaGoData` 文件夹；Linux AppImage / Debian 包会在不可写安装目录下回退到系统应用数据目录；导出数据包与 CSV 时可选择保存位置。
 
 ## 效果展示
 
@@ -108,7 +109,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - Android Studio 或 Android SDK
 - JDK
 - iOS 构建需要 macOS 与 Xcode
-- 桌面端构建需要 Node.js、Rust 和系统 WebView 运行环境
+- 桌面端构建需要 Node.js、Rust 和系统 WebView 运行环境；Linux 需要 WebKitGTK 4.1 等 Tauri 系统依赖
 - 可选：已连接的 Android 设备
 
 初始化依赖：
@@ -116,6 +117,15 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 ```bash
 flutter pub get
 ```
+
+Linux 本地构建前，Ubuntu / Debian 可以先安装桌面依赖：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libgtk-3-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2
+```
+
+如果发行版没有 `libfuse2` 包，可以改装 `libfuse2t64`。
 
 检查代码：
 
@@ -150,13 +160,20 @@ npm install
 npm run desktop:build
 ```
 
+Linux 发行包可以使用：
+
+```bash
+npm install
+npm run desktop:build:linux
+```
+
 ## Release 构建
 
 仓库包含以下 GitHub Actions workflow：
 
 - Android Release：构建 Android release APK。
 - iOS Build Check：执行无签名 iOS 构建检查。
-- Desktop Launcher：构建 macOS / Windows 桌面端 zip 包。
+- Desktop Launcher：构建 macOS / Windows / Linux 桌面端 zip 包，并附带对应平台安装包。
 - 发布触发：推送 `v*` tag，例如 `v1.1.0`。
 
 正式签名 APK 需要在 GitHub Actions Secrets 中配置：
@@ -170,7 +187,7 @@ ANDROID_KEY_PASSWORD
 
 本地签名文件不会提交到仓库。请妥善备份 release keystore。
 
-iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple Developer Team；仓库不保存个人签名团队配置。桌面端 Release 会产出 `MiriaGo-macos.zip` 和 `MiriaGo-windows-x64.zip`；macOS zip 只包含应用本体，Windows zip 包含应用本体和 `MiriaGoData` 数据文件夹。
+iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple Developer Team；仓库不保存个人签名团队配置。桌面端 Release 会产出 `MiriaGo-macos.zip`、`MiriaGo-windows-x64.zip` 和 `MiriaGo-linux-x64.zip`；macOS zip 只包含应用本体，Windows / Linux zip 包含应用本体和 `MiriaGoData` 数据文件夹。Windows 额外产出 setup 安装包，Linux 额外产出 AppImage 和 Debian 包。
 
 ## 第三方服务与数据
 
