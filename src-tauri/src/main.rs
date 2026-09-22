@@ -8,9 +8,6 @@ mod startup_log;
 mod storage;
 
 fn main() {
-    #[cfg(target_os = "linux")]
-    linux_locale::prepare();
-
     startup_log::install_panic_hook();
     startup_log::write(&format!(
         "launcher starting version={} platform={}",
@@ -19,6 +16,11 @@ fn main() {
     ));
 
     let result = tauri::Builder::default()
+        .setup(|_app| {
+            #[cfg(target_os = "linux")]
+            linux_locale::configure(_app)?;
+            Ok(())
+        })
         .on_page_load(|_, payload| {
             startup_log::write(&format!(
                 "webview page load event={:?} url={}",

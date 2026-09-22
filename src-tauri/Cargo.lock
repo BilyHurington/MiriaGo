@@ -2237,6 +2237,7 @@ version = "1.1.6"
 dependencies = [
  "base64 0.22.1",
  "dirs",
+ "libc",
  "reqwest",
  "rfd",
  "rusqlite",
@@ -2244,6 +2245,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "webkit2gtk",
 ]
 
 [[package]]

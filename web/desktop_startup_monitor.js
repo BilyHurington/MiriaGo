@@ -58,6 +58,9 @@
   });
   document.addEventListener('DOMContentLoaded', function () {
     stage(pendingStatus);
+    if (window.__TAURI__) {
+      void writeLog(`web languages: ${JSON.stringify(window.navigator.languages)}`);
+    }
   });
   window.setTimeout(function () {
     if (statusElement()) {
