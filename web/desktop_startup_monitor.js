@@ -18,7 +18,9 @@
 
   function formatError(error) {
     if (error instanceof Error) {
-      return error.stack || error.message;
+      // WebKit stacks contain frames only, unlike V8's message-prefixed stack.
+      const message = `${error.name}: ${error.message}`;
+      return error.stack ? `${message}\n${error.stack}` : message;
     }
     return String(error ?? '未知错误');
   }
@@ -56,6 +58,9 @@
   });
   document.addEventListener('DOMContentLoaded', function () {
     stage(pendingStatus);
+    if (window.__TAURI__) {
+      void writeLog(`web languages: ${JSON.stringify(window.navigator.languages)}`);
+    }
   });
   window.setTimeout(function () {
     if (statusElement()) {

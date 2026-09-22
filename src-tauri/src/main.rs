@@ -2,6 +2,8 @@
 
 mod commands;
 mod desktop_db;
+#[cfg(any(target_os = "linux", test))]
+mod linux_locale;
 mod startup_log;
 mod storage;
 
@@ -14,6 +16,11 @@ fn main() {
     ));
 
     let result = tauri::Builder::default()
+        .setup(|_app| {
+            #[cfg(target_os = "linux")]
+            linux_locale::configure(_app)?;
+            Ok(())
+        })
         .on_page_load(|_, payload| {
             startup_log::write(&format!(
                 "webview page load event={:?} url={}",

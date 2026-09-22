@@ -21,6 +21,9 @@ jobs:
           - os: macos-latest
             artifact-name: miriago-desktop-macos
             platform-name: macos
+          - os: ubuntu-22.04
+            artifact-name: miriago-desktop-linux
+            platform-name: linux-x64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -43,6 +46,36 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          fuse_package=libfuse2
+          if ! apt-cache show "$fuse_package" >/dev/null 2>&1; then
+            fuse_package=libfuse2t64
+          fi
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libgtk-3-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            rpm \
+            "$fuse_package" \
+            xdg-utils \
+            xvfb \
+            xauth \
+            dbus-x11 \
+            locales \
+            zip
+          sudo locale-gen en_US.UTF-8
+
       - name: Install dependencies
         run: |
           flutter pub get
@@ -60,8 +93,24 @@ jobs:
       - name: Analyze Flutter
         run: flutter analyze --no-pub
 
+      - name: Test desktop Flutter integration
+        run: flutter test --no-pub test/desktop_build_config_test.dart test/linux_packaging_test.dart test/desktop_repository_state_test.dart test/app_version_test.dart test/platform_version_consistency_test.dart
+
+      - name: Test desktop native storage
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Test desktop startup diagnostics
+        run: node --test tool/desktop_startup_monitor_test.mjs
+
       - name: Build Flutter Web
         run: npm run build:web:desktop
+
+      - name: Check Linux startup before release packaging
+        if: runner.os == 'Linux'
+        run: |
+          npm run tauri -- build --debug --no-bundle
+          LANG=C.UTF-8 LC_ALL=C.UTF-8 LANGUAGE= bash tool/smoke_linux.sh src-tauri/target/debug/miriago-desktop
+          LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LANGUAGE= bash tool/smoke_linux.sh src-tauri/target/debug/miriago-desktop
 
       - name: Build portable Windows app
         if: runner.os == 'Windows'
@@ -70,6 +119,10 @@ jobs:
       - name: Build macOS app bundle
         if: runner.os == 'macOS'
         run: npm run desktop:build
+
+      - name: Build Tauri Linux desktop app
+        if: runner.os == 'Linux'
+        run: npm run desktop:build:linux
 
       - name: Package macOS zip
         if: runner.os == 'macOS'
@@ -107,16 +160,42 @@ jobs:
           Copy-Item $exePath "$packageDir\MiriaGo.exe"
           Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\$env:ZIP_NAME" -Force
 
+      - name: Package Linux artifacts
+        id: package_linux
+        if: runner.os == 'Linux'
+        run: bash tool/package_linux.sh src-tauri/target/release dist/desktop "$APP_VERSION"
+
+      - name: Smoke test Linux frontend startup
+        if: runner.os == 'Linux'
+        run: LANG=C.UTF-8 LC_ALL=C.UTF-8 LANGUAGE= bash tool/smoke_linux.sh src-tauri/target/release/miriago-desktop
+
       - name: Upload desktop artifacts
+        if: ${{ !cancelled() && (steps.package_linux.outcome == 'success' || runner.os != 'Linux') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
+          if-no-files-found: error
           path: |
             dist/desktop/*.zip
+            dist/desktop/*.AppImage
+            dist/desktop/*.deb
+            dist/desktop/*.rpm
 
-      - name: Attach zip to GitHub Release
+      - name: Upload Linux startup diagnostics
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-startup-diagnostics
+          path: |
+            build/web/main.dart.js
+            build/web/main.dart.js.map
+
+      - name: Attach desktop artifacts to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/desktop/*.zip
+            dist/desktop/*.AppImage
+            dist/desktop/*.deb
+            dist/desktop/*.rpm

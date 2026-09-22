@@ -5,6 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/app_version.dart';
 
 void main() {
+  test('version checks accept Windows checkout line endings', () {
+    const fixture = 'name = "miriago-desktop"\nversion = "1.2.3"';
+    expect(normalizeLineEndings(fixture.replaceAll('\n', '\r\n')), fixture);
+  });
+
   test('keeps Flutter and native platform versions aligned', () {
     final versionParts = miriagoAppVersion.split('+');
     expect(versionParts, hasLength(2));
@@ -43,10 +48,14 @@ void main() {
 
     final cargoToml = File('src-tauri/Cargo.toml').readAsStringSync();
     expect(cargoToml, contains('version = "$versionName"'));
-    final cargoLock = File('src-tauri/Cargo.lock').readAsStringSync();
+    final cargoLock = normalizeLineEndings(
+      File('src-tauri/Cargo.lock').readAsStringSync(),
+    );
     expect(
       cargoLock,
       contains('name = "miriago-desktop"\nversion = "$versionName"'),
     );
   });
 }
+
+String normalizeLineEndings(String text) => text.replaceAll('\r\n', '\n');
