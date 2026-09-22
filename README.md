@@ -49,7 +49,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 
 - Android APK：请前往 [Releases](https://github.com/BilyHurington/MiriaGo/releases) 下载最新版本。
 - iOS：当前通过 TestFlight 分发测试版本。
-- macOS / Windows / Linux：Release 中提供 zip 包，解压后直接运行。macOS 使用系统应用数据目录，Windows / Linux zip 优先使用随包的 `MiriaGoData` 文件夹；Linux 同时提供 AppImage、Debian 和 RPM 包。
+- macOS / Windows：Release 中提供 zip 包。Linux x64 提供 AppImage、DEB、RPM 和 zip；Linux zip 需要系统已安装 WebKitGTK 4.1 等运行依赖，并非独立免依赖包。Windows / Linux zip 含随包的 `MiriaGoData` 文件夹。
 - 使用指南：[docs/USAGE.md](docs/USAGE.md)
 - 数据源默认使用 OpenFreeMap + MapLibre 显示地图，并使用 Anitabi 默认图片源读取参考图。设置中可以切换 OpenFreeMap 样式、OpenStreetMap、自定义 XYZ 瓦片 URL、自定义 MapLibre style URL，以及 Anitabi 参考图备用图片源。导航仍交给外部地图应用，例如 Google Maps 或系统地图。
 
@@ -65,7 +65,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - 自动调色：根据参考图生成可解释的调色参数，用强度滑块控制应用比例。
 - 对比图导出：导出适合分享的参考图/巡礼图对比图，支持主题、元数据和巡礼者名称。
 - 计划数据包：`.sjhplan` v2 数据包可包含计划结构、记录、照片和参考图资源，导入时可恢复本地资源。
-- 桌面端本地存储：macOS 使用系统应用数据目录，Windows / Linux zip 优先使用随包的 `MiriaGoData` 文件夹；Linux AppImage / Debian / RPM 包会在不可写安装目录下回退到系统应用数据目录；导出数据包与 CSV 时可选择保存位置。
+- 桌面端本地存储：macOS 使用系统应用数据目录，Windows 使用随包的 `MiriaGoData` 文件夹（不可写时回退）。Linux zip 通过随包的 `MiriaGoData` 目录启用便携存储；AppImage / DEB / RPM 使用 `$XDG_DATA_HOME/MiriaGo`，通常为 `~/.local/share/MiriaGo`。Linux 便携目录尚无数据且不可写时回退到用户目录，已有用户目录数据时继续复用；已有便携数据但不可写则报错，不静默切换到空数据库。导出数据包与 CSV 时可选择保存位置。
 
 ## 效果展示
 
@@ -126,6 +126,10 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file lib
 ```
 
 如果发行版没有 `libfuse2` 包，可以改装 `libfuse2t64`。
+
+Linux 构建基线为 Ubuntu 22.04 x64。AppImage 通常需要 FUSE 2，DEB / RPM 应通过系统包管理器安装以解析依赖；zip 需要自行安装 WebKitGTK 4.1、GTK 3 等运行库。不同发行版的图形驱动和 WebKitGTK 版本仍需实际验证，不承诺支持全部发行版或 ARM64。不要以 root 身份运行应用。
+
+升级便携版时请保留整个 `MiriaGoData` 目录，不要用压缩包里的空目录覆盖它。AppImage 的挂载/解压目录不用于保存新数据；若检测到早期版本已在其中写入数据库，应用会提示备份并迁移整个目录到上述用户目录，不自动删除或覆盖数据。便携版与安装版使用不同目录时，可通过计划包迁移数据。
 
 检查代码：
 

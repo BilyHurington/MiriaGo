@@ -69,6 +69,9 @@ jobs:
             rpm \
             "$fuse_package" \
             xdg-utils \
+            xvfb \
+            xauth \
+            dbus-x11 \
             zip
 
       - name: Install dependencies
@@ -87,6 +90,11 @@ jobs:
 
       - name: Analyze Flutter
         run: flutter analyze --no-pub
+
+      - name: Test desktop build and storage
+        run: |
+          flutter test --no-pub test/desktop_build_config_test.dart test/linux_packaging_test.dart test/desktop_repository_state_test.dart
+          cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build Flutter Web
         run: npm run build:web:desktop
@@ -139,37 +147,19 @@ jobs:
           Copy-Item $exePath "$packageDir\MiriaGo.exe"
           Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\$env:ZIP_NAME" -Force
 
-      - name: Package Linux zip
+      - name: Package Linux artifacts
         if: runner.os == 'Linux'
-        run: |
-          exe_path="src-tauri/target/release/miriago-desktop"
-          package_dir="dist/desktop/MiriaGo-linux"
-          if [ ! -x "$exe_path" ]; then
-            echo "Missing Linux executable: $exe_path" >&2
-            exit 1
-          fi
+        run: bash tool/package_linux.sh src-tauri/target/release dist/desktop "$APP_VERSION"
 
-          rm -rf dist/desktop
-          mkdir -p "$package_dir/MiriaGoData"
-          cp "$exe_path" "$package_dir/MiriaGo"
-          chmod +x "$package_dir/MiriaGo"
-          (cd dist/desktop && zip -r "$ZIP_NAME" "MiriaGo-linux")
-
-          shopt -s nullglob
-          for bundle in src-tauri/target/release/bundle/appimage/*.AppImage; do
-            cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.AppImage"
-          done
-          for bundle in src-tauri/target/release/bundle/deb/*.deb; do
-            cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.deb"
-          done
-          for bundle in src-tauri/target/release/bundle/rpm/*.rpm; do
-            cp "$bundle" "dist/desktop/MiriaGo-v$APP_VERSION-linux-x64.rpm"
-          done
+      - name: Smoke test Linux frontend startup
+        if: runner.os == 'Linux'
+        run: bash tool/smoke_linux.sh src-tauri/target/release/miriago-desktop
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
+          if-no-files-found: error
           path: |
             dist/desktop/*.zip
             dist/desktop/*.AppImage

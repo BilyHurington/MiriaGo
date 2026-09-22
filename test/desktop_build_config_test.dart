@@ -44,10 +44,36 @@ void main() {
     expect(workflow, contains('miriago-desktop-linux'));
     expect(workflow, contains('libwebkit2gtk-4.1-dev'));
     expect(workflow, contains('npm run desktop:build:linux'));
-    expect(workflow, contains('MiriaGo-linux'));
+    expect(workflow, contains('bash tool/package_linux.sh'));
     expect(workflow, contains('*.AppImage'));
     expect(workflow, contains('*.deb'));
     expect(workflow, contains('*.rpm'));
+    expect(workflow, contains('if-no-files-found: error'));
+    expect(workflow, isNot(contains('nsis')));
+    expect(workflow, isNot(contains('setup.exe')));
+    expect(
+      workflow,
+      contains(
+        "if: runner.os == 'Windows'\n        run: npm run desktop:build:portable",
+      ),
+    );
+    expect(
+      workflow,
+      contains("if: runner.os == 'macOS'\n        run: npm run desktop:build"),
+    );
+    expect(
+      workflow,
+      contains(
+        "if: runner.os == 'Linux'\n        run: npm run desktop:build:linux",
+      ),
+    );
+    final package =
+        jsonDecode(File('package.json').readAsStringSync())
+            as Map<String, dynamic>;
+    expect(
+      (package['scripts'] as Map)['desktop:build:portable'],
+      'tauri build --no-bundle',
+    );
   });
 
   test('desktop bootstrap skips service workers inside Tauri', () {
