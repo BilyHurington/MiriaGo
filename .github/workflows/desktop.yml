@@ -157,6 +157,7 @@ jobs:
         run: bash tool/smoke_linux.sh src-tauri/target/release/miriago-desktop
 
       - name: Upload desktop artifacts
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
@@ -166,6 +167,15 @@ jobs:
             dist/desktop/*.AppImage
             dist/desktop/*.deb
             dist/desktop/*.rpm
+
+      - name: Upload Linux startup diagnostics
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-startup-diagnostics
+          path: |
+            build/web/main.dart.js
+            build/web/main.dart.js.map
 
       - name: Attach desktop artifacts to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
