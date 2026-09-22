@@ -94,7 +94,7 @@ jobs:
         run: flutter analyze --no-pub
 
       - name: Test desktop Flutter integration
-        run: flutter test --no-pub test/desktop_build_config_test.dart test/linux_packaging_test.dart test/desktop_repository_state_test.dart
+        run: flutter test --no-pub test/desktop_build_config_test.dart test/linux_packaging_test.dart test/desktop_repository_state_test.dart test/app_version_test.dart test/platform_version_consistency_test.dart
 
       - name: Test desktop native storage
         run: cargo test --manifest-path src-tauri/Cargo.toml

@@ -58,7 +58,7 @@ void main() {
     expect(workflow, contains('*.deb'));
     expect(workflow, contains('*.rpm'));
     expect(workflow, contains('if-no-files-found: error'));
-    expect(workflow, isNot(contains('nsis')));
+    expect(RegExp(r'\bnsis\b').hasMatch(workflow), isFalse);
     expect(workflow, isNot(contains('setup.exe')));
     expect(
       workflow,
