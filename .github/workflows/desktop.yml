@@ -97,8 +97,17 @@ jobs:
       - name: Test desktop native storage
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
+      - name: Test desktop startup diagnostics
+        run: node --test tool/desktop_startup_monitor_test.mjs
+
       - name: Build Flutter Web
         run: npm run build:web:desktop
+
+      - name: Check Linux startup before release packaging
+        if: runner.os == 'Linux'
+        run: |
+          npm run tauri -- build --debug --no-bundle
+          bash tool/smoke_linux.sh src-tauri/target/debug/miriago-desktop
 
       - name: Build portable Windows app
         if: runner.os == 'Windows'
