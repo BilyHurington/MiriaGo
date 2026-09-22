@@ -129,6 +129,8 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file lib
 
 Linux 构建基线为 Ubuntu 22.04 x64。AppImage 通常需要 FUSE 2，DEB / RPM 应通过系统包管理器安装以解析依赖；zip 需要自行安装 WebKitGTK 4.1、GTK 3 等运行库。不同发行版的图形驱动和 WebKitGTK 版本仍需实际验证，不承诺支持全部发行版或 ARM64。不要以 root 身份运行应用。
 
+Linux 以 `C` / `C.UTF-8` / `POSIX` 等无语言环境启动时，启动器仅在当前进程中为 WebKit 设置有效的首选语言，避免 Flutter 初始化时报 `invalid language tag`；正常的中文、日文等语言设置保持不变，不修改系统配置。
+
 升级便携版时请保留整个 `MiriaGoData` 目录，不要用压缩包里的空目录覆盖它。AppImage 的挂载/解压目录不用于保存新数据；若检测到早期版本已在其中写入数据库，应用会提示备份并迁移整个目录到上述用户目录，不自动删除或覆盖数据。便携版与安装版使用不同目录时，可通过计划包迁移数据。
 
 检查代码：

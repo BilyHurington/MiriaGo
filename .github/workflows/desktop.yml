@@ -107,7 +107,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           npm run tauri -- build --debug --no-bundle
-          bash tool/smoke_linux.sh src-tauri/target/debug/miriago-desktop
+          LANG=C.UTF-8 LC_ALL=C.UTF-8 LANGUAGE= bash tool/smoke_linux.sh src-tauri/target/debug/miriago-desktop
 
       - name: Build portable Windows app
         if: runner.os == 'Windows'
@@ -158,15 +158,16 @@ jobs:
           Compress-Archive -Path $packageDir -DestinationPath "dist\desktop\$env:ZIP_NAME" -Force
 
       - name: Package Linux artifacts
+        id: package_linux
         if: runner.os == 'Linux'
         run: bash tool/package_linux.sh src-tauri/target/release dist/desktop "$APP_VERSION"
 
       - name: Smoke test Linux frontend startup
         if: runner.os == 'Linux'
-        run: bash tool/smoke_linux.sh src-tauri/target/release/miriago-desktop
+        run: LANG=C.UTF-8 LC_ALL=C.UTF-8 LANGUAGE= bash tool/smoke_linux.sh src-tauri/target/release/miriago-desktop
 
       - name: Upload desktop artifacts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (steps.package_linux.outcome == 'success' || runner.os != 'Linux') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}

@@ -2,10 +2,15 @@
 
 mod commands;
 mod desktop_db;
+#[cfg(any(target_os = "linux", test))]
+mod linux_locale;
 mod startup_log;
 mod storage;
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    linux_locale::prepare();
+
     startup_log::install_panic_hook();
     startup_log::write(&format!(
         "launcher starting version={} platform={}",
