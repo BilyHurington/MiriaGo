@@ -91,10 +91,11 @@ jobs:
       - name: Analyze Flutter
         run: flutter analyze --no-pub
 
-      - name: Test desktop build and storage
-        run: |
-          flutter test --no-pub test/desktop_build_config_test.dart test/linux_packaging_test.dart test/desktop_repository_state_test.dart
-          cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Test desktop Flutter integration
+        run: flutter test --no-pub test/desktop_build_config_test.dart test/linux_packaging_test.dart test/desktop_repository_state_test.dart
+
+      - name: Test desktop native storage
+        run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build Flutter Web
         run: npm run build:web:desktop

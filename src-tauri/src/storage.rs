@@ -39,11 +39,31 @@ pub fn ensure_data_dirs() -> Result<DataDirs, String> {
     }
 }
 
-fn has_user_data(dir: &Path) -> bool {
-    dir.join("miriago.sqlite").exists()
-        || fs::read_dir(dir.join("assets"))
-            .map(|mut entries| entries.next().is_some())
-            .unwrap_or(false)
+fn has_user_data(dir: &Path) -> Result<bool, String> {
+    let database_exists = dir
+        .join("miriago.sqlite")
+        .try_exists()
+        .map_err(|error| format!("cannot inspect data in {}: {error}", dir.display()))?;
+    if database_exists {
+        return Ok(true);
+    }
+    match fs::read_dir(dir.join("assets")) {
+        Ok(mut entries) => match entries.next() {
+            Some(Ok(_)) => Ok(true),
+            None => Ok(false),
+            Some(Err(error)) => Err(format!(
+                "cannot inspect assets in {}: {error}",
+                dir.display()
+            )),
+        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        // A malformed assets path must still be checked by create_data_dirs.
+        Err(error) if error.kind() == std::io::ErrorKind::NotADirectory => Ok(false),
+        Err(error) => Err(format!(
+            "cannot inspect assets in {}: {error}",
+            dir.display()
+        )),
+    }
 }
 
 fn linux_data_dirs(
@@ -54,27 +74,27 @@ fn linux_data_dirs(
     // AppImage executables live inside a mount or extraction directory, not
     // beside the user's AppImage file. Never store new data there.
     if appimage {
-        if has_user_data(portable_dir) {
+        if has_user_data(portable_dir)? {
             return Err(format!(
                 "Existing data in AppImage directory {}. Back up and move MiriaGoData to {} before continuing; no data was moved or deleted.",
                 portable_dir.display(), system_dir.display()
             ));
         }
-        return create_data_dirs(system_dir.to_path_buf(), false, false);
+        return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
     }
 
-    let existing_portable = has_user_data(portable_dir);
+    let existing_portable = has_user_data(portable_dir)?;
     // A shipped MiriaGoData directory opts the ZIP into portable mode. Retain
     // an existing system database when a previously unwritable ZIP is moved.
-    if !portable_dir.is_dir() || (!existing_portable && has_user_data(system_dir)) {
-        return create_data_dirs(system_dir.to_path_buf(), false, false);
+    if !portable_dir.is_dir() || (!existing_portable && has_user_data(system_dir)?) {
+        return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
     }
-    match create_data_dirs(portable_dir.to_path_buf(), true, false) {
+    match create_writable_data_dirs(portable_dir.to_path_buf(), true, false) {
         Ok(dirs) => Ok(dirs),
         Err(error) if existing_portable => Err(format!(
             "Existing portable data is not writable: {error}. Restore write access or back up and move the entire MiriaGoData directory; refusing to open an empty database elsewhere."
         )),
-        Err(_) => create_data_dirs(system_dir.to_path_buf(), false, true),
+        Err(_) => create_writable_data_dirs(system_dir.to_path_buf(), false, true),
     }
 }
 
@@ -91,7 +111,6 @@ fn create_data_dirs(
     for dir in [&data_dir, &assets_dir, &exports_dir, &logs_dir, &temp_dir] {
         fs::create_dir_all(dir)
             .map_err(|error| format!("failed to create {}: {error}", dir.display()))?;
-        verify_writable(dir)?;
     }
 
     Ok(DataDirs {
@@ -103,6 +122,24 @@ fn create_data_dirs(
         logs_dir,
         temp_dir,
     })
+}
+
+fn create_writable_data_dirs(
+    data_dir: PathBuf,
+    portable: bool,
+    fallback_used: bool,
+) -> Result<DataDirs, String> {
+    let dirs = create_data_dirs(data_dir, portable, fallback_used)?;
+    for dir in [
+        &dirs.data_dir,
+        &dirs.assets_dir,
+        &dirs.exports_dir,
+        &dirs.logs_dir,
+        &dirs.temp_dir,
+    ] {
+        verify_writable(dir)?;
+    }
+    Ok(dirs)
 }
 
 fn verify_writable(dir: &Path) -> Result<(), String> {
@@ -271,8 +308,39 @@ mod tests {
         fs::create_dir(&path).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o555)).unwrap();
         let result = super::verify_writable(&path);
+        let legacy = super::create_data_dirs(path.clone(), true, false);
         fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
         assert!(result.is_err(), "Run storage tests as a non-root user");
+        // The directory has no children yet, so the legacy creator also fails.
+        assert!(legacy.is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_probe_does_not_change_legacy_platform_directory_selection() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = TestDirs::new();
+        super::create_data_dirs(root.portable(), true, false).unwrap();
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o555)).unwrap();
+        let legacy = super::create_data_dirs(root.portable(), true, false);
+        let validated = super::create_writable_data_dirs(root.portable(), true, false);
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(legacy.unwrap().portable);
+        assert!(validated.is_err(), "Run storage tests as a non-root user");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_existing_data_never_falls_back_to_empty_database() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = TestDirs::new();
+        fs::create_dir_all(root.portable()).unwrap();
+        fs::write(root.portable().join("miriago.sqlite"), b"legacy").unwrap();
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o000)).unwrap();
+        let result = linux_data_dirs(&root.portable(), &root.system(), false);
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(result.is_err(), "Run storage tests as a non-root user");
+        assert!(!root.system().exists());
     }
 
     #[test]

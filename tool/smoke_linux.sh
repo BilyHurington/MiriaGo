@@ -22,7 +22,7 @@ log="$XDG_DATA_HOME/MiriaGo/logs/startup.log"
 for ((attempt = 0; attempt < 90; attempt++)); do
   if [[ -f "$log" ]] && grep -q 'Flutter first page displayed' "$log"; then
     sleep 3
-    if kill -0 "$pid" 2>/dev/null && ! grep -Eqi 'startup failed|launcher stopped with error|web bootstrap:' "$log"; then
+    if kill -0 "$pid" 2>/dev/null && [[ -s "$XDG_DATA_HOME/MiriaGo/miriago.sqlite" ]] && ! grep -Eqi 'startup failed|launcher stopped with error|web bootstrap:' "$log"; then
       cat "$log"
       echo "Linux frontend startup smoke passed"
       exit 0

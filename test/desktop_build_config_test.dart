@@ -3,7 +3,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+String normalizeWorkflow(String source) => source.replaceAll('\r\n', '\n');
+
 void main() {
+  test('workflow assertions accept Windows checkout line endings', () {
+    final source = File('.github/workflows/desktop.yml').readAsStringSync();
+    final lf = normalizeWorkflow(source);
+    expect(normalizeWorkflow(lf.replaceAll('\n', '\r\n')), lf);
+  });
   test('desktop startup resources are bundled locally', () {
     final index = File('web/index.html').readAsStringSync();
     expect(index, contains('vendor/maplibre-gl/maplibre-gl.js'));
@@ -39,7 +46,9 @@ void main() {
   });
 
   test('desktop release workflow builds Linux artifacts', () {
-    final workflow = File('.github/workflows/desktop.yml').readAsStringSync();
+    final workflow = normalizeWorkflow(
+      File('.github/workflows/desktop.yml').readAsStringSync(),
+    );
     expect(workflow, contains('ubuntu-22.04'));
     expect(workflow, contains('miriago-desktop-linux'));
     expect(workflow, contains('libwebkit2gtk-4.1-dev'));
