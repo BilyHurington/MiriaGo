@@ -27,6 +27,7 @@ import '../widgets/copyable_text.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/responsive_button.dart';
 import '../widgets/snackbar_helper.dart';
+import 'privacy_policy_screen.dart';
 
 bool get _showCacheCleanupSettings => isReferenceCacheCleanupSupported;
 bool get _showDebugPhotoLocationSettings => false;
@@ -2679,6 +2680,17 @@ class _AboutSettingsPage extends StatelessWidget {
               icon: LucideIcons.scale,
               label: '开源许可',
               value: 'MIT License',
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(LucideIcons.shieldCheck),
+              title: const Text('隐私政策'),
+              trailing: const Icon(LucideIcons.chevronRight),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PrivacyPolicyScreen(),
+                ),
+              ),
             ),
           ],
         ),

@@ -193,6 +193,10 @@ ANDROID_KEY_PASSWORD
 
 本地签名文件不会提交到仓库。请妥善备份 release keystore。
 
+Android release 构建要求完整的 `android/key.properties` 和既有正式 keystore；缺失时会明确失败，不会使用 debug 签名代替。普通 debug 构建不要求 release 签名材料。不要通过卸载正式应用来处理签名不一致，这会删除应用数据。
+
+可在 `android` 目录运行 `./gradlew :app:verifyReleaseSigningConfiguration` 检查配置；使用 `-PreleaseSigningPropertiesFile=/绝对路径/key.properties` 可指定独立配置文件。该检查只核验配置与文件是否齐全，最终证书仍应以生成 APK 的签名检查结果为准。
+
 iOS 本地归档和 TestFlight 上传需要在 Xcode 中选择自己的 Apple Developer Team；仓库不保存个人签名团队配置。桌面端 Release 会产出带版本号的 macOS、Windows x64 和 Linux x64 zip；macOS zip 只包含应用本体，Windows / Linux zip 包含应用本体和 `MiriaGoData` 数据文件夹。Windows 仅提供便携版本，不提供 setup 安装包；Linux 额外产出 AppImage、Debian 和 RPM 包。
 
 ## 第三方服务与数据

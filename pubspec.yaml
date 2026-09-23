@@ -78,6 +78,7 @@ flutter:
   assets:
     - assets/maps/
     - icon.jpg
+    - docs/privacy.md
     - docs/sample_images/
     - docs/sample_images/sample_visit_records/
 

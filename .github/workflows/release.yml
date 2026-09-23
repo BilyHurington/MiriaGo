@@ -37,16 +37,21 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required release signing secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
           mkdir -p android/app
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/miriago-release.jks
-            {
-              printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
-              printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
-              printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
-              printf 'storeFile=miriago-release.jks\n'
-            } > android/key.properties
-          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/miriago-release.jks
+          {
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'storeFile=miriago-release.jks\n'
+          } > android/key.properties
 
       - name: Get packages
         run: flutter pub get
