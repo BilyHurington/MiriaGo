@@ -51,6 +51,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   int? _beforeScore;
   int? _afterScore;
   Object? _loadError;
+  Object? _referenceError;
   var _resetPending = false;
 
   PilgrimageVisitRecord get _record => widget.record;
@@ -110,7 +111,16 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       }
       final capturedBytes = await readBoundedImageSource(sourcePhotoPath);
       await probeBoundedImage(capturedBytes);
-      final referenceBytes = await _loadReferenceBytes();
+      Uint8List? referenceBytes;
+      Object? referenceError;
+      try {
+        referenceBytes = await _loadReferenceBytes();
+        if (referenceBytes != null) await probeBoundedImage(referenceBytes);
+      } catch (error) {
+        // A missing reference disables matching, not edits to saved grading.
+        referenceBytes = null;
+        referenceError = error;
+      }
       if (!mounted) {
         return;
       }
@@ -118,6 +128,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       setState(() {
         _capturedBytes = capturedBytes;
         _referenceBytes = referenceBytes;
+        _referenceError = referenceError;
         _loading = false;
       });
     } catch (error) {
@@ -182,9 +193,14 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       return;
     }
     if (reference == null) {
+      final error = _referenceError;
       messenger.showStatusSnack(
         kind: AppStatusBannerKind.warning,
-        title: '没有可用于自动调色的参考图',
+        title: error is ImageBudgetException
+            ? error.message
+            : error == null
+            ? '没有可用于自动调色的参考图'
+            : '参考图暂不可用，无法自动匹配色调',
       );
       return;
     }
@@ -362,6 +378,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       children: [
         _StackedPreview(
           referenceBytes: _referenceBytes,
+          referenceError: _referenceError,
           capturedBytes: _capturedBytes!,
           activeParams: _activeParams,
           showOriginal: _showOriginal || _targetParams == null,
@@ -429,12 +446,14 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
 class _StackedPreview extends StatelessWidget {
   const _StackedPreview({
     required this.referenceBytes,
+    required this.referenceError,
     required this.capturedBytes,
     required this.activeParams,
     required this.showOriginal,
   });
 
   final Uint8List? referenceBytes;
+  final Object? referenceError;
   final Uint8List capturedBytes;
   final ColorGradingParams activeParams;
   final bool showOriginal;
@@ -453,7 +472,9 @@ class _StackedPreview extends StatelessWidget {
           _PreviewPane(
             label: '参考图',
             child: referenceBytes == null
-                ? const Center(child: Text('没有参考图'))
+                ? referenceError == null
+                      ? const Center(child: Text('没有参考图'))
+                      : BoundedImageError(error: referenceError!)
                 : BoundedImage(bytes: referenceBytes!),
           ),
           const SizedBox(height: 8),
