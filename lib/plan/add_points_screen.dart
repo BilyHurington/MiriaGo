@@ -2753,6 +2753,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   PilgrimageWork? _selectedWork;
   final _pendingReference = PendingReferenceLifecycle<_PendingReferenceImage>(
     delete: (image) => deleteStoredUserReferenceImage(image.stored),
+    onRetain: (image) => image.stored.retain(),
   );
   StoredUserReferenceImage? get _pendingReferenceImage =>
       _pendingReference.current?.stored;

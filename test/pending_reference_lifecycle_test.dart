@@ -4,6 +4,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/plan/pending_reference_lifecycle.dart';
 
 void main() {
+  for (final succeeded in [true, false]) {
+    test(
+      'retention transfers ownership before callback, outcome $succeeded',
+      () async {
+        final deleted = <String>[];
+        final retained = <String>[];
+        late PendingReferenceLifecycle<String> lifecycle;
+        lifecycle = PendingReferenceLifecycle(
+          delete: (value) async => deleted.add(value),
+          onRetain: (value) async {
+            retained.add(value);
+            lifecycle.dispose();
+            lifecycle.endSave();
+            throw StateError('injected finalization failure');
+          },
+        );
+        await lifecycle.select(() async => 'image');
+        lifecycle.beginSave();
+        lifecycle.beginPersistence();
+        lifecycle.finishPersistence(succeeded: succeeded);
+        lifecycle.finishPersistence(succeeded: succeeded);
+        lifecycle.endSave();
+        await Future<void>.delayed(Duration.zero);
+        expect(retained, ['image']);
+        expect(deleted, isEmpty);
+      },
+    );
+  }
   late List<String> deleted;
   late PendingReferenceLifecycle<String> lifecycle;
   setUp(() {

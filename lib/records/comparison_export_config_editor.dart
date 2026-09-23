@@ -37,6 +37,20 @@ class ComparisonExportConfigEditor extends StatelessWidget {
           borderColorLabels: borderColorLabels,
           onChanged: onChanged,
         ),
+        const SizedBox(height: 18),
+        DropdownButtonFormField<ComparisonImageEncoding>(
+          key: ValueKey('comparison-encoding-${config.imageEncoding.name}'),
+          initialValue: config.imageEncoding,
+          decoration: const InputDecoration(labelText: '图片格式与质量'),
+          isExpanded: true,
+          items: [
+            for (final encoding in ComparisonImageEncoding.values)
+              DropdownMenuItem(value: encoding, child: Text(encoding.label)),
+          ],
+          onChanged: (value) {
+            if (value != null) onChanged(config.copyWith(imageEncoding: value));
+          },
+        ),
         const SizedBox(height: 20),
         const _SectionDivider(),
         const SizedBox(height: 18),
@@ -53,6 +67,7 @@ class ComparisonExportConfigEditor extends StatelessWidget {
 String comparisonExportConfigSummary(ComparisonExportConfig config) {
   final labels = <String>[
     '宽度 ${config.outputWidth.label}',
+    config.imageEncoding.label,
     config.borderWidthPercent == 0
         ? '无边框'
         : '边框 ${config.borderWidthPercent.toStringAsFixed(1)}%',

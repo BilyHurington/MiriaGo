@@ -1,5 +1,6 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import '../data/bounded_image_decoder.dart';
 
 import 'tauri_bridge_stub.dart'
     show
@@ -234,10 +235,27 @@ Future<void> finalizeDesktopImportAssets({required String restoreToken}) async {
   });
 }
 
-Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
-  final result = await _invokeObject('read_asset', {
-    'request': {'path': path},
-  });
+Future<DesktopAssetResult> readDesktopAsset({
+  required String path,
+  int? maxBytes,
+}) async {
+  if (maxBytes != null && (maxBytes <= 0 || maxBytes > 64 * 1024 * 1024)) {
+    throw ArgumentError.value(maxBytes, 'maxBytes');
+  }
+  JSObject? result;
+  try {
+    result = await _invokeObject('read_asset', {
+      'request': {'path': path, 'maxBytes': ?maxBytes},
+    });
+  } catch (error) {
+    if (error.toString().contains('ASSET_BYTE_LIMIT:')) {
+      throw ImageBudgetException(
+        ImageBudgetFailure.encodedBytes,
+        '图片超过读取预算 ${maxBytes ?? 64 * 1024 * 1024} 字节；原件未更改（$error）',
+      );
+    }
+    rethrow;
+  }
   if (result == null) {
     throw StateError('Tauri read_asset returned no result.');
   }

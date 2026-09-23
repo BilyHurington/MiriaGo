@@ -17,7 +17,8 @@ import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/app_back_button.dart';
-import '../widgets/anitabi_network_image.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_image_placeholder.dart';
@@ -502,7 +503,11 @@ class _RecordComparisonPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _RecordImageTile(
           label: '巡礼图',
-          child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
+          child: VisitRecordPhoto(
+            path: photoPath,
+            fit: BoxFit.contain,
+            target: ImageDecodeTarget.panel,
+          ),
           onTap: () => ImageViewerScreen.show(context, filePath: photoPath),
         ),
       ],
@@ -563,23 +568,18 @@ class _RecordReferencePhoto extends StatelessWidget {
   Widget build(BuildContext context) {
     final localPath = path;
     if (referenceImageLocalPathCanDisplay(localPath)) {
-      return VisitRecordPhoto(path: localPath!, fit: BoxFit.contain);
+      return VisitRecordPhoto(
+        path: localPath!,
+        fit: BoxFit.contain,
+        target: ImageDecodeTarget.panel,
+      );
     }
 
     final imageUrl = url;
     if (imageUrl != null) {
-      return AnitabiNetworkImage(
-        url: imageUrl,
-        imageSource: AnitabiImageSourceScope.of(context),
-        fit: BoxFit.contain,
-        loadingBuilder: (_) {
-          return const _RecordReferencePlaceholder(
-            state: ReferenceImagePlaceholderState.loading,
-          );
-        },
-        errorBuilder: (_) {
-          return const _RecordReferencePlaceholder();
-        },
+      return BoundedImage(
+        path: imageUrl,
+        source: AnitabiImageSourceScope.of(context),
       );
     }
 
@@ -588,15 +588,13 @@ class _RecordReferencePhoto extends StatelessWidget {
 }
 
 class _RecordReferencePlaceholder extends StatelessWidget {
-  const _RecordReferencePlaceholder({
-    this.state = ReferenceImagePlaceholderState.unavailable,
-  });
-
-  final ReferenceImagePlaceholderState state;
+  const _RecordReferencePlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    return ReferenceImagePlaceholder(state: state);
+    return const ReferenceImagePlaceholder(
+      state: ReferenceImagePlaceholderState.unavailable,
+    );
   }
 }
 

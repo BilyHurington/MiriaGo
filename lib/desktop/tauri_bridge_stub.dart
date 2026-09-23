@@ -159,7 +159,10 @@ Future<void> finalizeDesktopImportAssets({required String restoreToken}) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
 
-Future<DesktopAssetResult> readDesktopAsset({required String path}) async {
+Future<DesktopAssetResult> readDesktopAsset({
+  required String path,
+  int? maxBytes,
+}) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
 

@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:http/http.dart' as http;
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
@@ -106,9 +106,10 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     try {
       final sourcePhotoPath = resolveVisitRecordSourcePhotoPath(_record);
       if (sourcePhotoPath == null) {
-        throw const FileSystemException('Visit record photo is unavailable');
+        throw StateError('Visit record photo is unavailable');
       }
-      final capturedBytes = await File(sourcePhotoPath).readAsBytes();
+      final capturedBytes = await readBoundedImageSource(sourcePhotoPath);
+      await probeBoundedImage(capturedBytes);
       final referenceBytes = await _loadReferenceBytes();
       if (!mounted) {
         return;
@@ -136,9 +137,12 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       _record.referenceImagePath,
       widget.fallbackReferenceImagePath,
     ].whereType<String>()) {
-      final file = File(path);
-      if (file.existsSync()) {
-        return file.readAsBytes();
+      try {
+        return await readBoundedImageSource(path);
+      } on ImageBudgetException {
+        rethrow;
+      } catch (_) {
+        // Missing local references may still have their original remote source.
       }
     }
 
@@ -147,14 +151,26 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       return null;
     }
 
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return response.bodyBytes;
-    }
-    return null;
+    return readBoundedImageSource(url);
   }
 
   Future<void> _runAutoMatch() async {
+    if (!mounted || _matching || _saving) return;
+    try {
+      await _runAutoMatchUnchecked();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: error is ImageBudgetException ? error.message : '自动调色失败',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _matching = false);
+    }
+  }
+
+  Future<void> _runAutoMatchUnchecked() async {
     final captured = _capturedBytes;
     final reference = _referenceBytes;
     final messenger = ScaffoldMessenger.of(context);
@@ -207,6 +223,22 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   }
 
   Future<void> _save() async {
+    if (!mounted || _saving || _matching) return;
+    try {
+      await _saveUnchecked();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: error is ImageBudgetException ? error.message : '保存失败，原件未更改',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _saveUnchecked() async {
     final captured = _capturedBytes;
     final targetParams = _targetParams;
     final messenger = ScaffoldMessenger.of(context);
@@ -322,7 +354,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     }
 
     if (_loadError != null || _capturedBytes == null) {
-      return const Center(child: Text('照片读取失败'));
+      return BoundedImageError(error: _loadError ?? StateError('照片读取失败'));
     }
 
     return ListView(
@@ -422,18 +454,18 @@ class _StackedPreview extends StatelessWidget {
             label: '参考图',
             child: referenceBytes == null
                 ? const Center(child: Text('没有参考图'))
-                : Image.memory(referenceBytes!, fit: BoxFit.contain),
+                : BoundedImage(bytes: referenceBytes!),
           ),
           const SizedBox(height: 8),
           _PreviewPane(
             label: showOriginal ? '原图' : '调色后',
             child: showOriginal
-                ? Image.memory(capturedBytes, fit: BoxFit.contain)
+                ? BoundedImage(bytes: capturedBytes)
                 : ColorFiltered(
                     colorFilter: ColorFilter.matrix(
                       activeParams.toColorMatrix(),
                     ),
-                    child: Image.memory(capturedBytes, fit: BoxFit.contain),
+                    child: BoundedImage(bytes: capturedBytes),
                   ),
           ),
         ],

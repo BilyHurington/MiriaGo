@@ -85,7 +85,7 @@ void main() {
     },
   );
 
-  for (final failure in ['config', 'export', 'gallery', 'none']) {
+  for (final failure in ['settings', 'config', 'export', 'gallery', 'none']) {
     test('auto backup $failure has a bounded post-commit result', () async {
       final directory = await Directory.systemTemp.createTemp(
         'backup-recovery-',
@@ -107,7 +107,11 @@ void main() {
       final result = await autoSaveComparisonImageToGallery(
         record: record,
         point: point,
-        settings: const AppSettings(),
+        settings: const AppSettings(comparisonExportConfigMigrated: false),
+        loadCurrentSettings: () async {
+          if (failure == 'settings') throw StateError('settings failure');
+          return const AppSettings(comparisonExportConfigMigrated: false);
+        },
         pointReferenceFullImagePath: null,
         pointReferenceImageUrl: null,
         loadConfig: () async {

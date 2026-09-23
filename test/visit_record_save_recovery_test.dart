@@ -16,6 +16,7 @@ import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan/pilgrimage_plan_controller.dart';
+import 'package:miriago/widgets/bounded_image.dart';
 
 final _location = PhotoLocationData(
   latitude: 35,
@@ -205,7 +206,7 @@ void main() {
           ..writeAsBytesSync(_referenceBytes);
         // Load the fixture in the real async zone, not Flutter's fake test clock.
         await tester.runAsync(() async {
-          final provider = FileImage(source);
+          final provider = BoundedImageProvider(path: source.path);
           final stream = provider.resolve(ImageConfiguration.empty);
           final loaded = Completer<void>();
           late ImageStreamListener listener;

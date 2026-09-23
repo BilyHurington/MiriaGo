@@ -7,18 +7,19 @@ import 'package:path_provider/path_provider.dart';
 
 import 'photo_location.dart';
 import 'visit_record_save_assets.dart';
-import '../data/app_managed_file_paths_io.dart';
+import '../widgets/bounded_image.dart';
 
 Future<void> retainPhotoPreviewUntilRead(
   String path,
   BuildContext context,
 ) async {
-  final resolved = resolveExistingAppManagedFilePathSync(path) ?? path;
-  final file = File(resolved);
-  if (!file.existsSync()) return;
-  // Share FileImage's cache entry with VisitRecordPhoto. Keep an error listener
-  // through disposal so an already-started read cannot race source cleanup.
-  await precacheImage(FileImage(file), context, onError: (_, _) {});
+  // The confirmation panel uses this exact key and target. Completion includes
+  // the bounded source read on both success and failure, before source cleanup.
+  await precacheImage(
+    BoundedImageProvider(path: path),
+    context,
+    onError: (_, _) {},
+  );
 }
 
 Future<PreparedPhotoLocation> preparePhotoLocation({

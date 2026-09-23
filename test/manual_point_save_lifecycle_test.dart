@@ -373,24 +373,33 @@ void main() {
     final repository = _Repository();
     await _open(tester, repository);
     paths.gate = Completer<void>();
-    _press(tester, _pick);
+    final parentZone = Zone.current;
+    String? createdThumbnail;
+    IOOverrides.runZoned(
+      () => _press(tester, _pick),
+      createFile: (path) {
+        if (path.contains('user_reference_images') &&
+            path.endsWith('/thumb.jpg')) {
+          createdThumbnail = path;
+        }
+        return parentZone.run(() => File(path));
+      },
+    );
     await _waitFor(tester, () => paths.requested);
     await tester.pumpWidget(const SizedBox());
     paths.gate!.complete();
-    // Wait for both storage and the subsequent asynchronous deletion.
-    await tester.runAsync(() async {
-      for (var i = 0; i < 100; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-        if (Directory(
-              '${root.path}/user_reference_images/thumb',
-            ).existsSync() &&
-            images().isEmpty) {
-          return;
-        }
-      }
-      fail('late image was not cleaned');
-    });
     await tester.pump();
+    // Wait for both storage and the subsequent asynchronous deletion.
+    await _waitFor(
+      tester,
+      () =>
+          createdThumbnail != null &&
+          !File(createdThumbnail!).parent.existsSync() &&
+          images().isEmpty,
+    );
+    await tester.pump();
+    expect(createdThumbnail, isNotNull);
+    expect(File(source).existsSync(), isTrue);
     expect(images(), isEmpty);
     expect(tester.takeException(), isNull);
   });

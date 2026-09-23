@@ -22,9 +22,10 @@ enum AutoComparisonGalleryStatus {
 }
 
 class AutoComparisonGalleryResult {
-  const AutoComparisonGalleryResult(this.status);
+  const AutoComparisonGalleryResult(this.status, {this.message});
 
   final AutoComparisonGalleryStatus status;
+  final String? message;
 
   bool get isSuccess => status == AutoComparisonGalleryStatus.saved;
 }
@@ -57,15 +58,19 @@ Future<AutoComparisonGalleryResult> autoSaveComparisonImageToGallery({
   required AppSettings settings,
   required String? pointReferenceFullImagePath,
   required String? pointReferenceImageUrl,
+  Future<AppSettings> Function()? loadCurrentSettings,
   AutoComparisonConfigLoader loadConfig = loadComparisonExportConfig,
   AutoComparisonExporter exporter = exportComparisonImage,
   AutoComparisonGallerySaver gallerySaver = saveImageToGallery,
 }) async {
   try {
-    final savedConfig = await loadConfig();
+    final currentSettings = await loadCurrentSettings?.call() ?? settings;
+    final savedConfig = currentSettings.comparisonExportConfigMigrated
+        ? null
+        : await loadConfig();
     final config =
-        (savedConfig ?? ComparisonExportConfig.fromSettings(settings))
-            .withSettings(settings);
+        (savedConfig ?? ComparisonExportConfig.fromSettings(currentSettings))
+            .withSettings(currentSettings);
     final referenceImagePath = _firstExistingLocalPath([
       record.referenceImagePath,
       pointReferenceFullImagePath,
@@ -96,8 +101,11 @@ Future<AutoComparisonGalleryResult> autoSaveComparisonImageToGallery({
         ComparisonExportFailureReason.capturedPhotoUnavailable =>
           AutoComparisonGalleryStatus.capturedPhotoUnavailable,
         ComparisonExportFailureReason.renderFailed ||
+        ComparisonExportFailureReason.budgetExceeded ||
+        ComparisonExportFailureReason.unsupportedFormat ||
+        ComparisonExportFailureReason.invalidData ||
         null => AutoComparisonGalleryStatus.renderFailed,
-      });
+      }, message: result.message);
     }
 
     bool saved;

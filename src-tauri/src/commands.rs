@@ -112,6 +112,7 @@ pub struct ImportAssetsTokenRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ReadAssetRequest {
     pub path: String,
+    pub max_bytes: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -452,12 +453,21 @@ pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> 
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_local_asset_path(&request.path)?;
     let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
-    let bytes = file_io::read_bounded(&full_path, file_io::MAX_ASSET_BYTES)?;
+    let limit = asset_read_limit(request.max_bytes)?;
+    let bytes = file_io::read_bounded(&full_path, limit)?;
 
     Ok(ReadAssetResult {
         data_base64: general_purpose::STANDARD.encode(bytes),
         mime_type: mime_type_for_path(&relative_path),
     })
+}
+
+fn asset_read_limit(requested: Option<u64>) -> Result<usize, String> {
+    match requested {
+        None => Ok(file_io::MAX_ASSET_BYTES),
+        Some(value) if value > 0 && value <= file_io::MAX_ASSET_BYTES as u64 => Ok(value as usize),
+        _ => Err("maxBytes must be between 1 and the asset byte limit".to_string()),
+    }
 }
 
 #[tauri::command]
@@ -662,6 +672,49 @@ mod tests {
         safe_asset_path, safe_local_asset_path, safe_public_https_base_url,
         safe_reference_cache_path,
     };
+
+    #[test]
+    fn asset_read_optional_budget_preserves_default_and_rejects_expansion() {
+        use super::{asset_read_limit, ReadAssetRequest};
+        let old: ReadAssetRequest =
+            serde_json::from_str(r#"{"path":"assets/reference_full/test.jpg"}"#).unwrap();
+        assert_eq!(asset_read_limit(old.max_bytes).unwrap(), 64 * 1024 * 1024);
+        let capped: ReadAssetRequest = serde_json::from_str(
+            r#"{"path":"assets/reference_full/test.jpg","maxBytes":33554432}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            asset_read_limit(capped.max_bytes).unwrap(),
+            32 * 1024 * 1024
+        );
+        assert!(asset_read_limit(Some(0)).is_err());
+        assert!(asset_read_limit(Some(64 * 1024 * 1024 + 1)).is_err());
+        assert!(asset_read_limit(Some(u64::MAX)).is_err());
+    }
+
+    #[test]
+    fn asset_read_smaller_budget_does_not_modify_original() {
+        let root = std::env::temp_dir().join(format!(
+            "miriago-read-cap-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let root = root.canonicalize().unwrap();
+        let path = root.join("original.png");
+        std::fs::write(&path, [1, 2, 3, 4]).unwrap();
+        let result = super::file_io::read_bounded(&path, 3);
+        assert!(result.unwrap_err().starts_with("ASSET_BYTE_LIMIT:"));
+        assert_eq!(
+            super::file_io::read_bounded(&path, 4).unwrap(),
+            vec![1, 2, 3, 4]
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), vec![1, 2, 3, 4]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn anitabi_static_base_url_rejects_unsafe_hosts() {

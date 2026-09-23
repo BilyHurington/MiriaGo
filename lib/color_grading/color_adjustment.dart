@@ -1,9 +1,11 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import 'color_grading_params.dart';
+import '../data/bounded_image_decoder.dart';
 
 class ColorMatchResult {
   const ColorMatchResult({
@@ -24,9 +26,11 @@ Future<ColorMatchResult?> autoMatchColorTone({
   required Uint8List referenceBytes,
   required ColorMatchMode mode,
 }) async {
+  await probeBoundedImage(capturedBytes);
+  await probeBoundedImage(referenceBytes);
   final result = await compute(_autoMatchWorker, {
-    'capturedBytes': capturedBytes,
-    'referenceBytes': referenceBytes,
+    'captured': await _prepareRgba(capturedBytes, ImageDecodeTarget.sample),
+    'reference': await _prepareRgba(referenceBytes, ImageDecodeTarget.sample),
     'mode': mode.name,
   });
   if (result == null) {
@@ -49,25 +53,20 @@ Future<ColorMatchResult?> autoMatchColorTone({
 Future<Uint8List> renderGradedJpeg({
   required Uint8List imageBytes,
   required ColorGradingParams params,
-}) {
+}) async {
   return compute(_renderGradedWorker, {
-    'imageBytes': imageBytes,
+    'image': await _prepareRgba(imageBytes, ImageDecodeTarget.grading),
     'params': params.toJson(),
   });
 }
 
 Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {
-  final capturedBytes = input['capturedBytes']! as Uint8List;
-  final referenceBytes = input['referenceBytes']! as Uint8List;
   final mode = ColorMatchMode.values.firstWhere(
     (candidate) => candidate.name == input['mode'],
     orElse: () => ColorMatchMode.standard,
   );
-  final captured = _decodePrepared(capturedBytes, maxLongSide: 256);
-  final reference = _decodePrepared(referenceBytes, maxLongSide: 256);
-  if (captured == null || reference == null) {
-    return null;
-  }
+  final captured = _fromRgba(input['captured']! as Map<String, Object>);
+  final reference = _fromRgba(input['reference']! as Map<String, Object>);
 
   final referenceStats = _ImageStats.fromImage(reference);
   final capturedStats = _ImageStats.fromImage(captured);
@@ -174,38 +173,43 @@ _MatchCandidate _matchWithConfig({
 }
 
 Uint8List _renderGradedWorker(Map<String, Object?> input) {
-  final imageBytes = input['imageBytes']! as Uint8List;
   final params = ColorGradingParams.fromJson(
     Map<String, Object?>.from(input['params']! as Map),
   );
-  final decoded = img.decodeImage(imageBytes);
-  if (decoded == null) {
-    return imageBytes;
-  }
-
-  final image = img.bakeOrientation(decoded);
+  final image = _fromRgba(input['image']! as Map<String, Object>);
   _applyColorGrading(image, params);
   return Uint8List.fromList(img.encodeJpg(image, quality: 94));
 }
 
-img.Image? _decodePrepared(Uint8List bytes, {required int maxLongSide}) {
-  final decoded = img.decodeImage(bytes);
-  if (decoded == null) {
-    return null;
+Future<Map<String, Object>> _prepareRgba(
+  Uint8List bytes,
+  ImageDecodeTarget target,
+) async {
+  final image = await decodeBoundedImage(bytes, target: target);
+  try {
+    final data = await image.toByteData(
+      format: ui.ImageByteFormat.rawStraightRgba,
+    );
+    if (data == null) throw StateError('无法读取处理后的像素');
+    return {
+      'width': image.width,
+      'height': image.height,
+      'rgba': data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    };
+  } finally {
+    image.dispose();
   }
+}
 
-  final baked = img.bakeOrientation(decoded);
-  final longSide = max(baked.width, baked.height);
-  if (longSide <= maxLongSide) {
-    return baked;
-  }
-
-  final scale = maxLongSide / longSide;
-  return img.copyResize(
-    baked,
-    width: max(1, (baked.width * scale).round()),
-    height: max(1, (baked.height * scale).round()),
-    interpolation: img.Interpolation.average,
+img.Image _fromRgba(Map<String, Object> input) {
+  final bytes = input['rgba']! as Uint8List;
+  return img.Image.fromBytes(
+    width: input['width']! as int,
+    height: input['height']! as int,
+    bytes: bytes.buffer,
+    bytesOffset: bytes.offsetInBytes,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
   );
 }
 

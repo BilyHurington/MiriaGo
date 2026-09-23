@@ -220,15 +220,26 @@ pub(super) fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String>
     let file = File::open(path).map_err(|error| error.to_string())?;
     let metadata = file.metadata().map_err(|error| error.to_string())?;
     reject_link(&metadata)?;
-    if !metadata.is_file() || metadata.len() > limit as u64 {
-        return Err("asset is not a regular file within the byte limit".to_string());
+    if !metadata.is_file() {
+        return Err("asset is not a regular file".to_string());
+    }
+    if metadata.len() > limit as u64 {
+        return Err(format!(
+            "ASSET_BYTE_LIMIT: {} bytes exceeds {}",
+            metadata.len(),
+            limit
+        ));
     }
     let mut bytes = Vec::new();
     file.take(limit as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|error| error.to_string())?;
     if bytes.len() > limit {
-        return Err("asset exceeds byte limit".to_string());
+        return Err(format!(
+            "ASSET_BYTE_LIMIT: at least {} bytes exceeds {}",
+            bytes.len(),
+            limit
+        ));
     }
     Ok(bytes)
 }

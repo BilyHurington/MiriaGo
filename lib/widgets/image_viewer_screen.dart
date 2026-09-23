@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/anitabi_image_fetcher.dart';
+import '../data/bounded_image_decoder.dart';
+import '../data/image_bytes.dart';
+import 'bounded_image.dart';
 import '../data/anitabi_image_source_scope.dart';
 import '../desktop/desktop_asset_image.dart';
 import '../plan/pilgrimage_models.dart';
@@ -70,9 +72,24 @@ class ImageViewerScreen extends StatelessWidget {
               child: Center(
                 child: GestureDetector(
                   onLongPress: () => _showSaveSheet(context),
-                  child: _buildImage(context),
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(color: Colors.white70),
+                    child: IconTheme(
+                      data: const IconThemeData(color: Colors.white70),
+                      child: _buildImage(context),
+                    ),
+                  ),
                 ),
               ),
+            ),
+          ),
+          Positioned(
+            right: 8,
+            top: MediaQuery.paddingOf(context).top + 8,
+            child: IconButton(
+              tooltip: '保存或分享原件',
+              onPressed: () => _showSaveSheet(context),
+              icon: const Icon(LucideIcons.download, color: Colors.white),
             ),
           ),
           Positioned(
@@ -152,7 +169,7 @@ class ImageViewerScreen extends StatelessWidget {
         _showSnackBar(messenger, '图片读取失败', kind: AppStatusBannerKind.error);
         return;
       }
-      final extension = _preferredExtension();
+      final extension = _preferredExtension(imageBytes);
       final result = await deliverPlanExport(
         bytes: imageBytes,
         fileName:
@@ -208,16 +225,16 @@ class ImageViewerScreen extends StatelessWidget {
       return null;
     }
 
-    final anitabiBytes = await fetchAnitabiImageBytes(url, source: imageSource);
+    final anitabiBytes = await fetchAnitabiImageBytes(
+      url,
+      source: imageSource,
+      maxBytes: 64 * 1024 * 1024,
+    );
     if (anitabiBytes != null) {
       return Uint8List.fromList(anitabiBytes);
     }
 
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return null;
-    }
-    return response.bodyBytes;
+    return null;
   }
 
   Future<String?> _resolveLocalImagePath(BuildContext context) async {
@@ -238,7 +255,10 @@ class ImageViewerScreen extends StatelessWidget {
 
     final imageBytes = bytes;
     if (imageBytes != null) {
-      return _writeTemporaryImage(imageBytes, extension: 'jpg');
+      return _writeTemporaryImage(
+        imageBytes,
+        extension: _preferredExtension(imageBytes),
+      );
     }
 
     final url = imageUrl;
@@ -250,6 +270,7 @@ class ImageViewerScreen extends StatelessWidget {
       final anitabiBytes = await fetchAnitabiImageBytes(
         url,
         source: imageSource,
+        maxBytes: 64 * 1024 * 1024,
       );
       if (anitabiBytes != null) {
         return _writeTemporaryImage(
@@ -257,14 +278,7 @@ class ImageViewerScreen extends StatelessWidget {
           extension: _extensionFromUrl(url),
         );
       }
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
-      }
-      return _writeTemporaryImage(
-        response.bodyBytes,
-        extension: _extensionFromUrl(url),
-      );
+      return null;
     } catch (_) {
       return null;
     }
@@ -290,23 +304,40 @@ class ImageViewerScreen extends StatelessWidget {
     final path = Uri.tryParse(url)?.path.toLowerCase() ?? '';
     if (path.endsWith('.png')) return 'png';
     if (path.endsWith('.webp')) return 'webp';
+    if (path.endsWith('.gif')) return 'gif';
+    if (path.endsWith('.heic')) return 'heic';
+    if (path.endsWith('.heif')) return 'heif';
     if (path.endsWith('.jpeg')) return 'jpg';
     return 'jpg';
   }
 
-  String _preferredExtension() {
+  String _preferredExtension([Uint8List? original]) {
+    if (original != null) {
+      if (isJpegBytes(original)) return 'jpg';
+      if (isPngBytes(original)) return 'png';
+      if (isWebpBytes(original)) return 'webp';
+      if (original.length >= 6 &&
+          String.fromCharCodes(original.take(6)).startsWith('GIF8')) {
+        return 'gif';
+      }
+      if (original.length >= 12 &&
+          String.fromCharCodes(original.sublist(4, 8)) == 'ftyp') {
+        final brand = String.fromCharCodes(original.sublist(8, 12));
+        if (['heic', 'heix', 'hevc', 'hevx'].contains(brand)) return 'heic';
+        if (['mif1', 'msf1'].contains(brand)) return 'heif';
+      }
+    }
     final path = filePath ?? Uri.tryParse(imageUrl ?? '')?.path;
-    final lowerPath = path?.toLowerCase() ?? '';
-    if (lowerPath.endsWith('.png')) return 'png';
-    if (lowerPath.endsWith('.webp')) return 'webp';
-    if (lowerPath.endsWith('.jpeg')) return 'jpg';
-    return 'jpg';
+    return _extensionFromUrl(path ?? '');
   }
 
   String _mimeTypeForExtension(String extension) {
     return switch (extension) {
       'png' => 'image/png',
       'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      'heic' => 'image/heic',
+      'heif' => 'image/heif',
       _ => 'image/jpeg',
     };
   }
@@ -339,48 +370,12 @@ class ImageViewerScreen extends StatelessWidget {
   Widget _buildImage(BuildContext context) {
     final imageBytes = bytes;
     if (imageBytes != null) {
-      return Image.memory(imageBytes, fit: BoxFit.contain);
+      return BoundedImage(bytes: imageBytes, target: ImageDecodeTarget.preview);
     }
-
     final path = filePath;
     if (path != null) {
-      if (isDesktopAssetPath(path)) {
-        return FutureBuilder<String?>(
-          future: loadDesktopAssetDataUrl(path),
-          builder: (context, snapshot) {
-            final dataUrl = snapshot.data;
-            if (dataUrl == null || dataUrl.isEmpty) {
-              return const _ImageViewerPlaceholder(
-                state: _ImageViewerPlaceholderState.loading,
-              );
-            }
-            return Image.network(
-              dataUrl,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return const _ImageViewerPlaceholder();
-              },
-            );
-          },
-        );
-      }
-
-      if (_isBundledSampleAssetPath(path)) {
-        return Image.asset(
-          path,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return const _ImageViewerPlaceholder();
-          },
-        );
-      }
-
-      final file = File(path);
-      if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.contain);
-      }
+      return BoundedImage(path: path, target: ImageDecodeTarget.preview);
     }
-
     final url = imageUrl;
     if (url != null) {
       return _RemoteImageViewer(
@@ -404,20 +399,7 @@ Future<Uint8List?> _resolveRemoteImageBytes(
   String url,
   AnitabiImageSource imageSource,
 ) async {
-  final anitabiBytes = await fetchAnitabiImageBytes(url, source: imageSource);
-  if (anitabiBytes != null) {
-    return Uint8List.fromList(anitabiBytes);
-  }
-
-  try {
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return null;
-    }
-    return response.bodyBytes;
-  } catch (_) {
-    return null;
-  }
+  return readBoundedImageSource(url, source: imageSource);
 }
 
 class _RemoteImageViewer extends StatefulWidget {
@@ -470,17 +452,13 @@ class _RemoteImageViewerState extends State<_RemoteImageViewer> {
         }
 
         final bytes = snapshot.data;
+        if (snapshot.error is ImageBudgetException) {
+          return BoundedImageError(error: snapshot.error!);
+        }
         if (snapshot.hasError || bytes == null || bytes.isEmpty) {
           return const _ImageViewerPlaceholder();
         }
-
-        return Image.memory(
-          bytes,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return const _ImageViewerPlaceholder();
-          },
-        );
+        return BoundedImage(bytes: bytes, target: ImageDecodeTarget.preview);
       },
     );
   }

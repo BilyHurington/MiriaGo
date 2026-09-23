@@ -6,9 +6,10 @@ enum _Ownership { draft, saving, committed, uncertain }
 
 /// Owns only newly selected resources, never an existing point's images.
 class PendingReferenceLifecycle<T extends Object> {
-  PendingReferenceLifecycle({required this.delete});
+  PendingReferenceLifecycle({required this.delete, this.onRetain});
 
   final Future<void> Function(T resource) delete;
+  final Future<void> Function(T resource)? onRetain;
   T? _current;
   _Ownership _ownership = _Ownership.draft;
   bool _disposed = false;
@@ -56,6 +57,8 @@ class PendingReferenceLifecycle<T extends Object> {
     // A thrown repository call can mean the commit succeeded but rereading
     // failed. Without authoritative confirmation, retaining is the safe choice.
     _ownership = succeeded ? _Ownership.committed : _Ownership.uncertain;
+    final resource = _current;
+    if (resource != null) unawaited(_retain(resource));
   }
 
   void endSave() {
@@ -94,6 +97,18 @@ class PendingReferenceLifecycle<T extends Object> {
     } catch (error) {
       // Cleanup is best-effort; an orphan must not break saving or disposal.
       debugPrint('Pending reference cleanup failed: $error');
+    }
+  }
+
+  Future<void> _retain(T resource) async {
+    try {
+      await onRetain?.call(resource);
+    } catch (error) {
+      // Ownership moved before the callback: finalization failure never grants
+      // permission to delete a resource whose database commit may have succeeded.
+      debugPrint(
+        'Pending reference finalization failed; resource retained: $error',
+      );
     }
   }
 }

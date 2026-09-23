@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -5,9 +6,25 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'comparison_export_config.dart';
+import 'comparison_export_budget.dart';
+import 'comparison_export_encoding.dart';
+import '../data/bounded_image_decoder.dart';
+
+class ComparisonRenderInputs {
+  const ComparisonRenderInputs({
+    required this.referenceBytes,
+    required this.capturedBytes,
+  });
+  final Uint8List? referenceBytes;
+  final Uint8List capturedBytes;
+}
 
 class ComparisonExportRenderer {
-  const ComparisonExportRenderer();
+  const ComparisonExportRenderer({
+    this.budget = const ComparisonRenderBudget(),
+  });
+  final ComparisonRenderBudget budget;
+  static Future<void> _tail = Future.value();
 
   static const double inset = 18.0;
   static const double imageGap = 14.0;
@@ -20,18 +37,81 @@ class ComparisonExportRenderer {
     required Map<ComparisonMetadataField, String> metadata,
     required String? colorGradingSummary,
   }) async {
+    try {
+      return (await renderEncoded(
+        referenceBytes: referenceBytes,
+        capturedBytes: capturedBytes,
+        config: config,
+        metadata: metadata,
+        colorGradingSummary: colorGradingSummary,
+      )).bytes;
+    } on ImageBudgetException catch (error) {
+      if (error.kind == ImageBudgetFailure.invalidData ||
+          error.kind == ImageBudgetFailure.unsupported) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<EncodedComparisonImage> renderEncoded({
+    required Uint8List? referenceBytes,
+    required Uint8List capturedBytes,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
+  }) => renderLoaded(
+    loadSources: () async => ComparisonRenderInputs(
+      referenceBytes: referenceBytes,
+      capturedBytes: capturedBytes,
+    ),
+    config: config,
+    metadata: metadata,
+    colorGradingSummary: colorGradingSummary,
+  );
+
+  // Load encoded files inside the same gate: queued exports must not accumulate
+  // full source buffers while another job is decoding, drawing or encoding.
+  Future<EncodedComparisonImage> renderLoaded({
+    required Future<ComparisonRenderInputs> Function() loadSources,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
+  }) async {
+    final previous = _tail;
+    final done = Completer<void>();
+    _tail = done.future;
+    await previous;
+    try {
+      final inputs = await loadSources();
+      return await _render(
+        inputs: inputs,
+        config: config,
+        metadata: metadata,
+        colorGradingSummary: colorGradingSummary,
+      );
+    } finally {
+      done.complete();
+    }
+  }
+
+  Future<EncodedComparisonImage> _render({
+    required ComparisonRenderInputs inputs,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
+  }) async {
     ui.Image? refImg;
     ui.Image? capImg;
     ui.Picture? picture;
     ui.Image? output;
     ui.PictureRecorder? activeRecorder;
     try {
-      refImg = referenceBytes != null
-          ? await _decodeImage(referenceBytes)
-          : null;
-      if (referenceBytes != null && refImg == null) return null;
-      capImg = await _decodeImage(capturedBytes);
-      if (capImg == null) return null;
+      final referenceBytes = inputs.referenceBytes;
+      final refInfo = referenceBytes == null
+          ? null
+          : await probeBoundedImage(referenceBytes);
+      final capInfo = await probeBoundedImage(inputs.capturedBytes);
 
       final fixedWidth = config.outputWidth.px;
       final borderPct = config.borderWidthPercent;
@@ -43,9 +123,9 @@ class ComparisonExportRenderer {
       if (fixedWidth != null) {
         outputWidth = fixedWidth.toDouble();
       } else {
-        var maxImgW = capImg.width.toDouble();
-        if (refImg != null && refImg.width > maxImgW) {
-          maxImgW = refImg.width.toDouble();
+        var maxImgW = capInfo.width.toDouble();
+        if (refInfo != null && refInfo.width > maxImgW) {
+          maxImgW = refInfo.width.toDouble();
         }
         outputWidth =
             ((maxImgW + 2 * effectiveInset) / (1 - 2 * borderPct / 100))
@@ -56,10 +136,10 @@ class ComparisonExportRenderer {
       final contentWidth = outputWidth - 2 * borderPx - 2 * effectiveInset;
 
       var refHeight = 0.0;
-      if (refImg != null) {
-        refHeight = refImg.height / refImg.width * contentWidth;
+      if (refInfo != null) {
+        refHeight = refInfo.height / refInfo.width * contentWidth;
       }
-      final capHeight = capImg.height / capImg.width * contentWidth;
+      final capHeight = capInfo.height / capInfo.width * contentWidth;
 
       final metaLayout = _ComparisonMetaLayout.from(
         width: contentWidth,
@@ -69,7 +149,7 @@ class ComparisonExportRenderer {
       );
 
       final imgAreaHeight =
-          (refImg != null ? refHeight + effectiveImageGap : 0) + capHeight;
+          (refInfo != null ? refHeight + effectiveImageGap : 0) + capHeight;
       final metaGap = metaLayout.hasContent ? effectiveInset : 0.0;
       final totalHeight =
           borderPx * 2 +
@@ -78,12 +158,32 @@ class ComparisonExportRenderer {
           metaGap +
           metaLayout.height;
 
+      final size = budget.fit(outputWidth, totalHeight);
+      ImageDecodeTarget targetFor(double height) => ImageDecodeTarget(
+        maxEdge: max(1, (max(contentWidth, height) * size.scale).ceil()),
+        maxPixels: max(
+          1,
+          (contentWidth * height * size.scale * size.scale).floor(),
+        ),
+      );
+      if (referenceBytes != null) {
+        refImg = await decodeBoundedImage(
+          referenceBytes,
+          target: targetFor(refHeight),
+        );
+      }
+      capImg = await decodeBoundedImage(
+        inputs.capturedBytes,
+        target: targetFor(capHeight),
+      );
+
       final recorder = ui.PictureRecorder();
       activeRecorder = recorder;
       final canvas = Canvas(
         recorder,
-        Rect.fromLTWH(0, 0, outputWidth, totalHeight),
+        Rect.fromLTWH(0, 0, size.width.toDouble(), size.height.toDouble()),
       );
+      canvas.scale(size.scale);
 
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -147,12 +247,19 @@ class ComparisonExportRenderer {
       }
 
       picture = recorder.endRecording();
-      output = await picture.toImage(outputWidth.toInt(), totalHeight.toInt());
-      final byteData = await output.toByteData(format: ui.ImageByteFormat.png);
-
-      return byteData?.buffer.asUint8List();
-    } catch (_) {
-      return null;
+      output = await picture.toImage(size.width, size.height);
+      picture.dispose();
+      picture = null;
+      capImg.dispose();
+      capImg = null;
+      refImg?.dispose();
+      refImg = null;
+      final raster = output;
+      output = null;
+      return await encodeAndDisposeComparisonImage(
+        raster,
+        config.imageEncoding,
+      );
     } finally {
       if (activeRecorder?.isRecording ?? false) {
         activeRecorder!.endRecording().dispose();
@@ -399,18 +506,14 @@ class ComparisonExportRenderer {
       summaryPainter.dispose();
     }
   }
+}
 
-  Future<ui.Image?> _decodeImage(Uint8List bytes) async {
-    ui.Codec? codec;
-    try {
-      codec = await ui.instantiateImageCodec(bytes);
-      return (await codec.getNextFrame()).image;
-    } catch (_) {
-      return null;
-    } finally {
-      codec?.dispose();
-    }
-  }
+// maxLines bounds visible output, not shaping work. Bound the input before
+// trimming, concatenating or handing it to any measuring/drawing TextPainter.
+String _boundedLayoutText(String value, {int maxRunes = 512}) {
+  final prefix = value.runes.take(maxRunes + 1).toList(growable: false);
+  final text = String.fromCharCodes(prefix.take(maxRunes)).trim();
+  return prefix.length > maxRunes ? '$text...' : text;
 }
 
 class _ComparisonMetaLayout {
@@ -492,7 +595,9 @@ class _ComparisonMetaLayout {
     final tagPadV = 8.0 * scale;
     final radius = 12.0 * scale;
     final tagRadius = 6.0 * scale;
-    final pilgrimName = config.showPilgrimName ? config.pilgrimName.trim() : '';
+    final pilgrimName = config.showPilgrimName
+        ? _boundedLayoutText(config.pilgrimName)
+        : '';
     final signatureWidth = pilgrimName.isEmpty
         ? 0.0
         : min(width * 0.28, 300.0 * scale);
@@ -506,12 +611,12 @@ class _ComparisonMetaLayout {
     final pilgrimGap = 8.0 * scale;
     final gradingFontSize = 17.0 * scale;
     final gradingSummary = config.showColorGradingParams
-        ? (colorGradingSummary?.trim() ?? '')
+        ? _boundedLayoutText(colorGradingSummary ?? '', maxRunes: 1024)
         : '';
 
     String value(ComparisonMetadataField field) {
       if (!config.metadataFields.contains(field)) return '';
-      return metadata[field]?.trim() ?? '';
+      return _boundedLayoutText(metadata[field] ?? '');
     }
 
     final point = value(ComparisonMetadataField.pointName);

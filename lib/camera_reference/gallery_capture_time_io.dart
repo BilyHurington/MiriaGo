@@ -1,16 +1,10 @@
-import 'dart:io';
-
 import 'package:image/image.dart' as img;
+import '../data/bounded_image_file_io.dart';
 
 Future<DateTime?> readGalleryCaptureTime(String imagePath) async {
   try {
-    final file = File(imagePath);
-    if (!file.existsSync()) {
-      return null;
-    }
-
-    final bytes = await file.readAsBytes();
-    final exif = img.JpegDecoder().decode(bytes)?.exif;
+    final bytes = await readBoundedImageFile(imagePath);
+    final exif = img.decodeJpgExif(bytes);
     if (exif == null || exif.isEmpty) {
       return null;
     }
@@ -20,7 +14,8 @@ Future<DateTime?> readGalleryCaptureTime(String imagePath) async {
       'DateTimeDigitized',
       'DateTime',
     ]) {
-      final value = exif.getTag(img.exifTagNameToID[tagName] ?? -1);
+      final tag = img.exifTagNameToID[tagName] ?? -1;
+      final value = exif.exifIfd[tag] ?? exif.getTag(tag);
       final parsed = _parseExifDateTime(value?.toString());
       if (parsed != null) {
         return parsed;
@@ -54,7 +49,7 @@ DateTime? _parseExifDateTime(String? value) {
   }
 
   try {
-    return DateTime(
+    final value = DateTime(
       parts[0]!,
       parts[1]!,
       parts[2]!,
@@ -62,6 +57,15 @@ DateTime? _parseExifDateTime(String? value) {
       parts[4]!,
       parts[5]!,
     );
+    if (value.year != parts[0] ||
+        value.month != parts[1] ||
+        value.day != parts[2] ||
+        value.hour != parts[3] ||
+        value.minute != parts[4] ||
+        value.second != parts[5]) {
+      return null;
+    }
+    return value;
   } catch (_) {
     return null;
   }

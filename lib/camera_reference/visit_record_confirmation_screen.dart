@@ -16,13 +16,12 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../records/visit_record_photo_stub.dart'
     if (dart.library.io) '../records/visit_record_photo_io.dart';
 import '../widgets/image_viewer_screen.dart';
-import '../widgets/anitabi_network_image.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
 import '../widgets/reference_image_placeholder.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
-import '../widgets/reference_thumbnail_stub.dart'
-    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'auto_comparison_gallery_backup.dart';
 import 'photo_location.dart';
 import 'photo_location_save_stub.dart'
@@ -150,7 +149,7 @@ class _VisitRecordConfirmationScreenState
         (record == null || record.photoPath != widget.photoPath)) {
       _sourceDiscarded = true;
       // Route pop completes before its reverse animation and before a pending
-      // FileImage read. Both the preview owner and its read must finish first.
+      // bounded provider read. Both the preview owner and its read must finish first.
       if (await _previewReadComplete == false) return;
       await discard(widget.discardSourcePhoto);
     }
@@ -329,6 +328,7 @@ class _VisitRecordConfirmationScreenState
                   record: record,
                   point: widget.point,
                   settings: widget.settings,
+                  loadCurrentSettings: controller.repository!.loadAppSettings,
                   pointReferenceFullImagePath: widget.referenceImagePath,
                   pointReferenceImageUrl: widget.referenceImageUrl,
                 );
@@ -548,6 +548,7 @@ String _comparisonBackupMessage(AutoComparisonGalleryResult? result) {
   if (result == null) {
     return '';
   }
+  if (result.message != null) return '，${result.message}';
   return switch (result.status) {
     AutoComparisonGalleryStatus.saved => '，对比图已保存到相册',
     AutoComparisonGalleryStatus.referenceUnavailable => '，参考图不可用，未生成对比图',
@@ -625,7 +626,11 @@ class _ComparisonPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _ImageCompareTile(
           label: '巡礼图',
-          child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
+          child: VisitRecordPhoto(
+            path: photoPath,
+            fit: BoxFit.contain,
+            target: ImageDecodeTarget.panel,
+          ),
           onTap: () => ImageViewerScreen.show(context, filePath: photoPath),
           onLongPress: () => _showGallerySaveSheet(context, photoPath),
         ),
@@ -694,33 +699,19 @@ class _ReferencePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final localBytes = bytes;
     if (localBytes != null) {
-      return Image.memory(localBytes, fit: BoxFit.contain);
+      return BoundedImage(bytes: localBytes);
     }
 
     final localPath = imagePath;
     if (referenceImageLocalPathCanDisplay(localPath)) {
-      return ReferenceThumbnail(
-        localPath: localPath,
-        imageUrl: null,
-        placeholder: const _ReferencePlaceholder(),
-        fit: BoxFit.contain,
-      );
+      return BoundedImage(path: localPath);
     }
 
     final url = imageUrl;
     if (url != null) {
-      return AnitabiNetworkImage(
-        url: url,
-        imageSource: AnitabiImageSourceScope.of(context),
-        fit: BoxFit.contain,
-        loadingBuilder: (_) {
-          return const _ReferencePlaceholder(
-            state: ReferenceImagePlaceholderState.loading,
-          );
-        },
-        errorBuilder: (_) {
-          return const _ReferencePlaceholder();
-        },
+      return BoundedImage(
+        path: url,
+        source: AnitabiImageSourceScope.of(context),
       );
     }
 
@@ -729,15 +720,13 @@ class _ReferencePreview extends StatelessWidget {
 }
 
 class _ReferencePlaceholder extends StatelessWidget {
-  const _ReferencePlaceholder({
-    this.state = ReferenceImagePlaceholderState.unavailable,
-  });
-
-  final ReferenceImagePlaceholderState state;
+  const _ReferencePlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    return ReferenceImagePlaceholder(state: state);
+    return const ReferenceImagePlaceholder(
+      state: ReferenceImagePlaceholderState.unavailable,
+    );
   }
 }
 

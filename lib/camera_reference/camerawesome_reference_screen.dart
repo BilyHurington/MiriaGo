@@ -20,9 +20,9 @@ import '../plan/reference_image_status.dart';
 import '../records/visit_record_file_ops_stub.dart'
     if (dart.library.io) '../records/visit_record_file_ops_io.dart';
 import '../widgets/snackbar_helper.dart';
-import '../widgets/anitabi_network_image.dart';
-import '../widgets/reference_thumbnail_stub.dart'
-    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
+
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import 'camera_storage_stub.dart'
@@ -141,7 +141,22 @@ class _CamerawesomeReferenceScreenState
       return;
     }
 
-    final bytes = await picked.readAsBytes();
+    Uint8List bytes;
+    try {
+      bytes = await readImageStreamBounded(
+        picked.openRead(),
+        declaredLength: await picked.length(),
+      );
+      await probeBoundedImage(bytes);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: error is ImageBudgetException ? error.message : '参考图读取失败',
+        );
+      }
+      return;
+    }
     if (!mounted) {
       return;
     }
@@ -644,24 +659,25 @@ Future<double?> _resolveReferenceAspectRatio({
   required String? url,
   required AnitabiImageSource imageSource,
 }) async {
-  final localBytes =
-      bytes ??
-      (localPath == null
-          ? null
-          : await reference_image_bytes.readReferenceImageBytes(localPath));
-  if (localBytes != null) {
-    return _decodeImageAspectRatio(localBytes);
-  }
-
-  if (url == null || url.isEmpty) {
-    return null;
-  }
-
   try {
+    final localBytes =
+        bytes ??
+        (localPath == null
+            ? null
+            : await reference_image_bytes.readReferenceImageBytes(localPath));
+    if (localBytes != null) {
+      return _decodeImageAspectRatio(localBytes);
+    }
+
+    if (url == null || url.isEmpty) {
+      return null;
+    }
+
     final remoteBytes = await fetchAnitabiImageBytes(
       url,
       source: imageSource,
       timeout: const Duration(seconds: 5),
+      maxBytes: maxImageEncodedBytes,
     );
     if (remoteBytes == null) {
       return null;
@@ -674,9 +690,7 @@ Future<double?> _resolveReferenceAspectRatio({
 
 Future<double?> _decodeImageAspectRatio(Uint8List bytes) async {
   try {
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
+    final image = await probeBoundedImage(bytes);
     if (image.width <= 0 || image.height <= 0) {
       return null;
     }
@@ -3879,43 +3893,14 @@ class _ReferenceImageView extends StatelessWidget {
     final bytes = source.bytes;
     final Widget image;
     if (bytes != null) {
-      image = Image.memory(
-        bytes,
-        width: double.infinity,
-        height: double.infinity,
-        fit: fit,
-        gaplessPlayback: true,
-      );
+      image = BoundedImage(bytes: bytes, fit: fit);
     } else if (source.localPath != null) {
-      image = ReferenceThumbnail(
-        localPath: source.localPath,
-        imageUrl: null,
-        placeholder: const _ReferenceError(),
-        width: double.infinity,
-        height: double.infinity,
-        fit: fit,
-      );
+      image = BoundedImage(path: source.localPath, fit: fit);
     } else if (source.url != null) {
-      image = AnitabiNetworkImage(
-        url: cameraReferenceFullResolutionDisplayUrl(source.url!),
-        imageSource: source.imageSource,
-        width: double.infinity,
-        height: double.infinity,
+      image = BoundedImage(
+        path: cameraReferenceFullResolutionDisplayUrl(source.url!),
+        source: source.imageSource,
         fit: fit,
-        loadingBuilder: (_) {
-          return const ColoredBox(
-            color: Colors.black,
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-          );
-        },
-        errorBuilder: (_) {
-          return const _ReferenceError();
-        },
       );
     } else {
       return const SizedBox.shrink();
@@ -3936,18 +3921,4 @@ class _ReferenceImageView extends StatelessWidget {
 @visibleForTesting
 String cameraReferenceFullResolutionDisplayUrl(String url) {
   return anitabiFullResolutionImageUrl(url) ?? url;
-}
-
-class _ReferenceError extends StatelessWidget {
-  const _ReferenceError();
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.surfaceMuted,
-      child: Center(
-        child: Icon(LucideIcons.imageOff, color: AppColors.accentDark),
-      ),
-    );
-  }
 }
