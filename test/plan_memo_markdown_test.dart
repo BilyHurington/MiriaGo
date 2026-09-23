@@ -19,11 +19,11 @@ void main() {
     const source = '- [ ] same\n  - [ ] same\n\n> - [X] same\n\n1. [ ] same';
     expect(
       toggleMemoMarkdownTask(source, 0),
-      '- [x] same\n  - [ ] same\n\n> - [X] same\n\n1. [ ] same',
+      '- [ ] same\n  - [x] same\n\n> - [X] same\n\n1. [ ] same',
     );
     expect(
       toggleMemoMarkdownTask(source, 1),
-      '- [ ] same\n  - [x] same\n\n> - [X] same\n\n1. [ ] same',
+      '- [x] same\n  - [ ] same\n\n> - [X] same\n\n1. [ ] same',
     );
     expect(
       toggleMemoMarkdownTask(source, 2),
@@ -64,12 +64,13 @@ void main() {
     );
   });
 
-  test('code nested in a real list does not add a task', () {
+  test('loose task and nested code do not shift rendered task indices', () {
     const source =
-        '- [ ] parent\n\n  ```\n  - [ ] example\n  ```\n\n- [ ] next';
+        '- [ ] parent\n\n  ```\n  - [ ] example\n  ```\n\n---\n\n- [ ] next';
     expect(
-      toggleMemoMarkdownTask(source, 1),
+      toggleMemoMarkdownTask(source, 0),
       source.replaceFirst('[ ] next', '[x] next'),
     );
+    expect(toggleMemoMarkdownTask(source, 1), source);
   });
 }

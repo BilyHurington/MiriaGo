@@ -58,19 +58,23 @@ List<int> _taskMarkerOffsets(String source) {
   final marker = RegExp('^${RegExp.escape(prefix)}(\\d+)EndMarker(?:\\s|\$)');
   final offsets = <int>[];
   void visit(List<md.Node> nodes) {
-    for (var index = 0; index < nodes.length; index++) {
-      final node = nodes[index];
+    for (final node in nodes) {
       if (node is! md.Element) continue;
-      if (node.tag == 'input' && node.attributes['type'] == 'checkbox') {
-        final following = index + 1 < nodes.length
-            ? nodes[index + 1].textContent
-            : '';
-        final match = marker.firstMatch(following);
-        final value = match == null ? null : int.tryParse(match[1]!);
-        if (value != null && candidates.contains(value)) offsets.add(value);
-      }
       final children = node.children;
-      if (children != null) visit(children);
+      if (children == null || children.isEmpty) continue;
+      visit(children);
+      // flutter_markdown_plus builds each checkbox when leaving its li, after
+      // nested items. Mirror that postorder, not the input node's source order.
+      final first = children.first;
+      if (node.tag != 'li' ||
+          first is! md.Element ||
+          first.attributes['type'] != 'checkbox') {
+        continue;
+      }
+      final following = children.length > 1 ? children[1].textContent : '';
+      final match = marker.firstMatch(following);
+      final value = match == null ? null : int.tryParse(match[1]!);
+      if (value != null && candidates.contains(value)) offsets.add(value);
     }
   }
 

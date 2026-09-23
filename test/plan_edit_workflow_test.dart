@@ -55,6 +55,69 @@ void _saveMemo(WidgetTester tester) {
 }
 
 void main() {
+  const nestedTasks =
+      '```md\n- [ ] example\n```\n\n'
+      '- [ ] parent\n  - [x] child\n    - [ ] grandchild\n\n'
+      '> - [ ] quoted';
+  for (final task in ['parent', 'child', 'grandchild', 'quoted']) {
+    testWidgets('rendered nested checkbox persists only $task', (tester) async {
+      final repository = _DelayedMemoRepository();
+      final plan = await repository.loadActivePlan();
+      await repository.updatePlanMemo(planId: plan.id, memo: nestedTasks);
+      await _openMemo(tester, repository);
+      final checkboxes = find.byWidgetPredicate(
+        (widget) =>
+            widget is Icon &&
+            (widget.icon == LucideIcons.square ||
+                widget.icon == LucideIcons.squareCheckBig),
+      );
+      expect(checkboxes, findsNWidgets(4));
+      // Locate by visual order, not by the renderer's internal callback order.
+      final visualOrder =
+          checkboxes
+              .evaluate()
+              .map(
+                (element) => find.byElementPredicate(
+                  (other) => identical(other, element),
+                ),
+              )
+              .toList()
+            ..sort(
+              (a, b) =>
+                  tester.getCenter(a).dy.compareTo(tester.getCenter(b).dy),
+            );
+      final index = ['parent', 'child', 'grandchild', 'quoted'].indexOf(task);
+      await tester.tap(visualOrder[index]);
+      await tester.pumpAndSettle();
+      final before = task == 'child' ? '[x] $task' : '[ ] $task';
+      final after = task == 'child' ? '[ ] $task' : '[x] $task';
+      expect(
+        (await repository.loadActivePlan()).memo,
+        nestedTasks.replaceFirst(before, after),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('non-rendered loose tasks do not shift a later checkbox', (
+    tester,
+  ) async {
+    const text =
+        '- [ ] parent\n\n  ```\n  - [ ] example\n  ```\n\n---\n\n- [ ] next';
+    final repository = _DelayedMemoRepository();
+    final plan = await repository.loadActivePlan();
+    await repository.updatePlanMemo(planId: plan.id, memo: text);
+    await _openMemo(tester, repository);
+    expect(find.byIcon(LucideIcons.square), findsOneWidget);
+    await tester.tap(find.byIcon(LucideIcons.square));
+    await tester.pumpAndSettle();
+    expect(
+      (await repository.loadActivePlan()).memo,
+      text.replaceFirst('[ ] next', '[x] next'),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'edits during a pending memo save remain unsaved and can be saved next',
     (tester) async {
