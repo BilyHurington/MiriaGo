@@ -1,9 +1,23 @@
-use std::{collections::HashMap, fs, path::PathBuf, process::Command};
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    process::Command,
+    sync::{LazyLock, Mutex},
+};
 
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 
 use crate::storage;
+
+#[path = "desktop_file_io.rs"]
+mod file_io;
+
+static EXPORT_AUTHORIZATION: Mutex<file_io::ExportAuthorization> =
+    Mutex::new(file_io::ExportAuthorization::new());
+static IMPORT_RESTORATIONS: LazyLock<Mutex<file_io::ImportRestorations>> =
+    LazyLock::new(|| Mutex::new(file_io::ImportRestorations::default()));
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,6 +103,12 @@ pub struct RestoreImportAssetsRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ImportAssetsTokenRequest {
+    pub restore_token: String,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadAssetRequest {
     pub path: String,
@@ -139,6 +159,7 @@ pub struct AssetFileResult {
 #[serde(rename_all = "camelCase")]
 pub struct RestoreImportAssetsResult {
     pub restored_paths: HashMap<String, String>,
+    pub restore_token: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -221,8 +242,12 @@ pub fn open_desktop_directory(request: OpenDesktopDirectoryRequest) -> Result<()
 pub fn prepare_export_destination(
     request: PrepareExportDestinationRequest,
 ) -> Result<ExportDestinationResult, String> {
+    let mut authorization = EXPORT_AUTHORIZATION
+        .lock()
+        .map_err(|error| error.to_string())?;
+    authorization.clear();
+    let extension = file_io::validated_extension(&request.extension)?;
     let dirs = storage::ensure_data_dirs()?;
-    let extension = normalize_extension(&request.extension);
     let label = export_filter_label(&request.mime_type, &extension);
 
     let mut dialog = rfd::FileDialog::new()
@@ -243,9 +268,10 @@ pub fn prepare_export_destination(
         }
     };
 
+    let path = authorization.authorize(path, &extension)?;
     Ok(ExportDestinationResult {
         action: "selected".to_string(),
-        path: Some(ensure_extension(path, &extension).display().to_string()),
+        path: Some(path),
     })
 }
 
@@ -253,18 +279,13 @@ pub fn prepare_export_destination(
 pub fn write_export_file(
     request: WriteExportFileRequest,
 ) -> Result<ExportDestinationResult, String> {
-    let extension = normalize_extension(&request.extension);
-    let path = ensure_extension(PathBuf::from(&request.path), &extension);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    let bytes = general_purpose::STANDARD
-        .decode(request.data_base64)
-        .map_err(|error| error.to_string())?;
-    fs::write(&path, bytes).map_err(|error| error.to_string())?;
+    let path = EXPORT_AUTHORIZATION
+        .lock()
+        .map_err(|error| error.to_string())?
+        .write(&request.path, &request.extension, &request.data_base64)?;
     Ok(ExportDestinationResult {
         action: "saved".to_string(),
-        path: Some(path.display().to_string()),
+        path: Some(path),
     })
 }
 
@@ -380,59 +401,45 @@ pub fn restore_import_assets(
     request: RestoreImportAssetsRequest,
 ) -> Result<RestoreImportAssetsResult, String> {
     let dirs = storage::ensure_data_dirs()?;
-    let package_dir = safe_directory_name(
-        request
-            .package_id
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .or(request.source_name.as_deref())
-            .unwrap_or("imported_package"),
-    );
-    let mut restored_paths = HashMap::new();
+    // Retain the IPC fields for compatibility; neither is a filesystem authority.
+    let _ = (request.package_id, request.source_name);
+    let (restored_paths, restore_token) = IMPORT_RESTORATIONS
+        .lock()
+        .map_err(|error| error.to_string())?
+        .restore(&dirs.data_dir, request.assets_base64)?;
+    Ok(RestoreImportAssetsResult {
+        restored_paths,
+        restore_token,
+    })
+}
 
-    for (package_path, data_base64) in request.assets_base64 {
-        let relative_package_path = safe_asset_path(&package_path)?;
-        let bytes = general_purpose::STANDARD
-            .decode(data_base64)
-            .map_err(|error| error.to_string())?;
-        if bytes.is_empty() {
-            continue;
-        }
+#[tauri::command]
+pub fn cleanup_import_assets(request: ImportAssetsTokenRequest) -> Result<(), String> {
+    IMPORT_RESTORATIONS
+        .lock()
+        .map_err(|error| error.to_string())?
+        .cleanup(&request.restore_token)
+}
 
-        let local_relative_path = PathBuf::from("assets")
-            .join("imported_plan_assets")
-            .join(&package_dir)
-            .join(relative_package_path);
-        let local_full_path = dirs.data_dir.join(&local_relative_path);
-        if let Some(parent) = local_full_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        fs::write(&local_full_path, bytes).map_err(|error| error.to_string())?;
-        restored_paths.insert(
-            package_path.replace('\\', "/"),
-            relative_path_string(&local_relative_path),
-        );
-    }
-
-    Ok(RestoreImportAssetsResult { restored_paths })
+#[tauri::command]
+pub fn finalize_import_assets(request: ImportAssetsTokenRequest) -> Result<(), String> {
+    IMPORT_RESTORATIONS
+        .lock()
+        .map_err(|error| error.to_string())?
+        .finalize(&request.restore_token)
 }
 
 #[tauri::command]
 pub fn write_asset(request: WriteAssetRequest) -> Result<ReadAssetResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_local_asset_path(&request.path)?;
-    let bytes = general_purpose::STANDARD
-        .decode(request.data_base64)
-        .map_err(|error| error.to_string())?;
+    let bytes = file_io::decode_bounded(&request.data_base64, file_io::MAX_ASSET_BYTES)?;
     if bytes.is_empty() {
         return Err("asset data is empty".to_string());
     }
 
-    let full_path = dirs.data_dir.join(&relative_path);
-    if let Some(parent) = full_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::write(&full_path, &bytes).map_err(|error| error.to_string())?;
+    let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, true)?;
+    file_io::atomic_write(&full_path, &bytes)?;
 
     Ok(ReadAssetResult {
         data_base64: general_purpose::STANDARD.encode(bytes),
@@ -444,9 +451,8 @@ pub fn write_asset(request: WriteAssetRequest) -> Result<ReadAssetResult, String
 pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_local_asset_path(&request.path)?;
-    let full_path = dirs.data_dir.join(&relative_path);
-    let bytes = fs::read(&full_path)
-        .map_err(|error| format!("failed to read {}: {error}", full_path.display()))?;
+    let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
+    let bytes = file_io::read_bounded(&full_path, file_io::MAX_ASSET_BYTES)?;
 
     Ok(ReadAssetResult {
         data_base64: general_purpose::STANDARD.encode(bytes),
@@ -458,7 +464,7 @@ pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> 
 pub fn inspect_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFileResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_reference_cache_path(&request.path)?;
-    let full_path = dirs.data_dir.join(relative_path);
+    let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
     match fs::metadata(&full_path) {
         Ok(metadata) => Ok(AssetFileResult {
             existed: metadata.is_file(),
@@ -483,7 +489,7 @@ pub fn inspect_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetF
 pub fn delete_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFileResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_reference_cache_path(&request.path)?;
-    let full_path = dirs.data_dir.join(relative_path);
+    let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
     let byte_length = match fs::metadata(&full_path) {
         Ok(metadata) if metadata.is_file() => metadata.len(),
         Ok(_) => return Err("reference cache path is not a file".to_string()),
@@ -562,20 +568,6 @@ fn is_local_or_private_host(host: &str) -> bool {
     )
 }
 
-fn normalize_extension(extension: &str) -> String {
-    extension
-        .trim()
-        .trim_start_matches('.')
-        .to_ascii_lowercase()
-}
-
-fn ensure_extension(path: PathBuf, extension: &str) -> PathBuf {
-    if extension.is_empty() || path.extension().is_some() {
-        return path;
-    }
-    path.with_extension(extension)
-}
-
 fn export_filter_label(mime_type: &str, extension: &str) -> String {
     match extension {
         "sjhplan" => "MiriaGo data package".to_string(),
@@ -586,31 +578,11 @@ fn export_filter_label(mime_type: &str, extension: &str) -> String {
 }
 
 fn safe_asset_path(path: &str) -> Result<PathBuf, String> {
-    if !path.starts_with("assets/") || path.ends_with('/') || path.contains('\\') {
-        return Err(format!("unsafe asset path: {path}"));
-    }
-    let mut relative = PathBuf::new();
-    for segment in path.split('/') {
-        if segment.is_empty() || segment == "." || segment == ".." {
-            return Err(format!("unsafe asset path: {path}"));
-        }
-        relative.push(segment);
-    }
-    Ok(relative)
+    file_io::safe_asset_path(path)
 }
 
 fn safe_local_asset_path(path: &str) -> Result<PathBuf, String> {
-    if !path.starts_with("assets/") || path.ends_with('/') || path.contains('\\') {
-        return Err(format!("unsafe local asset path: {path}"));
-    }
-    let mut relative = PathBuf::new();
-    for segment in path.split('/') {
-        if segment.is_empty() || segment == "." || segment == ".." {
-            return Err(format!("unsafe local asset path: {path}"));
-        }
-        relative.push(segment);
-    }
-    Ok(relative)
+    safe_asset_path(path)
 }
 
 fn safe_reference_cache_path(path: &str) -> Result<PathBuf, String> {
@@ -682,34 +654,6 @@ fn mime_type_for_path(path: &std::path::Path) -> String {
         _ => "application/octet-stream",
     }
     .to_string()
-}
-
-fn relative_path_string(path: &std::path::Path) -> String {
-    path.components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/")
-}
-
-fn safe_directory_name(value: &str) -> String {
-    let mut safe = String::new();
-    let mut previous_underscore = false;
-    for character in value.chars() {
-        let valid = character.is_ascii_alphanumeric() || matches!(character, '-' | '_');
-        if valid {
-            safe.push(character);
-            previous_underscore = false;
-        } else if !previous_underscore {
-            safe.push('_');
-            previous_underscore = true;
-        }
-    }
-    let trimmed = safe.trim_matches('_').to_string();
-    if trimmed.is_empty() {
-        "imported_package".to_string()
-    } else {
-        trimmed
-    }
 }
 
 #[cfg(test)]

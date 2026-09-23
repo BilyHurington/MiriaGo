@@ -54,6 +54,7 @@ class VisitRecordDetailScreen extends StatefulWidget {
 
 class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   late PilgrimageVisitRecord _record = widget.record;
+  bool _deleting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +74,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         actions: [
           IconButton(
             tooltip: '删除记录',
-            onPressed: () => _confirmDelete(context),
+            onPressed: _deleting ? null : () => _confirmDelete(context),
             icon: const Icon(LucideIcons.trash2),
           ),
         ],
@@ -211,6 +212,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    if (_deleting) return;
     var deleteFiles = false;
 
     final shouldDelete = await showDialog<bool>(
@@ -264,21 +266,35 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       return;
     }
 
-    if (deleteFiles) {
-      for (final path in {
-        _record.photoPath,
-        _record.originalPhotoPath,
-        _record.gradedPhotoPath,
-      }.whereType<String>()) {
-        deleteVisitRecordLocalFile(path);
+    setState(() => _deleting = true);
+    try {
+      await widget.onDelete();
+    } catch (_) {
+      if (context.mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '删除记录失败，照片未删除，请重试',
+        );
       }
-      final refPath = _record.referenceImagePath;
-      if (refPath != null) {
-        deleteVisitRecordLocalFile(refPath);
+      return;
+    }
+    final repository = widget.controller.repository;
+    if (deleteFiles && repository != null) {
+      try {
+        await deleteUnreferencedVisitRecordPhotos(
+          record: _record,
+          repository: repository,
+        );
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showStatusSnack(
+            kind: AppStatusBannerKind.warning,
+            title: '记录已删除，部分照片未清理',
+          );
+        }
       }
     }
-
-    await widget.onDelete();
     if (!context.mounted) {
       return;
     }

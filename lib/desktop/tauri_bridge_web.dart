@@ -216,7 +216,22 @@ Future<DesktopRestoreImportAssetsResult> restoreDesktopImportAssets({
           (pair[1] as JSString).toDart;
     }
   }
-  return DesktopRestoreImportAssetsResult(restoredPaths: restoredPaths);
+  return DesktopRestoreImportAssetsResult(
+    restoredPaths: restoredPaths,
+    restoreToken: _stringProperty(result, 'restoreToken'),
+  );
+}
+
+Future<void> cleanupDesktopImportAssets({required String restoreToken}) async {
+  await _invokeVoid('cleanup_import_assets', {
+    'request': {'restoreToken': restoreToken},
+  });
+}
+
+Future<void> finalizeDesktopImportAssets({required String restoreToken}) async {
+  await _invokeVoid('finalize_import_assets', {
+    'request': {'restoreToken': restoreToken},
+  });
 }
 
 Future<DesktopAssetResult> readDesktopAsset({required String path}) async {

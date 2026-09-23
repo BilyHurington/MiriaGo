@@ -19,6 +19,7 @@ import 'plan_transfer/incoming_plan_file.dart';
 import 'plan_transfer/plan_import_file_stub.dart'
     if (dart.library.io) 'plan_transfer/plan_import_file_io.dart';
 import 'plan_transfer/plan_import_preview_screen.dart';
+import 'plan_transfer/plan_import_package.dart';
 import 'widgets/snackbar_helper.dart';
 import 'records/records_screen.dart';
 import 'records/comparison_export_config_migration.dart';
@@ -237,13 +238,14 @@ class _AppShellState extends State<AppShell> {
       setState(() {
         _selectedIndex = 0;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '计划文件导入失败');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: error is PlanImportLimitException ? error.message : '计划文件导入失败',
+      );
     }
   }
 

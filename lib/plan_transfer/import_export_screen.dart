@@ -17,6 +17,7 @@ import 'plan_export_size_estimator.dart';
 import 'plan_export_v2.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
+import 'plan_import_stream.dart';
 import 'plan_package.dart' show seichiPlanFileExtension, seichiPlanMimeType;
 
 class ImportExportScreen extends StatefulWidget {
@@ -194,8 +195,17 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (file == null) {
         return;
       }
+      const limits = PlanImportLimits();
+      final size = await file.length();
+      if (size > limits.maxCompressedBytes) {
+        throw PlanImportLimitException(
+          '压缩包字节数',
+          size,
+          limits.maxCompressedBytes,
+        );
+      }
       final importPackage = readPlanImportPackageFromBytes(
-        await file.readAsBytes(),
+        await readBoundedPlanImportStream(file.openRead()),
         sourceName: file.name,
       );
       if (!mounted) {
@@ -212,13 +222,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (imported == true && mounted) {
         Navigator.of(context).pop(true);
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
       messenger.showStatusSnack(
         kind: AppStatusBannerKind.error,
-        title: '导入文件读取失败',
+        title: error is PlanImportLimitException ? error.message : '导入文件读取失败',
       );
     } finally {
       if (mounted) {

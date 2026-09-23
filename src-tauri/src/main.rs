@@ -44,6 +44,8 @@ fn main() {
             commands::save_desktop_visit_record,
             commands::delete_desktop_visit_record,
             commands::restore_import_assets,
+            commands::cleanup_import_assets,
+            commands::finalize_import_assets,
             commands::write_asset,
             commands::read_asset,
             commands::inspect_reference_cache_asset,

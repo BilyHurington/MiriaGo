@@ -1,4 +1,6 @@
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:latlong2/latlong.dart';
@@ -12,6 +14,54 @@ import 'plan_export_v2.dart';
 import 'plan_package.dart';
 
 enum PlanImportPackageKind { legacyJson, miriagoZip }
+
+class PlanImportLimits {
+  const PlanImportLimits({
+    this.maxCompressedBytes = 128 * 1024 * 1024,
+    this.maxEntries = 4096,
+    this.maxEntryBytes = 64 * 1024 * 1024,
+    this.maxExpandedBytes = 256 * 1024 * 1024,
+    this.maxJsonBytes = 4 * 1024 * 1024,
+    this.maxImagePixels = 40 * 1000 * 1000,
+  });
+
+  final int maxCompressedBytes;
+  final int maxEntries;
+  final int maxEntryBytes;
+  final int maxExpandedBytes;
+  final int maxJsonBytes;
+  final int maxImagePixels;
+}
+
+class PlanImportLimitException extends FormatException {
+  PlanImportLimitException(this.resource, this.actual, this.limit)
+    : super('导入超限：$resource 为 $actual，上限 $limit。请拆分计划或减少打包图片后重试。');
+
+  final String resource;
+  final num actual;
+  final int limit;
+}
+
+void _checkExpandedBudget(
+  int size,
+  int previous,
+  bool isJson,
+  PlanImportLimits limits,
+) {
+  if (size > limits.maxEntryBytes) {
+    throw PlanImportLimitException('单文件解压字节数', size, limits.maxEntryBytes);
+  }
+  if (isJson && size > limits.maxJsonBytes) {
+    throw PlanImportLimitException('JSON 字节数', size, limits.maxJsonBytes);
+  }
+  if (size + previous > limits.maxExpandedBytes) {
+    throw PlanImportLimitException(
+      '总解压字节数',
+      size + previous,
+      limits.maxExpandedBytes,
+    );
+  }
+}
 
 class PlanImportPackage {
   const PlanImportPackage({
@@ -90,12 +140,23 @@ class PlanImportRecordAssetRefs {
   const PlanImportRecordAssetRefs({
     this.visitPhotoAsset,
     this.gradedPhotoAsset,
+    this.originalPhotoAsset,
+    this.referenceImageAsset,
+    this.usePointReference = false,
   });
 
   final String? visitPhotoAsset;
   final String? gradedPhotoAsset;
+  final String? originalPhotoAsset;
+  final String? referenceImageAsset;
+  final bool usePointReference;
 
-  bool get hasAny => visitPhotoAsset != null || gradedPhotoAsset != null;
+  bool get hasAny =>
+      visitPhotoAsset != null ||
+      gradedPhotoAsset != null ||
+      originalPhotoAsset != null ||
+      referenceImageAsset != null ||
+      usePointReference;
 }
 
 class RestoredPlanImportData {
@@ -110,12 +171,82 @@ class RestoredPlanImportData {
   final List<String> warnings;
 }
 
+class RestoredPlanImportAssets extends UnmodifiableMapBase<String, String> {
+  RestoredPlanImportAssets(
+    Map<String, String> paths, {
+    required this.onDiscard,
+    this.onFinalize,
+    this.canDiscardAfterRepositoryRead = true,
+  }) : _paths = Map.unmodifiable(paths);
+
+  final Map<String, String> _paths;
+  final Future<void> Function() onDiscard;
+  final Future<void> Function()? onFinalize;
+  // A desktop repository read may only reflect cached state after an IPC error.
+  final bool canDiscardAfterRepositoryRead;
+  Future<void>? _discarding;
+  Future<void>? _finalizing;
+  bool _committed = false;
+
+  @override
+  Iterable<String> get keys => _paths.keys;
+  @override
+  String? operator [](Object? key) => _paths[key];
+
+  // The callback is created by the restorer and captures its owned directory;
+  // no caller-provided path is ever used as a recursive deletion target.
+  Future<void> discard() async {
+    if (_committed) return;
+    try {
+      await (_discarding ??= onDiscard());
+    } catch (_) {
+      _discarding = null;
+      rethrow;
+    }
+  }
+
+  Future<void> finalize() async {
+    if (_discarding != null) {
+      throw StateError('Import assets were already discarded.');
+    }
+    // Protect committed files even if revoking the native token fails.
+    _committed = true;
+    try {
+      await (_finalizing ??= onFinalize?.call() ?? Future.value());
+    } catch (_) {
+      _finalizing = null;
+      rethrow;
+    }
+  }
+}
+
 PlanImportPackage readPlanImportPackageFromBytes(
   List<int> bytes, {
   required String sourceName,
+  PlanImportLimits limits = const PlanImportLimits(),
+  bool Function()? isCancelled,
 }) {
+  if (bytes.length > limits.maxCompressedBytes) {
+    throw PlanImportLimitException(
+      '压缩包字节数',
+      bytes.length,
+      limits.maxCompressedBytes,
+    );
+  }
   if (_looksLikeZip(bytes)) {
-    return _readV2ZipPackage(bytes, sourceName: sourceName);
+    return _readV2ZipPackage(
+      bytes,
+      sourceName: sourceName,
+      limits: limits,
+      isCancelled: isCancelled,
+    );
+  }
+  if (bytes.length > limits.maxJsonBytes) {
+    throw PlanImportLimitException(
+      'JSON 字节数',
+      bytes.length,
+      limits.maxJsonBytes,
+    );
   }
   final package = PlanPackage.fromJsonString(utf8.decode(bytes));
   final planOnlyPackage = PlanPackage(
@@ -147,11 +278,265 @@ bool _looksLikeZip(List<int> bytes) {
       bytes[3] == 0x04;
 }
 
+// ZipDecoder eagerly expands symlink targets, and the native ZLibDecoder's
+// decodeStream buffers its entire result. Use archive's directory parser and
+// Inflate directly so every output write is checked before allocation.
+Map<String, Uint8List> _readBoundedZip(
+  List<int> bytes,
+  PlanImportLimits limits,
+  bool Function()? isCancelled,
+) {
+  void checkCancellation() {
+    if (isCancelled?.call() ?? false) {
+      throw const FormatException('Import cancelled.');
+    }
+  }
+
+  checkCancellation();
+  final directory = _LimitedZipDirectory(limits.maxEntries, checkCancellation);
+  directory.read(InputMemoryStream(bytes));
+  if (directory.filePosition < 0 ||
+      directory.numberOfThisDisk != 0 ||
+      directory.diskWithTheStartOfTheCentralDirectory != 0 ||
+      directory.totalCentralDirectoryEntries != directory.fileHeaders.length) {
+    throw const FormatException('Invalid ZIP directory.');
+  }
+  final entries = <String, Uint8List>{};
+  final names = <String>{};
+  var expanded = 0;
+  for (final header in directory.fileHeaders) {
+    checkCancellation();
+    final file = header.file!;
+    final name = normalizeAssetPathSeparators(header.filename);
+    final mode = (header.externalFileAttributes >> 16) & 0xf000;
+    if (!names.add(name.toLowerCase()) ||
+        file.filename != header.filename ||
+        (header.generalPurposeBitFlag | file.flags) & 0x41 != 0 ||
+        ![0, 8].contains(header.compressionMethod) ||
+        file.compressionMethod !=
+            (header.compressionMethod == 0
+                ? CompressionType.none
+                : CompressionType.deflate) ||
+        ![0, 0x8000, 0x4000].contains(mode)) {
+      throw const FormatException('Ambiguous or unsupported ZIP entry.');
+    }
+    final isJson = name == 'manifest.json' || name == 'plan.json';
+    if (header.uncompressedSize < 0) {
+      throw const FormatException('Invalid ZIP size.');
+    }
+    _checkExpandedBudget(header.uncompressedSize, expanded, isJson, limits);
+    final output = _BoundedImportOutput(
+      limits,
+      expanded,
+      isJson,
+      checkCancellation,
+    );
+    final input = file.getStream(decompress: false);
+    if (header.compressionMethod == 8) {
+      Inflate.stream(input, output: output);
+    } else {
+      output.writeStream(input);
+    }
+    final content = output.getBytes();
+    if (content.length != header.uncompressedSize ||
+        getCrc32(content) != header.crc32) {
+      throw const FormatException('Invalid ZIP size or checksum.');
+    }
+    expanded += content.length;
+    if (isJson || isSafeRelativeAssetPath(name)) {
+      entries[name] = content;
+    }
+  }
+  return entries;
+}
+
+class _LimitedZipDirectory extends ZipDirectory {
+  _LimitedZipDirectory(int limit, void Function() check)
+    : _headers = _LimitedZipHeaders(limit, check);
+
+  final List<ZipFileHeader> _headers;
+  @override
+  List<ZipFileHeader> get fileHeaders => _headers;
+}
+
+class _LimitedZipHeaders extends ListBase<ZipFileHeader> {
+  _LimitedZipHeaders(this.limit, this.check);
+  final int limit;
+  final void Function() check;
+  final _values = <ZipFileHeader>[];
+
+  @override
+  int get length => _values.length;
+  @override
+  set length(int value) => throw UnsupportedError('Use add');
+  @override
+  ZipFileHeader operator [](int index) => _values[index];
+  @override
+  void operator []=(int index, ZipFileHeader value) => _values[index] = value;
+  @override
+  void add(ZipFileHeader value) {
+    check();
+    if (length >= limit) {
+      throw PlanImportLimitException('ZIP 条目数', length + 1, limit);
+    }
+    _values.add(value);
+  }
+}
+
+class _BoundedImportOutput extends OutputMemoryStream {
+  _BoundedImportOutput(this.limits, this.previous, this.isJson, this.check)
+    : super(size: 1024);
+  final PlanImportLimits limits;
+  final int previous;
+  final bool isJson;
+  final void Function() check;
+
+  void _reserve(int count) {
+    check();
+    _checkExpandedBudget(count + length, previous, isJson, limits);
+  }
+
+  @override
+  void writeByte(int value) {
+    _reserve(1);
+    super.writeByte(value);
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    _reserve(length ?? bytes.length);
+    super.writeBytes(bytes, length: length);
+  }
+
+  @override
+  void writeStream(InputStream stream) {
+    _reserve(stream.length);
+    super.writeStream(stream);
+  }
+}
+
+// Read dimensions only. In particular image.JpegDecoder.startDecode allocates
+// DCT blocks, so it is not a safe preflight for attacker-controlled dimensions.
+bool _imageWithinLimit(Uint8List bytes, int maxPixels) {
+  final data = ByteData.sublistView(bytes);
+  int u16(int offset) => data.getUint16(offset);
+  int le24(int offset) =>
+      bytes[offset] | bytes[offset + 1] << 8 | bytes[offset + 2] << 16;
+  bool dimensions(int width, int height, [int frames = 1]) {
+    if (width <= 0 || height <= 0 || frames <= 0) return false;
+    if (width > maxPixels ~/ height || frames > maxPixels ~/ (width * height)) {
+      throw PlanImportLimitException(
+        '图片像素（$width x $height x $frames 帧）',
+        width.toDouble() * height * frames,
+        maxPixels,
+      );
+    }
+    return true;
+  }
+
+  if (isPngBytes(bytes)) {
+    if (bytes.length < 33 ||
+        data.getUint32(8) != 13 ||
+        data.getUint32(12) != 0x49484452) {
+      return false;
+    }
+    final width = data.getUint32(16);
+    final height = data.getUint32(20);
+    if (!dimensions(width, height)) return false;
+    for (var offset = 8; offset + 12 <= bytes.length;) {
+      final size = data.getUint32(offset);
+      if (size > bytes.length - offset - 12) return false;
+      final type = data.getUint32(offset + 4);
+      if (type == 0x6163544c) {
+        if (size != 8 ||
+            !dimensions(width, height, data.getUint32(offset + 8))) {
+          return false;
+        }
+      }
+      if (type == 0x6663544c &&
+          (size != 26 ||
+              !dimensions(
+                data.getUint32(offset + 12),
+                data.getUint32(offset + 16),
+              ))) {
+        return false;
+      }
+      offset += size + 12;
+    }
+    return true;
+  }
+  if (isJpegBytes(bytes)) {
+    var offset = 2;
+    while (offset + 3 < bytes.length) {
+      if (bytes[offset++] != 0xff) return false;
+      while (offset < bytes.length && bytes[offset] == 0xff) {
+        offset++;
+      }
+      if (offset >= bytes.length) return false;
+      final marker = bytes[offset++];
+      if (marker == 0xda || marker == 0xd9) return false;
+      if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+      if (offset + 2 > bytes.length) return false;
+      final size = u16(offset);
+      if (size < 2 || size > bytes.length - offset) return false;
+      if (marker >= 0xc0 &&
+          marker <= 0xcf &&
+          ![0xc4, 0xc8, 0xcc].contains(marker)) {
+        return size >= 8 && dimensions(u16(offset + 5), u16(offset + 3));
+      }
+      offset += size;
+    }
+    return false;
+  }
+  if (isWebpBytes(bytes)) {
+    var valid = false;
+    var frames = 0;
+    var canvasWidth = 0;
+    var canvasHeight = 0;
+    for (var offset = 12; offset + 8 <= bytes.length;) {
+      final size = data.getUint32(offset + 4, Endian.little);
+      if (size > bytes.length - offset - 8) return false;
+      final type = data.getUint32(offset);
+      final start = offset + 8;
+      if (type == 0x56503858 && size >= 10) {
+        // VP8X
+        canvasWidth = le24(start + 4) + 1;
+        canvasHeight = le24(start + 7) + 1;
+        valid = dimensions(canvasWidth, canvasHeight);
+      } else if (type == 0x5650384c && size >= 5 && bytes[start] == 0x2f) {
+        // VP8L
+        final bits = data.getUint32(start + 1, Endian.little);
+        valid = dimensions((bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1);
+      } else if (type == 0x56503820 &&
+          size >= 10 &&
+          le24(start + 3) == 0x2a019d) {
+        // VP8
+        valid = dimensions(
+          data.getUint16(start + 6, Endian.little) & 0x3fff,
+          data.getUint16(start + 8, Endian.little) & 0x3fff,
+        );
+      } else if (type == 0x414e4d46) {
+        // ANMF
+        if (size < 16 ||
+            !dimensions(le24(start + 6) + 1, le24(start + 9) + 1) ||
+            !dimensions(canvasWidth, canvasHeight, ++frames)) {
+          return false;
+        }
+      }
+      offset += 8 + size + (size & 1);
+    }
+    return valid;
+  }
+  return false;
+}
+
 PlanImportPackage _readV2ZipPackage(
   List<int> bytes, {
   required String sourceName,
+  required PlanImportLimits limits,
+  bool Function()? isCancelled,
 }) {
-  final archive = ZipDecoder().decodeBytes(bytes);
+  final archive = _readBoundedZip(bytes, limits, isCancelled);
   final manifest = _readArchiveJson(archive, 'manifest.json');
   if (manifest['format'] != miriagoExportPackageFormat) {
     throw const FormatException('Unsupported MiriaGo package format.');
@@ -168,7 +553,7 @@ PlanImportPackage _readV2ZipPackage(
     sourceName: sourceName,
     manifest: manifest,
     assetCounts: _intMap(manifest['assetCounts']),
-    assetEntries: _archiveAssetEntries(archive),
+    assetEntries: _archiveAssetEntries(archive, limits),
     pointAssetRefsById: _pointAssetRefsById(planJson['points']),
     recordAssetRefsById: _recordAssetRefsById(visitRecordJsons),
     warnings:
@@ -198,6 +583,7 @@ RestoredPlanImportData applyRestoredAssetPaths({
         ),
     ],
   );
+  final points = {for (final point in restoredPlan.points) point.id: point};
   final records = includeRecords
       ? [
           for (final record in importPackage.package.visitRecords)
@@ -206,6 +592,7 @@ RestoredPlanImportData applyRestoredAssetPaths({
               importPackage.recordAssetRefsById[record.id],
               restoredPaths,
               warnings,
+              record.planId == restoredPlan.id ? points[record.pointId] : null,
             ),
         ]
       : const <PilgrimageVisitRecord>[];
@@ -216,34 +603,38 @@ RestoredPlanImportData applyRestoredAssetPaths({
   );
 }
 
-Map<String, Object?> _readArchiveJson(Archive archive, String name) {
-  final file = archive.findFile(name);
-  if (file == null) {
+Map<String, Object?> _readArchiveJson(
+  Map<String, Uint8List> archive,
+  String name,
+) {
+  final content = archive[name];
+  if (content == null) {
     throw FormatException('Missing $name.');
   }
-  final content = file.content;
   final source = utf8.decode(content);
   final decoded = jsonDecode(source);
   return _mapValue(decoded);
 }
 
-Map<String, List<int>> _archiveAssetEntries(Archive archive) {
+Map<String, List<int>> _archiveAssetEntries(
+  Map<String, Uint8List> archive,
+  PlanImportLimits limits,
+) {
   final entries = <String, List<int>>{};
-  for (final file in archive.files) {
-    final name = file.name;
+  for (final file in archive.entries) {
+    final name = file.key;
     if (!_isSafeAssetPath(name)) {
       continue;
     }
     final normalizedName = normalizeAssetPathSeparators(name);
-    final bytes = file.readBytes();
-    if (bytes == null || bytes.isEmpty) {
+    final bytes = file.value;
+    if (bytes.isEmpty) {
       continue;
     }
-    if (isImagePackageAssetPath(normalizedName) &&
-        !isSupportedImageBytes(bytes)) {
+    if (!_imageWithinLimit(bytes, limits.maxImagePixels)) {
       continue;
     }
-    entries[normalizedName] = List<int>.from(bytes);
+    entries[normalizedName] = bytes;
   }
   return entries;
 }
@@ -285,8 +676,21 @@ Map<String, PlanImportRecordAssetRefs> _recordAssetRefsById(
       continue;
     }
     final assetRefs = PlanImportRecordAssetRefs(
-      visitPhotoAsset: _safeAssetValue(recordJson['visitPhotoAsset']),
-      gradedPhotoAsset: _safeAssetValue(recordJson['gradedPhotoAsset']),
+      visitPhotoAsset:
+          _safeAssetValue(recordJson['visitPhotoAsset']) ??
+          _safeAssetValue(recordJson['photoPath']),
+      gradedPhotoAsset:
+          _safeAssetValue(recordJson['gradedPhotoAsset']) ??
+          _safeAssetValue(recordJson['gradedPhotoPath']),
+      originalPhotoAsset:
+          _safeAssetValue(recordJson['originalPhotoAsset']) ??
+          _safeAssetValue(recordJson['originalPhotoPath']),
+      referenceImageAsset:
+          _safeAssetValue(recordJson['referenceImageAsset']) ??
+          _safeAssetValue(recordJson['referenceImagePath']),
+      usePointReference:
+          recordJson['referenceImagePath'] is String &&
+          (recordJson['referenceImagePath'] as String).isNotEmpty,
     );
     if (assetRefs.hasAny) {
       refs[id] = assetRefs;
@@ -318,6 +722,7 @@ PilgrimagePoint _pointWithRestoredAssets(
     return point.copyWith(
       referenceThumbnailPath: null,
       referenceFullImagePath: null,
+      referenceImageUrl: _canonicalReferenceUrl(point.referenceImageUrl),
     );
   }
   final thumbnailPath = _restoredPath(
@@ -346,25 +751,39 @@ PilgrimageVisitRecord _recordWithRestoredAssets(
   PlanImportRecordAssetRefs? assetRefs,
   Map<String, String> restoredPaths,
   List<String> warnings,
+  PilgrimagePoint? referencePoint,
 ) {
-  if (assetRefs == null) {
-    return record;
-  }
   final photoPath = _restoredPath(
-    assetRefs.visitPhotoAsset,
+    assetRefs?.visitPhotoAsset,
     restoredPaths,
     warnings,
   );
   final gradedPhotoPath = _restoredPath(
-    assetRefs.gradedPhotoAsset,
+    assetRefs?.gradedPhotoAsset,
     restoredPaths,
     warnings,
   );
+  final originalPhotoPath = _restoredPath(
+    assetRefs?.originalPhotoAsset,
+    restoredPaths,
+    warnings,
+  );
+  final referenceImagePath =
+      _restoredPath(assetRefs?.referenceImageAsset, restoredPaths, warnings) ??
+      ((assetRefs?.usePointReference ?? false) &&
+              referencePoint?.work.id == record.workId
+          ? referencePoint?.referenceFullImagePath
+          : null);
+  if (photoPath == null &&
+      originalPhotoPath == null &&
+      gradedPhotoPath == null) {
+    warnings.add('record photo not bundled or restored: ${record.id}');
+  }
   return record.copyWith(
-    photoPath: photoPath ?? record.photoPath,
-    gradedPhotoPath: assetRefs.gradedPhotoAsset == null
-        ? record.gradedPhotoPath
-        : gradedPhotoPath,
+    photoPath: photoPath ?? originalPhotoPath ?? gradedPhotoPath ?? '',
+    originalPhotoPath: originalPhotoPath,
+    gradedPhotoPath: gradedPhotoPath,
+    referenceImagePath: referenceImagePath,
   );
 }
 
@@ -496,13 +915,12 @@ PilgrimageVisitRecord _visitRecordFromV2Json(Map<String, Object?> json) {
     workSubtitle: json['workSubtitle'] as String?,
     pointName: json['pointName'] as String?,
     pointSubtitle: json['pointSubtitle'] as String?,
-    photoPath: _stringValue(json['photoPath'], fallback: ''),
-    originalPhotoPath: json['originalPhotoPath'] as String?,
-    gradedPhotoPath: json['gradedPhotoPath'] as String?,
+    // Foreign device paths are metadata, never authority to read local files.
+    // Bundled relative paths are captured separately in recordAssetRefsById.
+    photoPath: '',
     colorGradingMode: json['colorGradingMode'] as String?,
     colorGradingParamsJson: json['colorGradingParamsJson'] as String?,
     colorGradingIntensity: (json['colorGradingIntensity'] as num?)?.toDouble(),
-    referenceImagePath: json['referenceImagePath'] as String?,
     referenceImageUrl: _canonicalReferenceUrl(json['referenceImageUrl']),
     referenceMode: _stringValue(json['referenceMode'], fallback: '未知'),
     capturedAt: _dateValue(json['capturedAt']),
@@ -589,5 +1007,12 @@ String? _canonicalReferenceUrl(Object? value) {
   if (value is! String || value.trim().isEmpty) {
     return null;
   }
-  return canonicalAnitabiImageUrl(value);
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null ||
+      !['http', 'https'].contains(uri.scheme) ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty) {
+    return null;
+  }
+  return canonicalAnitabiImageUrl(uri.toString());
 }

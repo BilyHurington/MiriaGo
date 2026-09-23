@@ -43,9 +43,13 @@ class DesktopStateResult {
 }
 
 class DesktopRestoreImportAssetsResult {
-  const DesktopRestoreImportAssetsResult({required this.restoredPaths});
+  const DesktopRestoreImportAssetsResult({
+    required this.restoredPaths,
+    this.restoreToken,
+  });
 
   final Map<String, String> restoredPaths;
+  final String? restoreToken;
 }
 
 class DesktopAssetResult {
@@ -144,6 +148,14 @@ Future<DesktopRestoreImportAssetsResult> restoreDesktopImportAssets({
   required String? sourceName,
   required Map<String, String> assetsBase64,
 }) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<void> cleanupDesktopImportAssets({required String restoreToken}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<void> finalizeDesktopImportAssets({required String restoreToken}) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
 
