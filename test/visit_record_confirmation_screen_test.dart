@@ -58,7 +58,7 @@ void main() {
     });
   }
 
-  testWidgets('waits for location and writes it before enabling save', (
+  testWidgets('stages location without writing before enabling save', (
     tester,
   ) async {
     final fixture = await _fixture();
@@ -90,8 +90,8 @@ void main() {
     completer.complete(location);
     await tester.pumpAndSettle();
 
-    expect(writtenLocation, same(location));
-    expect(find.text('已写入照片定位信息'), findsOneWidget);
+    expect(writtenLocation, isNull);
+    expect(find.text('已获取拍摄位置，保存时写入照片。'), findsOneWidget);
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNotNull,
@@ -126,7 +126,7 @@ void main() {
     await tester.tap(find.text('跳过'));
     await tester.pump();
 
-    expect(find.text('已跳过定位，本次照片不会写入位置。'), findsOneWidget);
+    expect(find.text('已跳过定位，本次不添加位置，保留照片原有信息。'), findsOneWidget);
     expect(find.text('跳过'), findsNothing);
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,

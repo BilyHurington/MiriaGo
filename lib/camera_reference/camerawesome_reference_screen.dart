@@ -254,8 +254,10 @@ class _CamerawesomeReferenceScreenState
     DateTime? capturedAtOverride,
     bool? restoreLandscape,
     bool applyPhotoLocation = true,
+    PhotoLocationData? pendingPhotoLocation,
   }) async {
     if (!mounted) {
+      deleteVisitRecordLocalFile(photoPath);
       return null;
     }
 
@@ -279,6 +281,9 @@ class _CamerawesomeReferenceScreenState
                   ? null
                   : _remoteReferenceImageUrl,
               capturedAtOverride: capturedAtOverride,
+              pendingPhotoLocation: pendingPhotoLocation,
+              discardSourcePhoto: () async =>
+                  deleteVisitRecordLocalFile(photoPath),
               settings: widget.settings.copyWith(
                 photoLocationStrategy: _photoLocationStrategy,
               ),
@@ -296,9 +301,6 @@ class _CamerawesomeReferenceScreenState
           ),
         );
 
-    if (result == null) {
-      deleteVisitRecordLocalFile(photoPath);
-    }
     if (!mounted) {
       return result;
     }
@@ -493,11 +495,9 @@ class _CamerawesomeReferenceScreenState
                 if (!mounted) {
                   return;
                 }
-                final path = await _nativeCameraController.takePicture(
-                  location: location,
-                );
+                final path = await _nativeCameraController.takePicture();
                 if (path != null) {
-                  await _openConfirmation(path);
+                  await _openConfirmation(path, pendingPhotoLocation: location);
                 }
               },
               onPickReference: _pickReferenceImage,

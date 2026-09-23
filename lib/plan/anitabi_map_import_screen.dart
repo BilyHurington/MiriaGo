@@ -918,6 +918,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               planId: widget.plan.id,
               points: pilgrimagePoints,
             );
+      _didUpdatePlan = true;
       if (!mounted) {
         return;
       }
@@ -1014,6 +1015,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           updatesByPointId: imageCacheUpdates,
         );
       }
+
+      if (!mounted) return;
 
       setState(() {
         _replaceImportedPlan(importedPlan);
@@ -1435,7 +1438,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     return PopScope(
       canPop: !_isImporting,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
+        if (didPop || _isImporting) {
           return;
         }
 
@@ -1443,7 +1446,15 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: appBackButtonIfCanPop(context),
+          leading: ModalRoute.of(context)?.canPop == true
+              ? AppBackButton(
+                  onPressed: () {
+                    if (!_isImporting) {
+                      Navigator.of(context).pop(_didUpdatePlan);
+                    }
+                  },
+                )
+              : null,
           title: const Text('从作品地图导入'),
           actions: [
             Tooltip(

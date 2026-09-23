@@ -143,6 +143,37 @@ class PilgrimagePlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Confirmation saves must not report completion before persistence succeeds.
+  Future<void> completePointAndWait(PilgrimagePoint point) async {
+    final repository = _repository;
+    if (repository == null) {
+      throw StateError('No repository for point completion');
+    }
+    final revision = _pointStateRevision;
+    final completed = {..._completedPointIds, point.id};
+    final nextId = point.id == _currentPointId
+        ? nextPendingPointAfterCompletion(
+            points: points,
+            completedPoint: point,
+            completedPointIds: completed,
+          )?.id
+        : _currentPointId;
+    await repository.completePoint(
+      planId: _plan.id,
+      pointId: point.id,
+      nextCurrentPointId: nextId,
+    );
+    // A newer navigation/edit action owns the visible point state.
+    if (revision != _pointStateRevision) return;
+    _pointStateRevision++;
+    _completedPointIds = completed;
+    if (point.id == _currentPointId) {
+      _currentPointId = nextId;
+      _selectedPointId = nextId ?? point.id;
+    }
+    notifyListeners();
+  }
+
   Future<void> loadVisitRecords() async {
     final repository = _repository;
     if (repository == null) {

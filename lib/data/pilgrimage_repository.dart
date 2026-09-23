@@ -1,5 +1,15 @@
 import '../plan/pilgrimage_models.dart';
 
+/// A repository may emit this only after proving the record was not committed.
+/// Other failures, including transport errors, have an unknown commit outcome.
+class VisitRecordNotCommittedException implements Exception {
+  const VisitRecordNotCommittedException(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'Visit record was not committed: $cause';
+}
+
 abstract interface class PilgrimageRepository {
   Future<List<PilgrimagePlan>> loadPlans();
 

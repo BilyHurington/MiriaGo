@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_motion.dart';
@@ -5,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_image_source_scope.dart';
+import '../data/pilgrimage_repository.dart';
 import '../widgets/snackbar_helper.dart';
 import '../records/gallery_saver_stub.dart'
     if (dart.library.io) '../records/gallery_saver_io.dart';
@@ -21,11 +24,11 @@ import '../widgets/reference_image_source_stub.dart'
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
 import 'auto_comparison_gallery_backup.dart';
-import 'camera_storage_stub.dart'
-    if (dart.library.io) 'camera_storage_io.dart'
-    as camera_storage;
 import 'photo_location.dart';
+import 'photo_location_save_stub.dart'
+    if (dart.library.io) 'photo_location_save_io.dart';
 import 'photo_location_status_panel.dart';
+import 'visit_record_save_assets.dart';
 import '../map/current_location_resolver.dart';
 
 enum VisitRecordConfirmationResult { saved, completed }
@@ -46,6 +49,13 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
     this.photoLocationStrategy = PhotoLocationStrategy.disabled,
     this.writePhotoLocation,
     this.resolvePhotoLocation,
+    this.pendingPhotoLocation,
+    this.prepareLocation = preparePhotoLocation,
+    this.prepareReference = prepareReferenceImage,
+    this.discardSourcePhoto,
+    this.savePhotoToGallery = saveImageToGallery,
+    this.backupComparison,
+    this.retainPhotoPreview = retainPhotoPreviewUntilRead,
     super.key,
   });
 
@@ -63,6 +73,14 @@ class VisitRecordConfirmationScreen extends StatefulWidget {
   final PhotoLocationStrategy photoLocationStrategy;
   final PhotoLocationWriter? writePhotoLocation;
   final Future<PhotoLocationData> Function()? resolvePhotoLocation;
+  final PhotoLocationData? pendingPhotoLocation;
+  final PhotoLocationPreparer prepareLocation;
+  final ReferenceImagePreparer prepareReference;
+  final Future<void> Function()? discardSourcePhoto;
+  final Future<bool> Function(String) savePhotoToGallery;
+  final Future<AutoComparisonGalleryResult> Function(PilgrimageVisitRecord)?
+  backupComparison;
+  final Future<void> Function(String, BuildContext) retainPhotoPreview;
 
   @override
   State<VisitRecordConfirmationScreen> createState() =>
@@ -76,19 +94,86 @@ class _VisitRecordConfirmationScreenState
   bool _locating = false;
   String? _locationStatus;
   int _locationRequest = 0;
+  PhotoLocationData? _pendingLocation;
+  PreparedPhotoLocation? _preparedPhoto;
+  PreparedRecordImage? _referenceDraft;
+  PilgrimageVisitRecord? _savedRecord;
+  bool _recordCommitUncertain = false;
+  bool _sourceDiscarded = false;
+  Future<bool>? _previewReadComplete;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.discardSourcePhoto != null) {
+      _previewReadComplete ??=
+          Future.sync(
+            () => widget.retainPhotoPreview(widget.photoPath, context),
+          ).then(
+            (_) => true,
+            onError: (Object error, StackTrace stack) {
+              debugPrint('Could not confirm preview read completion: $error');
+              return false;
+            },
+          );
+    }
+  }
+
+  @override
+  void dispose() {
+    _locationRequest++;
+    if (!_saving) unawaited(_cleanupDrafts(includeSource: true));
+    super.dispose();
+  }
+
+  Future<void> _cleanupDrafts({required bool includeSource}) async {
+    if (_recordCommitUncertain) return;
+    Future<void> discard(Future<void> Function()? action) async {
+      try {
+        await action?.call();
+      } catch (error) {
+        debugPrint('Could not clean confirmation draft: $error');
+      }
+    }
+
+    final record = _savedRecord;
+    if (record == null) {
+      final photo = _preparedPhoto;
+      final reference = _referenceDraft;
+      _preparedPhoto = null;
+      _referenceDraft = null;
+      await discard(photo?.discard);
+      await discard(reference?.discard);
+    }
+    if (includeSource &&
+        !_sourceDiscarded &&
+        (record == null || record.photoPath != widget.photoPath)) {
+      _sourceDiscarded = true;
+      // Route pop completes before its reverse animation and before a pending
+      // FileImage read. Both the preview owner and its read must finish first.
+      if (await _previewReadComplete == false) return;
+      await discard(widget.discardSourcePhoto);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    if (widget.photoLocationStrategy != PhotoLocationStrategy.disabled) {
+      _pendingLocation = widget.pendingPhotoLocation;
+      if (_pendingLocation != null) {
+        _locationStatus = '已获取拍摄位置，保存时写入照片。';
+      }
+    }
     if (widget.photoLocationStrategy ==
         PhotoLocationStrategy.waitOnConfirmation) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _resolveAndWritePhotoLocation();
+        _resolvePhotoLocation();
       });
     }
   }
 
-  Future<void> _resolveAndWritePhotoLocation() async {
+  Future<void> _resolvePhotoLocation() async {
     if (_locating || !mounted) {
       return;
     }
@@ -103,15 +188,10 @@ class _VisitRecordConfirmationScreenState
       if (!mounted || request != _locationRequest) {
         return;
       }
-      final written =
-          await widget.writePhotoLocation?.call(widget.photoPath, location) ??
-          false;
-      if (!mounted || request != _locationRequest) {
-        return;
-      }
       setState(() {
         _locating = false;
-        _locationStatus = written ? '已写入照片定位信息' : '照片定位信息写入失败';
+        _pendingLocation = location;
+        _locationStatus = '已获取拍摄位置，保存时写入照片。';
       });
     } on CurrentLocationException catch (error) {
       if (!mounted || request != _locationRequest) {
@@ -127,15 +207,25 @@ class _VisitRecordConfirmationScreenState
       }
       setState(() {
         _locating = false;
-        _locationStatus = '定位获取失败，本次照片不会写入位置。';
+        _locationStatus = '定位获取失败，本次不添加位置，保留照片原有信息。';
       });
     }
   }
 
   Future<void> _save({required bool completePoint}) async {
     final controller = widget.controller;
-    if (controller == null || _saving || _locating) {
-      Navigator.of(context).pop();
+    if (!mounted ||
+        _saving ||
+        _locating ||
+        _recordCommitUncertain ||
+        _savedRecord != null) {
+      return;
+    }
+    if (controller?.repository == null) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '记录存储不可用，请返回后重试。',
+      );
       return;
     }
 
@@ -144,85 +234,168 @@ class _VisitRecordConfirmationScreenState
       _savingStage = '保存记录中...';
     });
 
-    String? referenceImagePath;
-    final referenceBytes = widget.referenceBytes;
-    if (referenceBytes != null) {
-      referenceImagePath = await camera_storage.saveRecordImageBytes(
-        bytes: referenceBytes,
-        prefix: 'reference',
+    try {
+      await controller!.loadVisitRecords();
+      if (!mounted) return;
+      final existingIds = controller.visitRecords.map((r) => r.id).toSet();
+      final referenceBytes = widget.referenceBytes;
+      if (referenceBytes != null && _referenceDraft == null) {
+        _referenceDraft = await widget.prepareReference(referenceBytes);
+      }
+      if (!mounted) return;
+      final location = _pendingLocation;
+      if (location != null && _preparedPhoto == null) {
+        if (mounted) {
+          setState(() => _savingStage = '正在写入照片定位，请稍候...');
+        }
+        final writer = widget.writePhotoLocation;
+        _preparedPhoto = writer == null
+            ? PreparedPhotoLocation(path: widget.photoPath, written: false)
+            : await widget.prepareLocation(
+                sourcePath: widget.photoPath,
+                location: location,
+                writer: writer,
+              );
+      }
+      if (!mounted) return;
+      if (mounted) setState(() => _savingStage = '保存记录中...');
+      final photoPath = _preparedPhoto?.path ?? widget.photoPath;
+      final fallbackReferencePath =
+          referenceImageLocalPathCanDisplay(widget.referenceImagePath)
+          ? widget.referenceImagePath
+          : null;
+      if (_savedRecord == null) {
+        // From this point a failing response may still mean a committed record.
+        _recordCommitUncertain = true;
+        try {
+          _savedRecord = await controller.createVisitRecord(
+            point: widget.point,
+            photoPath: photoPath,
+            referenceImagePath: _referenceDraft?.path ?? fallbackReferencePath,
+            referenceImageUrl:
+                _referenceDraft == null && fallbackReferencePath == null
+                ? widget.referenceImageUrl
+                : null,
+            referenceMode: widget.referenceMode,
+            capturedAt: widget.capturedAtOverride,
+          );
+        } on VisitRecordNotCommittedException {
+          _recordCommitUncertain = false;
+          rethrow;
+        } catch (_) {
+          // A positive read can recover a lost response. A negative/cached read
+          // cannot prove that a remote commit did not happen.
+          await controller.loadVisitRecords();
+          final matches = controller.visitRecords
+              .where(
+                (record) =>
+                    !existingIds.contains(record.id) &&
+                    record.pointId == widget.point.id &&
+                    record.photoPath == photoPath,
+              )
+              .toList();
+          _savedRecord = matches.length == 1 ? matches.single : null;
+          if (_savedRecord == null) rethrow;
+        }
+        if (_savedRecord == null) throw StateError('Record not confirmed');
+        _recordCommitUncertain = false;
+      }
+      final record = _savedRecord!;
+      var attemptedGalleryBackup = false;
+      var galleryBackupSucceeded = false;
+      if (widget.saveVisitPhotoToGallery) {
+        if (mounted) {
+          setState(() => _savingStage = '备份巡礼照片中...');
+        }
+        attemptedGalleryBackup = true;
+        try {
+          galleryBackupSucceeded = await widget.savePhotoToGallery(
+            record.photoPath,
+          );
+        } catch (_) {
+          galleryBackupSucceeded = false;
+        }
+      }
+
+      AutoComparisonGalleryResult? comparisonBackupResult;
+      if (widget.autoSaveComparisonToGallery) {
+        if (mounted) {
+          setState(() => _savingStage = '生成对比图中...');
+        }
+        try {
+          comparisonBackupResult = widget.backupComparison != null
+              ? await widget.backupComparison!(record)
+              : await autoSaveComparisonImageToGallery(
+                  record: record,
+                  point: widget.point,
+                  settings: widget.settings,
+                  pointReferenceFullImagePath: widget.referenceImagePath,
+                  pointReferenceImageUrl: widget.referenceImageUrl,
+                );
+        } catch (_) {
+          comparisonBackupResult = const AutoComparisonGalleryResult(
+            AutoComparisonGalleryStatus.renderFailed,
+          );
+        }
+      }
+
+      String? nextPointName;
+      var completed = false;
+      var completionFailed = false;
+      if (completePoint) {
+        if (mounted) {
+          setState(() => _savingStage = '更新点位状态中...');
+        }
+        try {
+          await controller.completePointAndWait(widget.point);
+          completed = true;
+          nextPointName = controller.currentPoint?.name;
+        } catch (_) {
+          completionFailed = true;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      var message = _saveSuccessMessage(
+        completePoint: completed,
+        nextPointName: nextPointName,
+        attemptedGalleryBackup: attemptedGalleryBackup,
+        galleryBackupSucceeded: galleryBackupSucceeded,
+        comparisonBackupResult: comparisonBackupResult,
       );
-    }
-    final fallbackReferencePath =
-        referenceImageLocalPathCanDisplay(widget.referenceImagePath)
-        ? widget.referenceImagePath
-        : null;
-
-    final record = await controller.createVisitRecord(
-      point: widget.point,
-      photoPath: widget.photoPath,
-      referenceImagePath: referenceImagePath ?? fallbackReferencePath,
-      referenceImageUrl:
-          referenceImagePath == null && fallbackReferencePath == null
-          ? widget.referenceImageUrl
-          : null,
-      referenceMode: widget.referenceMode,
-      capturedAt: widget.capturedAtOverride,
-    );
-
-    var attemptedGalleryBackup = false;
-    var galleryBackupSucceeded = false;
-    if (widget.saveVisitPhotoToGallery) {
-      if (mounted) {
-        setState(() => _savingStage = '备份巡礼照片中...');
+      if (_preparedPhoto?.written == false) {
+        message += '；定位写入失败，保留照片原有信息';
       }
-      attemptedGalleryBackup = true;
-      galleryBackupSucceeded = await saveImageToGallery(widget.photoPath);
-    }
-
-    AutoComparisonGalleryResult? comparisonBackupResult;
-    if (record != null && widget.autoSaveComparisonToGallery) {
-      if (mounted) {
-        setState(() => _savingStage = '生成对比图中...');
+      if (completionFailed) message += '；标记完成失败，请在计划中重试';
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.success, title: message);
+      setState(() => _saving = false);
+      if (completed) {
+        Navigator.of(context).pop(VisitRecordConfirmationResult.completed);
+      } else {
+        Navigator.of(context).pop(VisitRecordConfirmationResult.saved);
       }
-      comparisonBackupResult = await autoSaveComparisonImageToGallery(
-        record: record,
-        point: widget.point,
-        settings: widget.settings,
-        pointReferenceFullImagePath: widget.referenceImagePath,
-        pointReferenceImageUrl: widget.referenceImageUrl,
-      );
-    }
-
-    String? nextPointName;
-    if (completePoint) {
+    } catch (error) {
+      debugPrint('Visit record save failed: $error');
       if (mounted) {
-        setState(() => _savingStage = '更新点位状态中...');
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: _recordCommitUncertain
+              ? '保存结果未确认，请返回记录页检查，勿重复保存。'
+              : '保存记录失败，请重试。',
+        );
       }
-      controller.completePoint(widget.point);
-      nextPointName = controller.currentPoint?.name;
-    }
-
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _saving = false;
-      _savingStage = null;
-    });
-    final message = _saveSuccessMessage(
-      completePoint: completePoint,
-      nextPointName: nextPointName,
-      attemptedGalleryBackup: attemptedGalleryBackup,
-      galleryBackupSucceeded: galleryBackupSucceeded,
-      comparisonBackupResult: comparisonBackupResult,
-    );
-    ScaffoldMessenger.of(
-      context,
-    ).showStatusSnack(kind: AppStatusBannerKind.success, title: message);
-    if (completePoint) {
-      Navigator.of(context).pop(VisitRecordConfirmationResult.completed);
-    } else {
-      Navigator.of(context).pop(VisitRecordConfirmationResult.saved);
+    } finally {
+      await _cleanupDrafts(includeSource: !mounted);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _savingStage = null;
+        });
+      }
     }
   }
 
@@ -265,11 +438,14 @@ class _VisitRecordConfirmationScreenState
               ),
             ),
             const SizedBox(height: 16),
-            _ComparisonPanel(
-              photoPath: widget.photoPath,
-              referenceBytes: widget.referenceBytes,
-              referenceImagePath: widget.referenceImagePath,
-              referenceImageUrl: widget.referenceImageUrl,
+            AbsorbPointer(
+              absorbing: _saving,
+              child: _ComparisonPanel(
+                photoPath: widget.photoPath,
+                referenceBytes: widget.referenceBytes,
+                referenceImagePath: widget.referenceImagePath,
+                referenceImageUrl: widget.referenceImageUrl,
+              ),
             ),
             const SizedBox(height: 16),
             _InfoPanel(referenceMode: widget.referenceMode),
@@ -278,12 +454,17 @@ class _VisitRecordConfirmationScreenState
               PhotoLocationStatusPanel(
                 label: _locationStatus!,
                 loading: _locating,
-                onSkip: _locating
+                onSkip:
+                    !_saving &&
+                        !_recordCommitUncertain &&
+                        (_locating || _pendingLocation != null)
                     ? () {
+                        if (_saving || _recordCommitUncertain) return;
                         setState(() {
                           _locationRequest += 1;
                           _locating = false;
-                          _locationStatus = '已跳过定位，本次照片不会写入位置。';
+                          _pendingLocation = null;
+                          _locationStatus = '已跳过定位，本次不添加位置，保留照片原有信息。';
                         });
                       }
                     : null,
@@ -301,7 +482,7 @@ class _VisitRecordConfirmationScreenState
             ),
             const SizedBox(height: 18),
             FilledButton.icon(
-              onPressed: _saving || _locating
+              onPressed: _saving || _locating || _recordCommitUncertain
                   ? null
                   : () => _save(completePoint: false),
               icon: _saving
@@ -315,7 +496,7 @@ class _VisitRecordConfirmationScreenState
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: _saving || _locating
+              onPressed: _saving || _locating || _recordCommitUncertain
                   ? null
                   : () => _save(completePoint: true),
               icon: const Icon(LucideIcons.circleCheckBig, size: 18),
@@ -323,7 +504,11 @@ class _VisitRecordConfirmationScreenState
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _saving ? null : () => Navigator.of(context).pop(),
+              onPressed: _saving
+                  ? null
+                  : () {
+                      if (!_saving) Navigator.of(context).pop();
+                    },
               child: const Text('取消'),
             ),
           ],

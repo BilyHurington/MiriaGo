@@ -298,18 +298,17 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
 
   Future<void> _reorderGroups(int oldIndex, int newIndex) async {
     final groups = _groups;
-    if (_isSaving || oldIndex >= groups.length) {
+    if (_isSaving ||
+        oldIndex < 0 ||
+        oldIndex >= groups.length ||
+        newIndex < 0 ||
+        newIndex >= groups.length ||
+        oldIndex == newIndex) {
       return;
     }
-    var targetIndex = newIndex;
-    if (targetIndex > oldIndex) {
-      targetIndex -= 1;
-    }
-    if (targetIndex < 0 || targetIndex > groups.length) {
-      return;
-    }
+    // onReorderItem already reports the post-removal destination index.
     final group = groups.removeAt(oldIndex);
-    groups.insert(targetIndex.clamp(0, groups.length), group);
+    groups.insert(newIndex, group);
 
     await _savePlanChange(
       action: () async {

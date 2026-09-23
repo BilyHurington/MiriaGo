@@ -61,49 +61,62 @@ Future<AutoComparisonGalleryResult> autoSaveComparisonImageToGallery({
   AutoComparisonExporter exporter = exportComparisonImage,
   AutoComparisonGallerySaver gallerySaver = saveImageToGallery,
 }) async {
-  final savedConfig = await loadConfig();
-  final config = (savedConfig ?? ComparisonExportConfig.fromSettings(settings))
-      .withSettings(settings);
-  final referenceImagePath = _firstExistingLocalPath([
-    record.referenceImagePath,
-    pointReferenceFullImagePath,
-  ]);
-  final referenceImageUrl = referenceImagePath == null
-      ? (record.referenceImageUrl ?? pointReferenceImageUrl)
-      : null;
-  final capturedPath = resolveVisitRecordDisplayPhotoPath(record);
-  if (capturedPath == null) {
+  try {
+    final savedConfig = await loadConfig();
+    final config =
+        (savedConfig ?? ComparisonExportConfig.fromSettings(settings))
+            .withSettings(settings);
+    final referenceImagePath = _firstExistingLocalPath([
+      record.referenceImagePath,
+      pointReferenceFullImagePath,
+    ]);
+    final referenceImageUrl = referenceImagePath == null
+        ? (record.referenceImageUrl ?? pointReferenceImageUrl)
+        : null;
+    final capturedPath = resolveVisitRecordDisplayPhotoPath(record);
+    if (capturedPath == null) {
+      return const AutoComparisonGalleryResult(
+        AutoComparisonGalleryStatus.capturedPhotoUnavailable,
+      );
+    }
+
+    final result = await exporter(
+      referenceImagePath: referenceImagePath,
+      referenceImageUrl: referenceImageUrl,
+      capturedPath: capturedPath,
+      config: config,
+      metadata: comparisonMetadataForRecord(record: record, point: point),
+      colorGradingSummary: null,
+    );
+
+    if (!result.isSuccess) {
+      return AutoComparisonGalleryResult(switch (result.failureReason) {
+        ComparisonExportFailureReason.referenceUnavailable =>
+          AutoComparisonGalleryStatus.referenceUnavailable,
+        ComparisonExportFailureReason.capturedPhotoUnavailable =>
+          AutoComparisonGalleryStatus.capturedPhotoUnavailable,
+        ComparisonExportFailureReason.renderFailed ||
+        null => AutoComparisonGalleryStatus.renderFailed,
+      });
+    }
+
+    bool saved;
+    try {
+      saved = await gallerySaver(result.path!);
+    } catch (_) {
+      saved = false;
+    }
+    return AutoComparisonGalleryResult(
+      saved
+          ? AutoComparisonGalleryStatus.saved
+          : AutoComparisonGalleryStatus.galleryFailed,
+    );
+  } catch (_) {
+    // Backup is a post-commit side effect, never a reason to create a new record.
     return const AutoComparisonGalleryResult(
-      AutoComparisonGalleryStatus.capturedPhotoUnavailable,
+      AutoComparisonGalleryStatus.renderFailed,
     );
   }
-
-  final result = await exporter(
-    referenceImagePath: referenceImagePath,
-    referenceImageUrl: referenceImageUrl,
-    capturedPath: capturedPath,
-    config: config,
-    metadata: comparisonMetadataForRecord(record: record, point: point),
-    colorGradingSummary: null,
-  );
-
-  if (!result.isSuccess) {
-    return AutoComparisonGalleryResult(switch (result.failureReason) {
-      ComparisonExportFailureReason.referenceUnavailable =>
-        AutoComparisonGalleryStatus.referenceUnavailable,
-      ComparisonExportFailureReason.capturedPhotoUnavailable =>
-        AutoComparisonGalleryStatus.capturedPhotoUnavailable,
-      ComparisonExportFailureReason.renderFailed ||
-      null => AutoComparisonGalleryStatus.renderFailed,
-    });
-  }
-
-  final saved = await gallerySaver(result.path!);
-  return AutoComparisonGalleryResult(
-    saved
-        ? AutoComparisonGalleryStatus.saved
-        : AutoComparisonGalleryStatus.galleryFailed,
-  );
 }
 
 Map<ComparisonMetadataField, String> comparisonMetadataForRecord({

@@ -974,33 +974,53 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceMode: referenceMode,
       capturedAt: recordCapturedAt,
     );
-    await _database
-        .into(_database.visitRecords)
-        .insert(
-          VisitRecordsCompanion.insert(
-            id: record.id,
-            planId: record.planId,
-            pointId: record.pointId,
-            workId: record.workId,
-            workTitle: Value(record.workTitle),
-            workSubtitle: Value(record.workSubtitle),
-            pointName: Value(record.pointName),
-            pointSubtitle: Value(record.pointSubtitle),
-            photoPath: record.photoPath,
-            originalPhotoPath: Value(record.originalPhotoPath),
-            gradedPhotoPath: Value(record.gradedPhotoPath),
-            colorGradingMode: Value(record.colorGradingMode),
-            colorGradingParamsJson: Value(record.colorGradingParamsJson),
-            colorGradingIntensity: Value(record.colorGradingIntensity),
-            referenceImagePath: Value(record.referenceImagePath),
-            referenceImageUrl: Value(
-              _canonicalReferenceUrl(record.referenceImageUrl),
-            ),
-            referenceMode: record.referenceMode,
-            capturedAt: record.capturedAt,
-          ),
+    Object? writeFailure;
+    try {
+      await _database.transaction(() async {
+        try {
+          await _database
+              .into(_database.visitRecords)
+              .insert(
+                VisitRecordsCompanion.insert(
+                  id: record.id,
+                  planId: record.planId,
+                  pointId: record.pointId,
+                  workId: record.workId,
+                  workTitle: Value(record.workTitle),
+                  workSubtitle: Value(record.workSubtitle),
+                  pointName: Value(record.pointName),
+                  pointSubtitle: Value(record.pointSubtitle),
+                  photoPath: record.photoPath,
+                  originalPhotoPath: Value(record.originalPhotoPath),
+                  gradedPhotoPath: Value(record.gradedPhotoPath),
+                  colorGradingMode: Value(record.colorGradingMode),
+                  colorGradingParamsJson: Value(record.colorGradingParamsJson),
+                  colorGradingIntensity: Value(record.colorGradingIntensity),
+                  referenceImagePath: Value(record.referenceImagePath),
+                  referenceImageUrl: Value(
+                    _canonicalReferenceUrl(record.referenceImageUrl),
+                  ),
+                  referenceMode: record.referenceMode,
+                  capturedAt: record.capturedAt,
+                ),
+              );
+          await _touchPlan(planId);
+        } catch (error) {
+          writeFailure = error;
+          rethrow;
+        }
+      }, requireNew: true);
+    } catch (error, stack) {
+      // Drift rethrows the action error only after rollback succeeds. Rollback
+      // failure is a distinct CouldNotRollBackException; keep that uncertain.
+      if (identical(error, writeFailure)) {
+        Error.throwWithStackTrace(
+          VisitRecordNotCommittedException(error),
+          stack,
         );
-    await _touchPlan(planId);
+      }
+      rethrow;
+    }
     return record;
   }
 
