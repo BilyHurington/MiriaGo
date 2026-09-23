@@ -207,129 +207,143 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onUpgrade: (migrator, from, to) async {
+    // Drift updates user_version after this callback, but does not wrap it in
+    // a transaction. Keep all DDL and backfills atomic and safe to replay.
+    onUpgrade: (migrator, from, to) => transaction(() async {
+      Future<void> addColumnIfMissing(
+        TableInfo<Table, Object?> table,
+        GeneratedColumn<Object> column,
+      ) => _addColumnIfMissing(
+        migrator,
+        table.actualTableName,
+        column.$name,
+        table,
+        column,
+      );
+
       if (from < 2) {
-        await migrator.addColumn(points, points.isCurrent);
-        await migrator.addColumn(points, points.completedAt);
+        await addColumnIfMissing(points, points.isCurrent);
+        await addColumnIfMissing(points, points.completedAt);
       }
       if (from < 3) {
         await migrator.createTable(visitRecords);
-      } else if (from < 4) {
-        await migrator.addColumn(visitRecords, visitRecords.referenceImagePath);
-        await migrator.addColumn(visitRecords, visitRecords.referenceImageUrl);
+      }
+      if (from < 4) {
+        await addColumnIfMissing(visitRecords, visitRecords.referenceImagePath);
+        await addColumnIfMissing(visitRecords, visitRecords.referenceImageUrl);
       }
       if (from < 5) {
         await migrator.createTable(appSettingsEntries);
       }
       if (from < 6) {
-        await migrator.addColumn(points, points.referenceThumbnailPath);
-        await migrator.addColumn(points, points.referenceFullImagePath);
-        await migrator.addColumn(
+        await addColumnIfMissing(points, points.referenceThumbnailPath);
+        await addColumnIfMissing(points, points.referenceFullImagePath);
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.cameraMinZoom,
         );
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.cameraMaxZoom,
         );
       }
       if (from < 7) {
-        await migrator.addColumn(visitRecords, visitRecords.originalPhotoPath);
-        await migrator.addColumn(visitRecords, visitRecords.gradedPhotoPath);
-        await migrator.addColumn(visitRecords, visitRecords.colorGradingMode);
-        await migrator.addColumn(
+        await addColumnIfMissing(visitRecords, visitRecords.originalPhotoPath);
+        await addColumnIfMissing(visitRecords, visitRecords.gradedPhotoPath);
+        await addColumnIfMissing(visitRecords, visitRecords.colorGradingMode);
+        await addColumnIfMissing(
           visitRecords,
           visitRecords.colorGradingParamsJson,
         );
-        await migrator.addColumn(
+        await addColumnIfMissing(
           visitRecords,
           visitRecords.colorGradingIntensity,
         );
       }
       if (from < 8) {
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.themePalette,
         );
       }
       if (from < 9) {
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.cameraCaptureAspectRatio,
         );
       }
       if (from < 10) {
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.referenceImageScale,
         );
       }
       if (from < 11) {
-        await migrator.addColumn(plans, plans.currentGroupId);
+        await addColumnIfMissing(plans, plans.currentGroupId);
         await migrator.createTable(planGroups);
-        await migrator.addColumn(points, points.groupId);
-        await migrator.addColumn(points, points.groupOrderIndex);
+        await addColumnIfMissing(points, points.groupId);
+        await addColumnIfMissing(points, points.groupOrderIndex);
       }
       if (from < 12) {
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.nearestAssignDistanceMeters,
         );
       }
       if (from < 13) {
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.mapTileProvider,
         );
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.customXyzTileUrl,
         );
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.customMapLibreStyleUrl,
         );
       }
       if (from < 14) {
-        await migrator.addColumn(visitRecords, visitRecords.workTitle);
-        await migrator.addColumn(visitRecords, visitRecords.workSubtitle);
-        await migrator.addColumn(visitRecords, visitRecords.pointName);
-        await migrator.addColumn(visitRecords, visitRecords.pointSubtitle);
+        await addColumnIfMissing(visitRecords, visitRecords.workTitle);
+        await addColumnIfMissing(visitRecords, visitRecords.workSubtitle);
+        await addColumnIfMissing(visitRecords, visitRecords.pointName);
+        await addColumnIfMissing(visitRecords, visitRecords.pointSubtitle);
         await customStatement('''
           UPDATE visit_records
           SET
-            work_title = (
+            work_title = COALESCE(work_title, (
               SELECT works.title
               FROM works
               WHERE works.id = visit_records.work_id
                 AND works.plan_id = visit_records.plan_id
               LIMIT 1
-            ),
-            work_subtitle = (
+            )),
+            work_subtitle = COALESCE(work_subtitle, (
               SELECT works.subtitle
               FROM works
               WHERE works.id = visit_records.work_id
                 AND works.plan_id = visit_records.plan_id
               LIMIT 1
-            ),
-            point_name = (
+            )),
+            point_name = COALESCE(point_name, (
               SELECT points.name
               FROM points
               WHERE points.id = visit_records.point_id
                 AND points.plan_id = visit_records.plan_id
               LIMIT 1
-            ),
-            point_subtitle = (
+            )),
+            point_subtitle = COALESCE(point_subtitle, (
               SELECT points.subtitle
               FROM points
               WHERE points.id = visit_records.point_id
                 AND points.plan_id = visit_records.plan_id
               LIMIT 1
-            )
+            ))
         ''');
       }
       if (from < 15) {
-        await migrator.addColumn(
+        await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.saveVisitPhotoToGallery,
         );
@@ -682,7 +696,7 @@ class AppDatabase extends _$AppDatabase {
           appSettingsEntries.mapAppearance,
         );
       }
-    },
+    }),
   );
 
   Future<void> normalizeAnitabiImageUrls() async {
