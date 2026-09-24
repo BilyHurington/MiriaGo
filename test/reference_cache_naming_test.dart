@@ -41,9 +41,18 @@ void main() {
 
   test('detects images cut short before their end marker', () {
     expect(
-      looksCompleteImageBytes([0xFF, 0xD8, 0xFF, 0xE0, 0, 0xFF, 0xD9]),
+      looksCompleteImageBytes([0xFF, 0xD8, 0xFF, 0xDA, 0, 1, 0xFF, 0xD9]),
       isTrue,
     );
+    // Data appended after the image (motion photos) is fine.
+    expect(
+      looksCompleteImageBytes([
+        0xFF, 0xD8, 0xFF, 0xDA, 1, 0xFF, 0xD9, //
+        ...List.filled(100000, 7),
+      ]),
+      isTrue,
+    );
+    expect(looksCompleteImageBytes([0xFF, 0xD8, 0xFF, 0xDA, 1, 2, 3]), isFalse);
     expect(
       looksCompleteImageBytes([0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 4]),
       isFalse,
@@ -84,5 +93,14 @@ void main() {
     ];
     expect(looksCompleteImageBytes([...webpHeader, 0, 0, 0, 0]), isTrue);
     expect(looksCompleteImageBytes([...webpHeader, 0, 0]), isFalse);
+  });
+
+  test('legacy matching never claims current-scheme names', () {
+    final other = referenceCacheFileName('https://other.test/b.jpg');
+    expect(isLegacyReferenceCacheName(other, url), isFalse);
+    expect(
+      isLegacyReferenceCacheName('x${legacyReferenceCacheKey(url)}.jpg', url),
+      isFalse,
+    );
   });
 }

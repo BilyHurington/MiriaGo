@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,8 +7,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'app_theme.dart';
 import 'data/anitabi_image_source_scope.dart';
 import 'data/anitabi_service_config.dart';
+import 'data/reference_image_cache_stub.dart'
+    if (dart.library.io) 'data/reference_image_cache_io.dart';
 import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
+import 'map/map_tile_config.dart';
 import 'map/pilgrimage_map_screen.dart';
 import 'plan/add_points_screen.dart';
 import 'plan/plan_manager_screen.dart';
@@ -52,6 +57,7 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _incomingPlanFiles.listen(_importPlanFromPath);
     _initializeApp();
+    unawaited(prepareReferenceCacheStorage());
   }
 
   @override
@@ -78,6 +84,15 @@ class _AppShellState extends State<AppShell> {
 
       _applyAnitabiServiceConfig(settings);
       _publishSettingsAfterLoad(settings);
+      warmConfiguredMapStyle(
+        settings,
+        dark:
+            resolvedAppBrightness(
+              settings,
+              platformBrightness: MediaQuery.platformBrightnessOf(context),
+            ) ==
+            Brightness.dark,
+      );
       _planController?.dispose();
       setState(() {
         _planController = PilgrimagePlanController(

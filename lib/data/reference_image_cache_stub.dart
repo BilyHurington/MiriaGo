@@ -94,7 +94,9 @@ Future<String?> _cacheTauriReferenceImage({
   final bytes = await fetchAnitabiImageBytes(
     url,
     source: imageSource,
-    maxBytes: namespace == 'reference_thumbnails'
+    maxBytes:
+        namespace == 'reference_thumbnails' &&
+            anitabiThumbnailImageUrl(url) != anitabiFullResolutionImageUrl(url)
         ? 4 * 1024 * 1024
         : maxImageEncodedBytes,
   );
@@ -109,3 +111,6 @@ Future<String?> _cacheTauriReferenceImage({
 
 bool _cachedPathMatchesUrl(String path, String url) =>
     referenceCachePathMatchesUrl(path, url);
+
+/// Desktop/web: nothing to prepare (Tauri writes atomically, no iCloud).
+Future<void> prepareReferenceCacheStorage() async {}

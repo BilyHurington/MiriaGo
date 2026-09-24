@@ -27,17 +27,23 @@ String legacyReferenceCacheFileName(String url) =>
     '${legacyReferenceCacheKey(url)}${referenceCacheExtension(url)}';
 
 /// Whether [path] is the cache file for [url]. Current names must match
-/// exactly; legacy names embed the old key (`<key>.jpg` or point-scoped
-/// `<point>_<key>.jpg`).
+/// exactly; legacy names are `<key>.<ext>` or point-scoped
+/// `<point>_<key>.<ext>` with the old key.
 bool referenceCachePathMatchesUrl(String path, String url) {
   final name = _baseName(path);
   return name == referenceCacheFileName(url) ||
       isLegacyReferenceCacheName(name, url);
 }
 
-bool isLegacyReferenceCacheName(String fileName, String url) =>
-    !fileName.endsWith('.part') &&
-    fileName.contains(legacyReferenceCacheKey(url));
+final _currentNamePattern = RegExp(r'^[0-9a-f]{20}\.');
+
+bool isLegacyReferenceCacheName(String fileName, String url) {
+  if (fileName.endsWith('.part') || _currentNamePattern.hasMatch(fileName)) {
+    return false;
+  }
+  final legacy = legacyReferenceCacheFileName(url);
+  return fileName == legacy || fileName.endsWith('_$legacy');
+}
 
 String referenceCacheExtension(String url) {
   final path = Uri.tryParse(url)?.path ?? '';

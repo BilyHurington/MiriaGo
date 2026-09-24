@@ -44,6 +44,9 @@ void main() {
         0xFF,
         0xD8,
         0xFF,
+        0xDA,
+        0x00,
+        0xFF,
         0xD9,
       ], flush: true);
       const work = PilgrimageWork(

@@ -40,9 +40,16 @@ bool isWebpBytes(List<int> bytes) {
 /// cut short by an interrupted download or write. Other formats pass.
 bool looksCompleteImageBytes(List<int> bytes) {
   if (isJpegBytes(bytes)) {
-    // End-of-image marker FF D9, allowing a little trailing padding.
-    final from = bytes.length > 64 ? bytes.length - 64 : 0;
-    for (var i = bytes.length - 2; i >= from; i--) {
+    // Entropy-coded data cannot contain FF D9, so a complete JPEG has an
+    // end-of-image marker somewhere after its first start-of-scan (FF DA).
+    // Data appended after the image (motion photos, MPF) does not matter.
+    var i = 2;
+    while (i < bytes.length - 1 &&
+        !(bytes[i] == 0xFF && bytes[i + 1] == 0xDA)) {
+      i++;
+    }
+    if (i >= bytes.length - 1) return false;
+    for (i += 2; i < bytes.length - 1; i++) {
       if (bytes[i] == 0xFF && bytes[i + 1] == 0xD9) return true;
     }
     return false;
