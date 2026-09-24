@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -7,7 +8,13 @@ import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_fetcher.dart';
 import 'anitabi_image_url.dart';
 import 'app_managed_file_paths_io.dart';
+import 'backup_exclusion_io.dart';
+import 'bounded_image_decoder.dart';
 import 'image_bytes.dart';
+import 'reference_cache_naming.dart';
+
+/// Anitabi thumbnails are small; anything larger is not a thumbnail.
+const maxReferenceThumbnailBytes = 4 * 1024 * 1024;
 
 Future<String?> cacheReferenceThumbnail(
   PilgrimagePoint point, {
@@ -26,8 +33,7 @@ Future<String?> cacheReferenceThumbnail(
     url: thumbnailUrl,
     imageSource: imageSource,
     namespace: 'reference_thumbnails',
-    filename:
-        '${_stableUrlHash(thumbnailUrl)}${_extensionFromUrl(thumbnailUrl)}',
+    maxBytes: maxReferenceThumbnailBytes,
   );
 }
 
@@ -64,90 +70,111 @@ Future<String?> cacheReferenceFullImage(
     url: url,
     imageSource: imageSource,
     namespace: 'reference_full',
-    filename: '${_stableUrlHash(url)}${_extensionFromUrl(url)}',
+    maxBytes: maxImageEncodedBytes,
   );
 }
+
+/// Downloads that are still in progress, by target file, so overlapping
+/// requests for the same image share one download and one write.
+final _inFlightCacheWrites = <String, Future<String?>>{};
 
 Future<String?> _cacheImage({
   required String url,
   required AnitabiImageSource imageSource,
   required String namespace,
-  required String filename,
+  required int maxBytes,
 }) async {
   final directory = await getApplicationDocumentsDirectory();
   final cacheDirectory = Directory(p.join(directory.path, namespace));
   if (!cacheDirectory.existsSync()) {
     cacheDirectory.createSync(recursive: true);
   }
-
-  final path = p.join(cacheDirectory.path, filename);
-  final file = File(path);
-  final cachedFile = await _findValidCachedFile(
-    cacheDirectory,
-    urlHash: _stableUrlHash(url),
-    preferredFile: file,
+  await excludeDirectoryFromBackup(cacheDirectory.path);
+  final path = p.join(cacheDirectory.path, referenceCacheFileName(url));
+  final pending = _inFlightCacheWrites[path];
+  if (pending != null) return pending;
+  final work = _cacheImageInto(
+    url: url,
+    imageSource: imageSource,
+    cacheDirectory: cacheDirectory,
+    path: path,
+    maxBytes: maxBytes,
   );
-  if (cachedFile != null) {
-    return cachedFile.path;
+  _inFlightCacheWrites[path] = work;
+  try {
+    return await work;
+  } finally {
+    if (identical(_inFlightCacheWrites[path], work)) {
+      _inFlightCacheWrites.remove(path);
+    }
+  }
+}
+
+Future<String?> _cacheImageInto({
+  required String url,
+  required AnitabiImageSource imageSource,
+  required Directory cacheDirectory,
+  required String path,
+  required int maxBytes,
+}) async {
+  if (await _isCompleteCachedImage(File(path))) return path;
+  // Files cached by earlier versions keep working under their old names.
+  final legacy = cacheDirectory
+      .listSync(followLinks: false)
+      .whereType<File>()
+      .where((file) => isLegacyReferenceCacheName(p.basename(file.path), url));
+  for (final candidate in legacy) {
+    if (await _isCompleteCachedImage(candidate)) return candidate.path;
   }
 
-  final bytes = await fetchAnitabiImageBytes(url, source: imageSource);
+  final bytes = await fetchAnitabiImageBytes(
+    url,
+    source: imageSource,
+    maxBytes: maxBytes,
+  );
   if (bytes == null || !isSupportedImageBytes(bytes)) {
     return null;
   }
 
-  await file.writeAsBytes(bytes, flush: true);
+  // Write next to the target and rename, so an interrupted write never
+  // leaves a truncated file under the cache name.
+  final temporary = File(
+    '$path.${DateTime.now().microsecondsSinceEpoch}.${_random.nextInt(1 << 32)}.part',
+  );
+  try {
+    await temporary.writeAsBytes(bytes, flush: true);
+    await temporary.rename(path);
+  } on Object {
+    try {
+      if (await temporary.exists()) await temporary.delete();
+    } on Object {
+      // Best effort; a stray .part file is ignored by cache lookups.
+    }
+    rethrow;
+  }
   return path;
 }
 
-Future<File?> _findValidCachedFile(
-  Directory directory, {
-  required String urlHash,
-  required File preferredFile,
-}) async {
-  final candidates = <File>[
-    preferredFile,
-    if (directory.existsSync())
-      ...directory
-          .listSync(followLinks: false)
-          .whereType<File>()
-          .where((file) => p.basename(file.path).contains(urlHash)),
-  ];
-  final visited = <String>{};
-  for (final candidate in candidates) {
-    if (!visited.add(candidate.path) || !candidate.existsSync()) {
-      continue;
-    }
-    final bytes = await candidate.readAsBytes();
-    if (bytes.isNotEmpty && isSupportedImageBytes(bytes)) {
-      return candidate;
-    }
-    await candidate.delete();
+final _random = Random();
+
+/// A cache file is usable when it exists and holds a complete image. Earlier
+/// versions wrote cache files in place, so a file cut short by an interrupted
+/// write can still start with a valid header.
+Future<bool> _isCompleteCachedImage(File file) async {
+  try {
+    if (!await file.exists()) return false;
+    final bytes = await file.readAsBytes();
+    return isSupportedImageBytes(bytes) && looksCompleteImageBytes(bytes);
+  } on FileSystemException {
+    return false;
   }
-  return null;
 }
 
-String _stableUrlHash(String value) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in value.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
-  }
-  return hash.toRadixString(16).padLeft(8, '0');
-}
-
-bool _cachedPathMatchesUrl(String path, String url) {
-  return p.basename(path).contains(_stableUrlHash(url));
-}
+bool _cachedPathMatchesUrl(String path, String url) =>
+    referenceCachePathMatchesUrl(path, url);
 
 bool _isImportedThumbnailPath(String path) {
   final normalized = path.replaceAll(r'\', '/').toLowerCase();
   return normalized.contains('/imported_plan_assets/') &&
       normalized.contains('/assets/thumbnails/');
-}
-
-String _extensionFromUrl(String url) {
-  final path = Uri.tryParse(url)?.path ?? '';
-  final extension = p.extension(path).toLowerCase();
-  return extension.isEmpty ? '.jpg' : extension;
 }

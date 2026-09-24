@@ -21,3 +21,6 @@ Future<int> deleteReferenceCacheFile(String path) async {
   final result = await tauri.deleteDesktopReferenceCacheAsset(path: path);
   return result.existed ? result.byteLength : 0;
 }
+
+/// Desktop cache paths are app-relative (`assets/reference_full/...`).
+String referenceCacheIdentity(String path) => path.replaceAll('\\', '/');

@@ -51,10 +51,41 @@ class ReferenceCacheCleanupResult {
   final int failedFileCount;
 }
 
+/// Cache files the selected plans must not delete: files referenced by points
+/// of any other plan, and by any visit record (records can keep a cached
+/// reference as their comparison image). Downloaded caches are shared between
+/// plans because files are named by image URL.
+Future<Set<String>> referenceCachePathsInUseElsewhere({
+  required PilgrimageRepository repository,
+  required Iterable<String> planIds,
+}) async {
+  final selected = planIds.toSet();
+  final inUse = <String>{};
+  void add(String? path) {
+    if (isDownloadedReferenceCachePath(path)) {
+      inUse.add(backend.referenceCacheIdentity(path!));
+    }
+  }
+
+  for (final plan in await repository.loadPlans()) {
+    if (!selected.contains(plan.id)) {
+      for (final point in plan.points) {
+        add(point.referenceFullImagePath);
+        add(point.referenceThumbnailPath);
+      }
+    }
+    for (final record in await repository.loadVisitRecords(plan.id)) {
+      add(record.referenceImagePath);
+    }
+  }
+  return inUse;
+}
+
 Future<ReferenceCacheScan> scanDownloadedReferenceCaches(
-  Iterable<PilgrimagePlan> plans,
-) async {
-  final paths = _cachePaths(plans);
+  Iterable<PilgrimagePlan> plans, {
+  Set<String> retainedPaths = const {},
+}) async {
+  final paths = _deletableCachePaths(plans, retainedPaths);
   var bytes = 0;
   var files = 0;
   for (final path in paths) {
@@ -71,13 +102,21 @@ Future<ReferenceCacheScan> scanDownloadedReferenceCaches(
   return ReferenceCacheScan(fileCount: files, byteCount: bytes, paths: paths);
 }
 
+/// Deletes the downloaded full-reference caches of [plans] and clears those
+/// paths from their points. Files still used by another plan or by a visit
+/// record are kept on disk; the selected plans stop referencing them either
+/// way.
 Future<ReferenceCacheCleanupResult> cleanupDownloadedReferenceCaches({
   required PilgrimageRepository repository,
   required Iterable<PilgrimagePlan> plans,
   void Function(int completed, int total)? onProgress,
 }) async {
   final planList = plans.toList(growable: false);
-  final paths = _cachePaths(planList);
+  final retained = await referenceCachePathsInUseElsewhere(
+    repository: repository,
+    planIds: planList.map((plan) => plan.id),
+  );
+  final paths = _deletableCachePaths(planList, retained);
   var deleted = 0;
   var reclaimed = 0;
   var failed = 0;
@@ -126,9 +165,15 @@ Future<ReferenceCacheCleanupResult> cleanupDownloadedReferenceCaches({
   );
 }
 
-Set<String> _cachePaths(Iterable<PilgrimagePlan> plans) => {
+Set<String> _deletableCachePaths(
+  Iterable<PilgrimagePlan> plans,
+  Set<String> retainedPaths,
+) => {
   for (final plan in plans)
     for (final point in plan.points)
-      if (isDownloadedFullReferenceCachePath(point.referenceFullImagePath))
+      if (isDownloadedFullReferenceCachePath(point.referenceFullImagePath) &&
+          !retainedPaths.contains(
+            backend.referenceCacheIdentity(point.referenceFullImagePath!),
+          ))
         point.referenceFullImagePath!,
 };

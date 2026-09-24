@@ -2485,7 +2485,13 @@ class _CacheCleanupSettingsPageState extends State<_CacheCleanupSettingsPage> {
     final plans = selected.toList(growable: false);
     late ReferenceCacheScan scan;
     try {
-      scan = await scanDownloadedReferenceCaches(plans);
+      scan = await scanDownloadedReferenceCaches(
+        plans,
+        retainedPaths: await referenceCachePathsInUseElsewhere(
+          repository: widget.repository,
+          planIds: plans.map((plan) => plan.id),
+        ),
+      );
     } on Object catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showStatusSnack(

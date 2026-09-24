@@ -123,6 +123,37 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
 
       self.getBackCameraZoomRange(result: result)
     }
+
+    // Re-downloadable caches (reference images) should not take up the
+    // user's iCloud backup. Excluding a directory also excludes its contents.
+    FlutterMethodChannel(
+      name: "miriago/backup_exclusion",
+      binaryMessenger: messenger
+    ).setMethodCallHandler { call, result in
+      guard
+        call.method == "excludeFromBackup",
+        let arguments = call.arguments as? [String: Any],
+        let path = arguments["path"] as? String
+      else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      var url = URL(fileURLWithPath: path, isDirectory: true)
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      do {
+        try url.setResourceValues(values)
+        result(true)
+      } catch {
+        result(
+          FlutterError(
+            code: "EXCLUDE_FAILED",
+            message: error.localizedDescription,
+            details: nil
+          )
+        )
+      }
+    }
   }
 
   private func registerNativeCameraPreview(

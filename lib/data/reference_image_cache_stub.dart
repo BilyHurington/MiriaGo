@@ -5,7 +5,9 @@ import '../desktop/desktop_asset_image.dart';
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_fetcher.dart';
 import 'anitabi_image_url.dart';
+import 'bounded_image_decoder.dart';
 import 'image_bytes.dart';
+import 'reference_cache_naming.dart';
 
 Future<String?> cacheReferenceThumbnail(
   PilgrimagePoint point, {
@@ -22,7 +24,7 @@ Future<String?> cacheReferenceThumbnail(
     url: url,
     imageSource: imageSource,
     namespace: 'reference_thumbnails',
-    filename: '${_stableUrlHash(url)}${_extensionFromUrl(url)}',
+    filename: referenceCacheFileName(url),
   );
 }
 
@@ -63,7 +65,7 @@ Future<String?> cacheReferenceFullImage(
     url: url,
     imageSource: imageSource,
     namespace: 'reference_full',
-    filename: '${_stableUrlHash(url)}${_extensionFromUrl(url)}',
+    filename: referenceCacheFileName(url),
   );
 }
 
@@ -74,46 +76,36 @@ Future<String?> _cacheTauriReferenceImage({
   required String filename,
 }) async {
   final path = 'assets/$namespace/$filename';
-  try {
-    final existing = await tauri.readDesktopAsset(path: path);
-    if (isSupportedImageBytes(base64Decode(existing.dataBase64))) {
-      return path;
+  for (final candidate in [
+    path,
+    'assets/$namespace/${legacyReferenceCacheFileName(url)}',
+  ]) {
+    try {
+      final existing = await tauri.readDesktopAsset(path: candidate);
+      final bytes = base64Decode(existing.dataBase64);
+      if (isSupportedImageBytes(bytes) && looksCompleteImageBytes(bytes)) {
+        return candidate;
+      }
+    } on Object {
+      // Missing files are expected before the first cache attempt.
     }
-  } on Object {
-    // Missing files are expected before the first cache attempt.
   }
 
-  final bytes = await fetchAnitabiImageBytes(url, source: imageSource);
+  final bytes = await fetchAnitabiImageBytes(
+    url,
+    source: imageSource,
+    maxBytes: namespace == 'reference_thumbnails'
+        ? 4 * 1024 * 1024
+        : maxImageEncodedBytes,
+  );
   if (bytes == null || !isSupportedImageBytes(bytes)) {
     return null;
   }
 
+  // The desktop host writes assets atomically.
   await tauri.writeDesktopAsset(path: path, dataBase64: base64Encode(bytes));
   return path;
 }
 
-String _stableUrlHash(String value) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in value.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
-  }
-  return hash.toRadixString(16).padLeft(8, '0');
-}
-
-bool _cachedPathMatchesUrl(String path, String url) {
-  return path.contains(_stableUrlHash(url));
-}
-
-String _extensionFromUrl(String url) {
-  final path = Uri.tryParse(url)?.path ?? '';
-  final dotIndex = path.lastIndexOf('.');
-  if (dotIndex < 0 || dotIndex == path.length - 1) {
-    return '.jpg';
-  }
-  final extension = path.substring(dotIndex).toLowerCase();
-  if (extension.length > 8 || extension.contains('/')) {
-    return '.jpg';
-  }
-  return extension;
-}
+bool _cachedPathMatchesUrl(String path, String url) =>
+    referenceCachePathMatchesUrl(path, url);

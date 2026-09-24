@@ -35,3 +35,35 @@ bool isWebpBytes(List<int> bytes) {
       bytes[10] == 0x42 &&
       bytes[11] == 0x50;
 }
+
+/// Whether a JPEG/PNG/WebP byte buffer reaches its end marker, i.e. was not
+/// cut short by an interrupted download or write. Other formats pass.
+bool looksCompleteImageBytes(List<int> bytes) {
+  if (isJpegBytes(bytes)) {
+    // End-of-image marker FF D9, allowing a little trailing padding.
+    final from = bytes.length > 64 ? bytes.length - 64 : 0;
+    for (var i = bytes.length - 2; i >= from; i--) {
+      if (bytes[i] == 0xFF && bytes[i + 1] == 0xD9) return true;
+    }
+    return false;
+  }
+  if (isPngBytes(bytes)) {
+    // IEND chunk type followed by its 4-byte CRC ends the file.
+    final from = bytes.length > 32 ? bytes.length - 32 : 0;
+    for (var i = bytes.length - 4; i >= from; i--) {
+      if (bytes[i] == 0x49 &&
+          bytes[i + 1] == 0x45 &&
+          bytes[i + 2] == 0x4E &&
+          bytes[i + 3] == 0x44) {
+        return true;
+      }
+    }
+    return false;
+  }
+  if (isWebpBytes(bytes)) {
+    final riffSize =
+        bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24);
+    return bytes.length >= riffSize + 8;
+  }
+  return true;
+}
