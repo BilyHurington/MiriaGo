@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import 'map_colors.dart';
+import 'localized_map_style.dart';
 import 'synced_maplibre_layer.dart';
 
 const openFreeMapStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
@@ -183,6 +184,11 @@ Widget configuredMapTileLayer(AppSettings settings, {bool? dark}) {
   final layerKey = ValueKey('${mapTileConfigSignature(settings)}|$style');
   if (mapProviderUsesMapLibre(settings.mapTileProvider) &&
       !_isFlutterWidgetTest) {
+    // OpenFreeMap styles have a known label layout that can be localized; a
+    // user-supplied MapLibre style is used exactly as provided.
+    if (settings.mapTileProvider == MapTileProvider.openFreeMap) {
+      return LocalizedMapLibreLayer(key: layerKey, style: style);
+    }
     return SyncedMapLibreLayer(key: layerKey, initStyle: style);
   }
   return configuredRasterTileLayer(settings, key: layerKey);

@@ -34,15 +34,20 @@ typedef NavigationLocationStreamFactory =
 
 /// Returns true when precise location is available, false when the user only
 /// granted approximate location, and null when the platform cannot tell.
-typedef NavigationPreciseLocationCheck = Future<bool?> Function();
+/// [mayRequest] allows asking iOS for temporary full accuracy.
+typedef NavigationPreciseLocationCheck =
+    Future<bool?> Function({required bool mayRequest});
 
 const _temporaryFullAccuracyPurposeKey = 'MiriaGoNavigation';
 
-Future<bool?> defaultNavigationPreciseLocationCheck() async {
+Future<bool?> defaultNavigationPreciseLocationCheck({
+  required bool mayRequest,
+}) async {
   if (kIsWeb) return null;
   try {
     var status = await Geolocator.getLocationAccuracy();
-    if (status == LocationAccuracyStatus.reduced &&
+    if (mayRequest &&
+        status == LocationAccuracyStatus.reduced &&
         defaultTargetPlatform == TargetPlatform.iOS) {
       status = await Geolocator.requestTemporaryFullAccuracy(
         purposeKey: _temporaryFullAccuracyPurposeKey,
@@ -223,6 +228,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
   var _arrivalSheetOpen = false;
   String? _arrivalSuppressedStopId;
   bool? _preciseLocation;
+  var _temporaryAccuracyRequested = false;
   var _routeTargetOffset = 0;
   DateTime? _lastRerouteAt;
   int _rerouteVersion = 0;
@@ -240,6 +246,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
   void onLocationActivityChanged(bool active) {
     _stopLocation();
     if (active) {
+      unawaited(_checkPreciseLocation());
       unawaited(_startLocation(_locationSession));
       _heading.start(
         () => (widget.headingStreamFactory ?? nativeNavigationHeading)(
@@ -313,16 +320,37 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
   late NavigationRoute _navigationRoute = widget.initialRoute;
   late List<LatLng> _route = _navigationRoute.shape;
   late List<double> _routeDistances = cumulativeRouteDistances(_route);
-  late List<_PreviewStep> _steps = _stepsFor(_navigationRoute);
+  late List<_PreviewStep> _steps = _stepsFor(
+    _navigationRoute,
+    stops: _routeStops(0),
+  );
   late LatLng _currentLocation = widget.initialLocation;
   late RouteProgress _progress = _progressFor(_currentLocation);
   late int _upcomingStepIndex = _upcomingStepFor(_progress);
+  DateTime? _userBrowsedStepsAt;
+  var _pagingProgrammatically = false;
   late int _stepIndex = _upcomingStepIndex;
+
+  /// Stops served by a route requested when [targetIndex] was the target, in
+  /// leg order.
+  List<PilgrimagePoint> _routeStops(int targetIndex) {
+    if (_activeStops.isEmpty) return [widget.point];
+    return _activeStops.skip(targetIndex).toList(growable: false);
+  }
 
   NavigationLeg get _currentLeg {
     final legs = _navigationRoute.legs;
     final index = (_targetIndex - _routeTargetOffset).clamp(0, legs.length - 1);
     return legs[index];
+  }
+
+  /// Route distance left to the current target (end of the current leg).
+  double get _legRemainingMeters {
+    final end = _currentLeg.endShapeIndex.clamp(0, _routeDistances.length - 1);
+    return math.max(
+      0,
+      _routeDistances[end] - _progress.distanceAlongRouteMeters,
+    );
   }
 
   RouteProgress _progressFor(LatLng position, {double? previousAlong}) {
@@ -403,17 +431,16 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_checkPreciseLocation());
-  }
-
   Future<void> _checkPreciseLocation() async {
     final check =
         widget.preciseLocationCheck ?? defaultNavigationPreciseLocationCheck;
-    final precise = await check();
-    if (!mounted) return;
+    // Ask for temporary full accuracy at most once per navigation session;
+    // later checks (returning from Settings or the background, where iOS may
+    // have revoked it) only read the current state.
+    final mayRequest = !_temporaryAccuracyRequested;
+    _temporaryAccuracyRequested = true;
+    final precise = await check(mayRequest: mayRequest);
+    if (!mounted || precise == _preciseLocation) return;
     setState(() => _preciseLocation = precise);
   }
 
@@ -440,21 +467,23 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
       previousAlong: _progress.distanceAlongRouteMeters,
     );
     final maneuverIndex = _upcomingStepFor(progress);
+    final browsedAt = _userBrowsedStepsAt;
+    // Let the user look through upcoming steps for a while before the banner
+    // snaps back to the next maneuver.
+    final keepUserPage =
+        browsedAt != null &&
+        DateTime.now().difference(browsedAt) < _userStepBrowseHold;
     setState(() {
       _locationError = null;
       _currentLocation = sample.position;
       _progress = progress;
       _upcomingStepIndex = maneuverIndex;
-      _stepIndex = maneuverIndex;
+      if (!keepUserPage) {
+        _userBrowsedStepsAt = null;
+        _stepIndex = maneuverIndex;
+      }
     });
-    if (_stepController.hasClients &&
-        (_stepController.page?.round() ?? 0) != maneuverIndex) {
-      _stepController.animateToPage(
-        maneuverIndex,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
-    }
+    if (!keepUserPage) _showStepPage(maneuverIndex, animate: true);
     if (_followLocation) {
       _mapController.move(sample.position, _mapController.camera.zoom);
     }
@@ -476,13 +505,22 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     final target = _currentTarget;
     final arrivalRadius = arrivalRadiusMeters(sample.accuracy);
     final distanceToTarget = const Distance()(sample.position, target.position);
+    final legRemaining = _legRemainingMeters;
+    // A stop inside a shrine precinct or on a river bank can be far from the
+    // nearest walkable way; reaching the end of the leg counts as arrival.
+    final atLegEnd =
+        legRemaining <= legEndArrivalMeters &&
+        progress.distanceFromRouteMeters <= arrivalRadius &&
+        distanceToTarget <= maxLegEndArrivalDistanceMeters;
+    final arrived = distanceToTarget <= arrivalRadius || atLegEnd;
     if (_arrivalSuppressedStopId == target.id &&
-        distanceToTarget > arrivalRadius + arrivalRearmMarginMeters) {
+        distanceToTarget > arrivalRadius + arrivalRearmMarginMeters &&
+        legRemaining > legEndArrivalMeters + arrivalRearmMarginMeters) {
       _arrivalSuppressedStopId = null;
     }
     if (!_arrivalSheetOpen &&
         _arrivalSuppressedStopId != target.id &&
-        distanceToTarget <= arrivalRadius) {
+        arrived) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _showArrival(
@@ -530,16 +568,35 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
         _route = route.shape;
         _routeDistances = cumulativeRouteDistances(_route);
         _routeTargetOffset = targetIndex;
-        _steps = _stepsFor(route);
+        _steps = _stepsFor(route, stops: _routeStops(targetIndex));
         _progress = _progressFor(_currentLocation);
         _upcomingStepIndex = _upcomingStepFor(_progress);
         _stepIndex = _upcomingStepIndex;
       });
-      if (_stepController.hasClients) {
-        _stepController.jumpToPage(_stepIndex);
-      }
+      _userBrowsedStepsAt = null;
+      _showStepPage(_stepIndex, animate: false);
     } on Object {
       // Keep the previous route visible; another location update may retry later.
+    }
+  }
+
+  static const _userStepBrowseHold = Duration(seconds: 6);
+
+  void _showStepPage(int index, {required bool animate}) {
+    if (!_stepController.hasClients) return;
+    if ((_stepController.page?.round() ?? 0) == index) return;
+    _pagingProgrammatically = true;
+    if (animate) {
+      _stepController
+          .animateToPage(
+            index,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+          )
+          .whenComplete(() => _pagingProgrammatically = false);
+    } else {
+      _stepController.jumpToPage(index);
+      _pagingProgrammatically = false;
     }
   }
 
@@ -745,7 +802,14 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                 liveIndex: _upcomingStepIndex,
                 liveDistanceMeters: _upcomingStepDistanceMeters,
                 onIndexChanged: (index) {
-                  setState(() => _stepIndex = index);
+                  setState(() {
+                    _stepIndex = index;
+                    if (!_pagingProgrammatically) {
+                      _userBrowsedStepsAt = index == _upcomingStepIndex
+                          ? null
+                          : DateTime.now();
+                    }
+                  });
                 },
               ),
             ),
@@ -767,10 +831,9 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                         dense: true,
                         title: const Text('精确位置已关闭，到达提醒和偏航判断可能不准确。'),
                         trailing: TextButton(
-                          onPressed: () async {
-                            await Geolocator.openAppSettings();
-                            if (mounted) unawaited(_checkPreciseLocation());
-                          },
+                          // The state is re-checked when the app returns to the
+                          // foreground (onLocationActivityChanged).
+                          onPressed: Geolocator.openAppSettings,
                           child: const Text('去设置'),
                         ),
                       ),
@@ -807,10 +870,9 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                     point: _currentTarget,
                     currentIsLast: _currentIsLast,
                     stops: _stops,
-                    metrics: _tripMetricsForRoute(
-                      _navigationRoute,
-                      remainingDistanceMeters:
-                          _progress.remainingDistanceMeters,
+                    metrics: _tripMetricsForLeg(
+                      _currentLeg,
+                      remainingDistanceMeters: _legRemainingMeters,
                     ),
                     expanded: _sheetExpanded,
                     bottomInset: bottomInset,
@@ -843,15 +905,15 @@ class _TripMetrics {
   final String distanceText;
 }
 
-_TripMetrics _tripMetricsForRoute(
-  NavigationRoute route, {
+_TripMetrics _tripMetricsForLeg(
+  NavigationLeg leg, {
   required double remainingDistanceMeters,
   DateTime? now,
 }) {
   final clock = now ?? DateTime.now();
-  final totalMeters = math.max(1.0, route.distanceKm * 1000);
+  final totalMeters = math.max(1.0, leg.distanceKm * 1000);
   final ratio = (remainingDistanceMeters / totalMeters).clamp(0.0, 1.0);
-  final minutes = math.max(1, (route.duration.inSeconds * ratio / 60).round());
+  final minutes = math.max(1, (leg.duration.inSeconds * ratio / 60).round());
   final arrival = clock.add(Duration(minutes: minutes));
   final km = remainingDistanceMeters / 1000;
   return _TripMetrics(
@@ -878,7 +940,10 @@ class _PreviewStep {
   final String instruction;
 }
 
-List<_PreviewStep> _stepsFor(NavigationRoute route) {
+List<_PreviewStep> _stepsFor(
+  NavigationRoute route, {
+  List<PilgrimagePoint> stops = const [],
+}) {
   if (route.maneuvers.isEmpty) {
     return const [
       _PreviewStep(
@@ -889,6 +954,28 @@ List<_PreviewStep> _stepsFor(NavigationRoute route) {
     ];
   }
   final maneuvers = route.maneuvers;
+  final legs = route.legs;
+  String instructionFor(int index) {
+    final maneuver = maneuvers[index];
+    if (maneuver.type != 4 && maneuver.type != 5 && maneuver.type != 6) {
+      return maneuver.instruction;
+    }
+    final legIndex = legs.indexWhere(
+      (leg) => index >= leg.firstManeuverIndex && index < leg.endManeuverIndex,
+    );
+    final isLastLeg = legIndex < 0 || legIndex == legs.length - 1;
+    final stop = legIndex >= 0 && legIndex < stops.length
+        ? stops[legIndex]
+        : null;
+    final side = switch (maneuver.type) {
+      5 => '，在右侧',
+      6 => '，在左侧',
+      _ => '',
+    };
+    if (stop == null) return isLastLeg ? '到达终点$side' : '到达途经点$side';
+    return isLastLeg ? '到达终点 ${stop.name}$side' : '到达途经点 ${stop.name}$side';
+  }
+
   return [
     for (var i = 0; i < maneuvers.length; i++)
       _PreviewStep(
@@ -898,7 +985,7 @@ List<_PreviewStep> _stepsFor(NavigationRoute route) {
         distanceLabel: _distanceLabel(
           i == 0 ? maneuvers[i].distanceKm : maneuvers[i - 1].distanceKm,
         ),
-        instruction: maneuvers[i].instruction,
+        instruction: instructionFor(i),
       ),
   ];
 }
@@ -911,8 +998,9 @@ IconData navigationManeuverIcon(int type) => switch (type) {
   3 || 14 || 15 || 21 || 38 => LucideIcons.cornerUpLeft,
   9 || 18 || 23 => LucideIcons.arrowUpRight,
   16 || 19 || 24 => LucideIcons.arrowUpLeft,
-  12 => LucideIcons.undo2,
-  13 => LucideIcons.redo2,
+  // 12 is a right U-turn, 13 a left one.
+  12 => LucideIcons.redo2,
+  13 => LucideIcons.undo2,
   26 || 27 => LucideIcons.rotateCw,
   39 || 40 || 41 || 44 => LucideIcons.arrowUpDown,
   _ => LucideIcons.arrowUp,
@@ -1073,22 +1161,10 @@ class _InstructionBanner extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (var i = 0; i < steps.length; i++)
-                            Container(
-                              width: 6,
-                              height: 6,
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: i == index
-                                    ? chrome.primaryText
-                                    : chrome.inactiveDot,
-                              ),
-                            ),
-                        ],
+                      _StepDots(
+                        chrome: chrome,
+                        count: steps.length,
+                        index: index,
                       ),
                     ],
                   ),
@@ -1098,6 +1174,59 @@ class _InstructionBanner extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Page dots for the instruction pager. Long routes show a window of dots
+/// around the current page plus an "n / total" counter instead of one dot per
+/// maneuver, which would overflow the banner.
+class _StepDots extends StatelessWidget {
+  const _StepDots({
+    required this.chrome,
+    required this.count,
+    required this.index,
+  });
+
+  static const maxDots = 9;
+
+  final _NavigationChrome chrome;
+  final int count;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 1) return const SizedBox(height: 6);
+    final current = index.clamp(0, count - 1);
+    final visible = math.min(count, maxDots);
+    final first = (current - visible ~/ 2).clamp(0, count - visible);
+    return Row(
+      key: const ValueKey('in-app-navigation-step-dots'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = first; i < first + visible; i++)
+          Container(
+            width: 6,
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: i == current ? chrome.primaryText : chrome.inactiveDot,
+            ),
+          ),
+        if (count > maxDots) ...[
+          const SizedBox(width: 8),
+          Text(
+            '${current + 1} / $count',
+            style: TextStyle(
+              color: chrome.secondaryText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

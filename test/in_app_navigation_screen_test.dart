@@ -496,7 +496,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('210米'), findsOneWidget);
-    expect(find.text('沿表参道直行'), findsOneWidget);
+    expect(find.text('到达终点 宇治桥'), findsOneWidget);
   });
 
   testWidgets('dark theme mode uses dark navigation chrome', (tester) async {
@@ -665,7 +665,8 @@ void main() {
     for (final arrive in [4, 5, 6]) {
       expect(navigationManeuverIcon(arrive), LucideIcons.flag);
     }
-    expect(navigationManeuverIcon(12), LucideIcons.undo2);
+    expect(navigationManeuverIcon(12), LucideIcons.redo2);
+    expect(navigationManeuverIcon(13), LucideIcons.undo2);
   });
 
   testWidgets('banner counts down to the upcoming turn', (tester) async {
@@ -687,7 +688,7 @@ void main() {
     final afterTurn = LatLng(turn.latitude + 0.0005, turn.longitude);
     positions.add(NavigationLocationSample(position: afterTurn, accuracy: 5));
     await tester.pumpAndSettle();
-    expect(find.text('沿表参道直行'), findsOneWidget);
+    expect(find.text('到达终点 宇治桥'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -791,7 +792,10 @@ void main() {
   testWidgets('warns when only approximate location is available', (
     tester,
   ) async {
-    await pumpScreen(tester, preciseLocationCheck: () async => false);
+    await pumpScreen(
+      tester,
+      preciseLocationCheck: ({required mayRequest}) async => false,
+    );
     expect(
       find.byKey(const ValueKey('navigation-precise-location-warning')),
       findsOneWidget,
@@ -801,7 +805,10 @@ void main() {
   testWidgets('no approximate-location warning when precise or unknown', (
     tester,
   ) async {
-    await pumpScreen(tester, preciseLocationCheck: () async => true);
+    await pumpScreen(
+      tester,
+      preciseLocationCheck: ({required mayRequest}) async => true,
+    );
     expect(
       find.byKey(const ValueKey('navigation-precise-location-warning')),
       findsNothing,
@@ -911,6 +918,168 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('long routes show a dot window and a step counter', (
+    tester,
+  ) async {
+    final start = _testStart(point);
+    final shape = [
+      for (var i = 0; i <= 30; i++)
+        LatLng(start.latitude + i * 0.0001, start.longitude),
+    ];
+    final route = NavigationRoute(
+      shape: shape,
+      maneuvers: [
+        for (var i = 0; i < 30; i++)
+          NavigationManeuver(
+            type: i.isEven ? 10 : 15,
+            instruction: '第${i + 1}步',
+            distanceKm: 0.011,
+            beginShapeIndex: i,
+            endShapeIndex: i + 1,
+          ),
+      ],
+      distanceKm: 0.33,
+      duration: const Duration(minutes: 5),
+    );
+    await pumpScreen(tester, route: route, initialLocation: start);
+    final dots = find.byKey(const ValueKey('in-app-navigation-step-dots'));
+    expect(dots, findsOneWidget);
+    expect(find.textContaining('/ 30'), findsOneWidget);
+    expect(
+      find.descendant(of: dots, matching: find.byType(Container)),
+      findsNWidgets(9),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('intermediate stops are announced as waypoints', (tester) async {
+    const lastPoint = PilgrimagePoint(
+      id: 'point-2',
+      work: work,
+      name: '京阪宇治站前',
+      subtitle: '京阪宇治駅前',
+      position: LatLng(34.8942, 135.8069),
+      episodeLabel: 'EP 5',
+      referenceLabel: '手动',
+    );
+    final start = _testStart(point);
+    final route = NavigationRoute(
+      shape: [start, point.position, lastPoint.position],
+      maneuvers: const [
+        NavigationManeuver(
+          type: 1,
+          instruction: '开始步行',
+          distanceKm: 0.3,
+          beginShapeIndex: 0,
+          endShapeIndex: 1,
+        ),
+        NavigationManeuver(
+          type: 5,
+          instruction: '到达终点',
+          distanceKm: 0,
+          beginShapeIndex: 1,
+          endShapeIndex: 1,
+        ),
+        NavigationManeuver(
+          type: 1,
+          instruction: '开始步行',
+          distanceKm: 0.5,
+          beginShapeIndex: 1,
+          endShapeIndex: 2,
+        ),
+        NavigationManeuver(
+          type: 4,
+          instruction: '到达终点',
+          distanceKm: 0,
+          beginShapeIndex: 2,
+          endShapeIndex: 2,
+        ),
+      ],
+      distanceKm: 0.8,
+      duration: const Duration(minutes: 11),
+      legs: const [
+        NavigationLeg(
+          startShapeIndex: 0,
+          endShapeIndex: 1,
+          firstManeuverIndex: 0,
+          maneuverCount: 2,
+          distanceKm: 0.3,
+          duration: Duration(minutes: 4),
+        ),
+        NavigationLeg(
+          startShapeIndex: 1,
+          endShapeIndex: 2,
+          firstManeuverIndex: 2,
+          maneuverCount: 2,
+          distanceKm: 0.5,
+          duration: Duration(minutes: 7),
+        ),
+      ],
+    );
+    await pumpScreen(
+      tester,
+      stops: const [point, lastPoint],
+      route: route,
+      initialLocation: start,
+    );
+    expect(find.text('到达途经点 宇治桥，在右侧'), findsOneWidget);
+    expect(find.text('到达终点'), findsNothing);
+  });
+
+  testWidgets('reaching the end of the leg counts as arrival', (tester) async {
+    // The stop sits ~70 m from the end of the walkable route.
+    final routeEnd = LatLng(
+      point.position.latitude - 0.0006,
+      point.position.longitude,
+    );
+    final start = _testStart(point);
+    final route = NavigationRoute(
+      shape: [start, routeEnd],
+      maneuvers: const [],
+      distanceKm: 0.3,
+      duration: const Duration(minutes: 4),
+    );
+    final positions = StreamController<NavigationLocationSample>.broadcast();
+    addTearDown(positions.close);
+    await pumpScreen(
+      tester,
+      route: route,
+      initialLocation: start,
+      locationStream: positions.stream,
+    );
+    positions.add(NavigationLocationSample(position: routeEnd, accuracy: 5));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('in-app-navigation-arrival-sheet')),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('browsing steps is not overridden by the next location fix', (
+    tester,
+  ) async {
+    final positions = StreamController<NavigationLocationSample>.broadcast();
+    addTearDown(positions.close);
+    await pumpScreen(tester, locationStream: positions.stream);
+    await tester.drag(
+      find.byKey(const ValueKey('in-app-navigation-steps')),
+      const Offset(-280, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('到达终点 宇治桥'), findsOneWidget);
+    final start = _testStart(point);
+    positions.add(
+      NavigationLocationSample(
+        position: LatLng(start.latitude, start.longitude + 0.0002),
+        accuracy: 5,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('到达终点 宇治桥'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
 
 class _DeferredRouteClient extends ValhallaRouteClient {
@@ -976,7 +1145,7 @@ NavigationRoute _testRoute(
       ),
       NavigationManeuver(
         type: 4,
-        instruction: '沿表参道直行',
+        instruction: '到达终点',
         distanceKm: 0,
         beginShapeIndex: shape.length - 1,
         endShapeIndex: shape.length - 1,

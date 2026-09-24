@@ -88,4 +88,39 @@ void main() {
     expect(offRouteLimitMeters(0), 45);
     expect(offRouteLimitMeters(3000), 100);
   });
+
+  test('snapped position advances smoothly past dense shape vertices', () {
+    // Vertices every ~9 m heading north; walking must not stick at vertices.
+    final shape = [for (var i = 0; i < 12; i++) LatLng(35 + i * 0.00008, 139)];
+    final cumulative = cumulativeRouteDistances(shape);
+    double? previous;
+    var last = -1.0;
+    for (var metres = 2.0; metres < 90; metres += 2) {
+      final position = LatLng(35 + metres / 111195, 139);
+      final progress = routeProgressFor(
+        position,
+        shape,
+        previousAlongRouteMeters: previous,
+        cumulativeDistances: cumulative,
+      );
+      expect(progress.distanceAlongRouteMeters, closeTo(metres, 1.5));
+      expect(progress.distanceAlongRouteMeters, greaterThan(last));
+      last = progress.distanceAlongRouteMeters;
+      previous = progress.distanceAlongRouteMeters;
+    }
+  });
+
+  test('turn is passed as soon as the user is on the next segment', () {
+    const shape = [
+      LatLng(35, 139),
+      LatLng(35.00025, 139), // ~28 m north, then turn east
+      LatLng(35.00025, 139.0005),
+    ];
+    final progress = routeProgressFor(
+      const LatLng(35.00025, 139.00003), // ~3 m past the corner
+      shape,
+      previousAlongRouteMeters: 27,
+    );
+    expect(progress.segmentIndex, 1);
+  });
 }

@@ -103,25 +103,44 @@ RouteProgress routeProgressFor(
     nearestDistance = math.min(nearestDistance, projection.distanceMeters);
   }
 
+  // Candidates within [tieToleranceMeters] of the nearest are all plausible.
+  // Neighbouring segments around a shape vertex belong to the same place on
+  // the route, so they are grouped by route distance first and only the
+  // nearest of each group competes. Separate groups are separate passes over
+  // the same ground (out-and-back streets); only then does continuity with
+  // the previous fix decide.
   const tieToleranceMeters = 8.0;
-  _SegmentCandidate? best;
-  for (final candidate in candidates) {
-    if (candidate.distance > nearestDistance + tieToleranceMeters) continue;
-    if (best == null) {
-      best = candidate;
-      continue;
+  const distinctPassMeters = 30.0;
+  final plausible =
+      candidates
+          .where((c) => c.distance <= nearestDistance + tieToleranceMeters)
+          .toList()
+        ..sort((a, b) => a.along.compareTo(b.along));
+  final passes = <_SegmentCandidate>[];
+  _SegmentCandidate? groupBest;
+  double? groupEnd;
+  for (final candidate in plausible) {
+    if (groupEnd != null && candidate.along - groupEnd > distinctPassMeters) {
+      passes.add(groupBest!);
+      groupBest = null;
     }
+    if (groupBest == null || candidate.distance < groupBest.distance) {
+      groupBest = candidate;
+    }
+    groupEnd = candidate.along;
+  }
+  if (groupBest != null) passes.add(groupBest);
+
+  var best = passes.first;
+  for (final pass in passes.skip(1)) {
     if (previousAlongRouteMeters == null) {
-      // Without history take the closest segment; exact ties keep the earliest.
-      if (candidate.distance < best.distance) best = candidate;
-      continue;
-    }
-    if (_continuityCost(candidate, previousAlongRouteMeters) <
+      if (pass.distance < best.distance) best = pass;
+    } else if (_continuityCost(pass, previousAlongRouteMeters) <
         _continuityCost(best, previousAlongRouteMeters)) {
-      best = candidate;
+      best = pass;
     }
   }
-  final snapped = best!;
+  final snapped = best;
   final along = snapped.along;
   return RouteProgress(
     nearestShapeIndex: snapped.fraction < 0.5
@@ -229,3 +248,12 @@ const maxDecisionAccuracyMeters = 65.0;
 /// Extra distance past the arrival radius the user must move away before a
 /// dismissed arrival prompt for the same stop can open again.
 const arrivalRearmMarginMeters = 20.0;
+
+/// Route distance to the end of a leg that counts as reaching its stop even
+/// when the stop itself is further from the walkable way than the arrival
+/// radius.
+const legEndArrivalMeters = 15.0;
+
+/// Upper bound on how far the stop may be from the user for [legEndArrivalMeters]
+/// to count as arrival.
+const maxLegEndArrivalDistanceMeters = 120.0;

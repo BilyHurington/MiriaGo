@@ -23,14 +23,31 @@ class SyncedMapLibreLayer extends StatefulWidget {
 
 class _SyncedMapLibreLayerState extends State<SyncedMapLibreLayer> {
   MapController? _controller;
+  StreamSubscription<fm.MapEvent>? _eventSubscription;
+  fm.MapController? _flutterMapController;
   fm.MapCamera? _latestCamera;
   fm.MapCamera? _syncedCamera;
   var _syncScheduled = false;
 
   @override
   void dispose() {
+    _eventSubscription?.cancel();
     _controller = null;
     super.dispose();
+  }
+
+  void _listenToMoves(fm.MapController controller) {
+    if (identical(controller, _flutterMapController)) return;
+    _eventSubscription?.cancel();
+    _flutterMapController = controller;
+    // Gestures and animated moves: follow immediately, before the frame, so
+    // the base map does not trail overlays by a frame.
+    _eventSubscription = controller.mapEventStream.listen((event) {
+      if (event is fm.MapEventWithMove) {
+        _latestCamera = event.camera;
+        _syncNow();
+      }
+    });
   }
 
   void _scheduleSync() {
@@ -71,6 +88,7 @@ class _SyncedMapLibreLayerState extends State<SyncedMapLibreLayer> {
     // Depending on MapCamera rebuilds this layer on every camera change,
     // including fits and programmatic moves that emit no move event.
     final camera = fm.MapCamera.of(context);
+    _listenToMoves(fm.MapController.of(context));
     _latestCamera = camera;
     if (_controller != null && !identical(camera, _syncedCamera)) {
       _scheduleSync();
