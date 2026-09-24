@@ -135,6 +135,23 @@ void main() {
       expect(row[0], '+81 Cafe');
       expect(row[4], '-Tokyo-');
     });
+
+    test('My Maps CSV still escapes formula-like + and - cells', () async {
+      final plan = await SamplePilgrimageRepository().loadActivePlan();
+      final point = plan.points.first.copyWith(
+        name: "+cmd|' /C calc'!A0",
+        subtitle: '-2+3',
+        position: const LatLng(35.5, 139.7),
+      );
+      final csv = utf8.decode(
+        buildMyMapsCsvExport(
+          plan: plan.copyWith(points: [point]),
+          exportedAt: DateTime.utc(2026, 7, 27),
+        ).bytes,
+      );
+      expect(csv, contains("'+cmd|"));
+      expect(csv, contains("'-2+3"));
+    });
   });
 
   group('imported coordinates', () {

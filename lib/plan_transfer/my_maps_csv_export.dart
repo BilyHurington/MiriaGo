@@ -107,14 +107,23 @@ String _csvCell(String value, {required bool numeric}) {
 // This file is meant for Google My Maps, which shows cell text verbatim, so a
 // leading apostrophe would appear in names like "+81 Cafe" or "-Tokyo-". Only
 // escape the characters that start a formula on their own when the file is
-// opened in a spreadsheet instead ('=' and '@', plus tab/CR); '+'/'-' are
-// left alone. Package-internal CSVs keep the stricter escaping.
+// opened in a spreadsheet instead ('=' and '@', plus tab/CR). A leading '+' or
+// '-' is only escaped when the rest looks like a formula (a function call,
+// sheet reference, DDE pipe or arithmetic), so plain names stay verbatim.
+// Package-internal CSVs keep the stricter escaping.
 String _neutralizeSpreadsheetFormula(String value) {
   if (value.isEmpty) {
     return value;
   }
-  return const {'=', '@', '\t', '\r'}.contains(value[0]) ? "'$value" : value;
+  if (const {'=', '@', '\t', '\r'}.contains(value[0])) return "'$value";
+  if ((value[0] == '+' || value[0] == '-') &&
+      _formulaLikePattern.hasMatch(value.substring(1))) {
+    return "'$value";
+  }
+  return value;
 }
+
+final _formulaLikePattern = RegExp(r'[(!|=]|^\s*[\d.]+\s*[-+*/^]');
 
 String _singleLine(String value) {
   return value.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
