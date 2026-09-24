@@ -280,11 +280,26 @@ class _CamerawesomeReferenceScreenState
 
     // The photo already exists; a dismissed strategy prompt only skips
     // location for this photo instead of dropping the capture.
-    final strategy = await _ensurePhotoLocationStrategy();
-    await _openConfirmation(
-      path,
-      photoLocationStrategy: strategy ?? PhotoLocationStrategy.disabled,
-    );
+    PhotoLocationStrategy? strategy;
+    try {
+      strategy = await _ensurePhotoLocationStrategy();
+    } catch (error, stackTrace) {
+      // CameraAwesome drops this future, so a failure must end here; nobody
+      // else will open or clean up the captured file.
+      debugPrint('Capture strategy lookup failed: $error\n$stackTrace');
+      deleteVisitRecordLocalFile(path);
+      _showCaptureFailed();
+      return;
+    }
+    try {
+      await _openConfirmation(
+        path,
+        photoLocationStrategy: strategy ?? PhotoLocationStrategy.disabled,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Opening capture confirmation failed: $error\n$stackTrace');
+      _showCaptureFailed();
+    }
   }
 
   Future<void> _captureWithNativeCamera(_ReferenceImageSource reference) {
@@ -437,8 +452,14 @@ class _CamerawesomeReferenceScreenState
   Future<PhotoLocationStrategy?> _resolvePhotoLocationStrategy() async {
     AppSettings? persistedSettings;
     if (_photoLocationStrategy == PhotoLocationStrategy.askOnFirstCapture) {
-      persistedSettings = await widget.controller?.repository
-          ?.loadAppSettings();
+      try {
+        persistedSettings = await widget.controller?.repository
+            ?.loadAppSettings();
+      } catch (error) {
+        // Still ask: failing every shutter tap would never show the prompt.
+        // The choice is then saved on top of the widget.settings snapshot.
+        debugPrint('Could not load settings for location strategy: $error');
+      }
       final persistedStrategy = persistedSettings?.photoLocationStrategy;
       if (persistedStrategy != null &&
           persistedStrategy != PhotoLocationStrategy.askOnFirstCapture) {

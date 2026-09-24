@@ -125,7 +125,7 @@ void main() {
     expect(cameras.takePictureCalls, 1);
   });
 
-  testWidgets('shutter recovers when resolving the location strategy fails', (
+  testWidgets('a failing settings load still shows the location prompt', (
     tester,
   ) async {
     final repository = _ThrowingSettingsRepository();
@@ -140,21 +140,40 @@ void main() {
       tester,
       settings: const AppSettings(
         photoLocationStrategy: PhotoLocationStrategy.askOnFirstCapture,
+        mapThumbnailConcurrentLoads: 7,
       ),
       controller: planController,
     );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final recent = find.byKey(const ValueKey('photo-location-choice-recent'));
+    expect(recent, findsOneWidget);
+    await tester.tap(recent);
+    await tester.pumpAndSettle();
+
+    // Saved on top of the snapshot the camera opened with.
+    expect(
+      repository.saved?.photoLocationStrategy,
+      PhotoLocationStrategy.useRecentLocation,
+    );
+    expect(repository.saved?.mapThumbnailConcurrentLoads, 7);
+
     final shutter = find.byWidgetPredicate(
       (widget) => widget.runtimeType.toString() == '_NativeCaptureButton',
     );
-
     await tester.tap(shutter);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('拍摄失败，请重试'), findsOneWidget);
+    expect(find.textContaining('拍摄失败，请重试'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('photo-location-choice-recent')),
+      findsNothing,
+    );
+    expect(cameras.takePictureCalls, 1);
     expect(controller.shutterBusy, isFalse);
-    expect(cameras.takePictureCalls, 0);
   });
 
   testWidgets('choosing a location strategy keeps persisted settings', (
@@ -193,9 +212,16 @@ void main() {
 }
 
 class _ThrowingSettingsRepository extends SamplePilgrimageRepository {
+  AppSettings? saved;
+
   @override
   Future<AppSettings> loadAppSettings() =>
       Future<AppSettings>.error(StateError('settings unavailable'));
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    saved = settings;
+  }
 }
 
 class _FakePlatformViews {

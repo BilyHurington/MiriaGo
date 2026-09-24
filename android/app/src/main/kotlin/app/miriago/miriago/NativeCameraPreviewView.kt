@@ -46,6 +46,9 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
+// How long CameraX may still be writing an aborted capture's output file.
+private const val ORPHANED_CAPTURE_DELETE_RETRY_MS = 3_000L
+
 private enum class NativeLensMode(val value: String) {
     BackAuto("backAuto"),
     BackTelephoto("backTelephoto"),
@@ -117,9 +120,10 @@ class NativeCameraPreviewView(
         // down they are rejected, so answer every pending capture here.
         val pending = pendingCaptures.toList()
         pendingCaptures.clear()
-        for (reply in pending) {
-            reply.error("camera_disposed", "Camera preview was disposed.")
-        }
+        val orphanedFiles = pending.filter {
+            it.error("camera_disposed", "Camera preview was disposed.")
+        }.map { it.file }
+        deleteOrphanedCaptureFiles(orphanedFiles)
         // Release only this view's use cases: a replacement preview view may
         // already have bound the shared process camera provider.
         val ownUseCases = listOfNotNull(preview, imageCapture)
@@ -298,22 +302,33 @@ class NativeCameraPreviewView(
         // The saved JPEG's EXIF orientation comes from targetRotation, which
         // normalizeAndCropImage then applies before cropping.
         updateTargetRotation()
-        val reply = CaptureReply(result)
-        pendingCaptures.add(reply)
 
-        val directory = File(context.filesDir, "visit_record_images")
-        if (!directory.exists()) {
-            directory.mkdirs()
+        val file: File
+        val location: Location?
+        val outputOptions: ImageCapture.OutputFileOptions
+        try {
+            val directory = File(context.filesDir, "visit_record_images")
+            if (!directory.exists()) {
+                directory.mkdirs()
+            }
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+            file = File(directory, "native_camera_$timestamp.jpg")
+            location = locationFromCall(call)
+            val metadata = ImageCapture.Metadata().apply {
+                this.location = location
+            }
+            outputOptions = ImageCapture.OutputFileOptions.Builder(file)
+                .setMetadata(metadata)
+                .build()
+        } catch (error: Exception) {
+            // Not registered as pending yet, so this is the only reply.
+            result.error("capture_failed", error.message, null)
+            return
         }
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
-        val file = File(directory, "native_camera_$timestamp.jpg")
-        val location = locationFromCall(call)
-        val metadata = ImageCapture.Metadata().apply {
-            this.location = location
-        }
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(file)
-            .setMetadata(metadata)
-            .build()
+        // Registered only once setup succeeded; from here every reply goes
+        // through the exactly-once CaptureReply.
+        val reply = CaptureReply(result, file)
+        pendingCaptures.add(reply)
         try {
             capture.takePicture(
                 outputOptions,
@@ -365,10 +380,35 @@ class NativeCameraPreviewView(
     }
 
     /**
-     * Replies to a capture call exactly once, always on the main thread, and
-     * drops it from [pendingCaptures] when it completes.
+     * CameraX drops the saved callback of requests aborted by unbinding, yet
+     * may still finish writing their output file. Delete files of captures
+     * failed by [dispose] now and once more after CameraX had time to finish.
      */
-    private inner class CaptureReply(private val result: MethodChannel.Result) {
+    private fun deleteOrphanedCaptureFiles(files: List<File>) {
+        if (files.isEmpty()) return
+        Thread {
+            files.forEach { it.delete() }
+            try {
+                Thread.sleep(ORPHANED_CAPTURE_DELETE_RETRY_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            files.forEach { it.delete() }
+        }.apply {
+            name = "miriago-camera-orphan-cleanup"
+            isDaemon = true
+        }.start()
+    }
+
+    /**
+     * Replies to a capture call exactly once, always on the main thread, and
+     * drops it from [pendingCaptures] when it completes. [file] is the capture
+     * output, deleted by [dispose] when the reply was failed there.
+     */
+    private inner class CaptureReply(
+        private val result: MethodChannel.Result,
+        val file: File,
+    ) {
         private val replied = AtomicBoolean(false)
 
         /** Returns false when the call was already answered. */
@@ -381,12 +421,14 @@ class NativeCameraPreviewView(
             return true
         }
 
-        fun error(code: String, message: String?) {
-            if (!replied.compareAndSet(false, true)) return
+        /** Returns false when the call was already answered. */
+        fun error(code: String, message: String?): Boolean {
+            if (!replied.compareAndSet(false, true)) return false
             activity.runOnUiThread {
                 pendingCaptures.remove(this)
                 result.error(code, message, null)
             }
+            return true
         }
     }
 

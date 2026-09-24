@@ -464,7 +464,13 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   private var torchEnabled = false
   private var targetAspectRatio = 1.0
   private var cropCaptureToAspectRatio = true
-  private var captureDelegate: NativePhotoCaptureDelegate?
+  // Session queue only. AVCapturePhotoOutput does not keep its delegates
+  // alive, so each in-flight capture's delegate is held here.
+  private var captureDelegates: [UUID: NativePhotoCaptureDelegate] = [:]
+  // Main thread only. Captures whose Flutter reply is still outstanding;
+  // dispose fails them so the Dart shutter never waits forever.
+  private var pendingCaptures: [UUID: NativeCaptureReply] = [:]
+  private var isDisposed = false
   private var orientationObserver: NSObjectProtocol?
 
   init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
@@ -500,6 +506,13 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
 
   deinit {
     stopObservingOrientation()
+    // Freed without an explicit dispose: still answer every capture.
+    let pending = Array(pendingCaptures.values)
+    if !pending.isEmpty {
+      DispatchQueue.main.async {
+        pending.forEach { $0.finish(nativeCameraDisposedError()) }
+      }
+    }
   }
 
   func view() -> UIView {
@@ -717,9 +730,25 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   }
 
   private func takePicture(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard !isDisposed else {
+      result(nativeCameraDisposedError())
+      return
+    }
+    // The reply is owned independently of self, so the Dart future completes
+    // even if this view is disposed or freed mid-capture.
+    let captureId = UUID()
+    let reply = NativeCaptureReply(result)
+    pendingCaptures[captureId] = reply
+    // UIKit state: read on the main thread, then hand to the session queue.
+    let videoOrientation = currentVideoOrientation()
+    let location = photoLocation(from: call)
+
     sessionQueue.async { [weak self] in
-      guard let self else { return }
-      self.updatePhotoOrientation()
+      guard let self else {
+        DispatchQueue.main.async { reply.finish(nativeCameraDisposedError()) }
+        return
+      }
+      self.updatePhotoOrientation(videoOrientation)
 
       let settings = AVCapturePhotoSettings()
       if self.photoOutput.supportedFlashModes.contains(self.flashMode) {
@@ -729,15 +758,18 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
       let delegate = NativePhotoCaptureDelegate(
         targetAspectRatio: self.targetAspectRatio,
         cropCaptureToAspectRatio: self.cropCaptureToAspectRatio,
-        location: photoLocation(from: call)
+        location: location
       ) { [weak self] path, error in
-        guard let self else { return }
-        self.captureDelegate = nil
-        DispatchQueue.main.async {
+        self?.sessionQueue.async { [weak self] in
+          self?.captureDelegates[captureId] = nil
+        }
+        DispatchQueue.main.async { [weak self] in
+          self?.pendingCaptures[captureId] = nil
+          let delivered: Bool
           if let path {
-            result(path)
+            delivered = reply.finish(path)
           } else {
-            result(
+            delivered = reply.finish(
               FlutterError(
                 code: "capture_failed",
                 message: error ?? "Failed to capture photo.",
@@ -745,9 +777,13 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
               )
             )
           }
+          if !delivered, let path {
+            // Already failed as camera_disposed; nobody will pick it up.
+            try? FileManager.default.removeItem(atPath: path)
+          }
         }
       }
-      self.captureDelegate = delegate
+      self.captureDelegates[captureId] = delegate
       self.photoOutput.capturePhoto(with: settings, delegate: delegate)
     }
   }
@@ -827,16 +863,18 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
     UIDevice.current.endGeneratingDeviceOrientationNotifications()
   }
 
-  private func updatePhotoOrientation() {
+  /// Session queue. `orientation` is read on the main thread by the caller.
+  private func updatePhotoOrientation(_ orientation: AVCaptureVideoOrientation) {
     guard let connection = photoOutput.connection(with: .video) else { return }
     if connection.isVideoOrientationSupported {
-      connection.videoOrientation = currentVideoOrientation()
+      connection.videoOrientation = orientation
     }
     if connection.isVideoMirroringSupported {
       connection.isVideoMirrored = lensFacing == "front"
     }
   }
 
+  /// Main thread only: reads UIKit scene state.
   private func currentVideoOrientation() -> AVCaptureVideoOrientation {
     let orientation = UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
@@ -881,6 +919,11 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   }
 
   private func dispose() {
+    guard !isDisposed else { return }
+    isDisposed = true
+    let pending = Array(pendingCaptures.values)
+    pendingCaptures.removeAll()
+    pending.forEach { $0.finish(nativeCameraDisposedError()) }
     channel.setMethodCallHandler(nil)
     previewView.onLayout = nil
     stopObservingOrientation()
@@ -937,6 +980,32 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   private func stringArgument(_ call: FlutterMethodCall, _ key: String) -> String? {
     guard let arguments = call.arguments as? [String: Any] else { return nil }
     return arguments[key] as? String
+  }
+}
+
+private func nativeCameraDisposedError() -> FlutterError {
+  FlutterError(
+    code: "camera_disposed",
+    message: "Camera preview was disposed.",
+    details: nil
+  )
+}
+
+/// Answers a takePicture call exactly once. Main thread only.
+private final class NativeCaptureReply {
+  private var result: FlutterResult?
+
+  init(_ result: @escaping FlutterResult) {
+    self.result = result
+  }
+
+  /// Returns false when the call was already answered.
+  @discardableResult
+  func finish(_ value: Any?) -> Bool {
+    guard let result else { return false }
+    self.result = nil
+    result(value)
+    return true
   }
 }
 
