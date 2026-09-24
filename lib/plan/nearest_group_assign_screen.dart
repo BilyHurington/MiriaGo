@@ -55,12 +55,34 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       .where((point) => point.groupId == null && point.hasCoordinate)
       .toList(growable: false);
 
-  List<PilgrimagePlanGroup> get _targetGroups => sortGroupsByPlanOrder(
-    _plan.groups.where((group) => _anchorOf(group) != null),
-  );
+  // Anchors and the sorted group list only change with the plan; building
+  // them once per plan keeps the distance slider responsive for large
+  // imports (they were recomputed for every point on every frame).
+  PilgrimagePlan? _anchorsPlan;
+  Map<String, LatLng> _anchorsByGroupId = const {};
+  List<PilgrimagePlanGroup> _sortedTargetGroups = const [];
 
-  LatLng? _anchorOf(PilgrimagePlanGroup group) =>
-      resolvedGroupAnchorPosition(group, _plan.points);
+  void _refreshAnchors() {
+    if (identical(_anchorsPlan, _plan)) return;
+    _anchorsPlan = _plan;
+    _anchorsByGroupId = {
+      for (final group in _plan.groups)
+        group.id: ?resolvedGroupAnchorPosition(group, _plan.points),
+    };
+    _sortedTargetGroups = sortGroupsByPlanOrder(
+      _plan.groups.where((group) => _anchorsByGroupId.containsKey(group.id)),
+    );
+  }
+
+  List<PilgrimagePlanGroup> get _targetGroups {
+    _refreshAnchors();
+    return _sortedTargetGroups;
+  }
+
+  LatLng? _anchorOf(PilgrimagePlanGroup group) {
+    _refreshAnchors();
+    return _anchorsByGroupId[group.id];
+  }
 
   Map<String, Set<String>> get _assignments {
     final assignments = <String, Set<String>>{};
@@ -69,10 +91,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       if (nearest == null) {
         continue;
       }
-      final meters = _distance(
-        point.position,
-        _anchorOf(nearest)!,
-      );
+      final meters = _distance(point.position, _anchorOf(nearest)!);
       if (meters <= _distanceMeters) {
         assignments.putIfAbsent(nearest.id, () => {}).add(point.id);
       }
@@ -233,8 +252,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
   LatLng get _mapCenter {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
-      for (final group in _targetGroups)
-        _anchorOf(group)!,
+      for (final group in _targetGroups) _anchorOf(group)!,
     ];
     if (positions.isEmpty) {
       return previewCurrentLocation;
@@ -251,11 +269,9 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
   PilgrimagePlanGroup? _nearestGroupFor(PilgrimagePoint point) {
     PilgrimagePlanGroup? nearestGroup;
     var nearestMeters = double.infinity;
-    for (final group in _targetGroups) {
-      final meters = _distance(
-        point.position,
-        _anchorOf(group)!,
-      );
+    final groups = _targetGroups;
+    for (final group in groups) {
+      final meters = _distance(point.position, _anchorsByGroupId[group.id]!);
       if (meters < nearestMeters) {
         nearestMeters = meters;
         nearestGroup = group;
@@ -269,10 +285,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     if (group == null) {
       return null;
     }
-    return _distance(
-      point.position,
-      _anchorOf(group)!,
-    );
+    return _distance(point.position, _anchorOf(group)!);
   }
 
   bool _isAssignable(PilgrimagePoint point) {
@@ -713,8 +726,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
   LatLng get _mapCenter {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
-      for (final group in _groups)
-        ?_anchorOf(group),
+      for (final group in _groups) ?_anchorOf(group),
     ];
     if (positions.isEmpty) {
       return previewCurrentLocation;

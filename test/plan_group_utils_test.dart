@@ -421,6 +421,43 @@ _GroupedPlanFixture _buildGroupedPlanFixture() {
     groupASecond: groupASecond,
     groupBFirst: groupBFirst,
   );
+
+  test('group map center follows the anchor point, not a stale copy', () {
+    const work = PilgrimageWork(
+      id: 'work',
+      title: '作品',
+      subtitle: '',
+      city: '',
+      source: WorkSource.manual,
+    );
+    const moved = PilgrimagePoint(
+      id: 'anchor',
+      work: work,
+      name: '锚点',
+      subtitle: '',
+      position: LatLng(34.9, 135.8),
+      episodeLabel: '',
+      referenceLabel: '',
+      groupId: 'g',
+    );
+    final group = PilgrimagePlanGroup(
+      id: 'g',
+      name: '片区',
+      orderIndex: 0,
+      createdAt: DateTime.utc(2026),
+      anchorPointId: 'anchor',
+      anchorLatitude: 35.0,
+      anchorLongitude: 139.0,
+    );
+    final bucket = PlanGroupBucket(
+      id: 'g',
+      name: '片区',
+      group: group,
+      points: const [moved],
+      completedCount: 0,
+    );
+    expect(groupMapCenter(bucket), moved.position);
+  });
 }
 
 class _GroupedPlanFixture {

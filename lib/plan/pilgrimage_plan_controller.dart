@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
+import 'plan_order.dart';
 import 'plan_group_utils.dart';
 
 class PilgrimagePlanController extends ChangeNotifier {
@@ -232,7 +233,10 @@ class PilgrimagePlanController extends ChangeNotifier {
       referenceMode: referenceMode,
       capturedAt: capturedAt,
     );
-    _visitRecords = [record, ..._visitRecords];
+    // Same order as the repositories, so a gallery photo with an older
+    // capture time does not jump to the top until the next reload.
+    _visitRecords = [record, ..._visitRecords]
+      ..sort(compareVisitRecordsNewestFirst);
     notifyListeners();
     return record;
   }

@@ -188,9 +188,13 @@ LatLng? resolvedGroupAnchorPosition(
 }
 
 LatLng groupMapCenter(PlanGroupBucket group) {
-  if (group.group?.anchorLatitude != null &&
-      group.group?.anchorLongitude != null) {
-    return LatLng(group.group!.anchorLatitude!, group.group!.anchorLongitude!);
+  // Prefer the anchor point's current position over a stored copy that may
+  // predate edits to that point.
+  if (group.group case final planGroup?) {
+    if (resolvedGroupAnchorPosition(planGroup, group.points)
+        case final anchor?) {
+      return anchor;
+    }
   }
   final positionedPoints = group.points
       .where((point) => point.hasCoordinate)
