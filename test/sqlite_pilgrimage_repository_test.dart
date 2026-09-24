@@ -1345,6 +1345,28 @@ void main() {
     }
   });
 
+  test('a failing managed path repair does not block loading', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final plan = await SqlitePilgrimageRepository(
+      database: database,
+    ).loadActivePlan();
+    var attempts = 0;
+    final repository = SqlitePilgrimageRepository(
+      database: database,
+      managedPathRepairForTesting: () async {
+        attempts++;
+        throw const FileSystemException('permission denied');
+      },
+    );
+    for (var i = 0; i < 2; i++) {
+      final loaded = await repository.loadActivePlan();
+      expect(loaded.id, plan.id);
+    }
+    // Cleared after failing, so each later load retries the repair.
+    expect(attempts, 2);
+  });
+
   test('loadActivePlan falls back to the first ordered plan', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'dart:convert';
 import 'package:latlong2/latlong.dart';
 
@@ -15,10 +16,16 @@ import 'database_connection/stub_connection.dart'
     if (dart.library.io) 'database_connection/native_connection.dart';
 
 class SqlitePilgrimageRepository implements PilgrimageRepository {
-  SqlitePilgrimageRepository({AppDatabase? database})
-    : _database = database ?? AppDatabase(openConnection());
+  SqlitePilgrimageRepository({
+    AppDatabase? database,
+    this.managedPathRepairForTesting,
+  }) : _database = database ?? AppDatabase(openConnection());
 
   final AppDatabase _database;
+
+  /// Replaces the managed-path repair run in tests.
+  @visibleForTesting
+  final Future<void> Function()? managedPathRepairForTesting;
 
   /// Shared managed-path repair run. Concurrent callers await the same run;
   /// it is cleared on failure so a later call retries the repair.
@@ -1296,16 +1303,17 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     if (existing != null) {
       return existing;
     }
-    final repair = _repairManagedFilePaths();
+    // Path repair is best-effort housekeeping: a failure must not stop plans
+    // from loading. It is cleared so a later load can try again.
+    late final Future<void> repair;
+    repair = (managedPathRepairForTesting ?? _repairManagedFilePaths)()
+        .catchError((Object error) {
+          debugPrint('Managed file path repair failed: $error');
+          if (identical(_managedPathRepair, repair)) {
+            _managedPathRepair = null;
+          }
+        });
     _managedPathRepair = repair;
-    repair.then<void>(
-      (_) {},
-      onError: (Object _) {
-        if (identical(_managedPathRepair, repair)) {
-          _managedPathRepair = null;
-        }
-      },
-    );
     return repair;
   }
 

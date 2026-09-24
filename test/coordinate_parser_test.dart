@@ -129,4 +129,26 @@ void main() {
     expect(parseCoordinateText('-90, -180'), isNotNull);
     expect(parseCoordinateText('90°S 180°W')?.latitude, -90);
   });
+
+  test('tolerates surrounding text around hemisphere coordinates', () {
+    void expectCoordinate(String input, double lat, double lng) {
+      final result = parseCoordinateText(input);
+      expect(result, isNotNull, reason: input);
+      expect(result!.latitude, closeTo(lat, 1e-6), reason: input);
+      expect(result.longitude, closeTo(lng, 1e-6), reason: input);
+    }
+
+    expectCoordinate('35.6812N 139.7671E (alt 40m)', 35.6812, 139.7671);
+    expectCoordinate('35.6812N 139.7671E 標高40m', 35.6812, 139.7671);
+    expectCoordinate('(N35.6812, E139.7671)', 35.6812, 139.7671);
+    expectCoordinate('N35.6812 E139.7671 Tokyo 1-chome', 35.6812, 139.7671);
+    expectCoordinate('N35.6812, E139.7671, 3m', 35.6812, 139.7671);
+    expectCoordinate('WGS84 35.6812N 139.7671E', 35.6812, 139.7671);
+    expectCoordinate('35°40.872′N 139°46.026′E', 35.6812, 139.7671);
+  });
+
+  test('rejects fractional degrees followed by minutes', () {
+    expect(parseCoordinateText('N35.6812 40 E139.7671 3'), isNull);
+    expect(parseCoordinateText('35N 139E 12'), isNull);
+  });
 }

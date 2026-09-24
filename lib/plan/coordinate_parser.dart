@@ -95,9 +95,16 @@ LatLng? _parseDmsCoordinate(String input) {
     return null;
   }
 
-  final isPrefix = directions.first.start == 0;
+  // Brackets or punctuation may precede a leading letter: "(N35.6, E139.7)".
+  final isPrefix = RegExp(
+    r'^[^\dA-Za-z]*$',
+  ).hasMatch(input.substring(0, directions.first.start));
+  // In suffix form a number right after the last letter would belong to no
+  // letter ("35N 139E 12"); other trailing text such as "(alt 40m)" is fine.
   if (!isPrefix &&
-      RegExp(r'\d').hasMatch(input.substring(directions.last.end))) {
+      RegExp(
+        r'''^\s*[\d°'"′″]''',
+      ).hasMatch(input.substring(directions.last.end))) {
     return null;
   }
 
@@ -137,10 +144,21 @@ LatLng? _parseDmsCoordinate(String input) {
   return _validatedLatLng(latitude, longitude);
 }
 
+final _wordPattern = RegExp(r'[A-Za-z\u3040-\u30ff\u3400-\u9fff]');
+
 double? _dmsSegmentValue(String segment, String direction) {
+  // Drop words around the numbers ("WGS84", "3m", "Tokyo 1-chome"); 度/分/秒
+  // are DMS separators, not words.
+  final numericText = segment
+      .split(RegExp(r'[\s,;]+'))
+      .where(
+        (token) =>
+            !_wordPattern.hasMatch(token.replaceAll(RegExp('[度分秒]'), '')),
+      )
+      .join(' ');
   final values = RegExp(
     r'\d+(?:\.\d+)?',
-  ).allMatches(segment).map((match) => match.group(0)!).toList();
+  ).allMatches(numericText).map((match) => match.group(0)!).toList();
   if (values.isEmpty || values.length > 3) {
     return null;
   }
@@ -162,6 +180,12 @@ double? _dmsValue({
   final minuteValue = minutes == null ? 0.0 : double.parse(minutes);
   final secondValue = seconds == null ? 0.0 : double.parse(seconds);
   if (minuteValue >= 60 || secondValue >= 60) {
+    return null;
+  }
+  // Only the last component may carry a fraction; "139.7671 3" is a decimal
+  // degree followed by an unrelated number, not degrees and minutes.
+  if ((minutes != null && degrees.contains('.')) ||
+      (seconds != null && minutes!.contains('.'))) {
     return null;
   }
   final sign = direction == 'S' || direction == 'W' ? -1.0 : 1.0;
