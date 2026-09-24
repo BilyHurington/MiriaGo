@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup rules for Android 11 (API 30) and lower.
+     Plans, records, photos and user reference images stay in the backup so
+     users can migrate phones. Anitabi reference image caches are excluded
+     because they are re-downloaded on demand.
+     path_provider's getApplicationDocumentsDirectory() maps to
+     <data dir>/app_flutter, hence the "root" domain paths. -->
+<full-backup-content>
+    <exclude domain="root" path="app_flutter/reference_full" />
+    <exclude domain="root" path="app_flutter/reference_thumbnails" />
+    <exclude domain="root" path="cache" />
+</full-backup-content>

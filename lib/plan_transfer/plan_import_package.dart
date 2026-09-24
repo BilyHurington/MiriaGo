@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../data/anitabi_image_url.dart';
 import '../data/image_bytes.dart';
@@ -12,6 +11,7 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/reference_image_status.dart';
 import 'plan_export_v2.dart';
 import 'plan_package.dart';
+import 'plan_transfer_background.dart';
 
 enum PlanImportPackageKind { legacyJson, miriagoZip }
 
@@ -267,6 +267,20 @@ PlanImportPackage readPlanImportPackageFromBytes(
     appVersion: null,
     schemaVersion: 1,
     exportMode: 'legacy_json',
+  );
+}
+
+/// Parses [bytes] in a worker isolate on native platforms so ZIP inflate,
+/// CRC and JSON work cannot stall the UI isolate. All limits of
+/// [readPlanImportPackageFromBytes] still apply inside the worker.
+Future<PlanImportPackage> readPlanImportPackageInBackground(
+  Uint8List bytes, {
+  required String sourceName,
+  PlanTransferCancellation? cancellation,
+}) {
+  return runPlanTransferTask(
+    () => readPlanImportPackageFromBytes(bytes, sourceName: sourceName),
+    cancellation: cancellation,
   );
 }
 
@@ -544,7 +558,11 @@ PlanImportPackage _readV2ZipPackage(
   final planRoot = _readArchiveJson(archive, 'plan.json');
   final planJson = _mapValue(planRoot['plan']);
   final visitRecordJsons = _listMaps(planRoot['visitRecords']);
-  final plan = _planFromV2Json(planJson);
+  final invalidCoordinatePointIds = <String>[];
+  final plan = _planFromV2Json(planJson, invalidCoordinatePointIds);
+  final manifestWarnings =
+      (manifest['warnings'] as List?)?.whereType<String>().toList() ??
+      const <String>[];
   final records = visitRecordJsons.map(_visitRecordFromV2Json).toList();
 
   return PlanImportPackage(
@@ -556,9 +574,11 @@ PlanImportPackage _readV2ZipPackage(
     assetEntries: _archiveAssetEntries(archive, limits),
     pointAssetRefsById: _pointAssetRefsById(planJson['points']),
     recordAssetRefsById: _recordAssetRefsById(visitRecordJsons),
-    warnings:
-        (manifest['warnings'] as List?)?.whereType<String>().toList() ??
-        const [],
+    warnings: [
+      if (invalidCoordinatePointIds.isNotEmpty)
+        '${invalidCoordinatePointIds.length} 个点位坐标无效，已改为待补充坐标',
+      ...manifestWarnings,
+    ],
     exportedAt: _nullableDateValue(manifest['exportedAt']),
     appVersion: manifest['appVersion'] as String?,
     schemaVersion: (manifest['schemaVersion'] as num?)?.toInt(),
@@ -806,13 +826,17 @@ String? _restoredPath(
       : normalizeAssetPathSeparators(restoredPath);
 }
 
-PilgrimagePlan _planFromV2Json(Map<String, Object?> json) {
+PilgrimagePlan _planFromV2Json(
+  Map<String, Object?> json,
+  List<String> invalidCoordinatePointIds,
+) {
   final works = _readList(json['works'], _workFromV2Json);
   final workById = {for (final work in works) work.id: work};
   final groups = _readList(json['groups'], _groupFromV2Json);
   final points = _readList(
     json['points'],
-    (pointJson) => _pointFromV2Json(pointJson, workById),
+    (pointJson) =>
+        _pointFromV2Json(pointJson, workById, invalidCoordinatePointIds),
   );
 
   return PilgrimagePlan(
@@ -850,6 +874,10 @@ PilgrimageWork _workFromV2Json(Map<String, Object?> json) {
 }
 
 PilgrimagePlanGroup _groupFromV2Json(Map<String, Object?> json) {
+  final anchor = importedCoordinate(
+    json['anchorLatitude'],
+    json['anchorLongitude'],
+  );
   return PilgrimagePlanGroup(
     id: _stringValue(json['id'], fallback: 'group-${json.hashCode}'),
     name: _stringValue(json['name'], fallback: '未命名片区'),
@@ -858,8 +886,8 @@ PilgrimagePlanGroup _groupFromV2Json(Map<String, Object?> json) {
         _enumValue(PlanGroupOrderMode.values, json['orderMode']) ??
         PlanGroupOrderMode.unordered,
     anchorName: json['anchorName'] as String?,
-    anchorLatitude: (json['anchorLatitude'] as num?)?.toDouble(),
-    anchorLongitude: (json['anchorLongitude'] as num?)?.toDouble(),
+    anchorLatitude: anchor?.latitude,
+    anchorLongitude: anchor?.longitude,
     anchorPointId: json['anchorPointId'] as String?,
     note: json['note'] as String?,
     createdAt: _dateValue(json['createdAt']),
@@ -869,6 +897,7 @@ PilgrimagePlanGroup _groupFromV2Json(Map<String, Object?> json) {
 PilgrimagePoint _pointFromV2Json(
   Map<String, Object?> json,
   Map<String, PilgrimageWork> works,
+  List<String> invalidCoordinatePointIds,
 ) {
   final workId = _stringValue(json['workId'], fallback: 'manual-work');
   final work =
@@ -881,15 +910,18 @@ PilgrimagePoint _pointFromV2Json(
         source: WorkSource.manual,
       );
 
+  final id = _stringValue(json['id'], fallback: 'point-${json.hashCode}');
+  final position = importedCoordinate(json['latitude'], json['longitude']);
+  if (position == null) {
+    invalidCoordinatePointIds.add(id);
+  }
+
   return PilgrimagePoint(
-    id: _stringValue(json['id'], fallback: 'point-${json.hashCode}'),
+    id: id,
     work: work,
     name: _stringValue(json['name'], fallback: '未命名点位'),
     subtitle: _stringValue(json['subtitle'], fallback: ''),
-    position: LatLng(
-      _doubleValue(json['latitude']),
-      _doubleValue(json['longitude']),
-    ),
+    position: position ?? PilgrimagePoint.pendingPosition,
     episodeLabel: _stringValue(json['episodeLabel'], fallback: ''),
     referenceLabel: _stringValue(json['referenceLabel'], fallback: ''),
     source:
@@ -983,13 +1015,6 @@ String? _optionalStringValue(Object? value) {
     return null;
   }
   return value;
-}
-
-double _doubleValue(Object? value) {
-  if (value is num) {
-    return value.toDouble();
-  }
-  return 0;
 }
 
 DateTime _dateValue(Object? value) {

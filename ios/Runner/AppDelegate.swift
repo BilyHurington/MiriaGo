@@ -44,6 +44,9 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var planFileChannel: FlutterMethodChannel?
   private var pendingPlanPath: String?
+  // Until Dart asks for the initial path, incoming files are only queued so a
+  // file is never delivered twice (once via openPath, once via getInitialPath).
+  private var initialPlanPathDelivered = false
 
   static weak var shared: AppDelegate?
 
@@ -76,13 +79,23 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       binaryMessenger: messenger
     )
     planFileChannel?.setMethodCallHandler { [weak self] call, result in
-      guard call.method == "getInitialPath" else {
+      switch call.method {
+      case "getInitialPath":
+        let path = self?.pendingPlanPath
+        self?.pendingPlanPath = nil
+        self?.initialPlanPathDelivered = true
+        // Every file opened before this point has already been copied out,
+        // so whatever remains in Inbox or our tmp directory is stale.
+        self?.removeStaleIncomingPlanFiles(keeping: path)
+        result(path)
+      case "releasePath":
+        if let path = call.arguments as? String {
+          self?.removeIncomingPlanCopy(atPath: path)
+        }
+        result(nil)
+      default:
         result(FlutterMethodNotImplemented)
-        return
       }
-
-      result(self?.pendingPlanPath)
-      self?.pendingPlanPath = nil
     }
 
     let galleryChannel = FlutterMethodChannel(
@@ -192,8 +205,14 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       return false
     }
 
-    pendingPlanPath = copiedPath
-    planFileChannel?.invokeMethod("openPath", arguments: copiedPath)
+    if initialPlanPathDelivered, let channel = planFileChannel {
+      channel.invokeMethod("openPath", arguments: copiedPath)
+    } else {
+      if let stale = pendingPlanPath {
+        removeIncomingPlanCopy(atPath: stale)
+      }
+      pendingPlanPath = copiedPath
+    }
     return true
   }
 
@@ -294,9 +313,66 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
         try FileManager.default.removeItem(at: destination)
       }
       try FileManager.default.copyItem(at: url, to: destination)
+      // With LSSupportsOpeningDocumentsInPlace=false iOS hands us a copy in
+      // Documents/Inbox; drop it once we have our own temporary copy.
+      removeIfInInbox(url)
       return destination.path
     } catch {
       return nil
+    }
+  }
+
+  private var incomingPlanDirectory: URL {
+    FileManager.default.temporaryDirectory
+      .appendingPathComponent("incoming_plans", isDirectory: true)
+  }
+
+  private var documentsInboxDirectory: URL? {
+    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+      .appendingPathComponent("Inbox", isDirectory: true)
+  }
+
+  private func isDirectChild(_ url: URL, of directory: URL) -> Bool {
+    let parent = url.resolvingSymlinksInPath().deletingLastPathComponent()
+      .standardizedFileURL.path
+    return parent == directory.resolvingSymlinksInPath().standardizedFileURL.path
+  }
+
+  private func removeIfInInbox(_ url: URL) {
+    guard url.isFileURL, let inbox = documentsInboxDirectory,
+      isDirectChild(url, of: inbox)
+    else {
+      return
+    }
+    try? FileManager.default.removeItem(at: url)
+  }
+
+  private func removeIncomingPlanCopy(atPath path: String) {
+    let url = URL(fileURLWithPath: path)
+    guard isDirectChild(url, of: incomingPlanDirectory) else {
+      return
+    }
+    try? FileManager.default.removeItem(at: url)
+  }
+
+  private func removeStaleIncomingPlanFiles(keeping keptPath: String?) {
+    let fileManager = FileManager.default
+    let kept = keptPath.map {
+      URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path
+    }
+    for directory in [incomingPlanDirectory, documentsInboxDirectory].compactMap({ $0 }) {
+      guard
+        let files = try? fileManager.contentsOfDirectory(
+          at: directory,
+          includingPropertiesForKeys: nil
+        )
+      else {
+        continue
+      }
+      for file in files
+      where file.resolvingSymlinksInPath().standardizedFileURL.path != kept {
+        try? fileManager.removeItem(at: file)
+      }
     }
   }
 }

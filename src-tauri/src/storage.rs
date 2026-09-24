@@ -30,13 +30,7 @@ pub fn ensure_data_dirs() -> Result<DataDirs, String> {
             env::var_os("APPIMAGE").is_some() || env::var_os("APPDIR").is_some(),
         );
     }
-    match create_data_dirs(portable_dir.clone(), true, false) {
-        Ok(dirs) => Ok(dirs),
-        Err(_) => {
-            let fallback_dir = system_data_dir()?;
-            create_data_dirs(fallback_dir, false, true)
-        }
-    }
+    windows_data_dirs(&portable_dir, &system_data_dir()?)
 }
 
 fn has_user_data(dir: &Path) -> Result<bool, String> {
@@ -83,10 +77,32 @@ fn linux_data_dirs(
         return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
     }
 
+    // A shipped MiriaGoData directory opts the ZIP into portable mode.
+    if !portable_dir.is_dir() {
+        return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
+    }
+    portable_or_fallback_data_dirs(portable_dir, system_dir)
+}
+
+// Windows is portable-only (README): MiriaGoData beside the exe is used, and
+// created when missing, but it must actually be writable. An existing
+// MiriaGoData directory left read-only (e.g. extracted under Program Files)
+// previously passed create_dir_all and then failed when opening the database.
+fn windows_data_dirs(portable_dir: &Path, system_dir: &Path) -> Result<DataDirs, String> {
+    portable_or_fallback_data_dirs(portable_dir, system_dir)
+}
+
+// Shared Linux-ZIP/Windows policy: prefer writable portable storage; when it
+// has no data yet and is not writable, fall back to the system directory;
+// existing portable data that is not writable is an error rather than a
+// silent switch to an empty database. An empty portable directory reuses an
+// existing system database (e.g. after moving a ZIP that previously fell back).
+fn portable_or_fallback_data_dirs(
+    portable_dir: &Path,
+    system_dir: &Path,
+) -> Result<DataDirs, String> {
     let existing_portable = has_user_data(portable_dir)?;
-    // A shipped MiriaGoData directory opts the ZIP into portable mode. Retain
-    // an existing system database when a previously unwritable ZIP is moved.
-    if !portable_dir.is_dir() || (!existing_portable && has_user_data(system_dir)?) {
+    if !existing_portable && has_user_data(system_dir)? {
         return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
     }
     match create_writable_data_dirs(portable_dir.to_path_buf(), true, false) {
@@ -188,7 +204,7 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
     };
 
-    use super::{linux_data_dirs, portable_data_dir_for_exe};
+    use super::{linux_data_dirs, portable_data_dir_for_exe, windows_data_dirs};
 
     struct TestDirs(PathBuf);
 
@@ -341,6 +357,87 @@ mod tests {
         fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o755)).unwrap();
         assert!(result.is_err(), "Run storage tests as a non-root user");
         assert!(!root.system().exists());
+    }
+
+    #[test]
+    fn windows_creates_missing_portable_directory() {
+        let root = TestDirs::new();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert!(dirs.portable);
+        assert!(!dirs.fallback_used);
+        assert_eq!(dirs.data_dir, root.portable());
+        assert!(root.portable().join("assets").is_dir());
+        assert!(!root.system().exists());
+    }
+
+    #[test]
+    fn windows_portable_preserves_data_across_reopen() {
+        let root = TestDirs::new();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        fs::write(dirs.data_dir.join("miriago.sqlite"), b"existing").unwrap();
+        let reopened = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert!(reopened.portable);
+        assert_eq!(
+            fs::read(reopened.data_dir.join("miriago.sqlite")).unwrap(),
+            b"existing"
+        );
+    }
+
+    #[test]
+    fn windows_new_portable_failure_falls_back_but_existing_data_does_not() {
+        let root = TestDirs::new();
+        fs::create_dir_all(root.portable()).unwrap();
+        fs::write(root.portable().join("assets"), b"not a directory").unwrap();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert!(dirs.fallback_used);
+        assert!(!dirs.portable);
+        assert_eq!(dirs.data_dir, root.system());
+        fs::remove_dir_all(root.system()).unwrap();
+        fs::write(root.portable().join("miriago.sqlite"), b"legacy").unwrap();
+        assert!(windows_data_dirs(&root.portable(), &root.system()).is_err());
+        assert_eq!(
+            fs::read(root.portable().join("miriago.sqlite")).unwrap(),
+            b"legacy"
+        );
+    }
+
+    #[test]
+    fn windows_empty_portable_retains_previous_system_database() {
+        let root = TestDirs::new();
+        fs::create_dir_all(root.portable()).unwrap();
+        fs::create_dir_all(root.system()).unwrap();
+        fs::write(root.system().join("miriago.sqlite"), b"existing").unwrap();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert_eq!(dirs.data_dir, root.system());
+        assert!(!dirs.portable);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn windows_read_only_existing_portable_directory_is_verified() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = TestDirs::new();
+        // An existing, empty but read-only MiriaGoData (e.g. under Program
+        // Files) used to be accepted because create_dir_all succeeds.
+        super::create_data_dirs(root.portable(), true, false).unwrap();
+        for dir in ["", "assets", "exports", "logs", "temp"] {
+            fs::set_permissions(root.portable().join(dir), fs::Permissions::from_mode(0o555))
+                .unwrap();
+        }
+        let fallback = windows_data_dirs(&root.portable(), &root.system());
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(root.portable().join("miriago.sqlite"), b"legacy").unwrap();
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o555)).unwrap();
+        fs::remove_dir_all(root.system()).ok();
+        let existing = windows_data_dirs(&root.portable(), &root.system());
+        for dir in ["", "assets", "exports", "logs", "temp"] {
+            fs::set_permissions(root.portable().join(dir), fs::Permissions::from_mode(0o755))
+                .unwrap();
+        }
+        let fallback = fallback.expect("Run storage tests as a non-root user");
+        assert!(fallback.fallback_used);
+        assert_eq!(fallback.data_dir, root.system());
+        assert!(existing.is_err(), "Run storage tests as a non-root user");
     }
 
     #[test]

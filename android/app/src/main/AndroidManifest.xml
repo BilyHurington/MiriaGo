@@ -1,16 +1,22 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <!-- Saving to the shared Pictures folder before scoped storage (API 24-28).
+         Photo picking uses the system picker / ACTION_GET_CONTENT and needs no
+         read permission. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
     <application
         android:label="MiriaGo"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:targetApi="31">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -32,19 +38,34 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- MiriaGo plan packages announced with their own MIME type. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="content"/>
-                <data android:scheme="file"/>
                 <data android:mimeType="application/vnd.miriago.plan+json"/>
                 <data android:mimeType="application/vnd.miriago.plan+zip"/>
                 <data android:mimeType="application/vnd.seichi-junrei.plan+json"/>
+            </intent-filter>
+            <!-- Generic MIME types only when the content URI path ends in .sjhplan.
+                 pathPattern is ignored without a host, and ".*" stops at the first
+                 dot, so list patterns for paths containing extra dots. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="content"/>
+                <data android:host="*"/>
                 <data android:mimeType="application/octet-stream"/>
                 <data android:mimeType="application/json"/>
                 <data android:mimeType="text/plain"/>
                 <data android:pathPattern=".*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.sjhplan"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

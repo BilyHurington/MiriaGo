@@ -1,6 +1,7 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import '../data/bounded_image_decoder.dart';
+import 'desktop_asset_data_url_cache.dart';
 
 import 'tauri_bridge_stub.dart'
     show
@@ -152,9 +153,14 @@ Future<DesktopStateResult> deleteDesktopPlan({
   required String planId,
   required String? activePlanId,
 }) async {
-  return _invokeDesktopState('delete_desktop_plan', {
-    'request': {'planId': planId, 'activePlanId': activePlanId},
-  });
+  try {
+    return await _invokeDesktopState('delete_desktop_plan', {
+      'request': {'planId': planId, 'activePlanId': activePlanId},
+    });
+  } finally {
+    // Plan deletion can remove asset files on the native side.
+    clearDesktopAssetDataUrlCache();
+  }
 }
 
 Future<DesktopStateResult> setDesktopActivePlan({
@@ -184,9 +190,13 @@ Future<DesktopStateResult> saveDesktopVisitRecord({
 Future<DesktopStateResult> deleteDesktopVisitRecord({
   required String recordId,
 }) async {
-  return _invokeDesktopState('delete_desktop_visit_record', {
-    'request': {'recordId': recordId},
-  });
+  try {
+    return await _invokeDesktopState('delete_desktop_visit_record', {
+      'request': {'recordId': recordId},
+    });
+  } finally {
+    clearDesktopAssetDataUrlCache();
+  }
 }
 
 Future<DesktopRestoreImportAssetsResult> restoreDesktopImportAssets({
@@ -287,9 +297,14 @@ Future<DesktopAssetResult> writeDesktopAsset({
   required String path,
   required String dataBase64,
 }) async {
-  final result = await _invokeObject('write_asset', {
-    'request': {'path': path, 'dataBase64': dataBase64},
-  });
+  final JSObject? result;
+  try {
+    result = await _invokeObject('write_asset', {
+      'request': {'path': path, 'dataBase64': dataBase64},
+    });
+  } finally {
+    invalidateDesktopAssetDataUrl(path);
+  }
   if (result == null) {
     throw StateError('Tauri write_asset returned no result.');
   }
@@ -317,9 +332,14 @@ Future<DesktopAssetFileResult> inspectDesktopReferenceCacheAsset({
 Future<DesktopAssetFileResult> deleteDesktopReferenceCacheAsset({
   required String path,
 }) async {
-  final result = await _invokeObject('delete_reference_cache_asset', {
-    'request': {'path': path},
-  });
+  final JSObject? result;
+  try {
+    result = await _invokeObject('delete_reference_cache_asset', {
+      'request': {'path': path},
+    });
+  } finally {
+    invalidateDesktopAssetDataUrl(path);
+  }
   if (result == null) {
     throw StateError('Tauri delete_reference_cache_asset returned no result.');
   }

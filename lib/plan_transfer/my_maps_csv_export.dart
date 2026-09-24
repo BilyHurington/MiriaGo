@@ -64,7 +64,14 @@ MyMapsCsvExportResult buildMyMapsCsvExport({
     ]);
   }
 
-  final csv = rows.map((row) => row.map(_csvCell).join(',')).join('\r\n');
+  final csv = rows
+      .map(
+        (row) => [
+          for (var column = 0; column < row.length; column++)
+            _csvCell(row[column], numeric: _numericColumns.contains(column)),
+        ].join(','),
+      )
+      .join('\r\n');
   return MyMapsCsvExportResult(
     bytes: utf8.encode(csv),
     fileName: suggestMyMapsCsvFileName(plan: plan, exportedAt: exportTime),
@@ -80,8 +87,14 @@ String suggestMyMapsCsvFileName({
   return '${_safeFileName(plan.name, fallback: 'miriago_plan')}_mymaps_${_timestamp(exportedAt)}.$myMapsCsvExtension';
 }
 
-String _csvCell(String value) {
-  final escaped = _singleLine(value).replaceAll('"', '""');
+// Lat/Long must stay raw numbers so My Maps can place the points; every other
+// column is user text and gets formula-injection protection.
+const _numericColumns = {1, 2};
+
+String _csvCell(String value, {required bool numeric}) {
+  final line = _singleLine(value);
+  final text = numeric ? line : _neutralizeSpreadsheetFormula(line);
+  final escaped = text.replaceAll('"', '""');
   if (escaped.contains(',') ||
       escaped.contains('"') ||
       escaped.contains('\n') ||
@@ -89,6 +102,17 @@ String _csvCell(String value) {
     return '"$escaped"';
   }
   return escaped;
+}
+
+// Spreadsheet apps (Excel, Sheets, LibreOffice) evaluate cells starting with
+// these characters as formulas; a leading apostrophe forces plain text.
+String _neutralizeSpreadsheetFormula(String value) {
+  if (value.isEmpty) {
+    return value;
+  }
+  return const {'=', '+', '-', '@', '\t', '\r'}.contains(value[0])
+      ? "'$value"
+      : value;
 }
 
 String _singleLine(String value) {

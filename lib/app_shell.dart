@@ -55,7 +55,10 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _incomingPlanFiles.listen(_importPlanFromPath);
+    _incomingPlanFiles.listen(
+      _importPlanFromPath,
+      onError: _showIncomingPlanFileError,
+    );
     _initializeApp();
     unawaited(prepareReferenceCacheStorage());
   }
@@ -222,16 +225,39 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _loadInitialIncomingPlanFile() async {
-    final path = await _incomingPlanFiles.getInitialPath();
+    final String? path;
+    try {
+      path = await _incomingPlanFiles.getInitialPath();
+    } on IncomingPlanFileException catch (error) {
+      _showIncomingPlanFileError(error);
+      return;
+    }
     if (path == null || path.isEmpty) {
       return;
     }
     await _importPlanFromPath(path);
   }
 
+  void _showIncomingPlanFileError(IncomingPlanFileException error) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.error,
+      title: error.userMessage,
+    );
+  }
+
   Future<void> _importPlanFromPath(String path) async {
     try {
-      final importPackage = await readPlanImportPackageFromPath(path);
+      final PlanImportPackage importPackage;
+      try {
+        importPackage = await readPlanImportPackageFromPath(path);
+      } finally {
+        // The package is fully in memory now (or failed); drop the native
+        // temporary copy so incoming files do not pile up in the cache.
+        unawaited(_incomingPlanFiles.release(path));
+      }
       if (!mounted) {
         return;
       }
