@@ -133,7 +133,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     final confirmed = await showConfirmActionDialog(
       context,
       title: '删除计划',
-      message: '将删除「${plan.name}」及其中的点位、片区、作品和巡礼记录。',
+      message:
+          '将删除「${plan.name}」及其中的点位、片区、作品和巡礼记录。'
+          '只属于这个计划的巡礼照片、调色图和参考图文件也会一并删除；'
+          '其他计划或记录仍在使用的文件会保留。',
       confirmLabel: '删除',
       destructive: true,
       emphasizedValues: [plan.name],
