@@ -678,6 +678,66 @@ class PilgrimagePlanGroup {
   final String? anchorPointId;
   final String? note;
   final DateTime createdAt;
+
+  PilgrimagePlanGroup copyWith({
+    String? name,
+    int? orderIndex,
+    PlanGroupOrderMode? orderMode,
+    Object? anchorName = _unset,
+    Object? anchorLatitude = _unset,
+    Object? anchorLongitude = _unset,
+    Object? anchorPointId = _unset,
+    Object? note = _unset,
+  }) {
+    return PilgrimagePlanGroup(
+      id: id,
+      name: name ?? this.name,
+      orderIndex: orderIndex ?? this.orderIndex,
+      orderMode: orderMode ?? this.orderMode,
+      anchorName: anchorName == _unset
+          ? this.anchorName
+          : anchorName as String?,
+      anchorLatitude: anchorLatitude == _unset
+          ? this.anchorLatitude
+          : anchorLatitude as double?,
+      anchorLongitude: anchorLongitude == _unset
+          ? this.anchorLongitude
+          : anchorLongitude as double?,
+      anchorPointId: anchorPointId == _unset
+          ? this.anchorPointId
+          : anchorPointId as String?,
+      note: note == _unset ? this.note : note as String?,
+      createdAt: createdAt,
+    );
+  }
+}
+
+/// Merges a (possibly stale) embedded copy of a work into the stored work
+/// without losing data: only fields missing from [stored] (null or blank) are
+/// filled from [incoming]; stored values are never replaced or cleared.
+PilgrimageWork fillMissingWorkFields(
+  PilgrimageWork stored,
+  PilgrimageWork incoming,
+) {
+  String text(String current, String candidate) =>
+      current.trim().isEmpty && candidate.trim().isNotEmpty
+      ? candidate
+      : current;
+  final storedCover = stored.coverImageUrl;
+  return PilgrimageWork(
+    id: stored.id,
+    bangumiId: stored.bangumiId ?? incoming.bangumiId,
+    bangumiSubjectType: stored.bangumiSubjectType ?? incoming.bangumiSubjectType,
+    coverImageUrl: storedCover == null || storedCover.trim().isEmpty
+        ? (incoming.coverImageUrl?.trim().isNotEmpty == true
+              ? incoming.coverImageUrl
+              : storedCover)
+        : storedCover,
+    title: text(stored.title, incoming.title),
+    subtitle: text(stored.subtitle, incoming.subtitle),
+    city: text(stored.city, incoming.city),
+    source: stored.source,
+  );
 }
 
 String formatEpisodeLabelForDisplay(String label) {

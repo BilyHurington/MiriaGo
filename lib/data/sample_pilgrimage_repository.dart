@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
 import '../plan/pilgrimage_models.dart';
+import '../plan/plan_order.dart';
 import 'pilgrimage_repository.dart';
 
 class SamplePilgrimageRepository implements PilgrimageRepository {
@@ -40,11 +41,9 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
 
   @override
   Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
-    return _visitRecords
-        .where((record) => record.planId == planId)
-        .toList(growable: false)
-        .reversed
-        .toList(growable: false);
+    // Same order as SQLite: newest capture first, then id descending.
+    return _visitRecords.where((record) => record.planId == planId).toList()
+      ..sort(compareVisitRecordsNewestFirst);
   }
 
   SamplePilgrimageRepositorySnapshot snapshot() {
@@ -117,7 +116,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       updatedAt: now,
       currentPointId: currentPointCanBeRestored
           ? importedCurrentPointId
-          : _firstPendingPointId(plan.points, plan.completedPointIds),
+          : _firstPendingPointId(plan, plan.points, plan.completedPointIds),
       completedPointIds: plan.completedPointIds,
     );
     _plans.add(importedPlan);
@@ -207,21 +206,27 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     final plan = _plans[index];
-    var works = plan.works;
-    for (final point in points) {
-      works = _appendWorkIfMissing(works, point.work);
-    }
     final seenIds = plan.points.map((point) => point.id).toSet();
     final newPoints = points
         .where((point) => seenIds.add(point.id))
         .toList(growable: false);
-    final updatedPoints = [...plan.points, ...newPoints];
+    if (newPoints.isEmpty) {
+      return plan;
+    }
+    var works = plan.works;
+    for (final point in newPoints) {
+      works = _mergeWork(works, point.work);
+    }
+    final updatedPoints = _withStoredWorks([
+      ...plan.points,
+      ...newPoints,
+    ], works);
     final updatedPlan = plan.copyWith(
       works: works,
       points: updatedPoints,
       currentPointId:
           plan.currentPointId ??
-          _firstPendingPointId(updatedPoints, plan.completedPointIds),
+          _firstPendingPointId(plan, updatedPoints, plan.completedPointIds),
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -235,17 +240,26 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }) async {
     final index = _planIndex(planId);
     final plan = _plans[index];
-    if (!plan.points.any((candidate) => candidate.id == point.id)) {
+    final existing = plan.points
+        .where((candidate) => candidate.id == point.id)
+        .firstOrNull;
+    if (existing == null) {
       throw ArgumentError.value(point.id, 'point.id', 'Point does not exist.');
     }
 
-    final updatedWorks = _appendWorkIfMissing(plan.works, point.work);
+    // Group membership only changes through the dedicated group methods.
+    final updatedPoint = point.copyWith(
+      groupId: existing.groupId,
+      groupOrderIndex: existing.groupOrderIndex,
+    );
+    final updatedWorks = _mergeWork(plan.works, point.work);
     final updatedPlan = plan.copyWith(
       works: updatedWorks,
-      points: [
+      groups: refreshLinkedGroupAnchors(plan.groups, updatedPoint),
+      points: _withStoredWorks([
         for (final candidate in plan.points)
-          candidate.id == point.id ? point : candidate,
-      ],
+          candidate.id == point.id ? updatedPoint : candidate,
+      ], updatedWorks),
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -317,8 +331,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     }
 
     final plan = _plans[index];
+    final works = _mergeWork(plan.works, work);
     final updatedPlan = plan.copyWith(
-      works: _appendWorkIfMissing(plan.works, work),
+      works: works,
+      points: _withStoredWorks(plan.points, works),
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -424,32 +440,70 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }) async {
     final index = _planIndex(planId);
     final plan = _plans[index];
-    var orderIndex = groupId == null
-        ? 0
-        : plan.points
-                  .where(
-                    (point) =>
-                        point.groupId == groupId &&
-                        !pointIds.contains(point.id),
-                  )
-                  .fold<int>(
-                    -1,
-                    (maxOrder, point) =>
-                        (point.groupOrderIndex ?? -1) > maxOrder
-                        ? point.groupOrderIndex!
-                        : maxOrder,
-                  ) +
-              1;
     final updatedPlan = plan.copyWith(
-      points: [
-        for (final point in plan.points)
-          pointIds.contains(point.id)
-              ? point.copyWith(
-                  groupId: groupId,
-                  groupOrderIndex: groupId == null ? null : orderIndex++,
-                )
-              : point,
+      points: _movePoints(plan.points, pointIds, groupId),
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> reorderGroups({
+    required String planId,
+    required List<String> orderedGroupIds,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    final groupIds = plan.groups.map((group) => group.id).toSet();
+    final orderedIds = orderedGroupIds.toSet();
+    if (orderedGroupIds.length != groupIds.length ||
+        orderedIds.length != orderedGroupIds.length ||
+        !orderedIds.containsAll(groupIds)) {
+      throw ArgumentError.value(
+        orderedGroupIds,
+        'orderedGroupIds',
+        'Group order must contain every group of the plan exactly once.',
+      );
+    }
+    final orderById = {
+      for (var order = 0; order < orderedGroupIds.length; order += 1)
+        orderedGroupIds[order]: order,
+    };
+    final updatedPlan = plan.copyWith(
+      groups: [
+        for (final group in plan.groups)
+          group.copyWith(orderIndex: orderById[group.id]),
       ],
+      updatedAt: DateTime.now(),
+    );
+    _plans[index] = updatedPlan;
+    return updatedPlan;
+  }
+
+  @override
+  Future<PilgrimagePlan> assignPointsToGroups({
+    required String planId,
+    required Map<String, String?> groupIdsByPointId,
+  }) async {
+    final index = _planIndex(planId);
+    final plan = _plans[index];
+    if (groupIdsByPointId.isEmpty) {
+      return plan;
+    }
+    final groupIds = plan.groups.map((group) => group.id).toSet();
+    for (final groupId in groupIdsByPointId.values) {
+      if (groupId != null && !groupIds.contains(groupId)) {
+        throw ArgumentError.value(groupId, 'groupId', 'Group does not exist.');
+      }
+    }
+    // Computed on a local copy and stored once, so a failure changes nothing.
+    var points = plan.points;
+    for (final entry in pointIdsByTargetGroup(groupIdsByPointId).entries) {
+      points = _movePoints(points, entry.value, entry.key);
+    }
+    final updatedPlan = plan.copyWith(
+      points: points,
       updatedAt: DateTime.now(),
     );
     _plans[index] = updatedPlan;
@@ -481,7 +535,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
           .toList(growable: false),
       points: points,
       currentPointId: removedCurrentPoint
-          ? _firstPendingPointId(points, completedPointIds)
+          ? _nextPendingPointId(plan, points, completedPointIds)
           : plan.currentPointId,
       completedPointIds: completedPointIds,
       updatedAt: DateTime.now(),
@@ -541,7 +595,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     final updatedPlan = plan.copyWith(
       points: points,
       currentPointId: removedCurrentPoint
-          ? _firstPendingPointId(points, completedPointIds)
+          ? _nextPendingPointId(plan, points, completedPointIds)
           : plan.currentPointId,
       completedPointIds: completedPointIds,
       updatedAt: DateTime.now(),
@@ -659,14 +713,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     final completedPointIds = {...plan.completedPointIds, ...pointIds};
     final currentPointId =
         plan.currentPointId != null && pointIds.contains(plan.currentPointId)
-        ? plan.points
-              .where(
-                (point) =>
-                    point.hasCoordinate &&
-                    !completedPointIds.contains(point.id),
-              )
-              .firstOrNull
-              ?.id
+        ? _nextPendingPointId(plan, plan.points, completedPointIds)
         : plan.currentPointId;
     _plans[index] = plan.copyWith(
       currentPointId: currentPointId,
@@ -881,16 +928,67 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
-  List<PilgrimageWork> _appendWorkIfMissing(
+  /// Adds [work] or fills fields missing from the stored copy; stored values
+  /// are never overwritten (same rule as the SQLite repository).
+  List<PilgrimageWork> _mergeWork(
     List<PilgrimageWork> works,
     PilgrimageWork work,
   ) {
-    final exists = works.any((candidate) => candidate.id == work.id);
-    if (exists) {
-      return works;
+    final index = works.indexWhere((candidate) => candidate.id == work.id);
+    if (index == -1) {
+      return [...works, work];
     }
 
-    return [...works, work];
+    return [
+      for (var i = 0; i < works.length; i += 1)
+        i == index ? fillMissingWorkFields(works[i], work) : works[i],
+    ];
+  }
+
+  /// Points resolve their work from the plan's stored works, like SQLite.
+  List<PilgrimagePoint> _withStoredWorks(
+    List<PilgrimagePoint> points,
+    List<PilgrimageWork> works,
+  ) {
+    final workById = {for (final work in works) work.id: work};
+    return [
+      for (final point in points)
+        workById[point.work.id] == null
+            ? point
+            : point.copyWith(work: workById[point.work.id]),
+    ];
+  }
+
+  List<PilgrimagePoint> _movePoints(
+    List<PilgrimagePoint> points,
+    Set<String> pointIds,
+    String? groupId,
+  ) {
+    var orderIndex = groupId == null
+        ? 0
+        : points
+                  .where(
+                    (point) =>
+                        point.groupId == groupId &&
+                        !pointIds.contains(point.id),
+                  )
+                  .fold<int>(
+                    -1,
+                    (maxOrder, point) =>
+                        (point.groupOrderIndex ?? -1) > maxOrder
+                        ? point.groupOrderIndex!
+                        : maxOrder,
+                  ) +
+              1;
+    return [
+      for (final point in points)
+        pointIds.contains(point.id)
+            ? point.copyWith(
+                groupId: groupId,
+                groupOrderIndex: groupId == null ? null : orderIndex++,
+              )
+            : point,
+    ];
   }
 
   int _planIndex(String planId) {
@@ -903,16 +1001,35 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   String? _firstPendingPointId(
+    PilgrimagePlan plan,
     List<PilgrimagePoint> points,
     Set<String> completedPointIds,
   ) {
-    return points
-        .where(
-          (point) =>
-              point.hasCoordinate && !completedPointIds.contains(point.id),
-        )
-        .firstOrNull
-        ?.id;
+    return firstPendingPointInPlanOrder(
+      points: points,
+      groups: plan.groups,
+      completedPointIds: completedPointIds,
+    )?.id;
+  }
+
+  /// Next target after [plan]'s current point was completed or removed.
+  String? _nextPendingPointId(
+    PilgrimagePlan plan,
+    List<PilgrimagePoint> points,
+    Set<String> completedPointIds,
+  ) {
+    final previous = plan.points
+        .where((point) => point.id == plan.currentPointId)
+        .firstOrNull;
+    if (previous == null) {
+      return _firstPendingPointId(plan, points, completedPointIds);
+    }
+    return nextPendingPointAfterCompletion(
+      points: points,
+      groups: plan.groups,
+      completedPoint: previous,
+      completedPointIds: completedPointIds,
+    )?.id;
   }
 
   String _uniquePlanName(String baseName, Set<String> existingNames) {

@@ -756,8 +756,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   static const String _ungroupedGroupMove = '__ungrouped__';
 
   Future<String?> _pickTargetGroup({String? currentGroupId}) async {
-    final groups = _plan.groups.toList(growable: false)
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final groups = sortGroupsByPlanOrder(_plan.groups);
     final selectedGroupId = await showPlanGroupSelectionSheet(
       context: context,
       title: '移动到片区',
@@ -918,6 +917,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     final nextCurrentPointId = _plan.currentPointId == point.id
         ? nextPendingPointAfterCompletion(
             points: _plan.points,
+            groups: _plan.groups,
             completedPoint: point,
             completedPointIds: completedPointIds,
           )?.id

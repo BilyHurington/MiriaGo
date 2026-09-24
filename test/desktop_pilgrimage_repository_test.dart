@@ -170,6 +170,65 @@ void main() {
     expect((await repository.loadVisitRecords(plan.id)).single.id, record.id);
   });
 
+  test('batch group writes persist once or not at all', () async {
+    var plan = await repository.loadActivePlan();
+    for (final (id, order) in [('a', 0), ('b', 1)]) {
+      plan = await repository.createPlanGroup(
+        planId: plan.id,
+        group: PilgrimagePlanGroup(
+          id: id,
+          name: id,
+          orderIndex: order,
+          createdAt: DateTime(2026),
+        ),
+      );
+    }
+    final pointIds = plan.points.take(2).map((point) => point.id).toList();
+    final reversedGroupIds = [
+      for (final group in plan.groups.reversed) group.id,
+    ];
+    storage.calls.clear();
+    final before = state();
+    storage.fail = true;
+    await expectLater(
+      repository.assignPointsToGroups(
+        planId: plan.id,
+        groupIdsByPointId: {pointIds[0]: 'a', pointIds[1]: 'b'},
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      repository.reorderGroups(
+        planId: plan.id,
+        orderedGroupIds: reversedGroupIds,
+      ),
+      throwsStateError,
+    );
+    expect(state(), before);
+
+    storage
+      ..fail = false
+      ..calls.clear();
+    await repository.assignPointsToGroups(
+      planId: plan.id,
+      groupIdsByPointId: {pointIds[0]: 'a', pointIds[1]: 'b'},
+    );
+    await repository.reorderGroups(
+      planId: plan.id,
+      orderedGroupIds: reversedGroupIds,
+    );
+    expect(storage.calls, ['plan', 'plan']);
+    final saved = await repository.loadActivePlan();
+    expect(
+      saved.points.take(2).map((point) => point.groupId),
+      ['a', 'b'],
+    );
+    expect({for (final group in saved.groups) group.id: group.orderIndex}, {
+      for (var index = 0; index < reversedGroupIds.length; index++)
+        reversedGroupIds[index]: index,
+    });
+  });
+
   test('failed import does not publish the plan or its records', () async {
     final plan = await repository.loadActivePlan();
     final before = state();

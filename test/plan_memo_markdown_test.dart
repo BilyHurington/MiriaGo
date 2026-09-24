@@ -73,4 +73,18 @@ void main() {
     );
     expect(toggleMemoMarkdownTask(source, 1), source);
   });
+
+  test('rendered checkbox count matches the toggleable tasks', () {
+    const source =
+        '```md\n- [ ] example\n```\n\n'
+        '- [ ] parent\n  - [x] child\n    - [ ] grandchild\n\n'
+        '> - [ ] quoted\n\n'
+        '- [ ] loose\n\n  ```\n  - [ ] fenced\n  ```';
+    final count = countRenderedMemoTaskCheckboxes(prepareMemoMarkdown(source));
+    // Fenced examples and the loose item are not rendered as checkboxes.
+    expect(count, 4);
+    expect(toggleMemoMarkdownTask(source, count - 1), isNot(source));
+    expect(toggleMemoMarkdownTask(source, count), source);
+    expect(countRenderedMemoTaskCheckboxes(prepareMemoMarkdown('text')), 0);
+  });
 }

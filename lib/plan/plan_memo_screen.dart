@@ -598,15 +598,19 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final markdown = prepareMemoMarkdown(data);
     return SingleChildScrollView(
       child: MarkdownBody(
-        data: prepareMemoMarkdown(data),
+        data: markdown,
         selectable: true,
         softLineBreak: true,
         listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.start,
         styleSheet: _markdownStyleSheet(context),
         onTapLink: (_, href, _) => onTapLink(href),
-        checkboxBuilder: _TaskCheckboxBuilder(onToggleTask: onToggleTask).build,
+        checkboxBuilder: _TaskCheckboxBuilder(
+          onToggleTask: onToggleTask,
+          taskCount: countRenderedMemoTaskCheckboxes(markdown),
+        ).build,
         bulletBuilder: _buildMarkdownBullet,
         imageBuilder: (uri, title, alt) => _UnsupportedMarkdownImage(
           label: alt?.trim().isNotEmpty == true ? alt!.trim() : uri.toString(),
@@ -691,14 +695,19 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
   }
 }
 
+/// The markdown widget may parse the same data more than once with one builder
+/// (e.g. didUpdateWidget and didChangeDependencies in the same frame), so the
+/// callback counter wraps per parse instead of growing past the task count.
 class _TaskCheckboxBuilder {
-  _TaskCheckboxBuilder({required this.onToggleTask});
+  _TaskCheckboxBuilder({required this.onToggleTask, required this.taskCount});
 
   final ValueChanged<int> onToggleTask;
-  var _taskIndex = 0;
+  final int taskCount;
+  var _buildCount = 0;
 
   Widget build(bool value) {
-    final taskIndex = _taskIndex++;
+    final built = _buildCount++;
+    final taskIndex = taskCount > 0 ? built % taskCount : built;
     return Transform.translate(
       offset: Offset.zero,
       child: Tooltip(

@@ -108,6 +108,21 @@ abstract interface class PilgrimageRepository {
     required String? groupId,
   });
 
+  /// Sets every group's `orderIndex` to its position in [orderedGroupIds] in
+  /// one atomic write. The list must contain each group of the plan once.
+  Future<PilgrimagePlan> reorderGroups({
+    required String planId,
+    required List<String> orderedGroupIds,
+  });
+
+  /// Moves several points to their target groups (`null` = ungrouped) in one
+  /// atomic write; either every move is stored or none is. Each target group
+  /// receives its points like [movePointsToGroup].
+  Future<PilgrimagePlan> assignPointsToGroups({
+    required String planId,
+    required Map<String, String?> groupIdsByPointId,
+  });
+
   Future<PilgrimagePlan> deleteWorkFromPlan({
     required String planId,
     required String workId,

@@ -142,33 +142,52 @@ class PointDetailSheet extends StatelessWidget {
       return;
     }
 
+    void showStatus(AppStatusBannerKind kind, String title) {
+      if (messenger.mounted) {
+        messenger.showStatusSnack(kind: kind, title: title);
+      }
+    }
+
     messenger.showStatusSnack(
       kind: AppStatusBannerKind.running,
       title: '正在替换参考图...',
       icon: LucideIcons.arrowLeftRight,
     );
-    final stored = await storeUserReferenceImage(
-      sourcePath: picked.path,
-      pointId: point.id,
-    );
-    if (stored == null || !context.mounted) {
-      messenger.showStatusSnack(
-        kind: AppStatusBannerKind.error,
-        title: '参考图替换失败，请稍后重试。',
+    // Every exit below replaces the running banner so it can never stick.
+    StoredUserReferenceImage? stored;
+    try {
+      stored = await storeUserReferenceImage(
+        sourcePath: picked.path,
+        pointId: point.id,
       );
+    } catch (_) {
+      showStatus(AppStatusBannerKind.error, '参考图替换失败，请稍后重试。');
       return;
     }
-
-    await onReplaceReference(point, stored);
+    if (stored == null) {
+      showStatus(AppStatusBannerKind.error, '参考图替换失败，请稍后重试。');
+      return;
+    }
     if (!context.mounted) {
+      // The sheet closed before anything was committed: drop the copy.
+      await deleteStoredUserReferenceImage(stored);
+      showStatus(AppStatusBannerKind.warning, '参考图替换已取消');
       return;
     }
 
-    messenger.showStatusSnack(
-      kind: AppStatusBannerKind.success,
-      title: '已替换参考图',
-    );
-    navigator.pop();
+    try {
+      await onReplaceReference(point, stored);
+    } catch (_) {
+      // The save may have committed before the error surfaced (e.g. while
+      // re-reading the plan), so the stored image is kept, never deleted.
+      showStatus(AppStatusBannerKind.error, '参考图替换失败，请稍后重试。');
+      return;
+    }
+
+    showStatus(AppStatusBannerKind.success, '已替换参考图');
+    if (context.mounted) {
+      navigator.pop();
+    }
   }
 
   Future<void> _openExternalNavigation(BuildContext context) async {

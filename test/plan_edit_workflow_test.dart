@@ -99,6 +99,42 @@ void main() {
     });
   }
 
+  testWidgets('checkbox still toggles after the theme brightness changes', (
+    tester,
+  ) async {
+    const text = '- [ ] first\n- [ ] second';
+    final repository = _DelayedMemoRepository();
+    final plan = await repository.loadActivePlan();
+    await repository.updatePlanMemo(planId: plan.id, memo: text);
+    final controller = PilgrimagePlanController(
+      plan: await repository.loadActivePlan(),
+      visitRepository: repository,
+    );
+    addTearDown(controller.dispose);
+    Widget app(ThemeMode mode) => MaterialApp(
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: mode,
+      home: PlanMemoScreen(controller: controller),
+    );
+    await tester.pumpWidget(app(ThemeMode.light));
+    await tester.pumpAndSettle();
+    // A system appearance switch updates the markdown widget and its
+    // dependencies in the same frame, so it is parsed more than once.
+    await tester.pumpWidget(app(ThemeMode.dark));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(app(ThemeMode.light));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(LucideIcons.square), findsNWidgets(2));
+    await tester.tap(find.byIcon(LucideIcons.square).last);
+    await tester.pumpAndSettle();
+    expect(
+      (await repository.loadActivePlan()).memo,
+      '- [ ] first\n- [x] second',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('non-rendered loose tasks do not shift a later checkbox', (
     tester,
   ) async {

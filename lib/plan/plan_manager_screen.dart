@@ -146,54 +146,11 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
   }
 
   Future<void> _editPlanInfo(PilgrimagePlan plan) async {
-    final nameController = TextEditingController(text: plan.name);
-    final areaController = TextEditingController(text: plan.area);
+    // The dialog owns its controllers so they outlive its exit animation.
     final result = await showDialog<_PlanInfoFormResult>(
       context: context,
-      builder: (context) => AppInputDialog(
-        title: '编辑计划信息',
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppDialogField(
-              label: '计划名称',
-              child: TextField(
-                onTapOutside: dismissKeyboardOnTapOutside,
-                controller: nameController,
-                autofocus: true,
-                decoration: appDialogInputDecoration(),
-                textInputAction: TextInputAction.next,
-              ),
-            ),
-            const SizedBox(height: 14),
-            AppDialogField(
-              label: '地区 / 区域',
-              child: TextField(
-                onTapOutside: dismissKeyboardOnTapOutside,
-                controller: areaController,
-                decoration: appDialogInputDecoration(),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => Navigator.of(context).pop(
-                  _PlanInfoFormResult(
-                    name: nameController.text.trim(),
-                    area: areaController.text.trim(),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        confirmLabel: '保存',
-        onConfirm: () => Navigator.of(context).pop(
-          _PlanInfoFormResult(
-            name: nameController.text.trim(),
-            area: areaController.text.trim(),
-          ),
-        ),
-      ),
+      builder: (context) => _PlanInfoDialog(plan: plan),
     );
-    nameController.dispose();
-    areaController.dispose();
     if (result == null || result.name.isEmpty) {
       return;
     }
@@ -396,6 +353,71 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _PlanInfoDialog extends StatefulWidget {
+  const _PlanInfoDialog({required this.plan});
+
+  final PilgrimagePlan plan;
+
+  @override
+  State<_PlanInfoDialog> createState() => _PlanInfoDialogState();
+}
+
+class _PlanInfoDialogState extends State<_PlanInfoDialog> {
+  late final _nameController = TextEditingController(text: widget.plan.name);
+  late final _areaController = TextEditingController(text: widget.plan.area);
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _areaController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(
+      _PlanInfoFormResult(
+        name: _nameController.text.trim(),
+        area: _areaController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppInputDialog(
+      title: '编辑计划信息',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppDialogField(
+            label: '计划名称',
+            child: TextField(
+              onTapOutside: dismissKeyboardOnTapOutside,
+              controller: _nameController,
+              autofocus: true,
+              decoration: appDialogInputDecoration(),
+              textInputAction: TextInputAction.next,
+            ),
+          ),
+          const SizedBox(height: 14),
+          AppDialogField(
+            label: '地区 / 区域',
+            child: TextField(
+              onTapOutside: dismissKeyboardOnTapOutside,
+              controller: _areaController,
+              decoration: appDialogInputDecoration(),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+        ],
+      ),
+      confirmLabel: '保存',
+      onConfirm: _submit,
     );
   }
 }

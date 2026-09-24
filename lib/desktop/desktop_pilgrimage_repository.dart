@@ -333,6 +333,30 @@ class DesktopPilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimagePlan> reorderGroups({
+    required String planId,
+    required List<String> orderedGroupIds,
+  }) {
+    return _withPlanSave(
+      (draft) =>
+          draft.reorderGroups(planId: planId, orderedGroupIds: orderedGroupIds),
+    );
+  }
+
+  @override
+  Future<PilgrimagePlan> assignPointsToGroups({
+    required String planId,
+    required Map<String, String?> groupIdsByPointId,
+  }) {
+    return _withPlanSave(
+      (draft) => draft.assignPointsToGroups(
+        planId: planId,
+        groupIdsByPointId: groupIdsByPointId,
+      ),
+    );
+  }
+
+  @override
   Future<PilgrimagePlan> deleteWorkFromPlan({
     required String planId,
     required String workId,

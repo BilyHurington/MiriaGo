@@ -14,6 +14,33 @@ String prepareMemoMarkdown(String source) {
       .join('\n');
 }
 
+/// Counts the checkboxes the preview renders for [preparedMarkdown] (the
+/// output of [prepareMemoMarkdown]), using the same GFM parse as the renderer.
+int countRenderedMemoTaskCheckboxes(String preparedMarkdown) {
+  final nodes = md.Document(
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+    encodeHtml: false,
+  ).parseLines(const LineSplitter().convert(preparedMarkdown));
+  var count = 0;
+  void visit(List<md.Node> nodes) {
+    for (final node in nodes) {
+      if (node is! md.Element) continue;
+      final children = node.children;
+      if (children == null || children.isEmpty) continue;
+      visit(children);
+      final first = children.first;
+      if (node.tag == 'li' &&
+          first is md.Element &&
+          first.attributes['type'] == 'checkbox') {
+        count += 1;
+      }
+    }
+  }
+
+  visit(nodes);
+  return count;
+}
+
 String toggleMemoMarkdownTask(String source, int taskIndex) {
   if (taskIndex < 0) return source;
   final offsets = _taskMarkerOffsets(source);

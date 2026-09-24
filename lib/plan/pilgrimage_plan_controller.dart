@@ -26,6 +26,25 @@ class PilgrimagePlanController extends ChangeNotifier {
   String? _currentPointId;
   String? _selectedPointId;
   int _pointStateRevision = 0;
+  bool _disposed = false;
+
+  /// Whether [dispose] has run. Pending repository calls may still complete
+  /// afterwards (e.g. when the app shell reloads and replaces controllers).
+  bool get isDisposed => _disposed;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
 
   PilgrimagePlan get plan => _plan;
 
@@ -121,6 +140,7 @@ class PilgrimagePlanController extends ChangeNotifier {
     if (point.id == _currentPointId) {
       final nextPoint = nextPendingPointAfterCompletion(
         points: points,
+        groups: _plan.groups,
         completedPoint: point,
         completedPointIds: _completedPointIds,
       );
@@ -154,6 +174,7 @@ class PilgrimagePlanController extends ChangeNotifier {
     final nextId = point.id == _currentPointId
         ? nextPendingPointAfterCompletion(
             points: points,
+            groups: _plan.groups,
             completedPoint: point,
             completedPointIds: completed,
           )?.id
@@ -299,7 +320,12 @@ class PilgrimagePlanController extends ChangeNotifier {
       currentPointId = updatedPlan.currentPointId;
     }
     if (currentPointId != null && !remainingPointIds.contains(currentPointId)) {
-      currentPointId = pendingPoints.firstOrNull?.id;
+      currentPointId = nextPendingPointAfterCompletion(
+        points: remainingPoints,
+        groups: _plan.groups,
+        completedPoint: point,
+        completedPointIds: completedPointIds,
+      )?.id;
     }
     _replacePlanState(
       _plan.copyWith(

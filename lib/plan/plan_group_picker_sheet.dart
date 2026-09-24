@@ -90,8 +90,9 @@ Future<void> showPlanGroupPickerSheet({
                                   if (b.isUngrouped) {
                                     return -1;
                                   }
-                                  return a.group!.orderIndex.compareTo(
-                                    b.group!.orderIndex,
+                                  return compareGroupsByPlanOrder(
+                                    a.group!,
+                                    b.group!,
                                   );
                                 });
                             });

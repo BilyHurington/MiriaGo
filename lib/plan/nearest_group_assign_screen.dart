@@ -56,10 +56,11 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       .toList(growable: false);
 
   List<PilgrimagePlanGroup> get _targetGroups => sortGroupsByPlanOrder(
-    _plan.groups.where(
-      (group) => group.anchorLatitude != null && group.anchorLongitude != null,
-    ),
+    _plan.groups.where((group) => _anchorOf(group) != null),
   );
+
+  LatLng? _anchorOf(PilgrimagePlanGroup group) =>
+      resolvedGroupAnchorPosition(group, _plan.points);
 
   Map<String, Set<String>> get _assignments {
     final assignments = <String, Set<String>>{};
@@ -70,7 +71,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       }
       final meters = _distance(
         point.position,
-        LatLng(nearest.anchorLatitude!, nearest.anchorLongitude!),
+        _anchorOf(nearest)!,
       );
       if (meters <= _distanceMeters) {
         assignments.putIfAbsent(nearest.id, () => {}).add(point.id);
@@ -123,10 +124,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                   circles: [
                     for (final group in _targetGroups)
                       CircleMarker(
-                        point: LatLng(
-                          group.anchorLatitude!,
-                          group.anchorLongitude!,
-                        ),
+                        point: _anchorOf(group)!,
                         radius: _distanceMeters,
                         useRadiusInMeter: true,
                         color: AppColors.accent.withValues(alpha: 0.12),
@@ -141,10 +139,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                   markers: [
                     for (final group in _targetGroups)
                       Marker(
-                        point: LatLng(
-                          group.anchorLatitude!,
-                          group.anchorLongitude!,
-                        ),
+                        point: _anchorOf(group)!,
                         width: scaledMapMarkerDimension(
                           38,
                           widget.settings.mapMarkerScale,
@@ -239,7 +234,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
       for (final group in _targetGroups)
-        LatLng(group.anchorLatitude!, group.anchorLongitude!),
+        _anchorOf(group)!,
     ];
     if (positions.isEmpty) {
       return previewCurrentLocation;
@@ -259,7 +254,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     for (final group in _targetGroups) {
       final meters = _distance(
         point.position,
-        LatLng(group.anchorLatitude!, group.anchorLongitude!),
+        _anchorOf(group)!,
       );
       if (meters < nearestMeters) {
         nearestMeters = meters;
@@ -276,7 +271,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     }
     return _distance(
       point.position,
-      LatLng(group.anchorLatitude!, group.anchorLongitude!),
+      _anchorOf(group)!,
     );
   }
 
@@ -322,41 +317,67 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     setState(() {
       _isSaving = true;
     });
+    final PilgrimagePlan updatedPlan;
     try {
-      await widget.repository.saveAppSettings(
-        widget.settings.copyWith(nearestAssignDistanceMeters: _distanceMeters),
-      );
-      var updatedPlan = _plan;
-      for (final entry in assignments.entries) {
-        updatedPlan = await widget.repository.movePointsToGroup(
-          planId: updatedPlan.id,
-          pointIds: entry.value,
-          groupId: entry.key,
-        );
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _plan = updatedPlan;
-        _selectedPoint = null;
-        _didUpdate = true;
-        _isSaving = false;
-      });
-      ScaffoldMessenger.of(context).showStatusSnack(
-        kind: AppStatusBannerKind.success,
-        title: '已分配 $count 个点位',
+      // One atomic write: either every point moves or none does.
+      updatedPlan = await widget.repository.assignPointsToGroups(
+        planId: _plan.id,
+        groupIdsByPointId: {
+          for (final entry in assignments.entries)
+            for (final pointId in entry.value) pointId: entry.key,
+        },
       );
     } catch (_) {
+      final reloadedPlan = await _reloadPlan();
       if (!mounted) {
         return;
       }
       setState(() {
+        if (reloadedPlan != null) {
+          _plan = reloadedPlan;
+        }
+        _selectedPoint = null;
         _isSaving = false;
       });
       ScaffoldMessenger.of(
         context,
       ).showStatusSnack(kind: AppStatusBannerKind.error, title: '最近分配失败');
+      return;
+    }
+
+    // The distance is remembered only after the assignment was stored.
+    var settingsSaved = true;
+    try {
+      final settings = await widget.repository.loadAppSettings();
+      await widget.repository.saveAppSettings(
+        settings.copyWith(nearestAssignDistanceMeters: _distanceMeters),
+      );
+    } catch (_) {
+      settingsSaved = false;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+      _isSaving = false;
+    });
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: settingsSaved
+          ? AppStatusBannerKind.success
+          : AppStatusBannerKind.warning,
+      title: settingsSaved ? '已分配 $count 个点位' : '已分配 $count 个点位，距离设置未保存',
+    );
+  }
+
+  Future<PilgrimagePlan?> _reloadPlan() async {
+    try {
+      final plans = await widget.repository.loadPlans();
+      return plans.where((plan) => plan.id == _plan.id).firstOrNull;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -470,6 +491,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
 
   List<PilgrimagePlanGroup> get _groups => sortGroupsByPlanOrder(_plan.groups);
 
+  LatLng? _anchorOf(PilgrimagePlanGroup group) =>
+      resolvedGroupAnchorPosition(group, _plan.points);
+
   PilgrimagePlanGroup? get _targetGroup {
     final groupId = _targetGroupId;
     if (groupId == null) {
@@ -558,13 +582,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                 MarkerLayer(
                   markers: [
                     for (final group in _groups)
-                      if (group.anchorLatitude != null &&
-                          group.anchorLongitude != null)
+                      if (_anchorOf(group) case final anchor?)
                         Marker(
-                          point: LatLng(
-                            group.anchorLatitude!,
-                            group.anchorLongitude!,
-                          ),
+                          point: anchor,
                           width: scaledMapMarkerDimension(
                             38,
                             widget.settings.mapMarkerScale,
@@ -694,8 +714,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
       for (final group in _groups)
-        if (group.anchorLatitude != null && group.anchorLongitude != null)
-          LatLng(group.anchorLatitude!, group.anchorLongitude!),
+        ?_anchorOf(group),
     ];
     if (positions.isEmpty) {
       return previewCurrentLocation;
