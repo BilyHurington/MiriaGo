@@ -49,6 +49,11 @@
 	<string>MiriaGo 使用定位在地图上显示当前位置，并可按你的选择写入巡礼照片。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>MiriaGo 可能需要定位权限来在巡礼地图中显示当前位置和辅助记录巡礼地点。</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>MiriaGoNavigation</key>
+		<string>应用内步行导航需要精确位置来判断是否到达点位和是否偏离路线。</string>
+	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MiriaGo 可能需要使用麦克风来支持拍摄相关功能中的声音采集。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

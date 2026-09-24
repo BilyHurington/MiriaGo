@@ -12,12 +12,51 @@ class NavigationRoute {
     required this.maneuvers,
     required this.distanceKm,
     required this.duration,
-  });
+    List<NavigationLeg>? legs,
+  }) : _explicitLegs = legs;
 
   final List<LatLng> shape;
   final List<NavigationManeuver> maneuvers;
   final double distanceKm;
   final Duration duration;
+  final List<NavigationLeg>? _explicitLegs;
+
+  /// Route legs between consecutive stops. Routes built without explicit legs
+  /// are treated as a single leg covering the whole shape.
+  List<NavigationLeg> get legs {
+    final legs = _explicitLegs;
+    if (legs != null && legs.isNotEmpty) return legs;
+    return [
+      NavigationLeg(
+        startShapeIndex: 0,
+        endShapeIndex: shape.isEmpty ? 0 : shape.length - 1,
+        firstManeuverIndex: 0,
+        maneuverCount: maneuvers.length,
+        distanceKm: distanceKm,
+        duration: duration,
+      ),
+    ];
+  }
+}
+
+class NavigationLeg {
+  const NavigationLeg({
+    required this.startShapeIndex,
+    required this.endShapeIndex,
+    required this.firstManeuverIndex,
+    required this.maneuverCount,
+    required this.distanceKm,
+    required this.duration,
+  });
+
+  final int startShapeIndex;
+  final int endShapeIndex;
+  final int firstManeuverIndex;
+  final int maneuverCount;
+  final double distanceKm;
+  final Duration duration;
+
+  int get endManeuverIndex => firstManeuverIndex + maneuverCount;
 }
 
 class NavigationManeuver {
@@ -162,6 +201,7 @@ class ValhallaRouteClient {
       final legs = (trip['legs'] as List<dynamic>).cast<Map<String, dynamic>>();
       final shape = <LatLng>[];
       final maneuvers = <NavigationManeuver>[];
+      final parsedLegs = <NavigationLeg>[];
 
       for (final leg in legs) {
         final legShape = decodePolyline6(leg['shape'] as String);
@@ -175,6 +215,7 @@ class ValhallaRouteClient {
         } else {
           shape.addAll(legShape);
         }
+        final firstManeuverIndex = maneuvers.length;
         for (final raw in (leg['maneuvers'] as List<dynamic>? ?? const [])) {
           final maneuver = raw as Map<String, dynamic>;
           final type = (maneuver['type'] as num?)?.toInt() ?? 0;
@@ -197,6 +238,19 @@ class ValhallaRouteClient {
             ),
           );
         }
+        final legSummary = leg['summary'] as Map<String, dynamic>?;
+        parsedLegs.add(
+          NavigationLeg(
+            startShapeIndex: offset.clamp(0, shape.length - 1),
+            endShapeIndex: shape.length - 1,
+            firstManeuverIndex: firstManeuverIndex,
+            maneuverCount: maneuvers.length - firstManeuverIndex,
+            distanceKm: (legSummary?['length'] as num?)?.toDouble() ?? 0,
+            duration: Duration(
+              seconds: (legSummary?['time'] as num?)?.round() ?? 0,
+            ),
+          ),
+        );
       }
       if (shape.length < 2) {
         throw const FormatException('missing route shape');
@@ -206,6 +260,7 @@ class ValhallaRouteClient {
         maneuvers: List.unmodifiable(maneuvers),
         distanceKm: (summary['length'] as num?)?.toDouble() ?? 0,
         duration: Duration(seconds: (summary['time'] as num?)?.round() ?? 0),
+        legs: List.unmodifiable(parsedLegs),
       );
     } on Object {
       throw const ValhallaRouteException('路径规划服务返回了无法识别的数据');

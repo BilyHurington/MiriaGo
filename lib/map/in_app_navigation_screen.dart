@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +31,28 @@ class NavigationLocationSample {
 
 typedef NavigationLocationStreamFactory =
     Stream<NavigationLocationSample> Function();
+
+/// Returns true when precise location is available, false when the user only
+/// granted approximate location, and null when the platform cannot tell.
+typedef NavigationPreciseLocationCheck = Future<bool?> Function();
+
+const _temporaryFullAccuracyPurposeKey = 'MiriaGoNavigation';
+
+Future<bool?> defaultNavigationPreciseLocationCheck() async {
+  if (kIsWeb) return null;
+  try {
+    var status = await Geolocator.getLocationAccuracy();
+    if (status == LocationAccuracyStatus.reduced &&
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      status = await Geolocator.requestTemporaryFullAccuracy(
+        purposeKey: _temporaryFullAccuracyPurposeKey,
+      );
+    }
+    return status == LocationAccuracyStatus.precise;
+  } on Object {
+    return null;
+  }
+}
 
 class _NavigationChrome {
   const _NavigationChrome({
@@ -105,6 +128,7 @@ class InAppNavigationScreen extends StatefulWidget {
     this.routeClient,
     this.locationStreamFactory,
     this.headingStreamFactory,
+    this.preciseLocationCheck,
     super.key,
   });
 
@@ -118,6 +142,7 @@ class InAppNavigationScreen extends StatefulWidget {
   final ValhallaRouteClient? routeClient;
   final NavigationLocationStreamFactory? locationStreamFactory;
   final NavigationHeadingStreamFactory? headingStreamFactory;
+  final NavigationPreciseLocationCheck? preciseLocationCheck;
 
   static Route<void> route({
     required PilgrimagePoint point,
@@ -130,6 +155,7 @@ class InAppNavigationScreen extends StatefulWidget {
     ValhallaRouteClient? routeClient,
     NavigationLocationStreamFactory? locationStreamFactory,
     NavigationHeadingStreamFactory? headingStreamFactory,
+    NavigationPreciseLocationCheck? preciseLocationCheck,
   }) {
     return MaterialPageRoute<void>(
       fullscreenDialog: true,
@@ -144,6 +170,7 @@ class InAppNavigationScreen extends StatefulWidget {
         routeClient: routeClient,
         locationStreamFactory: locationStreamFactory,
         headingStreamFactory: headingStreamFactory,
+        preciseLocationCheck: preciseLocationCheck,
       ),
     );
   }
@@ -160,6 +187,7 @@ class InAppNavigationScreen extends StatefulWidget {
     ValhallaRouteClient? routeClient,
     NavigationLocationStreamFactory? locationStreamFactory,
     NavigationHeadingStreamFactory? headingStreamFactory,
+    NavigationPreciseLocationCheck? preciseLocationCheck,
   }) {
     return Navigator.of(context).push<void>(
       route(
@@ -173,6 +201,7 @@ class InAppNavigationScreen extends StatefulWidget {
         routeClient: routeClient,
         locationStreamFactory: locationStreamFactory,
         headingStreamFactory: headingStreamFactory,
+        preciseLocationCheck: preciseLocationCheck,
       ),
     );
   }
@@ -184,13 +213,17 @@ class InAppNavigationScreen extends StatefulWidget {
 class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     with MapLocationLifecycle<InAppNavigationScreen> {
   final MapController _mapController = MapController();
-  final PageController _stepController = PageController();
-  var _stepIndex = 0;
+  late final PageController _stepController = PageController(
+    initialPage: _stepIndex,
+  );
   var _sheetExpanded = false;
   var _targetIndex = 0;
   var _followLocation = true;
   var _offRouteSamples = 0;
   var _arrivalSheetOpen = false;
+  String? _arrivalSuppressedStopId;
+  bool? _preciseLocation;
+  var _routeTargetOffset = 0;
   DateTime? _lastRerouteAt;
   int _rerouteVersion = 0;
   StreamSubscription<NavigationLocationSample>? _locationSubscription;
@@ -279,9 +312,60 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
       widget.routeClient ?? ValhallaRouteClient();
   late NavigationRoute _navigationRoute = widget.initialRoute;
   late List<LatLng> _route = _navigationRoute.shape;
+  late List<double> _routeDistances = cumulativeRouteDistances(_route);
   late List<_PreviewStep> _steps = _stepsFor(_navigationRoute);
   late LatLng _currentLocation = widget.initialLocation;
-  late RouteProgress _progress = routeProgressFor(_currentLocation, _route);
+  late RouteProgress _progress = _progressFor(_currentLocation);
+  late int _upcomingStepIndex = _upcomingStepFor(_progress);
+  late int _stepIndex = _upcomingStepIndex;
+
+  NavigationLeg get _currentLeg {
+    final legs = _navigationRoute.legs;
+    final index = (_targetIndex - _routeTargetOffset).clamp(0, legs.length - 1);
+    return legs[index];
+  }
+
+  RouteProgress _progressFor(LatLng position, {double? previousAlong}) {
+    final leg = _currentLeg;
+    return routeProgressFor(
+      position,
+      _route,
+      fromShapeIndex: leg.startShapeIndex,
+      toShapeIndex: leg.endShapeIndex,
+      previousAlongRouteMeters: previousAlong,
+      cumulativeDistances: _routeDistances,
+    );
+  }
+
+  int _upcomingStepFor(RouteProgress progress) {
+    final maneuvers = _navigationRoute.maneuvers;
+    if (maneuvers.isEmpty) return 0;
+    final leg = _currentLeg;
+    return upcomingManeuverIndex(
+      segmentIndex: progress.segmentIndex,
+      beginShapeIndices: [
+        for (final maneuver in maneuvers) maneuver.beginShapeIndex,
+      ],
+      firstManeuverIndex: leg.firstManeuverIndex,
+      endManeuverIndex: leg.endManeuverIndex,
+    ).clamp(0, math.max(0, _steps.length - 1)).toInt();
+  }
+
+  /// Live route distance to the next maneuver the user has to perform.
+  double? get _upcomingStepDistanceMeters {
+    final maneuvers = _navigationRoute.maneuvers;
+    if (_upcomingStepIndex < 0 || _upcomingStepIndex >= maneuvers.length) {
+      return null;
+    }
+    final begin = maneuvers[_upcomingStepIndex].beginShapeIndex.clamp(
+      0,
+      _routeDistances.length - 1,
+    );
+    return math.max(
+      0,
+      _routeDistances[begin] - _progress.distanceAlongRouteMeters,
+    );
+  }
 
   PilgrimagePoint get _currentTarget {
     if (_activeStops.isEmpty) {
@@ -320,6 +404,20 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
   }
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(_checkPreciseLocation());
+  }
+
+  Future<void> _checkPreciseLocation() async {
+    final check =
+        widget.preciseLocationCheck ?? defaultNavigationPreciseLocationCheck;
+    final precise = await check();
+    if (!mounted) return;
+    setState(() => _preciseLocation = precise);
+  }
+
+  @override
   void dispose() {
     _stopLocation();
     _heading.dispose();
@@ -337,15 +435,16 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
         sample.accuracy < 0) {
       return false;
     }
-    final progress = routeProgressFor(sample.position, _route);
-    final maneuverIndex = activeManeuverIndexFor(
-      progress.nearestShapeIndex,
-      _navigationRoute.maneuvers.map((maneuver) => maneuver.endShapeIndex),
-    ).clamp(0, math.max(0, _steps.length - 1)).toInt();
+    final progress = _progressFor(
+      sample.position,
+      previousAlong: _progress.distanceAlongRouteMeters,
+    );
+    final maneuverIndex = _upcomingStepFor(progress);
     setState(() {
       _locationError = null;
       _currentLocation = sample.position;
       _progress = progress;
+      _upcomingStepIndex = maneuverIndex;
       _stepIndex = maneuverIndex;
     });
     if (_stepController.hasClients &&
@@ -360,18 +459,30 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
       _mapController.move(sample.position, _mapController.camera.zoom);
     }
 
-    final offRouteLimit = math.max(45.0, sample.accuracy + 25);
-    _offRouteSamples = progress.distanceFromRouteMeters > offRouteLimit
+    // Coarse fixes (approximate location, poor GPS) still move the puck, but
+    // must not trigger arrival or rerouting.
+    if (sample.accuracy > maxDecisionAccuracyMeters) {
+      return true;
+    }
+
+    _offRouteSamples =
+        progress.distanceFromRouteMeters > offRouteLimitMeters(sample.accuracy)
         ? _offRouteSamples + 1
         : 0;
     if (_offRouteSamples >= 3) {
       _reroute();
     }
 
-    final arrivalRadius = math.max(18.0, sample.accuracy + 8);
+    final target = _currentTarget;
+    final arrivalRadius = arrivalRadiusMeters(sample.accuracy);
+    final distanceToTarget = const Distance()(sample.position, target.position);
+    if (_arrivalSuppressedStopId == target.id &&
+        distanceToTarget > arrivalRadius + arrivalRearmMarginMeters) {
+      _arrivalSuppressedStopId = null;
+    }
     if (!_arrivalSheetOpen &&
-        const Distance()(sample.position, _currentTarget.position) <=
-            arrivalRadius) {
+        _arrivalSuppressedStopId != target.id &&
+        distanceToTarget <= arrivalRadius) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _showArrival(
@@ -400,6 +511,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     _offRouteSamples = 0;
     final version = ++_rerouteVersion;
     final targetId = _currentTarget.id;
+    final targetIndex = _targetIndex;
     try {
       final route = await _routeClient.route(
         baseUrl: widget.settings.valhallaBaseUrl,
@@ -416,10 +528,16 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
       setState(() {
         _navigationRoute = route;
         _route = route.shape;
+        _routeDistances = cumulativeRouteDistances(_route);
+        _routeTargetOffset = targetIndex;
         _steps = _stepsFor(route);
-        _stepIndex = 0;
-        _progress = routeProgressFor(_currentLocation, _route);
+        _progress = _progressFor(_currentLocation);
+        _upcomingStepIndex = _upcomingStepFor(_progress);
+        _stepIndex = _upcomingStepIndex;
       });
+      if (_stepController.hasClients) {
+        _stepController.jumpToPage(_stepIndex);
+      }
     } on Object {
       // Keep the previous route visible; another location update may retry later.
     }
@@ -448,6 +566,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     final next = _nextStop;
     final remainingCount = _activeStops.isEmpty ? 1 : _activeStops.length;
     _arrivalSheetOpen = true;
+    var advanced = false;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: chrome.panel,
@@ -471,6 +590,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
           onGoNext: next == null
               ? null
               : () {
+                  advanced = true;
                   Navigator.of(sheetContext).pop();
                   setState(() {
                     _targetIndex++;
@@ -482,6 +602,11 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
       },
     );
     _arrivalSheetOpen = false;
+    if (!advanced) {
+      // Dismissing the prompt keeps the user at this stop; do not reopen it
+      // until they have clearly walked away and come back.
+      _arrivalSuppressedStopId = arrived.id;
+    }
   }
 
   Future<void> _showAllStops(BuildContext context, _NavigationChrome chrome) {
@@ -526,6 +651,7 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
+                initialCenter: _currentLocation,
                 initialCameraFit: CameraFit.coordinates(
                   coordinates: _route,
                   padding: const EdgeInsets.fromLTRB(48, 260, 48, 200),
@@ -616,6 +742,8 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                 steps: _steps,
                 controller: _stepController,
                 index: _stepIndex,
+                liveIndex: _upcomingStepIndex,
+                liveDistanceMeters: _upcomingStepDistanceMeters,
                 onIndexChanged: (index) {
                   setState(() => _stepIndex = index);
                 },
@@ -629,6 +757,24 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_preciseLocation == false)
+                    Material(
+                      key: const ValueKey(
+                        'navigation-precise-location-warning',
+                      ),
+                      color: chrome.panel,
+                      child: ListTile(
+                        dense: true,
+                        title: const Text('精确位置已关闭，到达提醒和偏航判断可能不准确。'),
+                        trailing: TextButton(
+                          onPressed: () async {
+                            await Geolocator.openAppSettings();
+                            if (mounted) unawaited(_checkPreciseLocation());
+                          },
+                          child: const Text('去设置'),
+                        ),
+                      ),
+                    ),
                   if (_locationError != null)
                     Material(
                       color: chrome.panel,
@@ -742,21 +888,33 @@ List<_PreviewStep> _stepsFor(NavigationRoute route) {
       ),
     ];
   }
+  final maneuvers = route.maneuvers;
   return [
-    for (final maneuver in route.maneuvers)
+    for (var i = 0; i < maneuvers.length; i++)
       _PreviewStep(
-        icon: _maneuverIcon(maneuver.type),
-        distanceLabel: _distanceLabel(maneuver.distanceKm),
-        instruction: maneuver.instruction,
+        icon: navigationManeuverIcon(maneuvers[i].type),
+        // A maneuver's own length is the distance walked after it, so the
+        // distance leading up to maneuver i is the previous maneuver's length.
+        distanceLabel: _distanceLabel(
+          i == 0 ? maneuvers[i].distanceKm : maneuvers[i - 1].distanceKm,
+        ),
+        instruction: maneuvers[i].instruction,
       ),
   ];
 }
 
-IconData _maneuverIcon(int type) => switch (type) {
-  3 => LucideIcons.flag,
-  5 || 6 || 9 || 16 || 17 => LucideIcons.cornerUpRight,
-  7 || 8 || 11 || 18 || 19 => LucideIcons.cornerUpLeft,
-  12 || 13 => LucideIcons.undo2,
+/// Icons follow Valhalla's `DirectionsLeg.Maneuver.Type` numbering, the same
+/// numbering [localizedManeuverInstruction] uses for the text.
+IconData navigationManeuverIcon(int type) => switch (type) {
+  4 || 5 || 6 => LucideIcons.flag,
+  2 || 10 || 11 || 20 || 37 => LucideIcons.cornerUpRight,
+  3 || 14 || 15 || 21 || 38 => LucideIcons.cornerUpLeft,
+  9 || 18 || 23 => LucideIcons.arrowUpRight,
+  16 || 19 || 24 => LucideIcons.arrowUpLeft,
+  12 => LucideIcons.undo2,
+  13 => LucideIcons.redo2,
+  26 || 27 => LucideIcons.rotateCw,
+  39 || 40 || 41 || 44 => LucideIcons.arrowUpDown,
   _ => LucideIcons.arrowUp,
 };
 
@@ -791,6 +949,8 @@ class _InstructionBanner extends StatelessWidget {
     this.groupName,
     this.controller,
     this.index = 0,
+    this.liveIndex,
+    this.liveDistanceMeters,
     this.onIndexChanged,
   });
 
@@ -799,6 +959,8 @@ class _InstructionBanner extends StatelessWidget {
   final List<_PreviewStep> steps;
   final PageController? controller;
   final int index;
+  final int? liveIndex;
+  final double? liveDistanceMeters;
   final ValueChanged<int>? onIndexChanged;
 
   @override
@@ -858,6 +1020,12 @@ class _InstructionBanner extends StatelessWidget {
                           itemCount: steps.length,
                           itemBuilder: (context, pageIndex) {
                             final step = steps[pageIndex];
+                            final liveDistance = pageIndex == liveIndex
+                                ? liveDistanceMeters
+                                : null;
+                            final distanceLabel = liveDistance == null
+                                ? step.distanceLabel
+                                : _distanceLabel(liveDistance / 1000);
                             return Row(
                               children: [
                                 Icon(
@@ -873,7 +1041,7 @@ class _InstructionBanner extends StatelessWidget {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
-                                        step.distanceLabel,
+                                        distanceLabel,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
