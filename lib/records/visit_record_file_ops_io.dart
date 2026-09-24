@@ -1,8 +1,6 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-
+import '../data/app_file_reclamation.dart';
 import '../data/app_managed_file_paths_io.dart';
 import '../data/pilgrimage_repository.dart';
 import '../plan/pilgrimage_models.dart';
@@ -24,72 +22,26 @@ Future<void> deleteUnreferencedVisitRecordPhotos({
   required PilgrimageVisitRecord record,
   required PilgrimageRepository repository,
 }) async {
-  // Run only after metadata deletion. Reference images are never deletion candidates.
-  final candidates = <String>{};
-  for (final path in [
-    record.photoPath,
-    record.originalPhotoPath,
-    record.gradedPhotoPath,
-  ]) {
-    final resolved = await _canonicalFile(path);
-    if (resolved != null) candidates.add(resolved);
+  // Run only after metadata deletion. Reference images are never deletion
+  // candidates here, and the record's own reference is protected explicitly.
+  final result = await reclaimUnreferencedAppFiles(
+    repository: repository,
+    candidatePaths: [
+      record.photoPath,
+      record.originalPhotoPath,
+      record.gradedPhotoPath,
+    ],
+    protectedPaths: [record.referenceImagePath],
+    ownedDirectories: const {
+      AppOwnedDirectory.visitRecordImages,
+      AppOwnedDirectory.gradedPhotos,
+      AppOwnedDirectory.importedPlanAssets,
+    },
+  );
+  // Every file was attempted; report the ones that are left behind.
+  if (result.failedFileCount > 0) {
+    throw FileSystemException(
+      '${result.failedFileCount} visit photo(s) could not be deleted.',
+    );
   }
-  if (candidates.isEmpty) return;
-
-  final references = <String?>[];
-  for (final plan in await repository.loadPlans()) {
-    for (final point in plan.points) {
-      references.addAll([
-        point.referenceThumbnailPath,
-        point.referenceFullImagePath,
-        point.referenceImageUrl,
-      ]);
-    }
-    for (final remaining in await repository.loadVisitRecords(plan.id)) {
-      references.addAll([
-        remaining.photoPath,
-        remaining.originalPhotoPath,
-        remaining.gradedPhotoPath,
-        remaining.referenceImagePath,
-      ]);
-    }
-  }
-  references.add(record.referenceImagePath);
-  for (final path in references) {
-    final resolved = await _canonicalFile(path);
-    if (resolved != null) candidates.remove(resolved);
-  }
-
-  final roots = <String>[];
-  final directories = [
-    await getApplicationDocumentsDirectory(),
-    await getApplicationSupportDirectory(),
-  ];
-  for (final directory in directories) {
-    for (final name in [
-      'visit_record_images',
-      'graded_photos',
-      'imported_plan_assets',
-    ]) {
-      final root = Directory(p.join(directory.path, name));
-      if (await root.exists()) {
-        // Do not grant ownership to a symlink pointing outside the app directory.
-        final canonicalBase = await directory.resolveSymbolicLinks();
-        final canonicalRoot = await root.resolveSymbolicLinks();
-        if (p.isWithin(canonicalBase, canonicalRoot)) roots.add(canonicalRoot);
-      }
-    }
-  }
-  for (final path in candidates) {
-    if (roots.any((root) => p.isWithin(root, path))) {
-      await File(path).delete();
-    }
-  }
-}
-
-Future<String?> _canonicalFile(String? path) async {
-  final resolution = await resolveAppManagedFilePath(path);
-  final resolved = resolution.resolvedPath;
-  if (resolved == null) return null;
-  return File(resolved).resolveSymbolicLinks();
 }

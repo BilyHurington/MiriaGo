@@ -4,6 +4,8 @@ import '../plan/pilgrimage_models.dart';
 import '../records/comparison_export_config.dart';
 import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
+import '../records/comparison_export_temp_stub.dart'
+    if (dart.library.io) '../records/comparison_export_temp_io.dart';
 import '../records/comparison_exporter_stub.dart'
     if (dart.library.io) '../records/comparison_exporter_io.dart';
 import '../records/gallery_saver_stub.dart'
@@ -113,6 +115,10 @@ Future<AutoComparisonGalleryResult> autoSaveComparisonImageToGallery({
       saved = await gallerySaver(result.path!);
     } catch (_) {
       saved = false;
+    } finally {
+      // The native saver copies the file before it returns, and nothing else
+      // holds this render's path: its temporary export is no longer needed.
+      await deleteComparisonExportTemp(result.path);
     }
     return AutoComparisonGalleryResult(
       saved

@@ -1186,19 +1186,44 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String colorGradingParamsJson,
     required double colorGradingIntensity,
   }) async {
-    await (_database.update(_database.visitRecords)..where(
-          (table) => table.planId.equals(planId) & table.id.equals(recordId),
-        ))
-        .write(
-          VisitRecordsCompanion(
-            originalPhotoPath: Value(originalPhotoPath),
-            gradedPhotoPath: Value(gradedPhotoPath),
-            colorGradingMode: Value(colorGradingMode),
-            colorGradingParamsJson: Value(colorGradingParamsJson),
-            colorGradingIntensity: Value(colorGradingIntensity),
-          ),
+    Object? writeFailure;
+    try {
+      await _database.transaction(() async {
+        try {
+          final updated =
+              await (_database.update(_database.visitRecords)..where(
+                    (table) =>
+                        table.planId.equals(planId) & table.id.equals(recordId),
+                  ))
+                  .write(
+                    VisitRecordsCompanion(
+                      originalPhotoPath: Value(originalPhotoPath),
+                      gradedPhotoPath: Value(gradedPhotoPath),
+                      colorGradingMode: Value(colorGradingMode),
+                      colorGradingParamsJson: Value(colorGradingParamsJson),
+                      colorGradingIntensity: Value(colorGradingIntensity),
+                    ),
+                  );
+          if (updated == 0) {
+            throw StateError('Visit record $recordId does not exist.');
+          }
+          await _touchPlan(planId);
+        } catch (error) {
+          writeFailure = error;
+          rethrow;
+        }
+      }, requireNew: true);
+    } catch (error, stack) {
+      // As in createVisitRecord: only an action error rethrown after a
+      // successful rollback proves the new graded photo was not stored.
+      if (identical(error, writeFailure)) {
+        Error.throwWithStackTrace(
+          VisitRecordNotCommittedException(error),
+          stack,
         );
-    await _touchPlan(planId);
+      }
+      rethrow;
+    }
     return _visitRecordFromRow(await _visitRecordRowById(planId, recordId));
   }
 

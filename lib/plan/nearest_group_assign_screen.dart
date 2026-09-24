@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../map/map_colors.dart';
 import '../widgets/responsive_button.dart';
 import '../data/anitabi_image_source_scope.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
+import '../data/app_file_reclamation.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
@@ -459,6 +461,9 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     final updatedPlan = await widget.repository.deletePointFromPlan(
       planId: _plan.id,
       pointId: point.id,
+    );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
     );
     if (!mounted) {
       return;
@@ -934,6 +939,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
     final updatedPlan = await widget.repository.deletePointFromPlan(
       planId: _plan.id,
       pointId: point.id,
+    );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
     );
     if (!mounted) {
       return;

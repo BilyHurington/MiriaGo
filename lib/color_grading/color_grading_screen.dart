@@ -19,6 +19,7 @@ import '../widgets/confirm_action_dialog.dart';
 import 'color_adjustment.dart';
 import 'color_grading_parameter_summary.dart';
 import 'color_grading_params.dart';
+import 'graded_photo_reclamation.dart';
 import 'graded_photo_storage_stub.dart'
     if (dart.library.io) 'graded_photo_storage_io.dart';
 
@@ -265,8 +266,11 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     }
     if (_resetPending) {
       setState(() => _saving = true);
-      final updated = await widget.controller.clearVisitRecordColorGrading(
-        record: _record,
+      final updated = await clearGradedPhoto(
+        repository: widget.controller.repository,
+        previousGradedPath: _record.gradedPhotoPath,
+        clear: () =>
+            widget.controller.clearVisitRecordColorGrading(record: _record),
       );
       if (!mounted) {
         return;
@@ -303,14 +307,20 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       return;
     }
 
-    final updated = await widget.controller.updateVisitRecordColorGrading(
-      record: _record,
-      originalPhotoPath:
-          resolveVisitRecordSourcePhotoPath(_record) ?? _record.sourcePhotoPath,
-      gradedPhotoPath: path,
-      colorGradingMode: _selectedMode.name,
-      colorGradingParamsJson: jsonEncode(targetParams.toJson()),
-      colorGradingIntensity: _intensity,
+    final updated = await commitGradedPhoto(
+      repository: widget.controller.repository,
+      newGradedPath: path,
+      previousGradedPath: _record.gradedPhotoPath,
+      update: () => widget.controller.updateVisitRecordColorGrading(
+        record: _record,
+        originalPhotoPath:
+            resolveVisitRecordSourcePhotoPath(_record) ??
+            _record.sourcePhotoPath,
+        gradedPhotoPath: path,
+        colorGradingMode: _selectedMode.name,
+        colorGradingParamsJson: jsonEncode(targetParams.toJson()),
+        colorGradingIntensity: _intensity,
+      ),
     );
     if (!mounted) {
       return;

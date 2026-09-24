@@ -102,6 +102,49 @@ class PlanImportPackage {
 
   bool get hasRestorableAssets => assetEntries.isNotEmpty;
 
+  /// Package asset paths plan.json actually points to: every point asset,
+  /// plus record assets when records are imported.
+  Set<String> referencedAssetPaths({required bool includeRecords}) => {
+    for (final refs in pointAssetRefsById.values) ...[
+      ?refs.referenceThumbnailAsset,
+      ?refs.referenceFullReferenceAsset,
+      ?refs.userReferenceAsset,
+    ],
+    if (includeRecords)
+      for (final refs in recordAssetRefsById.values) ...[
+        ?refs.visitPhotoAsset,
+        ?refs.gradedPhotoAsset,
+        ?refs.originalPhotoAsset,
+        ?refs.referenceImageAsset,
+      ],
+  };
+
+  /// A copy whose [assetEntries] only holds assets that the imported plan
+  /// (and records, when [includeRecords]) reference, so unreferenced files in
+  /// the archive are never written to disk.
+  PlanImportPackage withReferencedAssetsOnly({required bool includeRecords}) {
+    final referenced = referencedAssetPaths(includeRecords: includeRecords);
+    return PlanImportPackage(
+      kind: kind,
+      package: package,
+      sourceName: sourceName,
+      manifest: manifest,
+      assetCounts: assetCounts,
+      assetEntries: {
+        for (final entry in assetEntries.entries)
+          if (referenced.contains(normalizeAssetPathSeparators(entry.key)))
+            entry.key: entry.value,
+      },
+      pointAssetRefsById: pointAssetRefsById,
+      recordAssetRefsById: recordAssetRefsById,
+      warnings: warnings,
+      exportedAt: exportedAt,
+      appVersion: appVersion,
+      schemaVersion: schemaVersion,
+      exportMode: exportMode,
+    );
+  }
+
   int get totalAssetCount =>
       assetCounts.values.fold(0, (total, count) => total + count);
 

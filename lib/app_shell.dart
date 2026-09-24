@@ -26,6 +26,8 @@ import 'plan_transfer/plan_import_file_stub.dart'
 import 'plan_transfer/plan_import_preview_screen.dart';
 import 'plan_transfer/plan_import_package.dart';
 import 'widgets/snackbar_helper.dart';
+import 'records/comparison_export_temp_stub.dart'
+    if (dart.library.io) 'records/comparison_export_temp_io.dart';
 import 'records/records_screen.dart';
 import 'records/comparison_export_config_migration.dart';
 import 'settings/settings_screen.dart';
@@ -61,6 +63,7 @@ class _AppShellState extends State<AppShell> {
     );
     _initializeApp();
     unawaited(prepareReferenceCacheStorage());
+    unawaited(sweepStaleComparisonExports(repository: widget.repository));
   }
 
   @override

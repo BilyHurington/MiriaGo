@@ -7,8 +7,14 @@ import 'plan_import_asset_restore_stub.dart'
 bool get supportsPlanImportAssetRestore =>
     platform.supportsPlanImportAssetRestore;
 
+/// Restores only the package assets the imported plan references, plus those
+/// of its visit records when [includeRecords] is set. Archive entries nothing
+/// points to are never written.
 Future<Map<String, String>> restorePlanImportAssets(
-  PlanImportPackage importPackage,
-) {
-  return platform.restorePlanImportAssets(importPackage);
+  PlanImportPackage importPackage, {
+  required bool includeRecords,
+}) {
+  return platform.restorePlanImportAssets(
+    importPackage.withReferencedAssetsOnly(includeRecords: includeRecords),
+  );
 }

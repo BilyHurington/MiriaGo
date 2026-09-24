@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/app_file_reclamation.dart';
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
 import 'plan_order.dart';
@@ -299,6 +300,9 @@ class PilgrimagePlanController extends ChangeNotifier {
     final updatedPlan = await repository.deletePointFromPlan(
       planId: planId,
       pointId: point.id,
+    );
+    unawaited(
+      reclaimDeletedPointFiles(repository: repository, points: [point]),
     );
     if (_plan.id != planId) {
       return;

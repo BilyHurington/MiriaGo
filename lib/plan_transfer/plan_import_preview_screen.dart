@@ -135,7 +135,10 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
     var committed = false;
     try {
       restoredPaths = _includeAssets
-          ? await restorePlanImportAssets(_package)
+          ? await restorePlanImportAssets(
+              _package,
+              includeRecords: _includeRecords,
+            )
           : const <String, String>{};
       final restored = applyRestoredAssetPaths(
         importPackage: _package,

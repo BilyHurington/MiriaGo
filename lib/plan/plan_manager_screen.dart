@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import '../data/app_file_reclamation.dart';
 import '../data/pilgrimage_repository.dart';
 import '../plan_transfer/import_export_screen.dart';
 import '../widgets/confirm_action_dialog.dart';
@@ -141,7 +142,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       return;
     }
 
-    await widget.repository.deletePlan(plan.id);
+    await deletePlanReclaimingFiles(
+      repository: widget.repository,
+      planId: plan.id,
+    );
     await _loadPlans();
   }
 
