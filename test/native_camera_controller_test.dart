@@ -173,6 +173,40 @@ void main() {
     expect(controller.busy, isFalse);
   });
 
+  test('camera_disposed during capture is an ordinary failure', () async {
+    final controller = createController();
+    addTearDown(controller.dispose);
+    views.install(
+      1,
+      failCapture: true,
+      captureErrorCode: nativeCameraDisposedErrorCode,
+    );
+    await controller.attach(1);
+    expect(controller.ready, isTrue);
+
+    Object? error;
+    await controller.runExclusiveCapture(() async {
+      try {
+        await controller.takePicture();
+      } catch (caught) {
+        error = caught;
+      }
+    });
+
+    expect(
+      error,
+      isA<PlatformException>().having(
+        (e) => e.code,
+        'code',
+        nativeCameraDisposedErrorCode,
+      ),
+    );
+    expect(controller.shutterBusy, isFalse);
+    expect(controller.busy, isFalse);
+    expect(controller.error, isNull);
+    expect(controller.ready, isTrue);
+  });
+
   test(
     'location writer falls back to the app channel without a preview',
     () async {
@@ -230,6 +264,7 @@ class _FakeNativeViews {
     bool throwOnDispose = false,
     bool failFlash = false,
     bool failCapture = false,
+    String captureErrorCode = 'capture_failed',
   }) {
     final log = calls.putIfAbsent(viewId, () => []);
     messenger.setMockMethodCallHandler(channel(viewId), (call) async {
@@ -259,7 +294,7 @@ class _FakeNativeViews {
         case 'takePicture':
           log.add('takePicture');
           if (failCapture) {
-            throw PlatformException(code: 'capture_failed');
+            throw PlatformException(code: captureErrorCode);
           }
           return '/photos/view-$viewId.jpg';
         case 'dispose':

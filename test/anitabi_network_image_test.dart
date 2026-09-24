@@ -213,6 +213,90 @@ void main() {
       expect(limiter.activeCount, 0);
     });
 
+    testWidgets('watchdog frees a stalled permit but keeps the load going', (
+      tester,
+    ) async {
+      final limiter = ImageLoadLimiter(1);
+      final frames = _FakeFrames();
+      addTearDown(frames.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Column(
+            children: [
+              _limitedImage(firstUrl, limiter, frames),
+              _limitedImage(secondUrl, limiter, frames),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(limiter.activeCount, 1);
+      expect(frames.rendered, [firstUrl]);
+
+      // Just before the deadline the stalled load still owns the slot.
+      await tester.pump(
+        anitabiImagePermitWatchdog - const Duration(milliseconds: 1),
+      );
+      expect(frames.rendered, [firstUrl]);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      await tester.pump();
+
+      // The slot moved on to the second image; the first is still loading
+      // and was not restarted or replaced by a new permit request.
+      expect(frames.rendered.where((url) => url == firstUrl).length, 1);
+      expect(frames.rendered, contains(secondUrl));
+      expect(limiter.activeCount, 1);
+      expect(find.text('loading $firstUrl'), findsOneWidget);
+
+      // A late first frame still shows up and does not release twice.
+      frames.showFrame(firstUrl);
+      await tester.pump();
+      expect(find.text(firstUrl), findsOneWidget);
+      expect(limiter.activeCount, 1);
+
+      frames.showFrame(secondUrl);
+      await tester.pump();
+      expect(find.text(secondUrl), findsOneWidget);
+      expect(limiter.activeCount, 0);
+
+      // No timer left behind for finished loads.
+      await tester.pump(anitabiImagePermitWatchdog * 2);
+      expect(limiter.activeCount, 0);
+    });
+
+    testWidgets('watchdog does not fire after the first frame', (tester) async {
+      final limiter = ImageLoadLimiter(1);
+      final frames = _FakeFrames();
+      addTearDown(frames.dispose);
+      final other = await limiter.acquire();
+
+      await tester.pumpWidget(
+        MaterialApp(home: _limitedImage(firstUrl, limiter, frames)),
+      );
+      await tester.pump();
+      expect(limiter.activeCount, 1);
+
+      // Hand the slot to the image, then let it finish.
+      other.release();
+      await tester.pump();
+      await tester.pump();
+      expect(frames.rendered, [firstUrl]);
+      frames.showFrame(firstUrl);
+      await tester.pump();
+      expect(limiter.activeCount, 0);
+
+      final later = await limiter.acquire();
+      expect(limiter.activeCount, 1);
+      await tester.pump(anitabiImagePermitWatchdog * 2);
+      // The expired watchdog must not release someone else's slot.
+      expect(limiter.activeCount, 1);
+      later.release();
+    });
+
     testWidgets('switching url mid-load releases exactly one permit', (
       tester,
     ) async {

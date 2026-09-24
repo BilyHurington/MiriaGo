@@ -8,8 +8,13 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.hardware.display.DisplayManager
 import android.location.Location
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
+import android.view.Surface
 import android.view.View
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
@@ -36,6 +41,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -67,6 +73,22 @@ class NativeCameraPreviewView(
     private var flashMode = ImageCapture.FLASH_MODE_AUTO
     private var targetAspectRatio = 1.0
     private var cropCaptureToAspectRatio = true
+    // Captures whose MethodChannel reply is still outstanding; dispose()
+    // fails them so the Dart shutter never waits forever.
+    private val pendingCaptures = mutableSetOf<CaptureReply>()
+    private val displayManager =
+        context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+
+    // MainActivity handles orientation config changes itself and the view is
+    // kept across rotations, so CameraX use cases must follow the display
+    // rotation explicitly (their rotation is otherwise fixed at build time).
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            updateTargetRotation()
+        }
+    }
 
     init {
         previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -78,6 +100,10 @@ class NativeCameraPreviewView(
             true
         }
         channel.setMethodCallHandler(this)
+        displayManager?.registerDisplayListener(
+            displayListener,
+            Handler(Looper.getMainLooper()),
+        )
     }
 
     override fun getView(): View = previewView
@@ -85,7 +111,15 @@ class NativeCameraPreviewView(
     override fun dispose() {
         if (disposed) return
         disposed = true
+        displayManager?.unregisterDisplayListener(displayListener)
         channel.setMethodCallHandler(null)
+        // CameraX delivers capture callbacks on `executor`; once it is shut
+        // down they are rejected, so answer every pending capture here.
+        val pending = pendingCaptures.toList()
+        pendingCaptures.clear()
+        for (reply in pending) {
+            reply.error("camera_disposed", "Camera preview was disposed.")
+        }
         // Release only this view's use cases: a replacement preview view may
         // already have bound the shared process camera provider.
         val ownUseCases = listOfNotNull(preview, imageCapture)
@@ -151,8 +185,10 @@ class NativeCameraPreviewView(
         if (disposed) return
         val provider = cameraProvider ?: return
         val selector = cameraSelectorForLensMode(lensMode)
+        val rotation = currentDisplayRotation()
         val nextPreview = Preview.Builder()
             .setTargetAspectRatio(cameraTargetAspectRatio())
+            .setTargetRotation(rotation)
             .build()
             .also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
@@ -161,6 +197,7 @@ class NativeCameraPreviewView(
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(cameraTargetAspectRatio())
             .setFlashMode(flashMode)
+            .setTargetRotation(rotation)
             .build()
         preview = nextPreview
         imageCapture = nextCapture
@@ -258,6 +295,11 @@ class NativeCameraPreviewView(
             result.error("camera_not_ready", "Camera is not ready.", null)
             return
         }
+        // The saved JPEG's EXIF orientation comes from targetRotation, which
+        // normalizeAndCropImage then applies before cropping.
+        updateTargetRotation()
+        val reply = CaptureReply(result)
+        pendingCaptures.add(reply)
 
         val directory = File(context.filesDir, "visit_record_images")
         if (!directory.exists()) {
@@ -272,28 +314,80 @@ class NativeCameraPreviewView(
         val outputOptions = ImageCapture.OutputFileOptions.Builder(file)
             .setMetadata(metadata)
             .build()
-        capture.takePicture(
-            outputOptions,
-            executor,
-            object : ImageCapture.OnImageSavedCallback {
-                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    try {
-                        normalizeAndCropImage(file, location)
-                        activity.runOnUiThread { result.success(file.absolutePath) }
-                    } catch (error: Exception) {
-                        activity.runOnUiThread {
-                            result.error("capture_crop_failed", error.message, null)
+        try {
+            capture.takePicture(
+                outputOptions,
+                executor,
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                        try {
+                            normalizeAndCropImage(file, location)
+                            if (!reply.success(file.absolutePath)) {
+                                // Already failed as camera_disposed; nobody
+                                // will pick this photo up.
+                                file.delete()
+                            }
+                        } catch (error: Exception) {
+                            reply.error("capture_crop_failed", error.message)
                         }
                     }
-                }
 
-                override fun onError(exception: ImageCaptureException) {
-                    activity.runOnUiThread {
-                        result.error("capture_failed", exception.message, null)
+                    override fun onError(exception: ImageCaptureException) {
+                        reply.error("capture_failed", exception.message)
                     }
-                }
-            },
-        )
+                },
+            )
+        } catch (error: Exception) {
+            reply.error("capture_failed", error.message)
+        }
+    }
+
+    private fun updateTargetRotation() {
+        if (disposed) return
+        val rotation = currentDisplayRotation()
+        imageCapture?.targetRotation = rotation
+        preview?.targetRotation = rotation
+    }
+
+    @Suppress("DEPRECATION")
+    private fun currentDisplayRotation(): Int {
+        previewView.display?.rotation?.let { return it }
+        return try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                activity.display
+            } else {
+                activity.windowManager.defaultDisplay
+            }
+            display?.rotation ?: Surface.ROTATION_0
+        } catch (_: Exception) {
+            Surface.ROTATION_0
+        }
+    }
+
+    /**
+     * Replies to a capture call exactly once, always on the main thread, and
+     * drops it from [pendingCaptures] when it completes.
+     */
+    private inner class CaptureReply(private val result: MethodChannel.Result) {
+        private val replied = AtomicBoolean(false)
+
+        /** Returns false when the call was already answered. */
+        fun success(path: String): Boolean {
+            if (!replied.compareAndSet(false, true)) return false
+            activity.runOnUiThread {
+                pendingCaptures.remove(this)
+                result.success(path)
+            }
+            return true
+        }
+
+        fun error(code: String, message: String?) {
+            if (!replied.compareAndSet(false, true)) return
+            activity.runOnUiThread {
+                pendingCaptures.remove(this)
+                result.error(code, message, null)
+            }
+        }
     }
 
     private fun writePhotoLocation(call: MethodCall, result: MethodChannel.Result) {

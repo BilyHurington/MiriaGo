@@ -358,6 +358,7 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   private var targetAspectRatio = 1.0
   private var cropCaptureToAspectRatio = true
   private var captureDelegate: NativePhotoCaptureDelegate?
+  private var orientationObserver: NSObjectProtocol?
 
   init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
     previewView = NativeCameraPreviewUIView(frame: frame)
@@ -369,6 +370,29 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
     previewView.previewLayer.session = session
     previewView.previewLayer.videoGravity = .resizeAspectFill
     channel.setMethodCallHandler(handle)
+    // The platform view survives rotations, so the preview connection must
+    // follow the interface orientation. A 90 degree turn resizes (and lays
+    // out) the view; a 180 degree flip keeps the size, so also listen for
+    // device orientation changes.
+    previewView.onLayout = { [weak self] in
+      self?.applyPreviewOrientation()
+    }
+    UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+    orientationObserver = NotificationCenter.default.addObserver(
+      forName: UIDevice.orientationDidChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.applyPreviewOrientation()
+      // The interface orientation updates during the rotation animation.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        self?.applyPreviewOrientation()
+      }
+    }
+  }
+
+  deinit {
+    stopObservingOrientation()
   }
 
   func view() -> UIView {
@@ -672,12 +696,28 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
 
   private func updatePreviewOrientation() {
     DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      let orientation = self.currentVideoOrientation()
-      if self.previewView.previewLayer.connection?.isVideoOrientationSupported == true {
-        self.previewView.previewLayer.connection?.videoOrientation = orientation
-      }
+      self?.applyPreviewOrientation()
     }
+  }
+
+  /// Main thread only. Cheap enough for every layout pass: it only touches
+  /// the connection when the orientation actually changed.
+  private func applyPreviewOrientation() {
+    guard
+      let connection = previewView.previewLayer.connection,
+      connection.isVideoOrientationSupported
+    else { return }
+    let orientation = currentVideoOrientation()
+    if connection.videoOrientation != orientation {
+      connection.videoOrientation = orientation
+    }
+  }
+
+  private func stopObservingOrientation() {
+    guard let observer = orientationObserver else { return }
+    orientationObserver = nil
+    NotificationCenter.default.removeObserver(observer)
+    UIDevice.current.endGeneratingDeviceOrientationNotifications()
   }
 
   private func updatePhotoOrientation() {
@@ -735,6 +775,8 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
 
   private func dispose() {
     channel.setMethodCallHandler(nil)
+    previewView.onLayout = nil
+    stopObservingOrientation()
     sessionQueue.async { [weak self] in
       self?.session.stopRunning()
       self?.session.inputs.forEach { self?.session.removeInput($0) }
@@ -896,6 +938,15 @@ private final class NativeCameraPreviewUIView: UIView {
 
   var previewLayer: AVCaptureVideoPreviewLayer {
     layer as! AVCaptureVideoPreviewLayer
+  }
+
+  /// Called after every layout pass (for example when a rotation resizes the
+  /// persistent platform view).
+  var onLayout: (() -> Void)?
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    onLayout?()
   }
 }
 

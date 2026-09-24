@@ -111,7 +111,13 @@ class _CamerawesomeReferenceScreenState
     _refreshReferenceAspectRatio();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(_ensurePhotoLocationStrategy());
+        // The shutter asks again when this early prompt fails.
+        unawaited(
+          _ensurePhotoLocationStrategy().catchError((Object error) {
+            debugPrint('Could not resolve photo location strategy: $error');
+            return null;
+          }),
+        );
       }
     });
   }
@@ -283,44 +289,56 @@ class _CamerawesomeReferenceScreenState
 
   Future<void> _captureWithNativeCamera(_ReferenceImageSource reference) {
     return _nativeCameraController.runExclusiveCapture(() async {
-      if (_shouldWaitForReferenceAspectRatio(reference)) {
-        ScaffoldMessenger.of(context).showStatusSnack(
-          kind: AppStatusBannerKind.running,
-          title: '正在读取参考图比例，请稍后拍摄。',
-          icon: LucideIcons.ratio,
-        );
-        return;
-      }
-      final strategy = await _ensurePhotoLocationStrategy();
-      if (strategy == null || !mounted) {
-        return;
-      }
-      // Take the picture first; location is resolved on the confirmation
-      // screen so a slow GPS fix never delays the shutter.
-      final String? path;
       try {
-        path = await _nativeCameraController.takePicture();
-      } catch (error) {
-        debugPrint('Native camera capture failed: $error');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showStatusSnack(
-            kind: AppStatusBannerKind.error,
-            title: '拍摄失败，请重试。',
-          );
-        }
-        return;
+        await _captureWithNativeCameraExclusive(reference);
+      } catch (error, stackTrace) {
+        // The shutter drops this future, so every failure (settings lookup,
+        // capture, confirmation) must end here instead of escaping as an
+        // unhandled async error. runExclusiveCapture resets the busy state.
+        debugPrint('Native camera capture failed: $error\n$stackTrace');
+        _showCaptureFailed();
       }
-      if (path == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showStatusSnack(
-            kind: AppStatusBannerKind.warning,
-            title: '相机尚未就绪，请稍后再拍。',
-          );
-        }
-        return;
-      }
-      await _openConfirmation(path, photoLocationStrategy: strategy);
     });
+  }
+
+  Future<void> _captureWithNativeCameraExclusive(
+    _ReferenceImageSource reference,
+  ) async {
+    if (_shouldWaitForReferenceAspectRatio(reference)) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.running,
+        title: '正在读取参考图比例，请稍后拍摄。',
+        icon: LucideIcons.ratio,
+      );
+      return;
+    }
+    final strategy = await _ensurePhotoLocationStrategy();
+    if (strategy == null || !mounted) {
+      return;
+    }
+    // Take the picture first; location is resolved on the confirmation
+    // screen so a slow GPS fix never delays the shutter. Native failures
+    // (including a preview disposed mid-capture) throw into the caller.
+    final path = await _nativeCameraController.takePicture();
+    if (path == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.warning,
+          title: '相机尚未就绪，请稍后再拍。',
+        );
+      }
+      return;
+    }
+    await _openConfirmation(path, photoLocationStrategy: strategy);
+  }
+
+  void _showCaptureFailed() {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showStatusSnack(kind: AppStatusBannerKind.error, title: '拍摄失败，请重试。');
   }
 
   /// Native preview writer when available; on Android it falls back to the

@@ -30,6 +30,10 @@ Future<bool> writePhotoLocationWithAppChannel(
   }
 }
 
+/// Error code the native preview uses to fail calls that were still pending
+/// when the view was disposed (for example a capture during a layout change).
+const nativeCameraDisposedErrorCode = 'camera_disposed';
+
 MethodChannel _defaultChannel(int viewId) =>
     MethodChannel('seichi/native_camera_preview_$viewId');
 
@@ -292,6 +296,11 @@ class NativeCameraController extends ChangeNotifier {
   }
 
   /// Returns null when the camera is not ready; throws on native failure.
+  ///
+  /// A view disposed mid-capture fails the pending call with
+  /// [nativeCameraDisposedErrorCode]. That is an ordinary capture failure:
+  /// the error propagates to the caller, the busy state is cleared and the
+  /// controller keeps its ready/error state for the (possibly new) view.
   Future<String?> takePicture({PhotoLocationData? location}) async {
     final channel = _channel;
     if (channel == null || !_ready || _busy) {

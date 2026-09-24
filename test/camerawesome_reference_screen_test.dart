@@ -125,6 +125,38 @@ void main() {
     expect(cameras.takePictureCalls, 1);
   });
 
+  testWidgets('shutter recovers when resolving the location strategy fails', (
+    tester,
+  ) async {
+    final repository = _ThrowingSettingsRepository();
+    final plan = await repository.loadActivePlan();
+    final planController = PilgrimagePlanController(
+      plan: plan,
+      visitRepository: repository,
+    );
+    addTearDown(planController.dispose);
+
+    final controller = await pumpScreen(
+      tester,
+      settings: const AppSettings(
+        photoLocationStrategy: PhotoLocationStrategy.askOnFirstCapture,
+      ),
+      controller: planController,
+    );
+    final shutter = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_NativeCaptureButton',
+    );
+
+    await tester.tap(shutter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('拍摄失败，请重试'), findsOneWidget);
+    expect(controller.shutterBusy, isFalse);
+    expect(cameras.takePictureCalls, 0);
+  });
+
   testWidgets('choosing a location strategy keeps persisted settings', (
     tester,
   ) async {
@@ -158,6 +190,12 @@ void main() {
     );
     expect(saved.mapThumbnailConcurrentLoads, 4);
   });
+}
+
+class _ThrowingSettingsRepository extends SamplePilgrimageRepository {
+  @override
+  Future<AppSettings> loadAppSettings() =>
+      Future<AppSettings>.error(StateError('settings unavailable'));
 }
 
 class _FakePlatformViews {
