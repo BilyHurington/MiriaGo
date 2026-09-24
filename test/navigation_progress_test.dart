@@ -143,4 +143,22 @@ void main() {
     );
     expect(progress.segmentIndex, 2);
   });
+
+  test('offset fixes do not stick at vertices', () {
+    final shape = [for (var i = 0; i < 12; i++) LatLng(35 + i * 0.00008, 139)];
+    final cumulative = cumulativeRouteDistances(shape);
+    double? previous;
+    for (var metres = 1.0; metres < 90; metres += 1) {
+      // 5 m east of the line.
+      final position = LatLng(35 + metres / 111195, 139.000055);
+      final progress = routeProgressFor(
+        position,
+        shape,
+        previousAlongRouteMeters: previous,
+        cumulativeDistances: cumulative,
+      );
+      expect(progress.distanceAlongRouteMeters, closeTo(metres, 1.2));
+      previous = progress.distanceAlongRouteMeters;
+    }
+  });
 }

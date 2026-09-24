@@ -171,7 +171,11 @@ _SegmentCandidate _bestInPass(
   const sameDistanceMeters = 1.5;
   var best = nearest;
   for (final candidate in group) {
-    if (candidate.distance <= nearest.distance + sameDistanceMeters &&
+    // Only projections inside a segment compete: a projection clamped to a
+    // segment end is the vertex the user has just passed (or not reached).
+    final interior = candidate.fraction > 0.001 && candidate.fraction < 0.999;
+    if (interior &&
+        candidate.distance <= nearest.distance + sameDistanceMeters &&
         _continuityCost(candidate, previousAlongRouteMeters) <
             _continuityCost(best, previousAlongRouteMeters)) {
       best = candidate;

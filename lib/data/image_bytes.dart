@@ -39,21 +39,7 @@ bool isWebpBytes(List<int> bytes) {
 /// Whether a JPEG/PNG/WebP byte buffer reaches its end marker, i.e. was not
 /// cut short by an interrupted download or write. Other formats pass.
 bool looksCompleteImageBytes(List<int> bytes) {
-  if (isJpegBytes(bytes)) {
-    // Entropy-coded data cannot contain FF D9, so a complete JPEG has an
-    // end-of-image marker somewhere after its first start-of-scan (FF DA).
-    // Data appended after the image (motion photos, MPF) does not matter.
-    var i = 2;
-    while (i < bytes.length - 1 &&
-        !(bytes[i] == 0xFF && bytes[i + 1] == 0xDA)) {
-      i++;
-    }
-    if (i >= bytes.length - 1) return false;
-    for (i += 2; i < bytes.length - 1; i++) {
-      if (bytes[i] == 0xFF && bytes[i + 1] == 0xD9) return true;
-    }
-    return false;
-  }
+  if (isJpegBytes(bytes)) return _jpegLooksComplete(bytes);
   if (isPngBytes(bytes)) {
     // IEND chunk type followed by its 4-byte CRC ends the file.
     final from = bytes.length > 32 ? bytes.length - 32 : 0;
@@ -73,4 +59,41 @@ bool looksCompleteImageBytes(List<int> bytes) {
     return bytes.length >= riffSize + 8;
   }
   return true;
+}
+
+bool _jpegLooksComplete(List<int> bytes) {
+  // Fast path: most files end with the end-of-image marker, possibly followed
+  // by zero padding. Entropy-coded data cannot end in FF D9 by chance.
+  var end = bytes.length;
+  while (end > 4 && bytes.length - end < 64 && bytes[end - 1] == 0) {
+    end--;
+  }
+  if (bytes[end - 2] == 0xFF && bytes[end - 1] == 0xD9) return true;
+  // Data may follow the image (motion photos, MPF). Walk the marker segments
+  // by their lengths, so an EXIF preview JPEG inside APP1 is skipped, up to
+  // the main image's first start-of-scan; entropy-coded data cannot contain
+  // FF D9, so a complete image has an end marker after it.
+  var i = 2;
+  while (i + 3 < bytes.length) {
+    if (bytes[i] != 0xFF) return false;
+    final marker = bytes[i + 1];
+    if (marker == 0xFF) {
+      i++; // fill byte
+      continue;
+    }
+    if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+      i += 2; // standalone marker without a length
+      continue;
+    }
+    if (marker == 0xDA) {
+      for (var j = i + 2; j < bytes.length - 1; j++) {
+        if (bytes[j] == 0xFF && bytes[j + 1] == 0xD9) return true;
+      }
+      return false;
+    }
+    final length = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (length < 2) return false;
+    i += 2 + length;
+  }
+  return false;
 }

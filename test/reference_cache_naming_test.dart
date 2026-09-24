@@ -103,4 +103,23 @@ void main() {
       isFalse,
     );
   });
+
+  test('a truncated JPEG is not complete because of its EXIF preview', () {
+    // APP1 segment carrying a tiny preview JPEG with its own SOS/EOI.
+    final preview = [0xFF, 0xD8, 0xFF, 0xDA, 0, 2, 9, 0xFF, 0xD9];
+    final app1 = [0xFF, 0xE1, 0, preview.length + 2, ...preview];
+    final header = [0xFF, 0xD8, ...app1, 0xFF, 0xDB, 0, 4, 1, 2];
+    final truncated = [...header, 0xFF, 0xDA, 0, 2, 5, 6, 7, 8];
+    expect(looksCompleteImageBytes(truncated), isFalse);
+    expect(looksCompleteImageBytes([...truncated, 0xFF, 0xD9]), isTrue);
+    expect(
+      looksCompleteImageBytes([
+        ...truncated,
+        0xFF,
+        0xD9,
+        ...List.filled(5000, 3),
+      ]),
+      isTrue,
+    );
+  });
 }
