@@ -123,4 +123,24 @@ void main() {
     );
     expect(progress.segmentIndex, 1);
   });
+
+  test('walking back out of a short dead end keeps the return side', () {
+    // 100 m north, a 12 m spur east and back, then continue north.
+    const shape = [
+      LatLng(35, 139),
+      LatLng(35.0009, 139),
+      LatLng(35.0009, 139.000132),
+      LatLng(35.0009, 139),
+      LatLng(35.0018, 139),
+    ];
+    final cumulative = cumulativeRouteDistances(shape);
+    // User is 6 m into the spur, already walking back (previous 118 m).
+    final progress = routeProgressFor(
+      const LatLng(35.0009, 139.000066),
+      shape,
+      previousAlongRouteMeters: 118,
+      cumulativeDistances: cumulative,
+    );
+    expect(progress.segmentIndex, 2);
+  });
 }

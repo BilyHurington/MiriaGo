@@ -117,19 +117,22 @@ RouteProgress routeProgressFor(
           .toList()
         ..sort((a, b) => a.along.compareTo(b.along));
   final passes = <_SegmentCandidate>[];
-  _SegmentCandidate? groupBest;
+  var group = <_SegmentCandidate>[];
   double? groupEnd;
+  void closeGroup() {
+    if (group.isEmpty) return;
+    passes.add(_bestInPass(group, previousAlongRouteMeters));
+    group = [];
+  }
+
   for (final candidate in plausible) {
     if (groupEnd != null && candidate.along - groupEnd > distinctPassMeters) {
-      passes.add(groupBest!);
-      groupBest = null;
+      closeGroup();
     }
-    if (groupBest == null || candidate.distance < groupBest.distance) {
-      groupBest = candidate;
-    }
+    group.add(candidate);
     groupEnd = candidate.along;
   }
-  if (groupBest != null) passes.add(groupBest);
+  closeGroup();
 
   var best = passes.first;
   for (final pass in passes.skip(1)) {
@@ -152,6 +155,29 @@ RouteProgress routeProgressFor(
     distanceAlongRouteMeters: along,
     remainingDistanceMeters: math.max(0, cumulative[lastVertex] - along),
   );
+}
+
+/// Nearest candidate of one pass. Candidates that are practically equally
+/// near, like both sides of a short dead end, are split by continuity.
+_SegmentCandidate _bestInPass(
+  List<_SegmentCandidate> group,
+  double? previousAlongRouteMeters,
+) {
+  var nearest = group.first;
+  for (final candidate in group.skip(1)) {
+    if (candidate.distance < nearest.distance) nearest = candidate;
+  }
+  if (previousAlongRouteMeters == null) return nearest;
+  const sameDistanceMeters = 1.5;
+  var best = nearest;
+  for (final candidate in group) {
+    if (candidate.distance <= nearest.distance + sameDistanceMeters &&
+        _continuityCost(candidate, previousAlongRouteMeters) <
+            _continuityCost(best, previousAlongRouteMeters)) {
+      best = candidate;
+    }
+  }
+  return best;
 }
 
 double _continuityCost(_SegmentCandidate candidate, double previousAlong) {

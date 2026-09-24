@@ -107,6 +107,16 @@ void main() {
       '烏森通り',
     );
     expect(preferredStreetName(streetNames: ['Main Street']), 'Main Street');
+    for (final street in [
+      '1st Avenue',
+      'N 1st St',
+      '10 Downing Street',
+      'Via 20 Settembre',
+      '5番街',
+      '国道1号',
+    ]) {
+      expect(preferredStreetName(streetNames: [street]), street);
+    }
     expect(preferredStreetName(streetNames: ['15', 'R1', 'E1-2']), isNull);
     expect(preferredStreetName(), isNull);
   });
@@ -159,6 +169,7 @@ void main() {
     expect(valhallaErrorMessage('{"error_code":442}'), '找不到可步行的路线');
     expect(valhallaErrorMessage('{"error_code":999}'), isNull);
     expect(valhallaErrorMessage('<html>'), isNull);
+    expect(valhallaErrorMessage('{"error_code":"171"}'), isNull);
   });
 
   test('parses per-leg ranges and summaries for chained routes', () async {

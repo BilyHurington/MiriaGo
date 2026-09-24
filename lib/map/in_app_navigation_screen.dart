@@ -513,9 +513,14 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
         progress.distanceFromRouteMeters <= arrivalRadius &&
         distanceToTarget <= maxLegEndArrivalDistanceMeters;
     final arrived = distanceToTarget <= arrivalRadius || atLegEnd;
+    // Re-arm a dismissed prompt once the user has clearly left the stop:
+    // away from it, and either back along the leg or off the route (a very
+    // short leg may never leave enough route behind).
     if (_arrivalSuppressedStopId == target.id &&
         distanceToTarget > arrivalRadius + arrivalRearmMarginMeters &&
-        legRemaining > legEndArrivalMeters + arrivalRearmMarginMeters) {
+        (legRemaining > legEndArrivalMeters + arrivalRearmMarginMeters ||
+            progress.distanceFromRouteMeters >
+                arrivalRadius + arrivalRearmMarginMeters)) {
       _arrivalSuppressedStopId = null;
     }
     if (!_arrivalSheetOpen &&

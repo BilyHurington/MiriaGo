@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -192,6 +194,20 @@ Widget configuredMapTileLayer(AppSettings settings, {bool? dark}) {
     return SyncedMapLibreLayer(key: layerKey, initStyle: style);
   }
   return configuredRasterTileLayer(settings, key: layerKey);
+}
+
+/// Starts loading the localized OpenFreeMap style for [settings] so the first
+/// map does not wait for it.
+void warmConfiguredMapStyle(AppSettings settings, {required bool dark}) {
+  if (_isFlutterWidgetTest ||
+      settings.mapTileProvider != MapTileProvider.openFreeMap) {
+    return;
+  }
+  unawaited(
+    LocalizedMapStyleCache.instance.load(
+      resolvedMapLibreStyle(settings, dark: dark),
+    ),
+  );
 }
 
 TileLayer configuredRasterTileLayer(AppSettings settings, {Key? key}) {

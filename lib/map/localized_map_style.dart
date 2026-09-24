@@ -109,7 +109,7 @@ class LocalizedMapStyleCache {
     if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
       final response = await http
           .get(uri, headers: const {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 3));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError('style ${response.statusCode}');
       }

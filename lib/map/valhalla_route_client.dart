@@ -282,7 +282,10 @@ final _cjkPattern = RegExp(
   r'[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]',
 );
 // Route numbers such as "15", "467", "R1" or "E1-2" rather than street names.
-final _routeRefPattern = RegExp(r'^[A-Za-z]{0,3}[\s-]?\d+[A-Za-z0-9\s-]*$');
+// Uppercase-only prefixes/suffixes keep "1st Avenue" or "N 1st St".
+final _routeRefPattern = RegExp(
+  r'^(?:[A-Z]{1,3}[\s-]?)?\d+[A-Z]?(?:[-/.]\d+[A-Z]?)*$',
+);
 
 /// Picks the street name to show for a maneuver.
 ///
@@ -319,7 +322,10 @@ String? valhallaErrorMessage(String body) {
     return null;
   }
   if (decoded is! Map) return null;
-  final code = (decoded['error_code'] as num?)?.toInt();
+  final code = switch (decoded['error_code']) {
+    final num value => value.toInt(),
+    _ => null,
+  };
   return switch (code) {
     170 => '起点和终点之间没有相连的步行道路',
     171 => '起点或点位附近没有可步行的道路，请换个位置再试',
