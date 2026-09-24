@@ -164,12 +164,29 @@ class _VisitRecordConfirmationScreenState
         _locationStatus = '已获取拍摄位置，保存时写入照片。';
       }
     }
-    if (widget.photoLocationStrategy ==
-        PhotoLocationStrategy.waitOnConfirmation) {
+    // "Use recent location" is resolved after capture too, so a stale fix
+    // never delays the shutter; a fresh last-known fix returns immediately.
+    final resolveOnOpen = switch (widget.photoLocationStrategy) {
+      PhotoLocationStrategy.waitOnConfirmation => true,
+      PhotoLocationStrategy.useRecentLocation => _pendingLocation == null,
+      _ => false,
+    };
+    if (resolveOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _resolvePhotoLocation();
       });
     }
+  }
+
+  Future<PhotoLocationData> _locatePhoto() {
+    final resolver = widget.resolvePhotoLocation;
+    if (resolver != null) {
+      return resolver();
+    }
+    return widget.photoLocationStrategy ==
+            PhotoLocationStrategy.useRecentLocation
+        ? resolveRecentPhotoLocation()
+        : resolveFreshPhotoLocation();
   }
 
   Future<void> _resolvePhotoLocation() async {
@@ -182,8 +199,7 @@ class _VisitRecordConfirmationScreenState
       _locationStatus = '正在获取拍摄位置...';
     });
     try {
-      final location =
-          await (widget.resolvePhotoLocation ?? resolveFreshPhotoLocation)();
+      final location = await _locatePhoto();
       if (!mounted || request != _locationRequest) {
         return;
       }

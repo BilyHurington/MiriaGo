@@ -32,8 +32,10 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -56,7 +58,10 @@ class NativeCameraPreviewView(
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
+    private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
+    private var torchEnabled = false
+    private var disposed = false
     private var lensMode = NativeLensMode.BackAuto
     private val telephotoCameraId: String? by lazy { findTelephotoCameraId() }
     private var flashMode = ImageCapture.FLASH_MODE_AUTO
@@ -78,8 +83,18 @@ class NativeCameraPreviewView(
     override fun getView(): View = previewView
 
     override fun dispose() {
+        if (disposed) return
+        disposed = true
         channel.setMethodCallHandler(null)
-        cameraProvider?.unbindAll()
+        // Release only this view's use cases: a replacement preview view may
+        // already have bound the shared process camera provider.
+        val ownUseCases = listOfNotNull(preview, imageCapture)
+        if (ownUseCases.isNotEmpty()) {
+            cameraProvider?.unbind(*ownUseCases.toTypedArray())
+        }
+        camera = null
+        preview = null
+        imageCapture = null
         executor.shutdown()
     }
 
@@ -115,6 +130,10 @@ class NativeCameraPreviewView(
         val providerFuture = ProcessCameraProvider.getInstance(context)
         providerFuture.addListener(
             {
+                if (disposed) {
+                    result.error("camera_disposed", "Camera preview was disposed.", null)
+                    return@addListener
+                }
                 try {
                     cameraProvider = providerFuture.get()
                     bindCamera()
@@ -129,27 +148,34 @@ class NativeCameraPreviewView(
     }
 
     private fun bindCamera() {
+        if (disposed) return
         val provider = cameraProvider ?: return
         val selector = cameraSelectorForLensMode(lensMode)
-        val preview = Preview.Builder()
+        val nextPreview = Preview.Builder()
             .setTargetAspectRatio(cameraTargetAspectRatio())
             .build()
             .also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
-        imageCapture = ImageCapture.Builder()
+        val nextCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(cameraTargetAspectRatio())
             .setFlashMode(flashMode)
             .build()
+        preview = nextPreview
+        imageCapture = nextCapture
 
         provider.unbindAll()
         camera = provider.bindToLifecycle(
             activity as LifecycleOwner,
             selector,
-            preview,
-            imageCapture,
+            nextPreview,
+            nextCapture,
         )
+        // Rebinding (ratio or lens change) resets the torch.
+        if (torchEnabled) {
+            camera?.cameraControl?.enableTorch(true)
+        }
     }
 
     private fun setZoomRatio(call: MethodCall, result: MethodChannel.Result) {
@@ -185,21 +211,22 @@ class NativeCameraPreviewView(
         when (call.argument<String>("flashMode") ?: "auto") {
             "off" -> {
                 flashMode = ImageCapture.FLASH_MODE_OFF
-                camera?.cameraControl?.enableTorch(false)
+                torchEnabled = false
             }
             "on" -> {
                 flashMode = ImageCapture.FLASH_MODE_ON
-                camera?.cameraControl?.enableTorch(false)
+                torchEnabled = false
             }
             "torch" -> {
                 flashMode = ImageCapture.FLASH_MODE_OFF
-                camera?.cameraControl?.enableTorch(true)
+                torchEnabled = true
             }
             else -> {
                 flashMode = ImageCapture.FLASH_MODE_AUTO
-                camera?.cameraControl?.enableTorch(false)
+                torchEnabled = false
             }
         }
+        camera?.cameraControl?.enableTorch(torchEnabled)
         imageCapture?.flashMode = flashMode
         result.success(zoomStateMap())
     }
@@ -270,52 +297,10 @@ class NativeCameraPreviewView(
     }
 
     private fun writePhotoLocation(call: MethodCall, result: MethodChannel.Result) {
-        val path = call.argument<String>("path")
-        val location = locationFromCall(call)
-        if (path.isNullOrBlank() || location == null) {
-            result.error("invalid_photo_location", "Photo path or location is invalid.", null)
-            return
-        }
-        executor.execute {
-            try {
-                val file = File(path)
-                if (!file.isFile) {
-                    throw IllegalArgumentException("Photo file does not exist.")
-                }
-                ExifInterface(file.absolutePath).apply {
-                    setGpsInfo(location)
-                    saveAttributes()
-                }
-                activity.runOnUiThread { result.success(true) }
-            } catch (error: Exception) {
-                activity.runOnUiThread {
-                    result.error("photo_location_write_failed", error.message, null)
-                }
-            }
-        }
+        writePhotoLocationCall(call, result, activity, executor)
     }
 
-    private fun locationFromCall(call: MethodCall): Location? {
-        val latitude = (call.argument<Number>("latitude") ?: return null).toDouble()
-        val longitude = (call.argument<Number>("longitude") ?: return null).toDouble()
-        if (!latitude.isFinite() || !longitude.isFinite() ||
-            latitude !in -90.0..90.0 || longitude !in -180.0..180.0
-        ) {
-            return null
-        }
-        return Location("MiriaGo").apply {
-            this.latitude = latitude
-            this.longitude = longitude
-            (call.argument<Number>("accuracy")?.toFloat())?.let {
-                if (it.isFinite() && it >= 0f) accuracy = it
-            }
-            (call.argument<Number>("altitude")?.toDouble())?.let {
-                if (it.isFinite()) altitude = it
-            }
-            time = call.argument<Number>("locationTimestampMillis")?.toLong()
-                ?: System.currentTimeMillis()
-        }
-    }
+    private fun locationFromCall(call: MethodCall): Location? = photoLocationFromCall(call)
 
     private fun focusAt(x: Float, y: Float) {
         val currentCamera = camera ?: return
@@ -552,4 +537,63 @@ class NativeCameraPreviewView(
         val focalLength: Float,
         val physicalIds: Set<String>,
     )
+}
+
+internal fun photoLocationFromCall(call: MethodCall): Location? {
+    val latitude = (call.argument<Number>("latitude") ?: return null).toDouble()
+    val longitude = (call.argument<Number>("longitude") ?: return null).toDouble()
+    if (!latitude.isFinite() || !longitude.isFinite() ||
+        latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+    ) {
+        return null
+    }
+    return Location("MiriaGo").apply {
+        this.latitude = latitude
+        this.longitude = longitude
+        (call.argument<Number>("accuracy")?.toFloat())?.let {
+            if (it.isFinite() && it >= 0f) accuracy = it
+        }
+        (call.argument<Number>("altitude")?.toDouble())?.let {
+            if (it.isFinite()) altitude = it
+        }
+        time = call.argument<Number>("locationTimestampMillis")?.toLong()
+            ?: System.currentTimeMillis()
+    }
+}
+
+// Writes GPS EXIF for `writePhotoLocation` calls on a background executor.
+// Shared by the preview view channel and the app-level fallback channel.
+internal fun writePhotoLocationCall(
+    call: MethodCall,
+    result: MethodChannel.Result,
+    activity: MainActivity,
+    executor: Executor,
+) {
+    val path = call.argument<String>("path")
+    val location = photoLocationFromCall(call)
+    if (path.isNullOrBlank() || location == null) {
+        result.error("invalid_photo_location", "Photo path or location is invalid.", null)
+        return
+    }
+    try {
+        executor.execute {
+            try {
+                val file = File(path)
+                if (!file.isFile) {
+                    throw IllegalArgumentException("Photo file does not exist.")
+                }
+                ExifInterface(file.absolutePath).apply {
+                    setGpsInfo(location)
+                    saveAttributes()
+                }
+                activity.runOnUiThread { result.success(true) }
+            } catch (error: Exception) {
+                activity.runOnUiThread {
+                    result.error("photo_location_write_failed", error.message, null)
+                }
+            }
+        }
+    } catch (error: RejectedExecutionException) {
+        result.error("photo_location_write_failed", error.message, null)
+    }
 }

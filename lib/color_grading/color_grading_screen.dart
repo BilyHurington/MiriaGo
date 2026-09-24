@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -482,15 +484,120 @@ class _StackedPreview extends StatelessWidget {
             label: showOriginal ? '原图' : '调色后',
             child: showOriginal
                 ? BoundedImage(bytes: capturedBytes)
-                : ColorFiltered(
-                    colorFilter: ColorFilter.matrix(
-                      activeParams.toColorMatrix(),
-                    ),
-                    child: BoundedImage(bytes: capturedBytes),
+                : _GradedPhotoPreview(
+                    capturedBytes: capturedBytes,
+                    params: activeParams,
                   ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shows the color-matrix preview immediately (exact for the linear
+/// adjustments) and, when tone zones or RGB curves are active, swaps in a
+/// debounced low-resolution render of the same path used when saving.
+class _GradedPhotoPreview extends StatefulWidget {
+  const _GradedPhotoPreview({
+    required this.capturedBytes,
+    required this.params,
+  });
+
+  final Uint8List capturedBytes;
+  final ColorGradingParams params;
+
+  @override
+  State<_GradedPhotoPreview> createState() => _GradedPhotoPreviewState();
+}
+
+class _GradedPhotoPreviewState extends State<_GradedPhotoPreview> {
+  static const _renderDelay = Duration(milliseconds: 250);
+
+  Future<GradingPreviewSource>? _source;
+  Timer? _debounce;
+  ui.Image? _rendered;
+  ColorGradingParams? _renderedParams;
+  var _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleRender();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GradedPhotoPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.capturedBytes, widget.capturedBytes)) {
+      _source = null;
+      _clearRendered();
+      _scheduleRender();
+    } else if (oldWidget.params != widget.params) {
+      _scheduleRender();
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _generation += 1;
+    _clearRendered();
+    super.dispose();
+  }
+
+  void _clearRendered() {
+    _rendered?.dispose();
+    _rendered = null;
+    _renderedParams = null;
+  }
+
+  void _scheduleRender() {
+    _debounce?.cancel();
+    _generation += 1;
+    if (!widget.params.hasNonLinearAdjustments) {
+      // The matrix is exact here; drop the stale render to free its memory.
+      _clearRendered();
+      return;
+    }
+    final params = widget.params;
+    final generation = _generation;
+    _debounce = Timer(_renderDelay, () => _render(params, generation));
+  }
+
+  Future<void> _render(ColorGradingParams params, int generation) async {
+    ui.Image? image;
+    try {
+      final source = await (_source ??= prepareGradingPreviewSource(
+        widget.capturedBytes,
+      ));
+      if (!mounted || generation != _generation) return;
+      image = await renderGradedPreviewImage(source: source, params: params);
+    } catch (error) {
+      // Keep the matrix approximation if the low-resolution render fails.
+      debugPrint('Color grading preview render failed: $error');
+      return;
+    }
+    if (!mounted || generation != _generation) {
+      image.dispose();
+      return;
+    }
+    setState(() {
+      _rendered?.dispose();
+      _rendered = image;
+      _renderedParams = params;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rendered = _rendered;
+    if (rendered != null && _renderedParams == widget.params) {
+      return RawImage(image: rendered, fit: BoxFit.contain);
+    }
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix(widget.params.toColorMatrix()),
+      child: BoundedImage(bytes: widget.capturedBytes),
     );
   }
 }

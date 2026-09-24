@@ -15,11 +15,16 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.EventChannel
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private var planFileChannel: MethodChannel? = null
     private var pendingPlanPath: String? = null
     private var mapHeading: MapHeadingStream? = null
+    private val photoLocationExecutor: ExecutorService by lazy {
+        Executors.newSingleThreadExecutor()
+    }
 
     override fun onResume() {
         super.onResume()
@@ -60,6 +65,18 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             "seichi/camera_capabilities"
         )
+        // Location writes that do not depend on a live native preview view
+        // (used by the CameraAwesome fallback camera).
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "seichi/photo_location"
+        ).setMethodCallHandler { call, result ->
+            if (call.method == "writePhotoLocation") {
+                writePhotoLocationCall(call, result, this, photoLocationExecutor)
+            } else {
+                result.notImplemented()
+            }
+        }
         val mapNavigationChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "miriago/map_navigation"

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -58,6 +59,94 @@ Future<Uint8List> renderGradedJpeg({
     'image': await _prepareRgba(imageBytes, ImageDecodeTarget.grading),
     'params': params.toJson(),
   });
+}
+
+/// Live preview budget: far below [ImageDecodeTarget.grading] so debounced
+/// re-renders of the exact grading path stay cheap (≤ 4 MB of RGBA).
+const gradingPreviewDecodeTarget = ImageDecodeTarget(
+  maxEdge: 1024,
+  maxPixels: 1048576,
+);
+
+/// Low-resolution straight RGBA copy of a photo, decoded once and reused for
+/// every preview render.
+class GradingPreviewSource {
+  const GradingPreviewSource({
+    required this.width,
+    required this.height,
+    required this.rgba,
+  });
+
+  final int width;
+  final int height;
+  final Uint8List rgba;
+}
+
+Future<GradingPreviewSource> prepareGradingPreviewSource(
+  Uint8List imageBytes,
+) async {
+  final prepared = await _prepareRgba(imageBytes, gradingPreviewDecodeTarget);
+  return GradingPreviewSource(
+    width: prepared['width']! as int,
+    height: prepared['height']! as int,
+    rgba: prepared['rgba']! as Uint8List,
+  );
+}
+
+/// Renders [source] through the same per-pixel path as [renderGradedJpeg].
+/// The caller owns the returned image.
+Future<ui.Image> renderGradedPreviewImage({
+  required GradingPreviewSource source,
+  required ColorGradingParams params,
+}) async {
+  final pixels = await compute(_renderPreviewWorker, {
+    'width': source.width,
+    'height': source.height,
+    'rgba': source.rgba,
+    'params': params.toJson(),
+  });
+  final completer = Completer<ui.Image>();
+  ui.decodeImageFromPixels(
+    pixels,
+    source.width,
+    source.height,
+    ui.PixelFormat.rgba8888,
+    completer.complete,
+  );
+  return completer.future;
+}
+
+Uint8List _renderPreviewWorker(Map<String, Object?> input) {
+  return gradeRgbaPixels(
+    rgba: input['rgba']! as Uint8List,
+    width: input['width']! as int,
+    height: input['height']! as int,
+    params: ColorGradingParams.fromJson(
+      Map<String, Object?>.from(input['params']! as Map),
+    ),
+  );
+}
+
+/// Applies the saved-render grading to a copy of straight RGBA pixels.
+@visibleForTesting
+Uint8List gradeRgbaPixels({
+  required Uint8List rgba,
+  required int width,
+  required int height,
+  required ColorGradingParams params,
+}) {
+  // Copy first: on web compute runs on the caller's isolate and the source
+  // buffer is reused for later previews.
+  final copy = Uint8List.fromList(rgba);
+  final image = img.Image.fromBytes(
+    width: width,
+    height: height,
+    bytes: copy.buffer,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  );
+  _applyColorGrading(image, params);
+  return image.getBytes(order: img.ChannelOrder.rgba);
 }
 
 Map<String, Object?>? _autoMatchWorker(Map<String, Object?> input) {

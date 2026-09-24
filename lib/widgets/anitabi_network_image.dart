@@ -7,6 +7,7 @@ import 'image_load_limiter.dart';
 typedef AnitabiNetworkImageBuilder =
     Widget Function(
       String url,
+      ImageFrameBuilder frameBuilder,
       ImageLoadingBuilder loadingBuilder,
       ImageErrorWidgetBuilder errorBuilder,
     );
@@ -121,14 +122,26 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
     }
 
     final candidate = _candidates[_candidateIndex];
+    // Image reports a null loading progress on its first build, before any
+    // bytes arrive, so only a decoded frame proves that the load finished.
+    Widget frameBuilder(
+      BuildContext context,
+      Widget child,
+      int? frame,
+      bool wasSynchronouslyLoaded,
+    ) {
+      if (frame != null || wasSynchronouslyLoaded) {
+        _finishLoading();
+      }
+      return child;
+    }
+
     Widget loadingBuilder(
       BuildContext context,
       Widget child,
       ImageChunkEvent? loadingProgress,
     ) {
-      if (loadingProgress == null) {
-        _finishedLoading = true;
-        _releasePermit();
+      if (_finishedLoading) {
         return child;
       }
       return widget.loadingBuilder?.call(context) ?? child;
@@ -152,18 +165,23 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
         _isTryingNextCandidate = true;
         return _loadingPlaceholder();
       }
-      _finishedLoading = true;
-      _releasePermit();
+      _finishLoading();
       return widget.errorBuilder(context);
     }
 
-    return widget.imageBuilder?.call(candidate, loadingBuilder, errorBuilder) ??
+    return widget.imageBuilder?.call(
+          candidate,
+          frameBuilder,
+          loadingBuilder,
+          errorBuilder,
+        ) ??
         Image.network(
           candidate,
           width: widget.width,
           height: widget.height,
           fit: widget.fit,
           gaplessPlayback: widget.gaplessPlayback,
+          frameBuilder: frameBuilder,
           loadingBuilder: loadingBuilder,
           errorBuilder: errorBuilder,
         );
@@ -171,6 +189,11 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
 
   Widget _loadingPlaceholder() {
     return widget.loadingBuilder?.call(context) ?? const SizedBox.shrink();
+  }
+
+  void _finishLoading() {
+    _finishedLoading = true;
+    _releasePermit();
   }
 
   void _releasePermit() {
