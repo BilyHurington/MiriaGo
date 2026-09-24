@@ -208,10 +208,19 @@ class PointImageCacheUpdate {
     this.referenceFullImagePath,
     this.expectedReferenceImageUrl,
     this.preserveFullImagePath = false,
+    this.preserveThumbnailPath = false,
   });
 
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
+
+  /// When set, the update is skipped unless the stored point still has this
+  /// reference image URL, so a stale background write-back cannot overwrite a
+  /// reference image the user replaced in the meantime.
   final String? expectedReferenceImageUrl;
   final bool preserveFullImagePath;
+
+  /// Keeps the stored thumbnail path instead of writing
+  /// [referenceThumbnailPath].
+  final bool preserveThumbnailPath;
 }

@@ -197,4 +197,49 @@ void main() {
       expect(fields[1].controller?.text, '139.722166');
     },
   );
+
+  testWidgets('coordinate input dialog rejects NaN and accepts full width', (
+    tester,
+  ) async {
+    LatLng? result;
+    var closed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return TextButton(
+                onPressed: () async {
+                  result = await showCoordinateInputDialog(
+                    context: context,
+                    current: const LatLng(34, 135),
+                  );
+                  closed = true;
+                },
+                child: const Text('open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'NaN');
+    await tester.enterText(fields.at(1), '139');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(closed, isFalse);
+    expect(find.text('请输入有效经纬度'), findsOneWidget);
+
+    await tester.enterText(fields.at(0), '３５．５');
+    await tester.enterText(fields.at(1), '－１３９');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(closed, isTrue);
+    expect(result?.latitude, 35.5);
+    expect(result?.longitude, -139);
+  });
 }

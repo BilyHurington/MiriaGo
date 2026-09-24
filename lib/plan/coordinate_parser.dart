@@ -17,17 +17,51 @@ LatLng? parseCoordinateText(String input) {
   return _parseDmsCoordinate(normalized);
 }
 
+/// Parses one latitude or longitude typed into a manual coordinate field.
+///
+/// Full-width digits are accepted. Returns null for text that is not a number,
+/// is not finite (`NaN`, `Infinity`) or is outside the valid range.
+double? parseCoordinateComponent(String input, {required bool latitude}) {
+  final value = double.tryParse(_normalizeCoordinateText(input));
+  final limit = latitude ? 90.0 : 180.0;
+  if (value == null || !value.isFinite || value < -limit || value > limit) {
+    return null;
+  }
+  return value;
+}
+
 Future<LatLng?> parseClipboardCoordinate() async {
   final text = await readClipboardText();
   return parseCoordinateText(text ?? '');
 }
 
 String _normalizeCoordinateText(String input) {
-  return input
+  final buffer = StringBuffer();
+  for (final rune in input.runes) {
+    buffer.writeCharCode(_normalizeFullWidthRune(rune));
+  }
+  return buffer
+      .toString()
       .trim()
-      .replaceAll('，', ',')
-      .replaceAll('；', ';')
+      .replaceAll('、', ',')
+      .replaceAll('−', '-')
+      // The katakana prolonged sound mark is a common IME slip for a minus
+      // sign; only treat it as one when it directly precedes a number.
+      .replaceAll(RegExp(r'ー(?=\s*\d)'), '-')
+      .replaceAll('º', '°')
       .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+int _normalizeFullWidthRune(int rune) {
+  // Full-width digits, letters and punctuation (U+FF01-U+FF5E, e.g. `３`,
+  // `．`, `，`, `－`, `Ｎ`) map directly onto ASCII U+0021-U+007E.
+  if (rune >= 0xFF01 && rune <= 0xFF5E) {
+    return rune - 0xFEE0;
+  }
+  if (rune == 0x3000) {
+    return 0x20;
+  }
+  return rune;
 }
 
 LatLng? _parseDecimalCoordinate(String input) {
@@ -43,21 +77,59 @@ LatLng? _parseDecimalCoordinate(String input) {
   return _validatedLatLng(latitude, longitude);
 }
 
+final _directionPattern = RegExp(
+  r'(?<![A-Za-z])[NSEW](?![A-Za-z])',
+  caseSensitive: false,
+);
+
+/// Parses coordinates that carry N/S/E/W hemisphere letters, in either prefix
+/// (`N35°40′ E139°46′`) or suffix (`35°40′N 139°46′E`) form.
+///
+/// The form is decided once per string: text that starts with a direction
+/// letter uses prefixes throughout, anything else uses suffixes. Each letter
+/// owns only the numbers between it and its neighbour, so a number is never
+/// shared between latitude and longitude.
 LatLng? _parseDmsCoordinate(String input) {
+  final directions = _directionPattern.allMatches(input).toList();
+  if (directions.length != 2) {
+    return null;
+  }
+
+  final isPrefix = directions.first.start == 0;
+  if (!isPrefix &&
+      RegExp(r'\d').hasMatch(input.substring(directions.last.end))) {
+    return null;
+  }
+
   double? latitude;
   double? longitude;
-  for (final directionMatch in RegExp(
-    r'[NSEW]',
-    caseSensitive: false,
-  ).allMatches(input)) {
-    final direction = directionMatch.group(0)!.toUpperCase();
-    final value = _dmsValueAroundDirection(input, directionMatch, direction);
+  for (var index = 0; index < directions.length; index += 1) {
+    final match = directions[index];
+    final String segment;
+    if (isPrefix) {
+      final end = index + 1 < directions.length
+          ? directions[index + 1].start
+          : input.length;
+      segment = input.substring(match.end, end);
+    } else {
+      final start = index == 0 ? 0 : directions[index - 1].end;
+      segment = input.substring(start, match.start);
+    }
+
+    final direction = match.group(0)!.toUpperCase();
+    final value = _dmsSegmentValue(segment, direction);
     if (value == null) {
-      continue;
+      return null;
     }
     if (direction == 'N' || direction == 'S') {
+      if (latitude != null) {
+        return null;
+      }
       latitude = value;
     } else {
+      if (longitude != null) {
+        return null;
+      }
       longitude = value;
     }
   }
@@ -65,39 +137,7 @@ LatLng? _parseDmsCoordinate(String input) {
   return _validatedLatLng(latitude, longitude);
 }
 
-double? _dmsValueAroundDirection(
-  String input,
-  RegExpMatch directionMatch,
-  String direction,
-) {
-  final directionStart = directionMatch.start;
-  final directionEnd = directionMatch.end;
-  final before = input.substring(0, directionStart);
-  final after = input.substring(directionEnd);
-  final previousDirection = before.lastIndexOf(
-    RegExp('[NSEW]', caseSensitive: false),
-  );
-  final nextDirectionMatch = RegExp(
-    '[NSEW]',
-    caseSensitive: false,
-  ).firstMatch(after);
-  final nextDirection = nextDirectionMatch == null
-      ? input.length
-      : directionEnd + nextDirectionMatch.start;
-  final beforeSegment = input.substring(
-    previousDirection < 0 ? 0 : previousDirection + 1,
-    directionStart,
-  );
-  final compactBefore = beforeSegment.trimRight();
-  final isSuffixDirection =
-      compactBefore.isNotEmpty && RegExp(r'[\d"”″秒]$').hasMatch(compactBefore);
-  final hasNumbersBefore =
-      isSuffixDirection && RegExp(r'\d').hasMatch(beforeSegment);
-  final segmentStart = hasNumbersBefore
-      ? (previousDirection < 0 ? 0 : previousDirection + 1)
-      : directionEnd;
-  final segmentEnd = hasNumbersBefore ? directionStart : nextDirection;
-  final segment = input.substring(segmentStart, segmentEnd);
+double? _dmsSegmentValue(String segment, String direction) {
   final values = RegExp(
     r'\d+(?:\.\d+)?',
   ).allMatches(segment).map((match) => match.group(0)!).toList();
@@ -112,7 +152,7 @@ double? _dmsValueAroundDirection(
   );
 }
 
-double _dmsValue({
+double? _dmsValue({
   required String degrees,
   required String? minutes,
   required String? seconds,
@@ -121,12 +161,18 @@ double _dmsValue({
   final degreeValue = double.parse(degrees);
   final minuteValue = minutes == null ? 0.0 : double.parse(minutes);
   final secondValue = seconds == null ? 0.0 : double.parse(seconds);
+  if (minuteValue >= 60 || secondValue >= 60) {
+    return null;
+  }
   final sign = direction == 'S' || direction == 'W' ? -1.0 : 1.0;
   return sign * (degreeValue + minuteValue / 60 + secondValue / 3600);
 }
 
 LatLng? _validatedLatLng(double? latitude, double? longitude) {
   if (latitude == null || longitude == null) {
+    return null;
+  }
+  if (!latitude.isFinite || !longitude.isFinite) {
     return null;
   }
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {

@@ -80,14 +80,15 @@ class _CoordinateInputDialogState extends State<_CoordinateInputDialog> {
   }
 
   void _submit() {
-    final latitude = double.tryParse(_latitudeController.text.trim());
-    final longitude = double.tryParse(_longitudeController.text.trim());
-    if (latitude == null ||
-        longitude == null ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180) {
+    final latitude = parseCoordinateComponent(
+      _latitudeController.text,
+      latitude: true,
+    );
+    final longitude = parseCoordinateComponent(
+      _longitudeController.text,
+      latitude: false,
+    );
+    if (latitude == null || longitude == null) {
       setState(() => _errorText = '请输入有效经纬度');
       return;
     }

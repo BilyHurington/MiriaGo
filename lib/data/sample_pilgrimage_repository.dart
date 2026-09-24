@@ -290,7 +290,9 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
                           point.referenceImageUrl)
               ? point.copyWith(
                   referenceThumbnailPath:
-                      updatesByPointId[point.id]!.referenceThumbnailPath,
+                      updatesByPointId[point.id]!.preserveThumbnailPath
+                      ? point.referenceThumbnailPath
+                      : updatesByPointId[point.id]!.referenceThumbnailPath,
                   referenceFullImagePath:
                       updatesByPointId[point.id]!.preserveFullImagePath
                       ? point.referenceFullImagePath

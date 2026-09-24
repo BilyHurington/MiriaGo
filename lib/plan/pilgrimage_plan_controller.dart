@@ -437,14 +437,16 @@ class PilgrimagePlanController extends ChangeNotifier {
   }
 
   PilgrimagePoint? _pointById(String? id) {
-    if (id == null || points.isEmpty) {
+    if (id == null) {
       return null;
     }
 
-    return points.firstWhere(
-      (point) => point.id == id,
-      orElse: () => points.first,
-    );
+    for (final point in points) {
+      if (point.id == id) {
+        return point;
+      }
+    }
+    return null;
   }
 
   void _replacePlanState(PilgrimagePlan updatedPlan) {

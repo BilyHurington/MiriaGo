@@ -30,6 +30,23 @@ void main() {
     expect(link.pointId, 'qdmnf6iqj');
   });
 
+  test('parses Anitabi links pasted without a scheme', () {
+    for (final input in [
+      'anitabi.cn/map?bangumiId=123&pid=abc',
+      'www.anitabi.cn/map?bangumiId=123&pid=abc&z=16',
+      '  anitabi.cn/map?bangumiId=123&pid=abc  ',
+      'anitabi.cn?bangumiId=123&pid=abc',
+      '/map?bangumiId=123&pid=abc',
+      '?bangumiId=123&pid=abc',
+    ]) {
+      final link = parseAnitabiImportLink(input);
+
+      expect(link, isNotNull, reason: input);
+      expect(link!.bangumiId, 123, reason: input);
+      expect(link.pointId, 'abc', reason: input);
+    }
+  });
+
   test('rejects unrelated text', () {
     expect(parseAnitabiImportLink('qdmnf6iqj'), isNull);
     expect(parseAnitabiImportLink('hello world'), isNull);

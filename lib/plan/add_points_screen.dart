@@ -2238,15 +2238,15 @@ class _QuickManualPointFormScreenState
   }
 
   LatLng? get _position {
-    final latitude = double.tryParse(_latitudeController.text.trim());
-    final longitude = double.tryParse(_longitudeController.text.trim());
+    final latitude = parseCoordinateComponent(
+      _latitudeController.text,
+      latitude: true,
+    );
+    final longitude = parseCoordinateComponent(
+      _longitudeController.text,
+      latitude: false,
+    );
     if (latitude == null || longitude == null) {
-      return null;
-    }
-    if (latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180) {
       return null;
     }
     return LatLng(latitude, longitude);
@@ -2343,10 +2343,8 @@ class _QuickManualPointFormScreenState
     if (text.isEmpty) {
       return latitude ? '请同时填写纬度' : '请同时填写经度';
     }
-    final coordinate = double.tryParse(text);
-    final min = latitude ? -90 : -180;
-    final max = latitude ? 90 : 180;
-    if (coordinate == null || coordinate < min || coordinate > max) {
+    final coordinate = parseCoordinateComponent(text, latitude: latitude);
+    if (coordinate == null) {
       return latitude ? '纬度格式不正确' : '经度格式不正确';
     }
     return null;
@@ -2842,7 +2840,10 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       final longitudeText = _longitudeController.text.trim();
       final position = latitudeText.isEmpty && longitudeText.isEmpty
           ? PilgrimagePoint.pendingPosition
-          : LatLng(double.parse(latitudeText), double.parse(longitudeText));
+          : LatLng(
+              parseCoordinateComponent(latitudeText, latitude: true)!,
+              parseCoordinateComponent(longitudeText, latitude: false)!,
+            );
       final noteText = _noteController.text.trim();
       final point = editingPoint == null
           ? PilgrimagePoint(
@@ -3029,14 +3030,15 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   }
 
   LatLng? _currentPositionInput() {
-    final latitude = double.tryParse(_latitudeController.text.trim());
-    final longitude = double.tryParse(_longitudeController.text.trim());
-    if (latitude == null ||
-        longitude == null ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180) {
+    final latitude = parseCoordinateComponent(
+      _latitudeController.text,
+      latitude: true,
+    );
+    final longitude = parseCoordinateComponent(
+      _longitudeController.text,
+      latitude: false,
+    );
+    if (latitude == null || longitude == null) {
       return null;
     }
     return LatLng(latitude, longitude);
@@ -3501,8 +3503,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     return _validateCoordinate(
       value,
       otherValue: _longitudeController.text,
-      min: -90,
-      max: 90,
+      latitude: true,
       emptyMessage: '请填写纬度',
     );
   }
@@ -3511,8 +3512,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     return _validateCoordinate(
       value,
       otherValue: _latitudeController.text,
-      min: -180,
-      max: 180,
+      latitude: false,
       emptyMessage: '请填写经度',
     );
   }
@@ -3520,8 +3520,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   String? _validateCoordinate(
     String? value, {
     required String otherValue,
-    required double min,
-    required double max,
+    required bool latitude,
     required String emptyMessage,
   }) {
     final text = value?.trim() ?? '';
@@ -3532,8 +3531,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       return emptyMessage;
     }
 
-    final coordinate = double.tryParse(text);
-    if (coordinate == null || coordinate < min || coordinate > max) {
+    final coordinate = parseCoordinateComponent(text, latitude: latitude);
+    if (coordinate == null) {
       return '请输入有效坐标';
     }
 

@@ -99,9 +99,13 @@ Future<PilgrimagePlan> cacheFullReferenceImages({
       } else {
         succeeded += 1;
         final point = points.firstWhere((point) => point.id == result.pointId);
+        // The point is a snapshot from when caching started. Only write the
+        // full image back if the reference image is unchanged, and leave the
+        // thumbnail untouched so a newer thumbnail is never rolled back.
         updates[result.pointId] = PointImageCacheUpdate(
-          referenceThumbnailPath: point.referenceThumbnailPath,
           referenceFullImagePath: result.referenceFullImagePath,
+          expectedReferenceImageUrl: point.referenceImageUrl,
+          preserveThumbnailPath: true,
         );
       }
       onProgress(

@@ -19,7 +19,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     : _database = database ?? AppDatabase(openConnection());
 
   final AppDatabase _database;
-  bool _managedPathRepairAttempted = false;
+
+  /// Shared managed-path repair run. Concurrent callers await the same run;
+  /// it is cleared on failure so a later call retries the repair.
+  Future<void>? _managedPathRepair;
 
   @override
   Future<List<PilgrimagePlan>> loadPlans() async {
@@ -45,9 +48,31 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               ..where((table) => table.active.equals(true))
               ..limit(1))
             .getSingleOrNull();
-    final fallbackPlan =
-        activePlan ?? await _database.select(_database.plans).getSingle();
+    if (activePlan != null) {
+      return _loadPlanWithCurrentTargetRepair(activePlan);
+    }
+    var fallbackPlan = await _firstPlanRowInOrder();
+    if (fallbackPlan == null) {
+      // Every plan was removed after the initial seed check; reseed the same
+      // way a fresh database is seeded so there is always a plan to show.
+      await _seedIfNeeded();
+      fallbackPlan = await _firstPlanRowInOrder();
+    }
+    if (fallbackPlan == null) {
+      throw StateError('No pilgrimage plan is available.');
+    }
     return _loadPlanWithCurrentTargetRepair(fallbackPlan);
+  }
+
+  Future<Plan?> _firstPlanRowInOrder() {
+    return (_database.select(_database.plans)
+          ..orderBy([
+            (table) => OrderingTerm.asc(table.orderIndex),
+            (table) => OrderingTerm.asc(table.createdAt),
+            (table) => OrderingTerm.asc(table.id),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   @override
@@ -163,6 +188,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<void> setActivePlan(String id) async {
     await _database.transaction(() async {
+      final exists =
+          await (_database.select(_database.plans)
+                ..where((table) => table.id.equals(id))
+                ..limit(1))
+              .getSingleOrNull();
+      if (exists == null) {
+        throw ArgumentError.value(id, 'id', 'Plan does not exist.');
+      }
       await _database
           .update(_database.plans)
           .write(const PlansCompanion(active: Value(false)));
@@ -517,9 +550,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ))
             .write(
               PointsCompanion(
-                referenceThumbnailPath: Value(
-                  entry.value.referenceThumbnailPath,
-                ),
+                referenceThumbnailPath: entry.value.preserveThumbnailPath
+                    ? const Value.absent()
+                    : Value(entry.value.referenceThumbnailPath),
                 referenceFullImagePath: entry.value.preserveFullImagePath
                     ? const Value.absent()
                     : Value(entry.value.referenceFullImagePath),
@@ -1258,12 +1291,25 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
-  Future<void> _repairManagedFilePathsIfNeeded() async {
-    if (_managedPathRepairAttempted) {
-      return;
+  Future<void> _repairManagedFilePathsIfNeeded() {
+    final existing = _managedPathRepair;
+    if (existing != null) {
+      return existing;
     }
-    _managedPathRepairAttempted = true;
+    final repair = _repairManagedFilePaths();
+    _managedPathRepair = repair;
+    repair.then<void>(
+      (_) {},
+      onError: (Object _) {
+        if (identical(_managedPathRepair, repair)) {
+          _managedPathRepair = null;
+        }
+      },
+    );
+    return repair;
+  }
 
+  Future<void> _repairManagedFilePaths() async {
     final pointRows = await _database.select(_database.points).get();
     final pointCandidates = pointRows
         .where(_pointNeedsManagedPathRepair)
