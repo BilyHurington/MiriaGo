@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -6,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan_transfer/my_maps_csv_export.dart';
+import 'package:miriago/plan_transfer/plan_export_asset_io.dart';
 import 'package:miriago/plan_transfer/plan_export_v2.dart';
+import 'package:miriago/plan_transfer/plan_import_file_io.dart';
 import 'package:miriago/plan_transfer/plan_import_package.dart';
 import 'package:miriago/plan_transfer/plan_package.dart';
 import 'package:miriago/plan_transfer/plan_transfer_background.dart';
@@ -98,8 +101,8 @@ void main() {
     test('My Maps CSV keeps coordinates raw but escapes text', () async {
       final plan = await SamplePilgrimageRepository().loadActivePlan();
       final point = plan.points.first.copyWith(
-        name: '-cmd|calc',
-        subtitle: '+1',
+        name: '=cmd|calc',
+        subtitle: '@SUM(A1)',
         position: const LatLng(-33.5, -70.25),
       );
       final csv = utf8.decode(
@@ -109,10 +112,28 @@ void main() {
         ).bytes,
       );
       final row = csv.split('\r\n')[1].split(',');
-      expect(row[0], "'-cmd|calc");
+      expect(row[0], "'=cmd|calc");
       expect(row[1], '-33.5000000');
       expect(row[2], '-70.2500000');
-      expect(row[4], "'+1");
+      expect(row[4], "'@SUM(A1)");
+    });
+
+    test('My Maps CSV keeps leading + and - text verbatim', () async {
+      final plan = await SamplePilgrimageRepository().loadActivePlan();
+      final point = plan.points.first.copyWith(
+        name: '+81 Cafe',
+        subtitle: '-Tokyo-',
+        position: const LatLng(35.5, 139.7),
+      );
+      final csv = utf8.decode(
+        buildMyMapsCsvExport(
+          plan: plan.copyWith(points: [point]),
+          exportedAt: DateTime.utc(2026, 7, 27),
+        ).bytes,
+      );
+      final row = csv.split('\r\n')[1].split(',');
+      expect(row[0], '+81 Cafe');
+      expect(row[4], '-Tokyo-');
     });
   });
 
@@ -235,7 +256,9 @@ void main() {
     });
 
     test('limit errors keep their type across the isolate boundary', () {
-      final oversized = Uint8List(4 * 1024 * 1024 + 1);
+      final oversized = Uint8List(4 * 1024 * 1024 + 1)
+        ..fillRange(0, 4 * 1024 * 1024 + 1, 0x20)
+        ..[0] = 0x7B;
       expect(
         readPlanImportPackageInBackground(oversized, sourceName: 'big.json'),
         throwsA(isA<PlanImportLimitException>()),
@@ -261,6 +284,107 @@ void main() {
       expect(
         runPlanTransferTask(() => 1, cancellation: cancellation),
         throwsA(isA<PlanTransferCancelledException>()),
+      );
+    });
+  });
+
+  group('file-backed transfer', () {
+    late Directory temp;
+    setUp(() => temp = Directory.systemTemp.createTempSync('sjh_transfer_'));
+    tearDown(() => temp.deleteSync(recursive: true));
+
+    test('local export assets are referenced by path, not loaded', () async {
+      final photo = File('${temp.path}/photo.jpg')
+        ..writeAsBytesSync(File(_thumbnail).readAsBytesSync());
+      final source = await readExportAssetSource(photo.path);
+      expect(source!.bytes, isNull);
+      expect(source.filePath, photo.absolute.path);
+      expect(
+        readExportZipSourceFile(source.filePath!),
+        photo.readAsBytesSync(),
+      );
+
+      File('${temp.path}/notes.jpg').writeAsStringSync('not an image');
+      expect(await readExportAssetSource('${temp.path}/notes.jpg'), isNull);
+
+      // A file replaced after it was checked fails the export loudly instead
+      // of packing arbitrary bytes.
+      photo.writeAsStringSync('changed');
+      expect(
+        () => readExportZipSourceFile(source.filePath!),
+        throwsA(isA<FileSystemException>()),
+      );
+    });
+
+    test('spooled in-memory assets live on disk until disposed', () async {
+      final spool = PlanExportAssetSpool();
+      final bytes = Uint8List.fromList(File(_thumbnail).readAsBytesSync());
+      final held = await spool.hold(bytes);
+      expect(held.bytes, isNull);
+      expect(File(held.filePath!).readAsBytesSync(), bytes);
+      await spool.dispose();
+      expect(File(held.filePath!).existsSync(), isFalse);
+    });
+
+    test('export packs photos read by the worker byte-for-byte', () async {
+      final plan = await SamplePilgrimageRepository().loadActivePlan();
+      final point = plan.points.first.copyWith(
+        referenceThumbnailPath: _thumbnail,
+      );
+      final package = await buildPlanExportV2Package(
+        plan: plan.copyWith(points: [point], currentPointId: null),
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: false,
+        ),
+      );
+      final archive = ZipDecoder().decodeBytes(package.bytes);
+      final thumbnail = archive.files.singleWhere(
+        (file) => file.name.startsWith('assets/thumbnails/'),
+      );
+      expect(thumbnail.readBytes(), File(_thumbnail).readAsBytesSync());
+      expect(archive.findFile('plan.json'), isNotNull);
+    });
+
+    test('picker files are parsed from their path in the worker', () async {
+      final plan = await SamplePilgrimageRepository().loadActivePlan();
+      final package = await buildPlanExportV2Package(
+        plan: plan,
+        visitRecords: const [],
+        options: const PlanExportV2Options(
+          mode: PlanExportV2Mode.planOnly,
+          includeFullReferenceCache: false,
+        ),
+      );
+      final file = File('${temp.path}/cache_1234')
+        ..writeAsBytesSync(package.bytes);
+      expect(canReadPlanImportFromPath(file.path), isTrue);
+      expect(canReadPlanImportFromPath('${temp.path}/missing'), isFalse);
+      expect(canReadPlanImportFromPath(''), isFalse);
+      final imported = await readPlanImportPackageFromPath(
+        file.path,
+        sourceName: 'Trip.sjhplan',
+      );
+      expect(imported.sourceName, 'Trip.sjhplan');
+      expect(imported.package.plan.name, plan.name);
+    });
+
+    test('non-plan octet-stream files fail with a format error', () async {
+      final pdf = File('${temp.path}/incoming_1.sjhplan')
+        ..writeAsBytesSync([
+          ...ascii.encode('%PDF-1.7'),
+          ...List.filled(5 * 1024 * 1024, 0x20),
+        ]);
+      await expectLater(
+        readPlanImportPackageFromPath(pdf.path),
+        throwsA(isA<FormatException>()),
+      );
+      final empty = File('${temp.path}/incoming_2.sjhplan')
+        ..writeAsBytesSync(const []);
+      await expectLater(
+        readPlanImportPackageFromPath(empty.path),
+        throwsA(isA<FormatException>()),
       );
     });
   });

@@ -104,15 +104,16 @@ String _csvCell(String value, {required bool numeric}) {
   return escaped;
 }
 
-// Spreadsheet apps (Excel, Sheets, LibreOffice) evaluate cells starting with
-// these characters as formulas; a leading apostrophe forces plain text.
+// This file is meant for Google My Maps, which shows cell text verbatim, so a
+// leading apostrophe would appear in names like "+81 Cafe" or "-Tokyo-". Only
+// escape the characters that start a formula on their own when the file is
+// opened in a spreadsheet instead ('=' and '@', plus tab/CR); '+'/'-' are
+// left alone. Package-internal CSVs keep the stricter escaping.
 String _neutralizeSpreadsheetFormula(String value) {
   if (value.isEmpty) {
     return value;
   }
-  return const {'=', '+', '-', '@', '\t', '\r'}.contains(value[0])
-      ? "'$value"
-      : value;
+  return const {'=', '@', '\t', '\r'}.contains(value[0]) ? "'$value" : value;
 }
 
 String _singleLine(String value) {

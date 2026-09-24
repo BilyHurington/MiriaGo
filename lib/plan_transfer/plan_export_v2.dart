@@ -10,6 +10,7 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/reference_image_status.dart';
 import 'plan_export_asset_stub.dart'
     if (dart.library.io) 'plan_export_asset_io.dart';
+import 'plan_export_zip_source.dart';
 import 'plan_package.dart';
 import 'plan_transfer_background.dart';
 
@@ -73,7 +74,36 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   ExportNetworkBytesReader? networkBytesReader,
   PlanTransferCancellation? cancellation,
 }) async {
+  final spool = PlanExportAssetSpool();
+  try {
+    return await _buildPlanExportV2Package(
+      plan: plan,
+      visitRecords: visitRecords,
+      options: options,
+      exportedAt: exportedAt,
+      networkBytesReader: networkBytesReader,
+      cancellation: cancellation,
+      spool: spool,
+    );
+  } finally {
+    // The worker has read every spooled file once encoding finished or was
+    // cancelled.
+    await spool.dispose();
+  }
+}
+
+Future<PlanExportV2Result> _buildPlanExportV2Package({
+  required PilgrimagePlan plan,
+  required List<PilgrimageVisitRecord> visitRecords,
+  required PlanExportV2Options options,
+  required DateTime? exportedAt,
+  required ExportNetworkBytesReader? networkBytesReader,
+  required PlanTransferCancellation? cancellation,
+  required PlanExportAssetSpool spool,
+}) async {
   final exportTime = exportedAt ?? DateTime.now();
+  // Only file paths and small generated files live here on native platforms,
+  // so keeping the list alive while the worker zips costs no photo memory.
   final entries = <_PlanExportZipEntry>[];
   final assetNames = _PlanExportAssetNames();
   final readNetworkBytes = networkBytesReader ?? readExportNetworkBytes;
@@ -93,7 +123,12 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   final recordAssetRefsById = <String, _RecordAssetRefs>{};
 
   void addString(String name, String content) {
-    entries.add(_PlanExportZipEntry(name, utf8.encode(content)));
+    entries.add(
+      _PlanExportZipEntry(
+        name,
+        PlanExportZipSource.bytes(utf8.encode(content)),
+      ),
+    );
   }
 
   void addWarning(PlanExportWarningType type, String message) {
@@ -101,12 +136,16 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     warningCounts[type.key] = (warningCounts[type.key] ?? 0) + 1;
   }
 
-  void addBytesAsset({
-    required List<int> bytes,
+  Future<void> addSourceAsset({
+    required PlanExportZipSource source,
     required String targetPath,
     required String countKey,
-  }) {
-    entries.add(_PlanExportZipEntry(targetPath, _asUint8List(bytes)));
+  }) async {
+    final bytes = source.bytes;
+    // On native, in-memory images are spooled to disk so that no image bytes
+    // are copied into the ZIP worker isolate.
+    final held = bytes == null ? source : await spool.hold(bytes);
+    entries.add(_PlanExportZipEntry(targetPath, held));
     assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
   }
 
@@ -129,12 +168,16 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       }
       return null;
     }
-    final bytes = await readExportAssetBytes(normalizedPath);
-    if (bytes == null) {
+    final source = await readExportAssetSource(normalizedPath);
+    if (source == null) {
       addWarning(warningType, '$warningLabel missing: $normalizedPath');
       return null;
     }
-    addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+    await addSourceAsset(
+      source: source,
+      targetPath: targetPath,
+      countKey: countKey,
+    );
     return targetPath;
   }
 
@@ -157,12 +200,16 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       }
       return null;
     }
-    final bytes = await readExportAssetBytes(normalizedPath);
-    if (bytes == null) {
+    final source = await readExportAssetSource(normalizedPath);
+    if (source == null) {
       addWarning(warningType, '$warningLabel missing: $normalizedPath');
       return null;
     }
-    addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+    await addSourceAsset(
+      source: source,
+      targetPath: targetPath,
+      countKey: countKey,
+    );
     return targetPath;
   }
 
@@ -178,10 +225,10 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   }) async {
     final normalizedPath = sourcePath?.trim();
     if (normalizedPath != null && normalizedPath.isNotEmpty) {
-      final localBytes = await readExportAssetBytes(normalizedPath);
-      if (localBytes != null) {
-        addBytesAsset(
-          bytes: localBytes,
+      final localSource = await readExportAssetSource(normalizedPath);
+      if (localSource != null) {
+        await addSourceAsset(
+          source: localSource,
           targetPath: targetPath,
           countKey: countKey,
         );
@@ -199,7 +246,11 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
         );
         return null;
       }
-      addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+      await addSourceAsset(
+        source: PlanExportZipSource.bytes(_asUint8List(bytes)),
+        targetPath: targetPath,
+        countKey: countKey,
+      );
       return targetPath;
     }
 
@@ -520,17 +571,18 @@ Map<String, Object?> _visitRecordJson(
 }
 
 class _PlanExportZipEntry {
-  const _PlanExportZipEntry(this.name, this.bytes);
+  const _PlanExportZipEntry(this.name, this.source);
 
   final String name;
-  final Uint8List bytes;
+  final PlanExportZipSource source;
 }
 
 Uint8List _asUint8List(List<int> bytes) =>
     bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
 
-// Deflating hundreds of MiB of photos must not block the UI isolate; the
-// entries are plain bytes so they can be sent to the worker isolate.
+// Deflating hundreds of MiB of photos must not block the UI isolate. On
+// native the entries only name files, so the spawn message stays small and
+// the worker reads each photo from disk while it zips.
 Future<List<int>> _encodePlanExportZip(
   List<_PlanExportZipEntry> entries,
   PlanTransferCancellation? cancellation,
@@ -542,11 +594,26 @@ Future<List<int>> _encodePlanExportZip(
 }
 
 List<int> _encodeZipEntries(List<_PlanExportZipEntry> entries) {
-  final archive = Archive();
+  // Size the output once: growing by doubling would briefly hold the ZIP two
+  // or three times over. Deflate barely shrinks photos and can grow
+  // incompressible data slightly, hence the per-entry slack.
+  var capacity = 64 * 1024;
   for (final entry in entries) {
-    archive.addFile(ArchiveFile.bytes(entry.name, entry.bytes));
+    final size =
+        entry.source.bytes?.length ??
+        exportZipSourceFileLength(entry.source.filePath!);
+    capacity += size + (size >> 10) + 256 + 2 * utf8.encode(entry.name).length;
   }
-  return ZipEncoder().encode(archive);
+  final output = OutputMemoryStream(size: capacity);
+  final encoder = ZipEncoder()..startEncode(output);
+  for (final entry in entries) {
+    // Read one file at a time; its bytes are released after it is written.
+    final bytes =
+        entry.source.bytes ?? readExportZipSourceFile(entry.source.filePath!);
+    encoder.add(ArchiveFile.bytes(entry.name, bytes));
+  }
+  encoder.endEncode(comment: null);
+  return output.getBytes();
 }
 
 class _PointAssetRefs {

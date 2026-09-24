@@ -38,7 +38,12 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- MiriaGo plan packages announced with their own MIME type. -->
+            <!-- MiriaGo plan packages announced with their own MIME type, plus
+                 application/octet-stream: Android has no mapping for .sjhplan, so
+                 most senders (Gmail, Drive, Downloads, MiriaGo's own share sheet)
+                 report octet-stream, and their content URIs usually do not carry
+                 the file name. The Dart importer rejects anything that is not a
+                 plan package with an error message. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -47,17 +52,19 @@
                 <data android:mimeType="application/vnd.miriago.plan+json"/>
                 <data android:mimeType="application/vnd.miriago.plan+zip"/>
                 <data android:mimeType="application/vnd.seichi-junrei.plan+json"/>
+                <data android:mimeType="application/octet-stream"/>
             </intent-filter>
-            <!-- Generic MIME types only when the content URI path ends in .sjhplan.
-                 pathPattern is ignored without a host, and ".*" stops at the first
-                 dot, so list patterns for paths containing extra dots. -->
+            <!-- JSON/text only when the content URI path ends in .sjhplan so the
+                 app is not offered for every JSON or text file. pathPattern is
+                 ignored without a host, matching is case-sensitive, and ".*"
+                 stops at the first dot, so list patterns for paths containing
+                 extra dots in both lower and upper case. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="content"/>
                 <data android:host="*"/>
-                <data android:mimeType="application/octet-stream"/>
                 <data android:mimeType="application/json"/>
                 <data android:mimeType="text/plain"/>
                 <data android:pathPattern=".*\\.sjhplan"/>
@@ -66,6 +73,12 @@
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.sjhplan"/>
                 <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.sjhplan"/>
                 <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.SJHPLAN"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

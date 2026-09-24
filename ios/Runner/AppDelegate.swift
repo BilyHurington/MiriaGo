@@ -338,10 +338,43 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
     return parent == directory.resolvingSymlinksInPath().standardizedFileURL.path
   }
 
-  private func removeIfInInbox(_ url: URL) {
-    guard url.isFileURL, let inbox = documentsInboxDirectory,
-      isDirectChild(url, of: inbox)
+  private func canonicalPath(_ url: URL) -> String {
+    url.resolvingSymlinksInPath().standardizedFileURL.path
+  }
+
+  // Scene-based apps can receive "Open in"/AirDrop copies in
+  // tmp/<bundle-id>-Inbox instead of Documents/Inbox. Only direct children of
+  // NSTemporaryDirectory whose name ends in "-Inbox" qualify.
+  private func isTemporaryInboxDirectory(_ directory: URL) -> Bool {
+    let resolved = directory.resolvingSymlinksInPath().standardizedFileURL
+    let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    return resolved.lastPathComponent.hasSuffix("-Inbox")
+      && canonicalPath(resolved.deletingLastPathComponent()) == canonicalPath(temporary)
+  }
+
+  private var temporaryInboxDirectories: [URL] {
+    let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    guard
+      let children = try? FileManager.default.contentsOfDirectory(
+        at: temporary,
+        includingPropertiesForKeys: [.isDirectoryKey]
+      )
     else {
+      return []
+    }
+    return children.filter { child in
+      (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        && isTemporaryInboxDirectory(child)
+    }
+  }
+
+  private func removeIfInInbox(_ url: URL) {
+    guard url.isFileURL else {
+      return
+    }
+    let parent = url.resolvingSymlinksInPath().deletingLastPathComponent()
+    let inDocumentsInbox = documentsInboxDirectory.map { isDirectChild(url, of: $0) } ?? false
+    guard inDocumentsInbox || isTemporaryInboxDirectory(parent) else {
       return
     }
     try? FileManager.default.removeItem(at: url)
@@ -360,7 +393,10 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
     let kept = keptPath.map {
       URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path
     }
-    for directory in [incomingPlanDirectory, documentsInboxDirectory].compactMap({ $0 }) {
+    let directories =
+      [incomingPlanDirectory, documentsInboxDirectory].compactMap({ $0 })
+      + temporaryInboxDirectories
+    for directory in directories {
       guard
         let files = try? fileManager.contentsOfDirectory(
           at: directory,

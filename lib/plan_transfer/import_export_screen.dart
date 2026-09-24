@@ -15,6 +15,8 @@ import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
 import 'plan_export_size_estimator.dart';
 import 'plan_export_v2.dart';
+import 'plan_import_file_stub.dart'
+    if (dart.library.io) 'plan_import_file_io.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
 import 'plan_import_stream.dart';
@@ -203,24 +205,36 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (file == null) {
         return;
       }
-      const limits = PlanImportLimits();
-      final size = await file.length();
-      if (size > limits.maxCompressedBytes) {
-        throw PlanImportLimitException(
-          '压缩包字节数',
-          size,
-          limits.maxCompressedBytes,
+      final PlanImportPackage importPackage;
+      if (canReadPlanImportFromPath(file.path)) {
+        // Native pickers hand over a local file: the worker isolate reads it
+        // (with the same size limit) instead of receiving a copy of up to
+        // 128 MiB from the UI isolate.
+        importPackage = await readPlanImportPackageFromPath(
+          file.path,
+          sourceName: file.name,
+          cancellation: cancellation,
+        );
+      } else {
+        const limits = PlanImportLimits();
+        final size = await file.length();
+        if (size > limits.maxCompressedBytes) {
+          throw PlanImportLimitException(
+            '压缩包字节数',
+            size,
+            limits.maxCompressedBytes,
+          );
+        }
+        final bytes = await readBoundedPlanImportStream(file.openRead());
+        if (!mounted || cancellation.isCancelled) {
+          return;
+        }
+        importPackage = await readPlanImportPackageInBackground(
+          bytes,
+          sourceName: file.name,
+          cancellation: cancellation,
         );
       }
-      final bytes = await readBoundedPlanImportStream(file.openRead());
-      if (!mounted || cancellation.isCancelled) {
-        return;
-      }
-      final importPackage = await readPlanImportPackageInBackground(
-        bytes,
-        sourceName: file.name,
-        cancellation: cancellation,
-      );
       if (!mounted) {
         return;
       }

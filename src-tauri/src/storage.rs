@@ -159,6 +159,18 @@ fn create_writable_data_dirs(
 }
 
 fn verify_writable(dir: &Path) -> Result<(), String> {
+    verify_writable_with(dir, |path| fs::remove_file(path))
+}
+
+// A directory counts as writable once the probe file was created and written.
+// Deleting the probe can fail transiently on Windows (antivirus or the search
+// indexer briefly holding the new file); that says nothing about whether the
+// app can write its data, so it is retried and then only reported. Treating it
+// as "not writable" made the app refuse to open existing portable data.
+fn verify_writable_with(
+    dir: &Path,
+    remove: impl Fn(&Path) -> std::io::Result<()>,
+) -> Result<(), String> {
     static NEXT_PROBE: AtomicU64 = AtomicU64::new(0);
     let path = dir.join(format!(
         ".miriago-write-probe-{}-{}",
@@ -170,12 +182,29 @@ fn verify_writable(dir: &Path) -> Result<(), String> {
         .create_new(true)
         .open(&path)
         .map_err(|error| format!("cannot write to {}: {error}", dir.display()))?;
-    let result = file.write_all(b"miriago");
+    let result = file.write_all(b"miriago").and_then(|()| file.flush());
     drop(file);
-    let cleanup = fs::remove_file(&path);
-    result
-        .and(cleanup)
-        .map_err(|error| format!("cannot write to {}: {error}", dir.display()))
+    remove_write_probe(&path, remove);
+    result.map_err(|error| format!("cannot write to {}: {error}", dir.display()))
+}
+
+fn remove_write_probe(path: &Path, remove: impl Fn(&Path) -> std::io::Result<()>) {
+    const ATTEMPTS: u32 = 3;
+    for attempt in 1..=ATTEMPTS {
+        match remove(path) {
+            Ok(()) => return,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(error) if attempt == ATTEMPTS => {
+                // startup_log writes through ensure_data_dirs, so it cannot be
+                // used here without recursing.
+                eprintln!(
+                    "MiriaGo: could not remove write probe {}: {error}",
+                    path.display()
+                );
+            }
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    }
 }
 
 fn portable_data_dir() -> PathBuf {
@@ -438,6 +467,50 @@ mod tests {
         assert!(fallback.fallback_used);
         assert_eq!(fallback.data_dir, root.system());
         assert!(existing.is_err(), "Run storage tests as a non-root user");
+    }
+
+    #[test]
+    fn write_probe_cleanup_failure_still_counts_as_writable() {
+        use std::cell::Cell;
+        let root = TestDirs::new();
+        let attempts = Cell::new(0);
+        let result = super::verify_writable_with(&root.0, |_| {
+            attempts.set(attempts.get() + 1);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "locked by another process",
+            ))
+        });
+        assert!(result.is_ok());
+        assert_eq!(attempts.get(), 3);
+
+        // A transient lock that clears on retry removes the probe.
+        let attempts = Cell::new(0);
+        let result = super::verify_writable_with(&root.0, |path| {
+            attempts.set(attempts.get() + 1);
+            if attempts.get() == 1 {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "locked by another process",
+                ))
+            } else {
+                fs::remove_file(path)
+            }
+        });
+        assert!(result.is_ok());
+        assert_eq!(attempts.get(), 2);
+        let probes = fs::read_dir(&root.0)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".miriago-write-probe-")
+            })
+            .count();
+        // Only the probe whose removal always failed is left behind.
+        assert_eq!(probes, 1);
     }
 
     #[test]

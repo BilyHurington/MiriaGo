@@ -284,6 +284,12 @@ PlanImportPackage readPlanImportPackageFromBytes(
       isCancelled: isCancelled,
     );
   }
+  // Other apps hand over arbitrary application/octet-stream files; reject
+  // anything that is neither a ZIP package nor a JSON object up front instead
+  // of reporting it as an oversized JSON plan.
+  if (!_looksLikeJsonObject(bytes)) {
+    throw const FormatException('Not a MiriaGo plan package.');
+  }
   if (bytes.length > limits.maxJsonBytes) {
     throw PlanImportLimitException(
       'JSON 字节数',
@@ -333,6 +339,25 @@ bool _looksLikeZip(List<int> bytes) {
       bytes[1] == 0x4B &&
       bytes[2] == 0x03 &&
       bytes[3] == 0x04;
+}
+
+bool _looksLikeJsonObject(List<int> bytes) {
+  var index = 0;
+  // Optional UTF-8 BOM.
+  if (bytes.length >= 3 &&
+      bytes[0] == 0xEF &&
+      bytes[1] == 0xBB &&
+      bytes[2] == 0xBF) {
+    index = 3;
+  }
+  for (; index < bytes.length; index++) {
+    final byte = bytes[index];
+    if (byte == 0x20 || byte == 0x09 || byte == 0x0A || byte == 0x0D) {
+      continue;
+    }
+    return byte == 0x7B; // '{'
+  }
+  return false;
 }
 
 // ZipDecoder eagerly expands symlink targets, and the native ZLibDecoder's
