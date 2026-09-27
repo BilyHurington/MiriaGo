@@ -199,7 +199,9 @@ class _BottomBar extends StatelessWidget {
         minimum: const EdgeInsets.only(bottom: Space.x2),
         child: Padding(
           padding: EdgeInsets.fromLTRB(gutter, Space.x3, gutter, Space.x1),
-          child: child,
+          // Keep expanding children (Align, ContentColumn…) from taking the
+          // whole screen height.
+          child: Align(heightFactor: 1, child: child),
         ),
       ),
     );

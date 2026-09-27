@@ -289,41 +289,44 @@ class MiriaStepper extends StatelessWidget {
       decreasedValue: canDec ? _format((value - step).clamp(min, max)) : null,
       onIncrease: canInc ? inc : null,
       onDecrease: canDec ? dec : null,
-      child: Container(
-        decoration: BoxDecoration(
-          color: c.surfaceMuted,
-          borderRadius: Radii.pillAll,
-        ),
-        padding: const EdgeInsets.all(2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MiriaIconButton(
-              icon: Symbols.remove_rounded,
-              tooltip: '减少',
-              compact: true,
-              onPressed: canDec ? dec : null,
-            ),
-            ExcludeSemantics(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 40),
-                child: Text(
-                  _format(value),
-                  textAlign: TextAlign.center,
-                  style: context.text.titleSmall?.copyWith(
-                    fontFeatures: MiriaFonts.tabular,
-                    color: enabled ? c.textPrimary : c.textDisabled,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Container(
+          decoration: BoxDecoration(
+            color: c.surfaceMuted,
+            borderRadius: Radii.pillAll,
+          ),
+          padding: const EdgeInsets.all(2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MiriaIconButton(
+                icon: Symbols.remove_rounded,
+                tooltip: '减少',
+                compact: true,
+                onPressed: canDec ? dec : null,
+              ),
+              ExcludeSemantics(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 32),
+                  child: Text(
+                    _format(value),
+                    textAlign: TextAlign.center,
+                    style: context.text.titleSmall?.copyWith(
+                      fontFeatures: MiriaFonts.tabular,
+                      color: enabled ? c.textPrimary : c.textDisabled,
+                    ),
                   ),
                 ),
               ),
-            ),
-            MiriaIconButton(
-              icon: Symbols.add_rounded,
-              tooltip: '增加',
-              compact: true,
-              onPressed: canInc ? inc : null,
-            ),
-          ],
+              MiriaIconButton(
+                icon: Symbols.add_rounded,
+                tooltip: '增加',
+                compact: true,
+                onPressed: canInc ? inc : null,
+              ),
+            ],
+          ),
         ),
       ),
     );
