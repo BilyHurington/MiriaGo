@@ -92,6 +92,8 @@ void main() {
       expect(find.text('确认记录'), findsOneWidget);
       expect(find.text('参考模式'), findsOneWidget);
       expect(find.text('叠影'), findsOneWidget);
+      // The sample point has no reference image (old placeholder text).
+      expect(find.text('参考图暂不可用'), findsOneWidget);
       // Labels may collapse to their short form on tiny windows.
       for (final key in [
         'capture-confirm-save',

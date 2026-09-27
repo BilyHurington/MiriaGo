@@ -14,6 +14,7 @@ import '../../../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../../../widgets/reference_thumbnail_io.dart';
 import '../../components/components.dart';
 import '../organize/location_picker.dart';
+import '../plan/plan_workspace.dart';
 import '../viewer/image_viewer.dart';
 import 'add_widgets.dart';
 import 'anitabi_import_page.dart' show workBadgeLabel;
@@ -122,6 +123,7 @@ class _PointFormState extends State<_PointForm> {
   PilgrimageWork? _work;
   late bool _pending;
   late bool _moreExpanded;
+  PlanWorkspaceScope? _workspace;
 
   PilgrimagePoint? get _editing => widget.editing;
 
@@ -150,7 +152,22 @@ class _PointFormState extends State<_PointForm> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final workspace = PlanWorkspaceScope.maybeOf(context);
+    if (!identical(workspace, _workspace)) {
+      _workspace?.removeLeaveGuard(_canLeave);
+      _workspace = workspace?..addLeaveGuard(_canLeave);
+    }
+  }
+
+  /// The plan secondary navigation is blocked like back while picking a
+  /// reference image or saving (old `PopScope(canPop: !_isBusy)`).
+  Future<bool> _canLeave() async => !_edit.isBusy;
+
+  @override
   void dispose() {
+    _workspace?.removeLeaveGuard(_canLeave);
     _edit.dispose();
     for (final controller in [
       _workTitle,

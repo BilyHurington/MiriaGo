@@ -57,11 +57,10 @@ class _PlanWorkspaceScaffoldState extends State<PlanWorkspaceScaffold> {
   final Set<PlanLeaveGuard> _guards = {};
 
   Future<void> _open(String path) async {
-    if (_isSelected(path)) {
-      // Re-selecting a section returns to its root (e.g. from a sub page).
-      if (widget.location != path) context.go(path);
-      return;
-    }
+    // Re-selecting the current section root does nothing; from a sub page
+    // it returns to the root, which disposes the sub page, so the guards
+    // are asked just like for another section.
+    if (widget.location == path) return;
     for (final guard in List.of(_guards)) {
       if (!await guard()) return;
     }

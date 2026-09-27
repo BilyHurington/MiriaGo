@@ -17,6 +17,7 @@ import '../../../plan/pilgrimage_models.dart';
 import '../../components/components.dart';
 import '../../map/map.dart';
 import '../camera/camera_entry.dart';
+import 'navigation_entry.dart';
 import 'navigation_services.dart';
 import 'navigation_widgets.dart';
 
@@ -36,12 +37,13 @@ class NavigationPage extends StatelessWidget {
     if (navigationArgs is! NavigationArgs) {
       return MiriaPageScaffold(
         title: '应用内导航',
+        leading: navigationRouteLeading(context),
         body: EmptyState(
           icon: Symbols.route_rounded,
           title: '没有正在进行的导航',
           message: '请从点位详情重新开始导航。',
           actionLabel: '返回',
-          onAction: () => Navigator.of(context).maybePop(),
+          onAction: () => closeNavigationRoute(context),
         ),
       );
     }
@@ -194,7 +196,7 @@ class _InAppNavigationViewState extends State<InAppNavigationView>
         onFinish: arrival.isLast
             ? () {
                 Navigator.of(sheetContext).pop();
-                unawaited(Navigator.of(context).maybePop());
+                closeNavigationRoute(context);
               }
             : null,
       ),
@@ -214,7 +216,7 @@ class _InAppNavigationViewState extends State<InAppNavigationView>
     );
   }
 
-  void _endRoute() => unawaited(Navigator.of(context).maybePop());
+  void _endRoute() => closeNavigationRoute(context);
 
   @override
   Widget build(BuildContext context) {

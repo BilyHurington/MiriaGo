@@ -318,14 +318,19 @@ class _CaptureConfirmPageState extends State<CaptureConfirmPage> {
             const _ImagePlaceholder(icon: Symbols.broken_image_rounded),
       ),
     );
+    // Old `ReferenceImagePlaceholder(state: unavailable)`.
+    const referenceUnavailable = _ImagePlaceholder(
+      key: ValueKey('capture-confirm-reference-unavailable'),
+      icon: Symbols.image_rounded,
+      label: '参考图暂不可用',
+    );
     final referenceWidget = reference == null
-        ? const _ImagePlaceholder(icon: Symbols.image_not_supported_rounded)
+        ? referenceUnavailable
         : Image(
             image: reference,
             fit: BoxFit.cover,
             gaplessPlayback: true,
-            errorBuilder: (context, _, _) =>
-                const _ImagePlaceholder(icon: Symbols.broken_image_rounded),
+            errorBuilder: (context, _, _) => referenceUnavailable,
           );
     return AbsorbPointer(
       absorbing: _commit.saving,
@@ -669,16 +674,43 @@ class _Panel extends StatelessWidget {
 }
 
 class _ImagePlaceholder extends StatelessWidget {
-  const _ImagePlaceholder({required this.icon});
+  const _ImagePlaceholder({required this.icon, this.label, super.key});
 
   final IconData icon;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final label = this.label;
+    final iconWidget = Icon(icon, color: c.textTertiary, size: 32);
     return ColoredBox(
       color: c.surfaceMuted,
-      child: Center(child: Icon(icon, color: c.textTertiary, size: 32)),
+      child: Center(
+        child: label == null
+            ? iconWidget
+            : Padding(
+                padding: const EdgeInsets.all(Space.x3),
+                // Scales down instead of overflowing in small compare slots.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      iconWidget,
+                      const SizedBox(height: Space.x2),
+                      Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: context.text.labelMedium?.copyWith(
+                          color: c.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }

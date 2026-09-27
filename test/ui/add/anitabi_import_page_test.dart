@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/ui/app/router.dart';
+import 'package:miriago/ui/features/add/anitabi_import_page.dart';
+import 'package:miriago/ui/features/add/bangumi_search_page.dart';
+import 'package:miriago/ui/features/works/works_page.dart';
 
 import 'add_test_helpers.dart';
 
@@ -103,5 +106,101 @@ void main() {
       find.byKey(const ValueKey('anitabi-in-view-import-a2')),
       findsNothing,
     );
+  });
+
+  group('without works', () {
+    Future<void> pumpNoWorks(WidgetTester tester) => pumpAddApp(
+      tester,
+      location: Routes.anitabiImport,
+      repository: emptyPlanRepository(),
+      bangumi: FakeBangumiClient(results: [bangumiResult]),
+      anitabi: FakeAnitabiClient(
+        points: {
+          1424: [anitabiPoint('k1', bangumiId: 1424)],
+        },
+      ),
+    );
+
+    testWidgets('shows only the no-works state (no manual-work notice)', (
+      tester,
+    ) async {
+      await pumpNoWorks(tester);
+      expect(
+        find.byKey(const ValueKey('anitabi-import-no-works')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('anitabi-import-manual-work')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('搜索 Bangumi: after adding a work and coming back, its '
+        'points load on the same page', (tester) async {
+      await pumpNoWorks(tester);
+      await tester.tap(find.text('搜索 Bangumi'));
+      await settle(tester);
+      expect(find.byType(BangumiSearchPage), findsOneWidget);
+      await tester.enterText(find.byType(EditableText).first, '轻音');
+      await tester.tap(find.text('搜索作品'));
+      await settle(tester);
+      await tester.tap(find.text('加入'));
+      await settle(tester);
+      await tester.binding.handlePopRoute();
+      await settle(tester, frames: 20);
+
+      expect(find.byType(BangumiSearchPage), findsNothing);
+      expect(find.byType(AnitabiImportPage), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('anitabi-import-no-works')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('anitabi-import-manual-work')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('anitabi-point-card-k1')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('作品管理 is awaited; coming back without changes keeps the '
+        'no-works state', (tester) async {
+      await pumpNoWorks(tester);
+      await tester.tap(find.text('作品管理'));
+      await settle(tester);
+      expect(find.byType(WorksPage), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+      expect(find.byType(AnitabiImportPage), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('anitabi-import-no-works')),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('the plan side navigation cannot leave while importing', (
+    tester,
+  ) async {
+    final repository = ScriptedRepository()..addGate = Completer<void>();
+    await pumpAddApp(
+      tester,
+      location: Routes.anitabiImport,
+      size: TestSizes.desktop,
+      repository: repository,
+    );
+    await tester.tap(find.byKey(const ValueKey('anitabi-in-view-import-a2')));
+    await settle(tester, frames: 2);
+    await tester.tap(find.text('备忘录'));
+    await settle(tester);
+    expect(find.byType(AnitabiImportPage), findsOneWidget);
+
+    repository.addGate!.complete();
+    await settle(tester);
+    await tester.tap(find.text('备忘录'));
+    await settle(tester);
+    expect(find.byType(AnitabiImportPage), findsNothing);
   });
 }

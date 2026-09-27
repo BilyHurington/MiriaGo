@@ -23,6 +23,7 @@ import '../../app/toast.dart';
 import '../../components/components.dart';
 import '../../map/map.dart';
 import '../organize/group_picker.dart';
+import '../plan/plan_workspace.dart';
 import '../viewer/image_viewer.dart';
 import 'add_widgets.dart';
 
@@ -50,6 +51,7 @@ class _AnitabiImportPageState extends State<AnitabiImportPage> {
   LatLngBounds? _visibleBounds;
   Timer? _boundsDebounce;
   AnitabiCameraTarget? _appliedCamera;
+  PlanWorkspaceScope? _workspace;
 
   @override
   void initState() {
@@ -70,7 +72,21 @@ class _AnitabiImportPageState extends State<AnitabiImportPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final workspace = PlanWorkspaceScope.maybeOf(context);
+    if (!identical(workspace, _workspace)) {
+      _workspace?.removeLeaveGuard(_canLeave);
+      _workspace = workspace?..addLeaveGuard(_canLeave);
+    }
+  }
+
+  /// The plan secondary navigation is blocked while importing, like back.
+  Future<bool> _canLeave() async => !_controller.isImporting;
+
+  @override
   void dispose() {
+    _workspace?.removeLeaveGuard(_canLeave);
     _boundsDebounce?.cancel();
     _box.removeListener(_boxChanged);
     _box.dispose();
@@ -133,6 +149,22 @@ class _AnitabiImportPageState extends State<AnitabiImportPage> {
       context.pop();
     } else {
       context.go(Routes.plan);
+    }
+  }
+
+  /// 「作品管理」 / 「搜索 Bangumi」 from the no-works state: wait for the
+  /// page to close, then reload with the works added there (old
+  /// `_openWorkManager` → `_refreshAnitabiData`).
+  Future<void> _openThenRefresh(String location) async {
+    await context.push<void>(location);
+    if (!mounted || _controller.isDisposed) return;
+    if (_controller.selectedWork != null || _controller.works.isEmpty) return;
+    await _controller.refresh();
+    if (!mounted || _controller.isDisposed) return;
+    // Only manual works were added: select one so its notice shows.
+    final works = _controller.works;
+    if (_controller.selectedWork == null && works.isNotEmpty) {
+      await _controller.loadPoints(works.first);
     }
   }
 
@@ -370,14 +402,16 @@ class _AnitabiImportPageState extends State<AnitabiImportPage> {
         message: '从Bangumi导入：搜索你想导入的作品并导入。之后你可以在这里直接查看对应作品在Anitabi上的点位。',
         actionLabel: '搜索 Bangumi',
         actionIcon: Symbols.travel_explore_rounded,
-        onAction: () =>
-            context.pushReplacement(Routes.bangumiSearchThenImport()),
+        onAction: () => unawaited(_openThenRefresh(Routes.bangumiSearch)),
         secondaryActionLabel: '作品管理',
-        onSecondaryAction: () => context.push<void>(Routes.works),
+        onSecondaryAction: () => unawaited(_openThenRefresh(Routes.works)),
       );
     }
     final work = c.selectedWork;
-    if (!c.isLoading && work?.bangumiId == null && c.visiblePoints.isEmpty) {
+    if (!c.isLoading &&
+        work != null &&
+        work.bangumiId == null &&
+        c.visiblePoints.isEmpty) {
       return const EmptyState(
         key: ValueKey('anitabi-import-manual-work'),
         icon: Symbols.edit_note_rounded,

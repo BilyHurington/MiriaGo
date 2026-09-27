@@ -16,6 +16,7 @@ import '../../app/router.dart';
 import '../../app/toast.dart';
 import '../../components/components.dart';
 import '../../map/map.dart';
+import 'navigation_entry.dart';
 import 'navigation_services.dart';
 
 /// 确认路线 (DESIGN §8.4): the walking route for a point (or its whole
@@ -134,6 +135,7 @@ class _RoutePreviewPageState extends State<RoutePreviewPage> {
     return MiriaPageScaffold(
       key: const ValueKey('navigation-route-confirm-screen'),
       title: '确认路线',
+      leading: navigationRouteLeading(context),
       body: planner == null
           ? (_pointMissing
                 ? const EmptyState(

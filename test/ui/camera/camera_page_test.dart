@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:miriago/camera_reference/native_camera_controller.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/ui/components/components.dart';
@@ -69,6 +70,74 @@ void main() {
       await tester.pump();
       // Cancelled picker: stays on the camera.
       expect(find.text('Web 预览不启动实时相机'), findsOneWidget);
+    });
+
+    testWidgets('back without a page underneath goes to 巡礼', (tester) async {
+      setTestWindow(tester, TestSizes.phone);
+      final stores = await FeatureTestStores.load();
+      final point = stores.session.plan.points.first;
+      // A deep link / browser reload: the camera is the only page.
+      final router = GoRouter(
+        initialLocation: '/camera/${point.id}',
+        routes: [
+          GoRoute(
+            path: '/camera/:pointId',
+            builder: (context, state) => CameraPage(
+              pointId: state.pathParameters['pointId']!,
+              capabilities: webCapabilities,
+            ),
+          ),
+          GoRoute(
+            path: '/go',
+            builder: (context, state) => const Text('go-page'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        featureTestRouterApp(stores: stores, router: router),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('camera-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('go-page'), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/go');
+    });
+
+    testWidgets('back pops when the camera was pushed', (tester) async {
+      setTestWindow(tester, TestSizes.phone);
+      final stores = await FeatureTestStores.load();
+      final point = stores.session.plan.points.first;
+      final router = GoRouter(
+        initialLocation: '/start',
+        routes: [
+          GoRoute(
+            path: '/start',
+            builder: (context, state) => const Text('start-page'),
+          ),
+          GoRoute(
+            path: '/camera/:pointId',
+            builder: (context, state) => CameraPage(
+              pointId: state.pathParameters['pointId']!,
+              capabilities: webCapabilities,
+            ),
+          ),
+          GoRoute(
+            path: '/go',
+            builder: (context, state) => const Text('go-page'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        featureTestRouterApp(stores: stores, router: router),
+      );
+      unawaited(router.push<void>('/camera/${point.id}'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('camera-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('start-page'), findsOneWidget);
+      expect(find.text('go-page'), findsNothing);
     });
 
     testWidgets('unknown points show a message', (tester) async {
@@ -237,6 +306,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('是否在巡礼照片中记录定位？'), findsOneWidget);
       expect(find.text('推荐'), findsOneWidget);
+      // Settings changed while the prompt is open are kept by the save.
+      unawaited(
+        stores.settings.patch(
+          (current) => current.copyWith(mapThumbnailConcurrentLoads: 9),
+        ),
+      );
+      await tester.pump();
       await tester.tap(
         find.byKey(const ValueKey('photo-location-choice-recent')),
       );
@@ -250,11 +326,12 @@ void main() {
         saved.photoLocationStrategy,
         PhotoLocationStrategy.useRecentLocation,
       );
-      expect(saved.mapThumbnailConcurrentLoads, 4);
+      expect(saved.mapThumbnailConcurrentLoads, 9);
       expect(
         stores.settings.settings.photoLocationStrategy,
         PhotoLocationStrategy.useRecentLocation,
       );
+      expect(stores.settings.settings.mapThumbnailConcurrentLoads, 9);
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -170,5 +172,56 @@ void main() {
     await settle(tester);
     expect(find.text('可选，保存时会复制到 App 本地目录。'), findsOneWidget);
     expect(images.deleted, hasLength(1));
+  });
+
+  group('plan side navigation', () {
+    testWidgets('cannot leave while a reference image is being picked', (
+      tester,
+    ) async {
+      final images = FakeImageStore()..storeGate = Completer<void>();
+      await pumpAddApp(
+        tester,
+        location: Routes.newPoint,
+        size: TestSizes.desktop,
+        images: images,
+      );
+      final pick = find.byKey(const ValueKey('point-form-pick-image'));
+      await tester.ensureVisible(pick);
+      await tester.pump();
+      await tester.tap(pick);
+      await settle(tester, frames: 2);
+      await tester.tap(find.text('备忘录'));
+      await settle(tester);
+      expect(find.byType(PointFormPage), findsOneWidget);
+
+      images.storeGate!.complete();
+      await settle(tester);
+      expect(find.text('已选择新图片，保存后生效。'), findsOneWidget);
+      await tester.tap(find.text('备忘录'));
+      await settle(tester);
+      expect(find.byType(PointFormPage), findsNothing);
+      // Leaving drops the unsaved draft image, like back.
+      expect(images.deleted, hasLength(1));
+    });
+
+    testWidgets('cannot leave while saving', (tester) async {
+      final repository = ScriptedRepository()..addGate = Completer<void>();
+      await pumpAddApp(
+        tester,
+        location: Routes.newPoint,
+        size: TestSizes.desktop,
+        repository: repository,
+      );
+      await tester.enterText(field('point-form-name'), '新点位');
+      await tester.enterText(field('point-form-latitude'), '34.89');
+      await tester.enterText(field('point-form-longitude'), '135.80');
+      await tapSave(tester);
+      expect(repository.addPointCalls, 1);
+      await tester.tap(find.text('备忘录'));
+      await settle(tester);
+      expect(find.byType(PointFormPage), findsOneWidget);
+      repository.addGate!.complete();
+      await settle(tester);
+    });
   });
 }

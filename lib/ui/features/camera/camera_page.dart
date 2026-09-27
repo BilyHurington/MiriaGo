@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ import '../../../plan/pilgrimage_plan_controller.dart';
 import '../../../records/visit_record_file_ops_stub.dart'
     if (dart.library.io) '../../../records/visit_record_file_ops_io.dart'
     as file_ops;
+import '../../app/router.dart';
 import '../../app/toast.dart';
 import '../../components/components.dart';
 import 'camera_awesome_body.dart';
@@ -127,7 +129,11 @@ class _CameraPageState extends State<CameraPage> {
       settings: store?.settings ?? const AppSettings(),
       capabilities: _capabilities,
       loadPersistedSettings: store?.repository.loadAppSettings,
-      saveSettings: store?.update,
+      savePhotoLocationStrategy: store == null
+          ? null
+          : (strategy) => store.patch(
+              (current) => current.copyWith(photoLocationStrategy: strategy),
+            ),
     );
     session
       ..openConfirmation = _openConfirmation
@@ -256,7 +262,18 @@ class _CameraPageState extends State<CameraPage> {
   // ---------------------------------------------------------------------
   // Actions.
 
-  void _back() => unawaited(Navigator.of(context).maybePop());
+  /// Closes the camera. Opened by a deep link or after a browser reload
+  /// there is no page underneath, so it goes to 巡礼 instead.
+  void _back() {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) {
+      unawaited(Navigator.of(context).maybePop());
+    } else if (router.canPop()) {
+      router.pop();
+    } else {
+      router.go(Routes.go);
+    }
+  }
 
   Future<void> _pickReference() async {
     final session = _session;
@@ -312,7 +329,7 @@ class _CameraPageState extends State<CameraPage> {
     if (!mounted) return result;
     if (result == VisitRecordConfirmationResult.completed) {
       // 保存并标记完成 closes the camera too.
-      Navigator.of(context).pop();
+      _back();
       return result;
     }
     await _restoreCameraOrientation(landscape: restoreLandscape);

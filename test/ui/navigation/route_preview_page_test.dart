@@ -58,6 +58,7 @@ void main() {
     NavigationLocationResolver? location,
     MapNavigationLauncher? launcher,
     bool zone = true,
+    String? initialLocation,
   }) async {
     setTestWindow(tester, size, textScale: textScale);
     stores = await FeatureTestStores.load();
@@ -73,8 +74,12 @@ void main() {
         ? zoneBucket.points.first.id
         : zoneBucket.points.last.id;
     final router = GoRouter(
-      initialLocation: '/route/$pointId',
+      initialLocation: initialLocation ?? '/route/$pointId',
       routes: [
+        GoRoute(
+          path: '/go',
+          builder: (context, state) => const Text('go-page'),
+        ),
         GoRoute(
           path: '/route/:pointId',
           builder: (context, state) =>
@@ -195,6 +200,55 @@ void main() {
     );
     expect(find.text('确认路线'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  group('without a page underneath (deep link / reload)', () {
+    testWidgets('closing the preview goes to 巡礼', (tester) async {
+      await pumpPreview(tester);
+      await tester.tap(find.byType(CloseButton));
+      await tester.pumpAndSettle();
+      expect(find.text('go-page'), findsOneWidget);
+      expect(find.text('确认路线'), findsNothing);
+    });
+
+    testWidgets('结束路线 after starting from the preview goes to 巡礼', (
+      tester,
+    ) async {
+      await pumpPreview(tester);
+      await tester.tap(find.text('串联整个片区导航'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('结束路线'));
+      await tester.pumpAndSettle();
+      expect(find.text('go-page'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('in-app-navigation-screen')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('/navigate without arguments: 返回 goes to 巡礼', (tester) async {
+      await pumpPreview(tester, initialLocation: '/navigate');
+      expect(find.text('没有正在进行的导航'), findsOneWidget);
+      await tester.tap(find.text('返回'));
+      await tester.pumpAndSettle();
+      expect(find.text('go-page'), findsOneWidget);
+    });
+
+    testWidgets('a pushed preview still closes back to its page', (
+      tester,
+    ) async {
+      final pointId = await pumpPreview(tester, initialLocation: '/go');
+      final router = GoRouter.of(tester.element(find.text('go-page')));
+      unawaited(router.push<void>('/route/$pointId'));
+      await tester.pumpAndSettle();
+      expect(find.text('确认路线'), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('go-page'), findsOneWidget);
+      expect(find.text('确认路线'), findsNothing);
+    });
   });
 
   testWidgets('仅导航到选中点 re-requests a point-only route', (tester) async {

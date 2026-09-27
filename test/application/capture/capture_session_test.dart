@@ -7,6 +7,7 @@ import 'package:miriago/application/capture/capture_aspect_ratio.dart';
 import 'package:miriago/application/capture/capture_session.dart';
 import 'package:miriago/application/capture/visit_record_commit.dart';
 import 'package:miriago/application/platform_capabilities.dart';
+import 'package:miriago/application/settings_store.dart';
 import 'package:miriago/camera_reference/native_camera_controller.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
@@ -44,7 +45,7 @@ CaptureSession _session({
   PilgrimagePoint? point,
   ReferenceAspectRatioResolver? resolve,
   Future<AppSettings> Function()? load,
-  Future<void> Function(AppSettings)? save,
+  Future<void> Function(PhotoLocationStrategy)? save,
   Future<String> Function(String)? copy,
   Future<DateTime?> Function(String)? readTime,
   List<String>? deleted,
@@ -54,7 +55,7 @@ CaptureSession _session({
     settings: settings,
     capabilities: capabilities,
     loadPersistedSettings: load,
-    saveSettings: save,
+    savePhotoLocationStrategy: save,
     resolveAspectRatio:
         resolve ??
         ({
@@ -334,17 +335,16 @@ void main() {
 
   group('location strategy', () {
     test(
-      'a failing settings load still prompts and saves on the snapshot',
+      'a failing settings load still prompts and saves the choice',
       () async {
-        AppSettings? saved;
+        PhotoLocationStrategy? saved;
         var prompts = 0;
         final session = _session(
           settings: const AppSettings(
             photoLocationStrategy: PhotoLocationStrategy.askOnFirstCapture,
-            mapThumbnailConcurrentLoads: 7,
           ),
           load: () => Future<AppSettings>.error(StateError('unavailable')),
-          save: (settings) async => saved = settings,
+          save: (strategy) async => saved = strategy,
         );
         session.promptPhotoLocationStrategy = () async {
           prompts++;
@@ -355,11 +355,7 @@ void main() {
           PhotoLocationStrategy.useRecentLocation,
         );
         expect(prompts, 1);
-        expect(
-          saved?.photoLocationStrategy,
-          PhotoLocationStrategy.useRecentLocation,
-        );
-        expect(saved?.mapThumbnailConcurrentLoads, 7);
+        expect(saved, PhotoLocationStrategy.useRecentLocation);
         // Asked once per camera session.
         expect(
           await session.ensurePhotoLocationStrategy(),
@@ -369,26 +365,45 @@ void main() {
       },
     );
 
-    test('the choice is saved on top of the persisted settings', () async {
-      final repository = SamplePilgrimageRepository(
-        settings: const AppSettings(mapThumbnailConcurrentLoads: 4),
-      );
-      final session =
-          _session(
-              settings: const AppSettings(mapThumbnailConcurrentLoads: 10),
-              load: repository.loadAppSettings,
-              save: repository.saveAppSettings,
-            )
-            ..promptPhotoLocationStrategy = () async =>
-                PhotoLocationStrategy.waitOnConfirmation;
-      await session.ensurePhotoLocationStrategy();
-      final saved = await repository.loadAppSettings();
-      expect(
-        saved.photoLocationStrategy,
-        PhotoLocationStrategy.waitOnConfirmation,
-      );
-      expect(saved.mapThumbnailConcurrentLoads, 4);
-    });
+    test(
+      'only the strategy is saved; settings changed meanwhile are kept',
+      () async {
+        final repository = SamplePilgrimageRepository(
+          settings: const AppSettings(mapThumbnailConcurrentLoads: 4),
+        );
+        final store = SettingsStore(repository: repository);
+        await store.load();
+        final answer = Completer<PhotoLocationStrategy?>();
+        final session = _session(
+          settings: store.settings,
+          load: repository.loadAppSettings,
+          save: (strategy) => store.patch(
+            (current) => current.copyWith(photoLocationStrategy: strategy),
+          ),
+        )..promptPhotoLocationStrategy = () => answer.future;
+        final request = session.ensurePhotoLocationStrategy();
+        await pumpEventQueue();
+        // A settings change while the prompt is open (after the persisted
+        // settings were read) must not be reverted by the save.
+        await store.patch(
+          (current) => current.copyWith(mapThumbnailConcurrentLoads: 9),
+        );
+        answer.complete(PhotoLocationStrategy.waitOnConfirmation);
+        await request;
+        await pumpEventQueue();
+        expect(
+          store.settings.photoLocationStrategy,
+          PhotoLocationStrategy.waitOnConfirmation,
+        );
+        expect(store.settings.mapThumbnailConcurrentLoads, 9);
+        final saved = await repository.loadAppSettings();
+        expect(
+          saved.photoLocationStrategy,
+          PhotoLocationStrategy.waitOnConfirmation,
+        );
+        expect(saved.mapThumbnailConcurrentLoads, 9);
+      },
+    );
 
     test('a strategy chosen elsewhere is used without asking', () async {
       var prompts = 0;

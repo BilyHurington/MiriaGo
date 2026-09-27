@@ -129,7 +129,7 @@ class CaptureSession extends ChangeNotifier {
     required AppSettings settings,
     required this.capabilities,
     this.loadPersistedSettings,
-    this.saveSettings,
+    this.savePhotoLocationStrategy,
     ReferenceAspectRatioResolver? resolveAspectRatio,
     bool Function(String? path)? referencePathCanDisplay,
     Future<DateTime?> Function(String path)? readCaptureTime,
@@ -150,8 +150,11 @@ class CaptureSession extends ChangeNotifier {
   /// Reads the persisted settings before asking for a location strategy.
   final Future<AppSettings> Function()? loadPersistedSettings;
 
-  /// Persists settings after the user picked a strategy.
-  final Future<void> Function(AppSettings settings)? saveSettings;
+  /// Persists the strategy the user picked. The page applies it on top of
+  /// the current settings (`SettingsStore.patch`), so settings changed while
+  /// the camera is open are kept.
+  final Future<void> Function(PhotoLocationStrategy strategy)?
+  savePhotoLocationStrategy;
 
   final ReferenceAspectRatioResolver _resolveAspectRatio;
   final bool Function(String? path) _referencePathCanDisplay;
@@ -346,7 +349,6 @@ class CaptureSession extends ChangeNotifier {
         persistedSettings = await loadPersistedSettings?.call();
       } catch (error) {
         // Still ask: failing every shutter tap would never show the prompt.
-        // The choice is then saved on top of the settings snapshot.
         debugPrint('Could not load settings for location strategy: $error');
       }
       final persistedStrategy = persistedSettings?.photoLocationStrategy;
@@ -369,16 +371,10 @@ class CaptureSession extends ChangeNotifier {
 
     _photoLocationStrategy = selected;
     _notify();
-    final save = saveSettings;
+    final save = savePhotoLocationStrategy;
     if (save != null) {
       try {
-        // The snapshot is from when the camera opened; only the strategy
-        // may change on top of the persisted settings.
-        await save(
-          (persistedSettings ?? _settings).copyWith(
-            photoLocationStrategy: selected,
-          ),
-        );
+        await save(selected);
       } catch (error) {
         debugPrint('Could not persist photo location strategy: $error');
       }
