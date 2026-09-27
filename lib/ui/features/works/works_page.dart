@@ -265,7 +265,7 @@ class _WorkCardState extends State<_WorkCard> {
                       size: MiriaButtonSize.sm,
                       onPressed: widget.disabled
                           ? null
-                          : () => context.go(
+                          : () => context.push(
                               Routes.anitabiImportFor(bangumiId: bangumiId),
                             ),
                     ),

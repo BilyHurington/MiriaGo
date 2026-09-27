@@ -111,7 +111,7 @@ class _PlanSwitcherContentState extends State<_PlanSwitcherContent> {
     } else if (plans.isEmpty && store.error != null) {
       list = ErrorState(
         title: '计划加载失败',
-        detail: '请稍后重试',
+        detail: '请稍后重试。',
         compact: true,
         retryLabel: '重新加载计划',
         onRetry: () => unawaited(store.refresh()),

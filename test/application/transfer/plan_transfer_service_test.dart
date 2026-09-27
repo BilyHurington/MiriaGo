@@ -38,6 +38,7 @@ class _FakeBackend {
   PlanExportDeliveryAction deliveryAction = PlanExportDeliveryAction.saved;
   List<String> warnings = const [];
   Map<String, int> warningCounts = const {};
+  Completer<void>? deliverGate;
   int builds = 0;
   int deliveries = 0;
   PlanTransferCancellation? lastCancellation;
@@ -86,6 +87,7 @@ class _FakeBackend {
           destination,
         }) async {
           deliveries++;
+          await deliverGate?.future;
           return PlanExportDeliveryResult(deliveryAction);
         },
     buildCsv: (plan) => const MyMapsCsvExportResult(
@@ -181,7 +183,7 @@ void main() {
       },
     );
     expect(asked, ['2 张本地上传参考图文件缺失，导出后无法恢复', '1 张巡礼照片文件缺失']);
-    expect(notices.last, const TransferNotice.running('已取消导出'));
+    expect(notices.last, const TransferNotice.warning('已取消导出'));
     expect(fake.builds, 0);
   });
 
@@ -207,7 +209,7 @@ void main() {
       plan,
       confirmMissingAssets: (_) async => true,
     );
-    expect(notices.last, const TransferNotice.running('已取消导出'));
+    expect(notices.last, const TransferNotice.warning('已取消导出'));
   });
 
   test('back during the build cancels the worker', () async {
@@ -223,11 +225,59 @@ void main() {
     await export;
     expect(notices, const [
       TransferNotice.running('正在导出...'),
-      TransferNotice.running('已取消导出'),
+      TransferNotice.warning('已取消导出'),
     ]);
     expect(fake.deliveries, 0);
     expect(controller.exporting, isFalse);
     expect(controller.cancelExport(), isFalse);
+  });
+
+  test('once delivery started the export can no longer be cancelled', () async {
+    fake.deliverGate = Completer<void>();
+    final export = controller.exportPackage(
+      plan,
+      confirmMissingAssets: (_) async => true,
+    );
+    await pumpEventQueue();
+    expect(fake.deliveries, 1);
+    expect(controller.exporting, isTrue);
+    expect(controller.delivering, isTrue);
+    expect(controller.canCancelExport, isFalse);
+    expect(controller.cancelExport(), isFalse);
+    fake.deliverGate!.complete();
+    await export;
+    expect(notices, const [
+      TransferNotice.running('正在导出...'),
+      TransferNotice.success('数据包已导出', message: '已保存到本地'),
+    ]);
+    expect(controller.exporting, isFalse);
+    expect(controller.delivering, isFalse);
+  });
+
+  test('My Maps delivery cannot be cancelled either', () async {
+    fake.deliverGate = Completer<void>();
+    final export = controller.exportMyMapsCsv(plan);
+    await pumpEventQueue();
+    expect(controller.delivering, isTrue);
+    expect(controller.cancelExport(), isFalse);
+    fake.deliverGate!.complete();
+    await export;
+    expect(notices.last.title, 'My Maps CSV 已导出');
+    expect(notices.where((n) => n.title == '已取消导出'), isEmpty);
+  });
+
+  test('before delivery the export can be cancelled', () async {
+    fake.buildGate = Completer<void>();
+    final export = controller.exportPackage(
+      plan,
+      confirmMissingAssets: (_) async => true,
+    );
+    await pumpEventQueue();
+    expect(controller.delivering, isFalse);
+    expect(controller.canCancelExport, isTrue);
+    controller.cancelExport();
+    await export;
+    expect(controller.canCancelExport, isFalse);
   });
 
   test('failures show 导出失败', () async {

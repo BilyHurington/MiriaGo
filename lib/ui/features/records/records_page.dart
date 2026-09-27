@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -76,9 +79,17 @@ class _RecordsPageState extends State<RecordsPage> {
   Widget build(BuildContext context) {
     final session = context.watch<PlanSession>();
     if (!session.isReady) {
-      return const MiriaPageScaffold(
+      final error = session.loadError;
+      return MiriaPageScaffold(
         title: '记录',
-        body: Center(child: ProgressRing(semanticLabel: '加载中')),
+        body: error != null
+            ? ErrorState(
+                key: const ValueKey('records-load-error'),
+                title: '计划加载失败',
+                detail: kDebugMode ? '请稍后重试。\n$error' : '请稍后重试。',
+                onRetry: () => unawaited(session.load()),
+              )
+            : const Center(child: ProgressRing(semanticLabel: '加载中')),
       );
     }
     final controller = session.controller;

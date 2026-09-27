@@ -68,7 +68,7 @@ class _ImportPreviewPageState extends State<ImportPreviewPage> {
       canPop: !_importing,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          context.showToast('正在导入，请稍候。', kind: ToastKind.running);
+          context.showToast('正在导入，请稍候。', kind: ToastKind.info);
         }
       },
       child: MiriaPageScaffold(

@@ -48,9 +48,18 @@ class _AboutSettingsSectionState extends State<AboutSettingsSection> {
     );
     if (!confirmed || !mounted) return;
     final store = context.read<SettingsStore>();
-    final done = resetAppSettingsToDefaults(store);
-    context.showToast(ResetSettingsCopy.done, kind: ToastKind.success);
-    await done;
+    final toasts = context.read<ToastController>();
+    try {
+      await resetAppSettingsToDefaults(
+        store,
+        onSaved: () => toasts.show(
+          ToastData(kind: ToastKind.success, title: ResetSettingsCopy.done),
+        ),
+      );
+    } catch (error) {
+      // Old behaviour: no success toast when saving failed.
+      debugPrint('Failed to reset settings: $error');
+    }
   }
 
   @override

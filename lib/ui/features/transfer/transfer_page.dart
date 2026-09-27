@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -20,11 +21,23 @@ import 'transfer_notice_toast.dart';
 
 /// 导入导出 (`/plan/transfer`, DESIGN §8.14): import a package, export the
 /// MiriaGo data package or a Google My Maps CSV.
+///
+/// Exports the active plan unless the route names another one with
+/// `?plan=<id>` (plan 「⋯」 → 导入导出 on a non-active plan, like the old
+/// `ImportExportScreen(plan: plan)`); that never switches the active plan.
 class TransferPage extends StatefulWidget {
-  const TransferPage({this.backend, super.key});
+  const TransferPage({this.backend, this.planId, super.key});
 
   /// Overridable for tests.
   final PlanTransferBackend? backend;
+
+  /// Plan to export; defaults to `?plan=` of the current route, then to the
+  /// active plan.
+  final String? planId;
+
+  /// Location of the page exporting [planId].
+  static String locationFor(String planId) =>
+      Uri(path: Routes.transfer, queryParameters: {'plan': planId}).toString();
 
   @override
   State<TransferPage> createState() => _TransferPageState();
@@ -41,9 +54,21 @@ class _TransferPageState extends State<TransferPage> {
   String? _estimatedPlanKey;
   PlanWorkspaceScope? _workspace;
 
+  /// Plan requested through [TransferPage.planId] / `?plan=`.
+  String? _requestedPlanId;
+  bool _requestedPlanResolved = false;
+
+  /// The requested plan when it is not the active one (read from the
+  /// repository; the active plan always comes from the session).
+  PilgrimagePlan? _requestedPlan;
+  Object? _requestedPlanError;
+  int _requestedPlanGeneration = 0;
+
   /// Leaving through the plan secondary navigation cancels a running export
-  /// just like the back button.
+  /// just like the back button. Once the export is being delivered it can't
+  /// be cancelled, so the page stays.
   Future<bool> _leaveGuard() async {
+    if (_controller.delivering) return false;
     _controller.cancelExport();
     return true;
   }
@@ -56,6 +81,47 @@ class _TransferPageState extends State<TransferPage> {
       _workspace?.removeLeaveGuard(_leaveGuard);
       _workspace = workspace?..addLeaveGuard(_leaveGuard);
     }
+    final planId = widget.planId ?? _routePlanId();
+    if (!_requestedPlanResolved || planId != _requestedPlanId) {
+      _requestedPlanResolved = true;
+      _requestedPlanId = planId;
+      _requestedPlan = null;
+      _requestedPlanError = null;
+      _requestedPlanGeneration++;
+      if (planId != null) unawaited(_loadRequestedPlan(planId));
+    }
+  }
+
+  String? _routePlanId() {
+    try {
+      final id = GoRouterState.of(context).uri.queryParameters['plan'];
+      return id == null || id.trim().isEmpty ? null : id;
+    } on GoError {
+      return null;
+    }
+  }
+
+  Future<void> _loadRequestedPlan(String planId) async {
+    final generation = ++_requestedPlanGeneration;
+    if (_requestedPlanError != null) {
+      setState(() => _requestedPlanError = null);
+    }
+    final repository = context.read<PilgrimageRepository>();
+    try {
+      final plans = await repository.loadPlans();
+      final plan = plans.where((plan) => plan.id == planId).firstOrNull;
+      if (!mounted || generation != _requestedPlanGeneration) return;
+      setState(() {
+        _requestedPlan = plan;
+        _requestedPlanError = plan == null
+            ? StateError('Plan $planId not found')
+            : null;
+      });
+    } catch (error) {
+      debugPrint('Failed to load plan $planId for export: $error');
+      if (!mounted || generation != _requestedPlanGeneration) return;
+      setState(() => _requestedPlanError = error);
+    }
   }
 
   @override
@@ -65,19 +131,26 @@ class _TransferPageState extends State<TransferPage> {
     super.dispose();
   }
 
-  /// Re-estimates when the active plan (or its content) changes.
-  void _ensureEstimate(PlanSession session) {
-    if (!session.isReady) return;
-    final key = '${session.plan.id}:${session.revision}';
+  /// Whether the requested plan is the active one (or none was requested).
+  bool _exportsActivePlan(PlanSession session) {
+    final requested = _requestedPlanId;
+    return requested == null ||
+        (session.isReady && session.plan.id == requested);
+  }
+
+  /// Re-estimates when the exported plan (or its content) changes.
+  void _ensureEstimate(PilgrimagePlan plan, String key) {
     if (key == _estimatedPlanKey) return;
     _estimatedPlanKey = key;
-    final plan = session.plan;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_controller.refreshSizeEstimate(plan));
     });
   }
 
   void _handleBack() {
+    // A delivered export (share sheet / save dialog / file write) can't be
+    // cancelled any more: ignore back until it finishes.
+    if (_controller.delivering) return;
     _controller.cancelExport();
     if (context.canPop()) {
       context.pop();
@@ -140,7 +213,20 @@ class _TransferPageState extends State<TransferPage> {
   Widget build(BuildContext context) {
     final session = context.watch<PlanSession>();
     final capabilities = context.read<PlatformCapabilities>();
-    _ensureEstimate(session);
+    final PilgrimagePlan? plan;
+    final Object? loadError;
+    final VoidCallback retry;
+    if (_exportsActivePlan(session)) {
+      plan = session.isReady ? session.plan : null;
+      loadError = session.loadError;
+      retry = () => unawaited(session.load());
+      if (plan != null) _ensureEstimate(plan, '${plan.id}:${session.revision}');
+    } else {
+      plan = _requestedPlan;
+      loadError = _requestedPlanError;
+      retry = () => unawaited(_loadRequestedPlan(_requestedPlanId!));
+      if (plan != null) _ensureEstimate(plan, '${plan.id}:requested');
+    }
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) {
@@ -159,8 +245,15 @@ class _TransferPageState extends State<TransferPage> {
               SliverContentColumn(
                 top: Space.x2,
                 sliver: SliverToBoxAdapter(
-                  child: session.isReady
-                      ? _content(context, session.plan, capabilities)
+                  child: plan != null
+                      ? _content(context, plan, capabilities)
+                      : loadError != null
+                      ? ErrorState(
+                          key: const ValueKey('transfer-load-error'),
+                          title: '计划加载失败',
+                          detail: kDebugMode ? '请稍后重试。\n$loadError' : '请稍后重试。',
+                          onRetry: retry,
+                        )
                       : const _LoadingPlaceholder(),
                 ),
               ),
@@ -507,7 +600,7 @@ class _PackageOptions extends StatelessWidget {
               label: '取消导出',
               icon: Symbols.close_rounded,
               expand: true,
-              onPressed: onCancel,
+              onPressed: controller.canCancelExport ? onCancel : null,
             ),
           ],
         ],

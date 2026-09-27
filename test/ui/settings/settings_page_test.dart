@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/ui/features/settings/settings_page.dart';
 
@@ -16,7 +19,41 @@ Future<void> _reveal(WidgetTester tester, Finder finder) async {
   await _settle(tester);
 }
 
+/// Sample data whose settings saves can be held open.
+class _SlowSaveRepository extends SamplePilgrimageRepository {
+  Completer<void>? saveGate;
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    await saveGate?.future;
+    return super.saveAppSettings(settings);
+  }
+}
+
 void main() {
+  testWidgets('恢复初始设置 confirms only after the save completed', (tester) async {
+    final repository = _SlowSaveRepository();
+    await pumpMiriaApp(
+      tester,
+      location: '/settings/about',
+      repository: repository,
+    );
+    final reset = find.byKey(const ValueKey('settings-reset-button'));
+    await _reveal(tester, reset);
+    repository.saveGate = Completer<void>();
+    await tester.tap(reset);
+    await _settle(tester);
+    await tester.tap(find.text('恢复').last);
+    await _settle(tester);
+    expect(find.text('已恢复初始设置'), findsNothing);
+
+    repository.saveGate!.complete();
+    await _settle(tester);
+    expect(find.text('已恢复初始设置'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('phone shows the grouped overview and opens a section page', (
     tester,
   ) async {

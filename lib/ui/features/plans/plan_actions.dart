@@ -10,6 +10,7 @@ import '../../../plan/pilgrimage_models.dart';
 import '../../app/router.dart';
 import '../../app/toast.dart';
 import '../../components/components.dart';
+import '../transfer/transfer_page.dart';
 
 /// Plan library actions shared by the overview 「⋯」 menu, the plan
 /// switcher and the plan library page. Logic and strings from the old
@@ -147,14 +148,15 @@ Future<bool> deletePlan(BuildContext context, PilgrimagePlan plan) async {
   }
 }
 
-/// Opens 导入导出 for [plan], switching to it first when needed.
+/// Opens 导入导出 for [plan] without switching the active plan (old
+/// `ImportExportScreen(plan: plan)`).
 Future<void> openPlanTransfer(BuildContext context, PilgrimagePlan plan) async {
   final store = context.read<PlansStore>();
-  if (store.activePlanId != plan.id) {
-    final switched = await switchToPlan(context, plan.id);
-    if (!switched || !context.mounted) return;
+  if (store.activePlanId == plan.id) {
+    context.go(Routes.transfer);
+    return;
   }
-  context.go(Routes.transfer);
+  await context.push(TransferPage.locationFor(plan.id));
 }
 
 /// The per-plan menu (编辑计划信息 / 复制计划 / 导入导出 / 删除计划).

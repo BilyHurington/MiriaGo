@@ -35,7 +35,7 @@ class PlanOverviewPage extends StatelessWidget {
         body: session.loadError != null
             ? ErrorState(
                 title: '计划加载失败',
-                detail: '请稍后重试',
+                detail: '请稍后重试。',
                 onRetry: () => unawaited(session.load()),
               )
             : const Center(child: ProgressRing()),

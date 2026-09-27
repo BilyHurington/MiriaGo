@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -102,6 +105,11 @@ class _RecordDetailViewState extends State<RecordDetailView> {
     );
     if (!result.confirmed || !mounted) return;
 
+    // The embedded detail pane unmounts as soon as the record disappears
+    // from the list, so everything needed afterwards is captured here.
+    final toasts = context.read<ToastController>();
+    final router = GoRouter.of(context);
+    final embedded = widget.embedded;
     setState(() => _deleting = true);
     final outcome = await deleteVisitRecordWithPhotos(
       record: record,
@@ -109,32 +117,51 @@ class _RecordDetailViewState extends State<RecordDetailView> {
       repository: controller.repository,
       deleteFiles: result.checked,
     );
-    if (!mounted) return;
     switch (outcome) {
       case RecordDeleteOutcome.failed:
-        setState(() => _deleting = false);
-        context.showToast(
-          RecordDetails.deleteFailedMessage,
-          kind: ToastKind.error,
+        if (mounted) setState(() => _deleting = false);
+        toasts.show(
+          ToastData(
+            kind: ToastKind.error,
+            title: RecordDetails.deleteFailedMessage,
+          ),
         );
         return;
       case RecordDeleteOutcome.deletedWithLeftovers:
-        context.showToast(
-          RecordDetails.deleteLeftoversMessage,
-          kind: ToastKind.warning,
+        toasts.show(
+          ToastData(
+            kind: ToastKind.warning,
+            title: RecordDetails.deleteLeftoversMessage,
+          ),
         );
       case RecordDeleteOutcome.deleted:
         break;
     }
-    _close();
+    if (embedded) {
+      // Clear `?record=` unless the user already moved on.
+      final uri = router.state.uri;
+      if (uri.path == Routes.records &&
+          uri.queryParameters['record'] == record.id) {
+        router.go(recordsLocation());
+      }
+    } else if (mounted) {
+      _close();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final session = context.watch<PlanSession>();
     if (!session.isReady) {
+      final error = session.loadError;
       return _frame(
-        body: const Center(child: ProgressRing(semanticLabel: '加载中')),
+        body: error != null
+            ? ErrorState(
+                title: '计划加载失败',
+                detail: kDebugMode ? '请稍后重试。\n$error' : '请稍后重试。',
+                onRetry: () => unawaited(session.load()),
+              )
+            : const Center(child: ProgressRing(semanticLabel: '加载中')),
       );
     }
     final controller = session.controller;
@@ -259,10 +286,10 @@ class _RecordDetailViewState extends State<RecordDetailView> {
 
     return CallbackShortcuts(
       bindings: {
-        if (neighbours.previous != null)
+        if (!_deleting && neighbours.previous != null)
           const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
               _openNeighbour(neighbours.previous!),
-        if (neighbours.next != null)
+        if (!_deleting && neighbours.next != null)
           const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
               _openNeighbour(neighbours.next!),
       },
@@ -275,7 +302,7 @@ class _RecordDetailViewState extends State<RecordDetailView> {
                 key: const ValueKey('record-detail-previous'),
                 icon: Symbols.chevron_left_rounded,
                 tooltip: '上一条',
-                onPressed: neighbours.previous == null
+                onPressed: _deleting || neighbours.previous == null
                     ? null
                     : () => _openNeighbour(neighbours.previous!),
               ),
@@ -283,7 +310,7 @@ class _RecordDetailViewState extends State<RecordDetailView> {
                 key: const ValueKey('record-detail-next'),
                 icon: Symbols.chevron_right_rounded,
                 tooltip: '下一条',
-                onPressed: neighbours.next == null
+                onPressed: _deleting || neighbours.next == null
                     ? null
                     : () => _openNeighbour(neighbours.next!),
               ),

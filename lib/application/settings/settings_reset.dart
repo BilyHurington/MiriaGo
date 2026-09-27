@@ -17,13 +17,17 @@ abstract final class ResetSettingsCopy {
 }
 
 /// Saves the default [AppSettings] and resets the comparison export config
-/// (old `_confirmResetSettings`).
+/// (old `_confirmResetSettings`). [onSaved] runs once the settings are saved
+/// and before the export config is cleared (where the old screen showed
+/// 「已恢复初始设置」); a failed save throws and skips it.
 Future<void> resetAppSettingsToDefaults(
   SettingsStore store, {
   Future<void> Function() clearExportConfig = clearComparisonExportConfig,
+  void Function()? onSaved,
 }) async {
   const settings = AppSettings();
   ComparisonExportConfig.lastUsed = const ComparisonExportConfig();
   await store.update(settings);
+  onSaved?.call();
   await clearExportConfig();
 }

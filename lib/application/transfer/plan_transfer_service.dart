@@ -148,7 +148,8 @@ class _ExportRunResult {
   final Map<String, int> warningCounts;
 }
 
-const _cancelledNotice = TransferNotice.running('已取消导出');
+/// 「已取消导出」 is a finished state, not a running one (no spinner).
+const _cancelledNotice = TransferNotice.warning('已取消导出');
 
 /// Import / export state of the 导入导出 page, ported line by line from the
 /// old `_ImportExportScreenState`. Every status message goes to [onNotice].
@@ -168,6 +169,7 @@ class PlanTransferController extends ChangeNotifier {
   PlanExportV2Mode _mode = PlanExportV2Mode.planOnly;
   bool _includeFullReferenceCache = false;
   bool _exporting = false;
+  bool _delivering = false;
   bool _importing = false;
   int _exportGeneration = 0;
   int _estimateGeneration = 0;
@@ -180,6 +182,13 @@ class PlanTransferController extends ChangeNotifier {
   PlanExportV2Mode get mode => _mode;
   bool get includeFullReferenceCache => _includeFullReferenceCache;
   bool get exporting => _exporting;
+
+  /// The export was handed to delivery (share sheet, save dialog or file
+  /// write); from here on it can no longer be cancelled.
+  bool get delivering => _delivering;
+
+  /// Whether 「取消导出」 / back can still cancel the running export.
+  bool get canCancelExport => _exporting && !_delivering;
   bool get importing => _importing;
   bool get busy => _exporting || _importing;
   PlanExportSizeEstimate? get sizeEstimate => _sizeEstimate;
@@ -361,6 +370,7 @@ class PlanTransferController extends ChangeNotifier {
       if (!_isCurrentExport(generation)) {
         throw const _ExportAbortedException();
       }
+      _startDelivery();
       final result = await backend.deliver(
         bytes: package.bytes,
         fileName: package.fileName,
@@ -421,6 +431,7 @@ class PlanTransferController extends ChangeNotifier {
       if (!_isCurrentExport(generation)) {
         throw const _ExportAbortedException();
       }
+      _startDelivery();
       final result = await backend.deliver(
         bytes: export.bytes,
         fileName: export.fileName,
@@ -441,9 +452,11 @@ class PlanTransferController extends ChangeNotifier {
   }
 
   /// Cancels a running export (back navigation). Returns whether an export
-  /// was running; 「已取消导出」 is reported through [onNotice].
+  /// was cancelled; 「已取消导出」 is reported through [onNotice]. Once
+  /// delivery has started ([delivering]) the export can't be cancelled and
+  /// this does nothing.
   bool cancelExport() {
-    if (!_exporting) return false;
+    if (!canCancelExport) return false;
     _exportGeneration++;
     _exportCancellation?.cancel();
     _exporting = false;
@@ -459,6 +472,7 @@ class PlanTransferController extends ChangeNotifier {
     if (busy) return;
     final generation = ++_exportGeneration;
     _exporting = true;
+    _delivering = false;
     _notify();
     _emit(const TransferNotice.running('正在导出...'));
     try {
@@ -495,9 +509,15 @@ class PlanTransferController extends ChangeNotifier {
     } finally {
       if (_isCurrentExport(generation)) {
         _exporting = false;
+        _delivering = false;
         _notify();
       }
     }
+  }
+
+  void _startDelivery() {
+    _delivering = true;
+    _notify();
   }
 
   bool _isCurrentExport(int generation) {

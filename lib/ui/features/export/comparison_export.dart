@@ -308,6 +308,10 @@ class _ComparisonExportSettingsPanelState
     text: _service.config.pilgrimName,
   );
 
+  /// 「读取导出设置失败，请重试。」 while the saved settings couldn't be read
+  /// (the editor stays locked until a retry succeeds).
+  String? _loadError;
+
   @override
   void initState() {
     super.initState();
@@ -328,10 +332,11 @@ class _ComparisonExportSettingsPanelState
   }
 
   Future<void> _load() async {
+    if (_loadError != null) setState(() => _loadError = null);
     final error = await _service.load();
     if (!mounted) return;
     if (error != null) {
-      context.showToast(error, kind: ToastKind.error);
+      setState(() => _loadError = error);
       return;
     }
     _name.text = _service.config.pilgrimName;
@@ -346,15 +351,32 @@ class _ComparisonExportSettingsPanelState
 
   @override
   Widget build(BuildContext context) {
+    final loadError = _loadError;
     final editor = Padding(
       padding: widget.padding ?? EdgeInsets.zero,
-      child: ComparisonExportEditor(
-        key: const ValueKey('comparison-settings-editor'),
-        config: _service.config,
-        pilgrimNameController: _name,
-        enabled: !_service.locked,
-        loading: _service.loading,
-        onChanged: _update,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loadError != null) ...[
+            InfoBanner(
+              key: const ValueKey('comparison-settings-load-error'),
+              kind: InfoBannerKind.error,
+              message: loadError,
+              actionLabel: '重试',
+              onAction: () => unawaited(_load()),
+            ),
+            const SizedBox(height: Space.x3),
+          ],
+          ComparisonExportEditor(
+            key: const ValueKey('comparison-settings-editor'),
+            config: _service.config,
+            pilgrimNameController: _name,
+            enabled: !_service.locked,
+            loading: _service.loading,
+            onChanged: _update,
+          ),
+        ],
       ),
     );
     return LayoutBuilder(

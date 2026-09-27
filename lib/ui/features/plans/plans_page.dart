@@ -87,7 +87,7 @@ class _PlansPageState extends State<PlansPage> {
     if (plans.isEmpty && store.error != null) {
       body = ErrorState(
         title: '计划加载失败',
-        detail: '请稍后重试',
+        detail: '请稍后重试。',
         retryLabel: '重新加载计划',
         onRetry: () => unawaited(store.refresh()),
       );
