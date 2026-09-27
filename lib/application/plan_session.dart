@@ -33,6 +33,8 @@ class PlanSession extends ChangeNotifier {
   Object? _loadError;
   bool _loading = false;
   int _generation = 0;
+  int _loadSequence = 0;
+  PilgrimagePlan? _lastPlan;
   bool _disposed = false;
 
   /// Increments whenever the plan structure changes through the session
@@ -54,13 +56,17 @@ class PlanSession extends ChangeNotifier {
   PilgrimagePlan get plan => controller.plan;
 
   /// Loads (or reloads) the active plan and builds a fresh controller.
+  ///
+  /// Overlapping loads are serialised by sequence: only the most recent
+  /// call publishes its result, so an older read can't win the race.
   Future<void> load() async {
+    final sequence = ++_loadSequence;
     _loading = true;
     _loadError = null;
     notifyListeners();
     try {
       final plan = await repository.loadActivePlan();
-      if (_disposed) return;
+      if (_disposed || sequence != _loadSequence) return;
       final previous = _controller;
       previous?.removeListener(_relay);
       _controller = PilgrimagePlanController(
@@ -68,14 +74,18 @@ class PlanSession extends ChangeNotifier {
         visitRepository: repository,
       )..addListener(_relay);
       previous?.dispose();
+      _lastPlan = plan;
       _generation++;
     } catch (error, stackTrace) {
+      if (sequence != _loadSequence) return;
       debugPrint('Failed to load active pilgrimage plan: $error');
       debugPrint(stackTrace.toString());
       _loadError = error;
     } finally {
-      _loading = false;
-      if (!_disposed) notifyListeners();
+      if (sequence == _loadSequence) {
+        _loading = false;
+        if (!_disposed) notifyListeners();
+      }
     }
   }
 
@@ -88,6 +98,7 @@ class PlanSession extends ChangeNotifier {
     if (_disposed) return;
     if (plan.id != controller.plan.id) return load();
     _generation++;
+    _lastPlan = plan;
     controller.replacePlan(plan);
   }
 
@@ -100,6 +111,7 @@ class PlanSession extends ChangeNotifier {
         identical(_controller, controller) &&
         updated.id == controller.plan.id) {
       _generation++;
+      _lastPlan = updated;
       controller.replacePlan(updated);
     }
     return updated;
@@ -110,11 +122,21 @@ class PlanSession extends ChangeNotifier {
     final controller = _controller;
     if (controller == null || plan.id != controller.plan.id) return;
     _generation++;
+    _lastPlan = plan;
     controller.replacePlan(plan);
   }
 
   void _relay() {
-    if (!_disposed) notifyListeners();
+    if (_disposed) return;
+    // Writes made directly through the controller (move, delete, memo…)
+    // replace the plan object; count them as a structural revision too so
+    // caches keyed on [revision] refresh.
+    final plan = _controller?.plan;
+    if (plan != null && !identical(plan, _lastPlan)) {
+      _lastPlan = plan;
+      _generation++;
+    }
+    notifyListeners();
   }
 
   @override

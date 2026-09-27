@@ -23,7 +23,18 @@
     map.once('idle', kick);
     if (typeof ResizeObserver === 'function') {
       try {
-        new ResizeObserver(kick).observe(map.getContainer());
+        var pending = 0;
+        var observer = new ResizeObserver(function () {
+          if (pending) return;
+          pending = requestAnimationFrame(function () {
+            pending = 0;
+            kick();
+          });
+        });
+        observer.observe(map.getContainer());
+        map.once('remove', function () {
+          observer.disconnect();
+        });
       } catch (_) {}
     }
     return map;

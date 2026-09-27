@@ -103,6 +103,9 @@ class ReferenceCacheCenter extends ChangeNotifier {
   final PilgrimageRepository repository;
   final PlanSession session;
   final List<ReferenceCacheTask> _tasks = [];
+  final Map<ReferenceCacheTask, VoidCallback> _listeners = {};
+  final Map<ReferenceCacheTask, PilgrimagePlan?> _published = {};
+  bool _disposed = false;
 
   /// Tasks started in this session (most recent last).
   List<ReferenceCacheTask> get tasks => List.unmodifiable(_tasks);
@@ -125,9 +128,11 @@ class ReferenceCacheCenter extends ChangeNotifier {
     required int maxConcurrent,
   }) {
     final task = taskFor(plan)..planName = plan.name;
-    if (!_tasks.contains(task)) {
-      _tasks.add(task);
-      task.addListener(() => _onTaskChanged(task));
+    if (!_tasks.contains(task)) _tasks.add(task);
+    if (!_listeners.containsKey(task)) {
+      void listener() => _onTaskChanged(task);
+      _listeners[task] = listener;
+      task.addListener(listener);
     }
     if (task.isRunning) return task;
     final planId = plan.id;
@@ -141,7 +146,6 @@ class ReferenceCacheCenter extends ChangeNotifier {
           repository: repository,
           onPlanUpdated: (updated) {
             task.updatedPlan = updated;
-            session.publish(updated);
           },
           imageSource: imageSource,
           maxConcurrent: maxConcurrent,
@@ -156,12 +160,29 @@ class ReferenceCacheCenter extends ChangeNotifier {
   void dismiss(ReferenceCacheTask task) {
     if (task.isRunning) return;
     _tasks.remove(task);
+    final listener = _listeners.remove(task);
+    if (listener != null) task.removeListener(listener);
+    _published.remove(task);
     notifyListeners();
   }
 
   void _onTaskChanged(ReferenceCacheTask task) {
+    if (_disposed) return;
     final updated = task.updatedPlan;
-    if (updated != null) session.publish(updated);
+    if (updated != null && !identical(_published[task], updated)) {
+      _published[task] = updated;
+      session.publish(updated);
+    }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    for (final entry in _listeners.entries) {
+      entry.key.removeListener(entry.value);
+    }
+    _listeners.clear();
+    super.dispose();
   }
 }

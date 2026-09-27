@@ -361,6 +361,7 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   }
 
   Size? _lastWebSize;
+  Timer? _webResizeDebounce;
 
   /// See [nudgeWebMapResize]: re-measure the MapLibre element once it has
   /// been attached and whenever the map's size changes.
@@ -378,7 +379,10 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
     final first = _lastWebSize == null;
     _lastWebSize = size;
     if (!first) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Debounced: sheet drags and panel animations change the size every
+      // frame; one nudge after the size settles is enough.
+      _webResizeDebounce?.cancel();
+      _webResizeDebounce = Timer(const Duration(milliseconds: 160), () {
         if (mounted) nudgeWebMapResize();
       });
     }
@@ -413,6 +417,7 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _stopAnimation();
+    _webResizeDebounce?.cancel();
     _events?.cancel();
     _animationController?.dispose();
     _controller._detach(this);

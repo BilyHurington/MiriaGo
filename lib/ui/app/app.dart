@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
-import '../../app_theme.dart' show AppUiScaleView, appTextScaler;
+import '../../app_theme.dart' show appTextScaler;
 import '../../application/app_services.dart';
 import '../../application/plan_session.dart';
 import '../../application/plans_store.dart';
@@ -26,6 +26,7 @@ import '../../plan_transfer/plan_import_package.dart';
 import '../design/theme.dart';
 import '../features/transfer/import_preview_page.dart';
 import 'router.dart';
+import 'ui_state_store.dart';
 import 'toast.dart';
 
 /// Startup: loads the repository, settings and the active plan, then shows
@@ -50,6 +51,7 @@ class _MiriaGoBootstrapState extends State<MiriaGoBootstrap> {
   AppServices? _services;
   SettingsStore? _settings;
   PlanSession? _session;
+  String? _lastTabPath;
   DesktopLauncherInfo? _launcherInfo;
   Object? _error;
   StackTrace? _stackTrace;
@@ -75,6 +77,9 @@ class _MiriaGoBootstrapState extends State<MiriaGoBootstrap> {
       final session = PlanSession(repository: repository);
       await session.load();
       StartupService.runStartupSideEffects(repository);
+      _lastTabPath = widget.initialLocation == null
+          ? await UiStateStore.loadLastTabPath()
+          : null;
       if (!mounted) return;
       setState(() {
         _services = AppServices(
@@ -108,6 +113,7 @@ class _MiriaGoBootstrapState extends State<MiriaGoBootstrap> {
         settings: _settings!,
         session: _session!,
         initialLocation: widget.initialLocation,
+        lastTabPath: _lastTabPath,
       );
     }
     final colors = MiriaColors.light;
@@ -304,8 +310,12 @@ class MiriaGoApp extends StatefulWidget {
     required this.settings,
     required this.session,
     this.initialLocation,
+    this.lastTabPath,
     super.key,
   });
+
+  /// Tab remembered from the previous launch (DESIGN §4.1).
+  final String? lastTabPath;
 
   final AppServices services;
   final SettingsStore settings;
@@ -333,6 +343,8 @@ class _MiriaGoAppState extends State<MiriaGoApp> with WidgetsBindingObserver {
   final Map<ReferenceCacheTask, bool> _wasRunning = {};
 
   String _initialLocation() {
+    final remembered = widget.lastTabPath;
+    if (remembered != null) return remembered;
     final session = widget.session;
     if (session.isReady && session.plan.points.isNotEmpty) return Routes.go;
     return Routes.plan;
@@ -403,7 +415,12 @@ class _MiriaGoAppState extends State<MiriaGoApp> with WidgetsBindingObserver {
                 : '${progress.succeeded} / ${progress.total} 张成功 · ${progress.failed} 张失败',
             action: status == ReferenceCacheStatus.success
                 ? null
-                : ToastAction(label: '重试', onPressed: task.retry),
+                : ToastAction(
+                    label: status == ReferenceCacheStatus.partial
+                        ? '重试失败'
+                        : '重试全部',
+                    onPressed: task.retry,
+                  ),
           ),
         );
       }
@@ -434,13 +451,23 @@ class _MiriaGoAppState extends State<MiriaGoApp> with WidgetsBindingObserver {
       } finally {
         unawaited(_incoming.release(path));
       }
-      final navigatorContext = rootNavigatorKey.currentContext;
-      if (navigatorContext == null || !navigatorContext.mounted) return;
+      final navigatorContext =
+          _router.routerDelegate.navigatorKey.currentContext;
+      if (navigatorContext == null || !navigatorContext.mounted) {
+        _toasts.show(ToastData(kind: ToastKind.error, title: '计划文件导入失败'));
+        return;
+      }
       final imported = await openImportPreview(navigatorContext, package);
       if (!imported) return;
       await widget.session.load();
       await _plans.refresh();
-      _router.go(Routes.plan);
+      // Only switch to 计划 when a tab page is showing; never tear down a
+      // full-screen flow (camera, capture confirmation, navigation).
+      final location = _router.routerDelegate.currentConfiguration.uri.path;
+      const tabRoots = ['/plan', '/go', '/records', '/settings'];
+      if (tabRoots.any((root) => location.startsWith(root))) {
+        _router.go(Routes.plan);
+      }
     } catch (error) {
       _toasts.show(
         ToastData(
@@ -512,10 +539,7 @@ class _MiriaGoAppState extends State<MiriaGoApp> with WidgetsBindingObserver {
                 ),
                 child: AnitabiImageSourceScope(
                   source: settings.anitabiImageSource,
-                  child: AppUiScaleView(
-                    scale: settings.uiScale,
-                    child: ToastHost(child: child ?? const SizedBox.shrink()),
-                  ),
+                  child: ToastHost(child: child ?? const SizedBox.shrink()),
                 ),
               );
             },

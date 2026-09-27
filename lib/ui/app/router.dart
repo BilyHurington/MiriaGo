@@ -28,6 +28,8 @@ import '../features/transfer/transfer_page.dart';
 import '../features/works/works_page.dart';
 import '../dev/component_gallery.dart';
 import '../map/map_gallery_page.dart';
+import '../../desktop/tauri_bridge.dart';
+import '../components/copyable_text.dart' show hideCopyBubble;
 import 'shell.dart';
 
 /// Route paths. Use these constants (or the helpers) instead of literals.
@@ -82,21 +84,23 @@ abstract final class Routes {
   static const navigate = '/navigate';
 }
 
-final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
-
 /// Tabs of the shell, in display order.
 enum ShellTab { plan, go, records, settings }
 
 GoRouter buildRouter({required String initialLocation}) {
+  // One key per router: the layout lab runs several apps side by side.
+  final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: initialLocation,
+    observers: [CopyBubbleNavigatorObserver()],
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
+            observers: [CopyBubbleNavigatorObserver()],
             routes: [
               ShellRoute(
                 builder: (context, state, child) => PlanWorkspaceScaffold(
@@ -186,6 +190,7 @@ GoRouter buildRouter({required String initialLocation}) {
             ],
           ),
           StatefulShellBranch(
+            observers: [CopyBubbleNavigatorObserver()],
             routes: [
               GoRoute(
                 path: Routes.go,
@@ -194,6 +199,7 @@ GoRouter buildRouter({required String initialLocation}) {
             ],
           ),
           StatefulShellBranch(
+            observers: [CopyBubbleNavigatorObserver()],
             routes: [
               GoRoute(
                 path: Routes.records,
@@ -226,6 +232,7 @@ GoRouter buildRouter({required String initialLocation}) {
             ],
           ),
           StatefulShellBranch(
+            observers: [CopyBubbleNavigatorObserver()],
             routes: [
               GoRoute(
                 path: Routes.settings,
@@ -247,16 +254,18 @@ GoRouter buildRouter({required String initialLocation}) {
           ),
         ],
       ),
-      GoRoute(
-        parentNavigatorKey: rootNavigatorKey,
-        path: '/_lab/components',
-        builder: (context, state) => const ComponentGalleryPage(),
-      ),
-      GoRoute(
-        parentNavigatorKey: rootNavigatorKey,
-        path: '/_lab/map',
-        builder: (context, state) => const MapGalleryPage(),
-      ),
+      if (!isTauriLauncherAvailable) ...[
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/_lab/components',
+          builder: (context, state) => const ComponentGalleryPage(),
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/_lab/map',
+          builder: (context, state) => const MapGalleryPage(),
+        ),
+      ],
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,
         path: Routes.plans,
@@ -291,4 +300,24 @@ GoRouter buildRouter({required String initialLocation}) {
       ),
     ],
   );
+}
+
+/// Hides the long-press 「复制」 bubble whenever the route stack changes
+/// (port of the old copyOverlayNavigatorObserver).
+class CopyBubbleNavigatorObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      hideCopyBubble();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      hideCopyBubble();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      hideCopyBubble();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      hideCopyBubble();
 }

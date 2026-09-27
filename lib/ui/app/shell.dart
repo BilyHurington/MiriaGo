@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -6,7 +8,10 @@ import 'package:provider/provider.dart';
 import '../design/theme.dart';
 import '../features/plans/plan_switcher.dart';
 import '../layout/window_class.dart';
+import '../../app_theme.dart' show AppUiScaleView;
+import '../../application/settings_store.dart';
 import 'task_indicator.dart';
+import 'ui_state_store.dart';
 import 'toast.dart';
 
 class _Destination {
@@ -37,6 +42,7 @@ class _AppShellState extends State<AppShell> {
   bool _sidebarCollapsed = false;
 
   void _select(int index) {
+    unawaited(UiStateStore.saveLastTab(index));
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
@@ -45,6 +51,19 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Page scale (DESIGN §5.7) applies to every tab page; full-screen
+    // camera / navigation routes stay unscaled so native views aren't
+    // transformed.
+    final uiScale = context.select<SettingsStore, double>(
+      (store) => store.settings.uiScale,
+    );
+    return AppUiScaleView(
+      scale: uiScale,
+      child: Builder(builder: _buildShell),
+    );
+  }
+
+  Widget _buildShell(BuildContext context) {
     final layout = context.layout;
     final c = context.colors;
     final index = widget.navigationShell.currentIndex;
