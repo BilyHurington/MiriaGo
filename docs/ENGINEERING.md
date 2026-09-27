@@ -112,6 +112,13 @@ ChangeNotifier), with logic tests. Pages call the services.
 | `openCamera(context, pointId:)` | `features/camera/camera_entry.dart` | G |
 | `openRoutePreview(context, pointId:)` | `features/navigation/navigation_entry.dart` | G |
 
+Plan workspace helpers (owner B, `features/plan/plan_workspace.dart`):
+`PlanWorkspaceScope.hasSecondaryNav(context)` — true when the left plan nav
+is visible (hide your own back button then); `addLeaveGuard` /
+`removeLeaveGuard` to be asked before the nav switches away (unsaved work).
+Full reference cache flow with the old confirm dialog:
+`startFullReferenceCache(context)` in `features/plan/reference_cache_flow.dart`.
+
 Signatures of these are fixed. Owners implement the bodies; everybody
 else calls them.
 

@@ -275,7 +275,8 @@ class _ToastCardState extends State<_ToastCard>
                         )
                       else
                         IconButton(
-                          tooltip: '关闭',
+                          // No tooltip: the toast host sits above the
+                          // navigator's Overlay, where tooltips can't attach.
                           visualDensity: VisualDensity.compact,
                           onPressed: widget.onDismiss,
                           icon: Icon(
