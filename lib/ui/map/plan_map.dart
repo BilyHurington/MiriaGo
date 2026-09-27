@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -13,6 +14,8 @@ import '../../map/map_tile_config.dart';
 import '../../plan/pilgrimage_models.dart';
 import '../design/theme.dart';
 import 'map_panel_layout.dart';
+import 'web_map_resize_stub.dart'
+    if (dart.library.js_interop) 'web_map_resize_web.dart';
 
 /// Fallback map centre when nothing else is known (Kyoto, as in the old app).
 const LatLng kDefaultMapCenter = LatLng(34.9671, 135.7727);
@@ -354,6 +357,31 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _bindController();
+    _scheduleWebResizeNudge();
+  }
+
+  Size? _lastWebSize;
+
+  /// See [nudgeWebMapResize]: re-measure the MapLibre element once it has
+  /// been attached and whenever the map's size changes.
+  void _scheduleWebResizeNudge() {
+    if (!kIsWeb) return;
+    for (final delay in const [100, 400, 1200]) {
+      Future<void>.delayed(Duration(milliseconds: delay), () {
+        if (mounted) nudgeWebMapResize();
+      });
+    }
+  }
+
+  void _checkWebSize(Size size) {
+    if (!kIsWeb || size == _lastWebSize) return;
+    final first = _lastWebSize == null;
+    _lastWebSize = size;
+    if (!first) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) nudgeWebMapResize();
+      });
+    }
   }
 
   void _bindController() {
@@ -393,6 +421,9 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   }
 
   void _onMapEvent(MapEvent event) {
+    if (event.source == MapEventSource.nonRotatedSizeChange) {
+      _checkWebSize(event.camera.nonRotatedSize);
+    }
     // A user gesture interrupts a programmatic animation.
     if ((_animationController?.isAnimating ?? false) &&
         event.source != MapEventSource.mapController &&
@@ -546,7 +577,13 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
             minZoom: widget.minZoom,
             maxZoom: maxZoom,
             keepAlive: true,
-            backgroundColor: dark ? colors.canvas : colors.surfaceMuted,
+            // Transparent on web: CanvasKit may composite this fill above the
+            // MapLibre platform view, hiding the base map.
+            backgroundColor: kIsWeb && tiles != null
+                ? Colors.transparent
+                : dark
+                ? colors.canvas
+                : colors.surfaceMuted,
             interactionOptions: InteractionOptions(flags: flags),
             onTap: widget.onTap == null
                 ? null
