@@ -60,12 +60,20 @@ class _PlanWorkspaceScaffoldState extends State<PlanWorkspaceScaffold> {
     // Re-selecting the current section root does nothing; from a sub page
     // it returns to the root, which disposes the sub page, so the guards
     // are asked just like for another section.
-    if (widget.location == path) return;
+    if (widget.location == path && !_hasQuery()) return;
     for (final guard in List.of(_guards)) {
       if (!await guard()) return;
     }
     if (!mounted) return;
     context.go(path);
+  }
+
+  /// `/plan/transfer?plan=<other>` shares its path with the active plan's
+  /// page; re-selecting it should return to the active plan.
+  bool _hasQuery() {
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return false;
+    return router.routerDelegate.currentConfiguration.uri.hasQuery;
   }
 
   bool _isSelected(String path) {
