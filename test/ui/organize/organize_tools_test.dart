@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:miriago/application/organize/organize_service.dart';
+import 'package:miriago/application/plan_session.dart';
 import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/ui/features/organize/group_picker.dart';
 import 'package:miriago/ui/features/organize/location_picker.dart';
 import 'package:miriago/ui/features/organize/organize_common.dart';
+import 'package:provider/provider.dart';
 
 import '../../helpers/pump_app.dart';
 import '../components/harness.dart';
@@ -211,6 +214,42 @@ void main() {
       await tester.tap(find.text('大吉山').last);
       await _settle(tester);
       expect(find.text('大吉山'), findsOne);
+    });
+
+    testWidgets('box assign: a group created in the picker becomes the '
+        'target and the count follows the plan', (tester) async {
+      final repo = await pumpMiriaApp(
+        tester,
+        location: '/plan/organize/assign/box',
+      );
+      await _settle(tester);
+      await tester.tap(find.byKey(const ValueKey('box-assign-group-picker')));
+      await _settle(tester);
+      expect(find.text('共 7 个片区'), findsOne);
+
+      // A group added while the picker is open updates the subtitle.
+      final context = tester.element(
+        find.byKey(const ValueKey('group-picker-options')),
+      );
+      await createPlanGroupInSession(context.read<PlanSession>(), '外部片区');
+      await _settle(tester);
+      expect(find.text('共 8 个片区'), findsOne);
+
+      await tester.tap(find.byKey(const ValueKey('group-picker-create')));
+      await _settle(tester);
+      await tester.enterText(find.byType(TextField).last, '新的片区');
+      await tester.tap(find.text('创建'));
+      await _settle(tester);
+      expect(find.text('选择片区'), findsNothing, reason: 'picker closed');
+      final plan = await repo.loadActivePlan();
+      expect(plan.groups.map((group) => group.name), contains('新的片区'));
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('box-assign-group-picker')),
+          matching: find.text('新的片区'),
+        ),
+        findsOne,
+      );
     });
 
     testWidgets('anchor picker clears and saves an empty key point (Δ6)', (

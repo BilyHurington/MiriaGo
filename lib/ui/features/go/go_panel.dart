@@ -165,6 +165,7 @@ class GoCompactTargetRow extends StatelessWidget {
     required this.status,
     required this.label,
     required this.actions,
+    this.recordCount = 0,
     super.key,
   });
 
@@ -172,6 +173,9 @@ class GoCompactTargetRow extends StatelessWidget {
   final VisitStatus status;
   final String label;
   final GoPointActions actions;
+
+  /// Records of [point]; shown as a badge on the camera button.
+  final int recordCount;
 
   @override
   Widget build(BuildContext context) {
@@ -220,10 +224,9 @@ class GoCompactTargetRow extends StatelessWidget {
               tooltip: point.hasCoordinate ? '导航' : '坐标待补充',
               onPressed: point.hasCoordinate ? actions.onNavigate : null,
             ),
-            MiriaIconButton(
-              key: const ValueKey('go-compact-camera'),
-              icon: Symbols.photo_camera_rounded,
-              tooltip: '拍摄参考',
+            GoCameraButton(
+              buttonKey: const ValueKey('go-compact-camera'),
+              recordCount: recordCount,
               onPressed: actions.onCamera,
             ),
             MiriaIconButton(
@@ -519,12 +522,10 @@ class GoQueueRow extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          MiriaIconButton(
-            key: ValueKey('go-queue-camera-${point.id}'),
-            icon: Symbols.photo_camera_rounded,
-            tooltip: '拍摄参考',
+          GoCameraButton(
+            buttonKey: ValueKey('go-queue-camera-${point.id}'),
+            recordCount: recordCount,
             compact: true,
-            badgeCount: recordCount > 0 ? recordCount : null,
             onPressed: onCamera,
           ),
           MiriaIconButton(
@@ -559,6 +560,90 @@ class GoQueueRow extends StatelessWidget {
           onSelected: onCamera,
         ),
       ],
+    );
+  }
+}
+
+/// 「拍摄参考」 icon button with the old record badge: one photo for a
+/// single record, a stack of photos for several (old `_MapRecordBadge` /
+/// `_PointRecordBadge`).
+class GoCameraButton extends StatelessWidget {
+  const GoCameraButton({
+    required this.recordCount,
+    required this.onPressed,
+    this.compact = false,
+    this.buttonKey,
+    super.key,
+  });
+
+  final int recordCount;
+  final VoidCallback onPressed;
+  final bool compact;
+
+  /// Key of the inner button (tests tap it).
+  final Key? buttonKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = MiriaIconButton(
+      key: buttonKey,
+      icon: Symbols.photo_camera_rounded,
+      tooltip: '拍摄参考',
+      compact: compact,
+      onPressed: onPressed,
+    );
+    if (recordCount <= 0) return button;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        button,
+        PositionedDirectional(
+          top: compact ? 4 : 2,
+          end: compact ? 2 : 0,
+          child: IgnorePointer(
+            child: ExcludeSemantics(
+              child: GoRecordBadge(stacked: recordCount > 1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Small badge marking a point that already has records.
+class GoRecordBadge extends StatelessWidget {
+  const GoRecordBadge({required this.stacked, super.key});
+
+  /// More than one record.
+  final bool stacked;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      key: ValueKey(stacked ? 'go-record-badge-many' : 'go-record-badge-one'),
+      width: 16,
+      height: 16,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: c.primary.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: c.shadow.withValues(alpha: 0.08),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Icon(
+        stacked ? Symbols.photo_library_rounded : Symbols.image_rounded,
+        size: 11,
+        color: c.primaryText,
+      ),
     );
   }
 }

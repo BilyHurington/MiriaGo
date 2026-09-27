@@ -17,14 +17,21 @@ const String kUngroupedId = 'ungrouped';
 ///
 /// A null [selectedGroupId] marks 「未分入片区」 as the current choice
 /// (old `currentGroupId ?? ungrouped`).
+///
+/// [subtitleBuilder] recomputes the subtitle from the live plan (e.g.
+/// 「共 N 个片区」 after 新建片区). With [selectCreated] a group created
+/// through 「新建片区」 is returned right away (old 框选分配 `_createGroup`
+/// made the new group the target).
 /// OWNER: feature agent C (organize).
 Future<String?> pickGroup(
   BuildContext context, {
   required String title,
   String? subtitle,
+  String Function(PilgrimagePlan plan)? subtitleBuilder,
   String? selectedGroupId,
   bool includeUngrouped = true,
   bool allowCreate = true,
+  bool selectCreated = false,
 }) async {
   return showAdaptiveSheet<String>(
     context,
@@ -33,9 +40,11 @@ Future<String?> pickGroup(
     padding: EdgeInsets.zero,
     builder: (sheetContext) => _GroupPickerList(
       subtitle: subtitle,
+      subtitleBuilder: subtitleBuilder,
       selectedId: selectedGroupId ?? (includeUngrouped ? kUngroupedId : null),
       includeUngrouped: includeUngrouped,
       allowCreate: allowCreate,
+      selectCreated: selectCreated,
     ),
   );
 }
@@ -104,15 +113,25 @@ Future<String?> showGroupSwitcherSheet(
 class _GroupPickerList extends StatelessWidget {
   const _GroupPickerList({
     required this.subtitle,
+    required this.subtitleBuilder,
     required this.selectedId,
     required this.includeUngrouped,
     required this.allowCreate,
+    required this.selectCreated,
   });
 
   final String? subtitle;
+  final String Function(PilgrimagePlan plan)? subtitleBuilder;
   final String? selectedId;
   final bool includeUngrouped;
   final bool allowCreate;
+  final bool selectCreated;
+
+  Future<void> _create(BuildContext context) async {
+    final created = await showCreateGroupDialog(context);
+    if (created == null || !selectCreated || !context.mounted) return;
+    Navigator.of(context).pop(created.id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +140,10 @@ class _GroupPickerList extends StatelessWidget {
     final groups = session.isReady
         ? sortGroupsByPlanOrder(session.plan.groups)
         : const <PilgrimagePlanGroup>[];
+    final builder = subtitleBuilder;
+    final subtitle = builder != null && session.isReady
+        ? builder(session.plan)
+        : this.subtitle;
     final options = [
       if (includeUngrouped) (id: kUngroupedId, title: '未分入片区', ja: false),
       for (final group in groups) (id: group.id, title: group.name, ja: true),
@@ -133,7 +156,7 @@ class _GroupPickerList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.x4, 0, Space.x4, Space.x2),
             child: Text(
-              subtitle!,
+              subtitle,
               style: context.text.caption.copyWith(color: c.textSecondary),
             ),
           ),
@@ -181,7 +204,7 @@ class _GroupPickerList extends StatelessWidget {
                 horizontal: Space.x3,
                 vertical: Space.x2,
               ),
-              onTap: () => showCreateGroupDialog(context),
+              onTap: () => _create(context),
             ),
           ),
         ],

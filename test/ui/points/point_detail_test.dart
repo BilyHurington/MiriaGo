@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/application/plan_session.dart';
 import 'package:miriago/application/settings_store.dart';
+import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/ui/features/go/go_page.dart';
 import 'package:miriago/ui/features/points/point_detail_entry.dart';
@@ -10,6 +11,15 @@ import 'package:provider/provider.dart';
 import '../go/go_test_helpers.dart';
 
 const _bridgeId = 'anitabi-115908-7gs3o1mm'; // 宇治桥, 1 record
+
+class _FailingMoveRepository extends SamplePilgrimageRepository {
+  @override
+  Future<PilgrimagePlan> movePointsToGroup({
+    required String planId,
+    required Set<String> pointIds,
+    required String? groupId,
+  }) async => throw StateError('move failed');
+}
 
 /// A context outside any [PointInspectorScope] (the page's own element),
 /// so details open as the adaptive modal.
@@ -155,6 +165,41 @@ void main() {
     await tester.tap(find.text('设为当前目标'));
     await settle(tester, frames: 12);
     expect(_session(tester).controller.currentPoint?.id, _bridgeId);
+  });
+
+  testWidgets('设为当前目标 also selects the point', (tester) async {
+    await pumpGoApp(tester, size: TestSizes.desktop);
+    const pointId = 'anitabi-115908-sample-kohata-01';
+    await _openModal(tester, pointId: pointId);
+    await _openMore(tester);
+    await tester.tap(find.text('设为当前目标'));
+    await settle(tester, frames: 12);
+    final controller = _session(tester).controller;
+    expect(controller.currentPoint?.id, pointId);
+    expect(controller.selectedPoint?.id, pointId);
+  });
+
+  testWidgets('a failed move shows the old toast', (tester) async {
+    await pumpGoApp(
+      tester,
+      size: TestSizes.desktop,
+      repository: _FailingMoveRepository(),
+    );
+    await _openModal(tester, scope: PointDetailScope.organize);
+    await _openMore(tester);
+    await tester.tap(find.text('移动到片区'));
+    await settle(tester);
+    await tester.tap(
+      find.byKey(
+        const ValueKey('group-picker-option-sample-group-daikichiyama'),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('移动片区失败'), findsOneWidget);
+    expect(
+      _session(tester).controller.pointById(_bridgeId)?.groupId,
+      'sample-group-uji-station',
+    );
   });
 
   testWidgets('points without coordinates cannot navigate', (tester) async {

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/application/plan_session.dart';
 import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/ui/devtools/preview_seeds.dart';
 import 'package:miriago/ui/features/organize/organize_common.dart';
 import 'package:miriago/ui/features/organize/organize_map_pane.dart';
+import 'package:miriago/ui/features/organize/organize_page.dart';
+import 'package:provider/provider.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -28,6 +31,16 @@ final _listScrollable = find
       matching: find.byType(Scrollable),
     )
     .first;
+
+final _searchField = find.descendant(
+  of: find.byKey(const ValueKey('organize-search')),
+  matching: find.byType(TextField),
+);
+
+Future<void> _tapKey(WidgetTester tester, String key) async {
+  await tester.tap(find.byKey(ValueKey(key)));
+  await _settle(tester);
+}
 
 Future<String?> _groupOf(PilgrimageRepository repo, String pointId) async {
   final plan = await repo.loadActivePlan();
@@ -143,6 +156,114 @@ void main() {
     plan = await repo.loadActivePlan();
     expect(plan.points.any((point) => point.id == _ungrouped), isFalse);
     expect(find.text('宇治上神社参道'), findsNothing);
+  });
+
+  testWidgets('全选 replaces the selection; filter and search prune it', (
+    tester,
+  ) async {
+    await pumpMiriaApp(tester, location: '/plan/organize?group=$_daikichi');
+    await _settle(tester);
+
+    await tester.longPress(find.text('大吉山展望台'));
+    await _settle(tester);
+    expect(find.text('已选 1'), findsOne);
+
+    // 全选 → the four 大吉山 points; 清空 → none.
+    await _tapKey(tester, 'organize-batch-toggle-all');
+    expect(find.text('已选 4'), findsOne);
+    expect(find.text('清空'), findsOne);
+    await _tapKey(tester, 'organize-batch-toggle-all');
+    expect(find.text('已选 0'), findsOne);
+
+    // A search hides three of them: they leave the selection.
+    await _tapKey(tester, 'organize-batch-toggle-all');
+    expect(find.text('已选 4'), findsOne);
+    await tester.enterText(_searchField, '展望台');
+    await _settle(tester);
+    expect(find.text('已选 1'), findsOne);
+
+    // 全选 replaces instead of adding to the hidden points.
+    await tester.enterText(_searchField, '');
+    await _settle(tester);
+    expect(find.text('已选 1'), findsOne);
+    await _tapKey(tester, 'organize-batch-toggle-all');
+    expect(find.text('已选 4'), findsOne);
+
+    // Another chip: nothing selected is shown any more.
+    await _tapText(tester, '宇治站附近');
+    expect(find.text('已选 0'), findsOne);
+    await _tapKey(tester, 'organize-batch-toggle-all');
+    expect(find.text('已选 6'), findsOne);
+  });
+
+  testWidgets('batch delete only deletes the shown selection', (tester) async {
+    final repo = await pumpMiriaApp(
+      tester,
+      location: '/plan/organize?group=$_daikichi',
+    );
+    await _settle(tester);
+    await tester.longPress(find.text('大吉山展望台'));
+    await _settle(tester);
+    await tester.tap(find.text('大吉山步道'));
+    await _settle(tester);
+    expect(find.text('已选 2'), findsOne);
+
+    await tester.enterText(_searchField, '展望台');
+    await _settle(tester);
+    expect(find.text('已选 1'), findsOne);
+
+    await _tapKey(tester, 'organize-batch-delete');
+    expect(find.text('将从计划中删除 1 个点位。'), findsOne);
+    await _tapText(tester, '删除');
+    final plan = await repo.loadActivePlan();
+    final names = {for (final point in plan.points) point.name};
+    expect(names, isNot(contains('大吉山展望台')));
+    expect(names, contains('大吉山步道'));
+  });
+
+  testWidgets('a batch move out of the shown group ends the selection', (
+    tester,
+  ) async {
+    final repo = await pumpMiriaApp(
+      tester,
+      location: '/plan/organize?group=$_daikichi',
+    );
+    await _settle(tester);
+    await tester.longPress(find.text('大吉山展望台'));
+    await _settle(tester);
+    await tester.tap(find.text('大吉山步道'));
+    await _settle(tester);
+    expect(find.text('已选 2'), findsOne);
+
+    await _tapKey(tester, 'organize-batch-move');
+    await tester.tap(
+      find.byKey(const ValueKey('group-picker-option-$_station')),
+    );
+    await _settle(tester);
+    expect(await _groupOf(repo, 'anitabi-115908-7mt52rr'), _station);
+    expect(await _groupOf(repo, 'anitabi-115908-sample-daikichi-01'), _station);
+    expect(find.byKey(const ValueKey('organize-batch-bar')), findsNothing);
+    expect(find.text('片区与点位'), findsWidgets);
+  });
+
+  testWidgets('plan changes elsewhere prune the selection', (tester) async {
+    await pumpMiriaApp(tester, location: '/plan/organize?group=$_daikichi');
+    await _settle(tester);
+    await tester.longPress(find.text('大吉山展望台'));
+    await _settle(tester);
+    await tester.tap(find.text('大吉山步道'));
+    await _settle(tester);
+    expect(find.text('已选 2'), findsOne);
+
+    final controller = tester
+        .element(find.byType(OrganizePage))
+        .read<PlanSession>()
+        .controller;
+    await controller.deletePoint(
+      controller.pointById('anitabi-115908-7mt52rr')!,
+    );
+    await _settle(tester);
+    expect(find.text('已选 1'), findsOne);
   });
 
   testWidgets('create, rename and delete a group', (tester) async {

@@ -165,6 +165,58 @@ class _OrganizePageState extends State<OrganizePage> {
     });
   }
 
+  /// The filter chip actually applied (a deleted group falls back to 全部).
+  String? _effectiveFilter(List<OrganizeSection> allSections) {
+    final filterId = _filterId;
+    if (filterId == null) return null;
+    return allSections.any((section) => section.id == filterId)
+        ? filterId
+        : null;
+  }
+
+  /// Ids of the points the filter chip and the search currently show, in
+  /// list order.
+  List<String> _visiblePointIds() {
+    final plan = _plan;
+    final completed = _session.controller.completedPointIds;
+    final allSections = organizeSections(plan, completed);
+    final filterId = _effectiveFilter(allSections);
+    final sections = filterId == null && _query.isEmpty
+        ? allSections
+        : organizeSections(plan, completed, query: _query, filterId: filterId);
+    return [
+      for (final section in sections)
+        for (final point in section.points) point.id,
+    ];
+  }
+
+  /// The selected points that still exist and are still shown (old:
+  /// switching group cleared the selection; batch writes dropped deleted
+  /// points).
+  Set<String> _actionableSelection() {
+    final visible = _visiblePointIds().toSet();
+    return {
+      for (final id in _selected)
+        if (visible.contains(id)) id,
+    };
+  }
+
+  /// 全选 replaces the selection with the visible points (old `_selectAll`).
+  void _selectAll(List<String> visiblePointIds) {
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(visiblePointIds);
+    });
+  }
+
+  /// Single-point status writes end the multi-select (old
+  /// `_saveStatusChange`).
+  Future<void> _runStatusWrite(Future<bool> Function() action) async {
+    final done = await runOrganizeWrite(context, action);
+    if (done == true && mounted) _exitSelection();
+  }
+
   // -------------------------------------------------------------------------
   // Sections / map focus
   // -------------------------------------------------------------------------
@@ -279,10 +331,11 @@ class _OrganizePageState extends State<OrganizePage> {
     if (id == null || !mounted) return;
     final groupId = id == kUngroupedId ? null : id;
     if (groupId == point.groupId) return;
-    await runOrganizeWrite(
+    final moved = await runOrganizeWrite(
       context,
       () => _service.movePoints({point.id}, groupId),
     );
+    if (moved == true) _afterBatch(clear: false);
   }
 
   Future<void> _confirmDeletePoint(PilgrimagePoint point) async {
@@ -301,7 +354,7 @@ class _OrganizePageState extends State<OrganizePage> {
       () => _service.deletePoint(point),
     );
     if (deleted == true && _inspector.pointId == point.id) _inspector.close();
-    if (mounted) setState(() => _selected.remove(point.id));
+    if (deleted == true) _afterBatch(clear: false);
   }
 
   List<MenuAction> _pointActions(PilgrimagePoint point, VisitStatus status) {
@@ -318,9 +371,8 @@ class _OrganizePageState extends State<OrganizePage> {
           label: '设为当前目标',
           icon: Symbols.flag_rounded,
           enabled: !busy,
-          onSelected: () => unawaited(
-            runOrganizeWrite(context, () => _service.setCurrent(point)),
-          ),
+          onSelected: () =>
+              unawaited(_runStatusWrite(() => _service.setCurrent(point))),
         ),
       MenuAction(
         label: status == VisitStatus.completed ? '取消完成' : '标记完成',
@@ -329,8 +381,7 @@ class _OrganizePageState extends State<OrganizePage> {
             : Symbols.check_circle_rounded,
         enabled: !busy,
         onSelected: () => unawaited(
-          runOrganizeWrite(
-            context,
+          _runStatusWrite(
             () => status == VisitStatus.completed
                 ? _service.reopen(point)
                 : _service.complete(point),
@@ -369,10 +420,12 @@ class _OrganizePageState extends State<OrganizePage> {
   // -------------------------------------------------------------------------
 
   Future<void> _moveSelected() async {
-    final ids = {..._selected};
-    if (ids.isEmpty) return;
+    if (_actionableSelection().isEmpty) return;
     final id = await _pickTargetGroup();
     if (id == null || !mounted) return;
+    // Re-read after the picker: the plan may have changed meanwhile.
+    final ids = _actionableSelection();
+    if (ids.isEmpty) return;
     final moved = await runOrganizeWrite(
       context,
       () => _service.movePoints(ids, id == kUngroupedId ? null : id),
@@ -381,7 +434,8 @@ class _OrganizePageState extends State<OrganizePage> {
   }
 
   Future<void> _completeSelected() async {
-    final ids = {..._selected};
+    final ids = _actionableSelection();
+    if (ids.isEmpty) return;
     final done = await runOrganizeWrite(
       context,
       () => _service.completePoints(ids),
@@ -390,7 +444,8 @@ class _OrganizePageState extends State<OrganizePage> {
   }
 
   Future<void> _reopenSelected() async {
-    final ids = {..._selected};
+    final ids = _actionableSelection();
+    if (ids.isEmpty) return;
     final done = await runOrganizeWrite(
       context,
       () => _service.reopenPoints(ids),
@@ -399,17 +454,21 @@ class _OrganizePageState extends State<OrganizePage> {
   }
 
   Future<void> _deleteSelected() async {
-    final ids = {..._selected};
-    if (ids.isEmpty) return;
+    final confirmedIds = _actionableSelection();
+    if (confirmedIds.isEmpty) return;
     final confirmed = await showConfirmDialog(
       context,
       title: '批量删除点位',
-      message: '将从计划中删除 ${ids.length} 个点位。',
+      message: '将从计划中删除 ${confirmedIds.length} 个点位。',
       confirmLabel: '删除',
       destructive: true,
-      emphasizedValues: ['${ids.length} 个点位'],
+      emphasizedValues: ['${confirmedIds.length} 个点位'],
     );
     if (!confirmed || !mounted) return;
+    // Never more than what was confirmed; points removed from the plan
+    // meanwhile are skipped.
+    final ids = _actionableSelection().intersection(confirmedIds);
+    if (ids.isEmpty) return;
     final deleted = await runOrganizeWrite(
       context,
       () => _service.deletePoints(ids),
@@ -421,12 +480,13 @@ class _OrganizePageState extends State<OrganizePage> {
   }
 
   /// Old behaviour: status batches end the selection; moves keep the
-  /// selection of the points that still exist.
+  /// selection of the points that still exist and are still shown (a point
+  /// moved out of the filtered group is deselected).
   void _afterBatch({required bool clear}) {
     if (!mounted) return;
     setState(() {
-      final existing = {for (final point in _plan.points) point.id};
-      _selected.removeWhere((id) => !existing.contains(id));
+      final visible = _visiblePointIds().toSet();
+      _selected.removeWhere((id) => !visible.contains(id));
       if (clear || _selected.isEmpty) {
         _selected.clear();
         _selectionMode = false;
@@ -636,18 +696,12 @@ class _OrganizePageState extends State<OrganizePage> {
     if (session.revision != _statusRevision) {
       _statusRevision = session.revision;
       _referenceStatus.clear();
-      final existing = {for (final point in plan.points) point.id};
-      _selected.removeWhere((id) => !existing.contains(id));
     }
     final completed = controller.completedPointIds;
     final allSections = organizeSections(plan, completed);
     _initCollapse(plan, allSections);
 
-    var filterId = _filterId;
-    if (filterId != null &&
-        !allSections.any((section) => section.id == filterId)) {
-      filterId = null;
-    }
+    final filterId = _effectiveFilter(allSections);
     final sections = filterId == null && _query.isEmpty
         ? allSections
         : organizeSections(plan, completed, query: _query, filterId: filterId);
@@ -655,6 +709,13 @@ class _OrganizePageState extends State<OrganizePage> {
       for (final section in sections)
         for (final point in section.points) point.id,
     ];
+    // The selection only ever holds points that exist and are shown: a
+    // plan change, another filter chip or another search prunes it (old:
+    // switching group cleared the selection).
+    if (_selected.isNotEmpty) {
+      final visible = visiblePointIds.toSet();
+      _selected.removeWhere((id) => !visible.contains(id));
+    }
     final saving = _service.isSaving;
     final isEmpty = plan.points.isEmpty && plan.groups.isEmpty;
 
@@ -848,8 +909,7 @@ class _OrganizePageState extends State<OrganizePage> {
                         visiblePointIds.isNotEmpty &&
                         visiblePointIds.every(_selected.contains),
                     busy: saving,
-                    onSelectAll: () =>
-                        setState(() => _selected.addAll(visiblePointIds)),
+                    onSelectAll: () => _selectAll(visiblePointIds),
                     onClear: () => setState(_selected.clear),
                     onMove: () => unawaited(_moveSelected()),
                     onComplete: () => unawaited(_completeSelected()),

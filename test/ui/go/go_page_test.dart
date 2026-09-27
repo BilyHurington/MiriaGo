@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:miriago/application/go/go_queue.dart';
 import 'package:miriago/application/plan_session.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
+import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/ui/features/go/go_page.dart';
+import 'package:miriago/ui/features/points/point_detail_entry.dart';
 import 'package:miriago/ui/components/components.dart';
 import 'package:miriago/ui/map/map.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +25,25 @@ Future<void> _expandSheet(WidgetTester tester) async {
 
 PlanSession _session(WidgetTester tester) =>
     tester.element(find.byType(GoPage)).read<PlanSession>();
+
+const _kohataId = 'anitabi-115908-sample-kohata-01'; // 木幡站前
+
+/// Fails loading the active plan while [fail] is set.
+class _FlakyLoadRepository extends SamplePilgrimageRepository {
+  bool fail = true;
+
+  @override
+  Future<PilgrimagePlan> loadActivePlan() async {
+    if (fail) throw StateError('disk unavailable');
+    return super.loadActivePlan();
+  }
+}
+
+double _distance(LatLng a, LatLng b) =>
+    const Distance().as(LengthUnit.Meter, a, b);
+
+LatLng? _mapCenter(WidgetTester tester) =>
+    tester.widget<PlanMap>(find.byType(PlanMap)).controller?.camera?.center;
 
 List<PlanGroupBucket> _buckets(WidgetTester tester) {
   final controller = _session(tester).controller;
@@ -202,6 +225,106 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('map-control-target')));
     await settle(tester);
     expect(find.text('当前计划还没有点位。'), findsNothing);
+  });
+
+  testWidgets('设为当前目标 from the details recentres on the point', (tester) async {
+    await pumpGoApp(tester, size: TestSizes.desktop);
+    final controller = _session(tester).controller;
+    final point = controller.pointById(_kohataId)!;
+    final before = _mapCenter(tester)!;
+    expect(_distance(before, point.position), greaterThan(2000));
+
+    // Modal details (the page element is above the inspector scope).
+    showPointDetail(
+      tester.element(find.byType(GoPage)),
+      pointId: _kohataId,
+      scope: PointDetailScope.organize,
+    );
+    await settle(tester, frames: 12);
+    await tester.tap(find.byKey(const ValueKey('point-detail-more')));
+    await settle(tester);
+    await tester.tap(find.text('设为当前目标'));
+    await settle(tester, frames: 30);
+
+    expect(controller.currentPoint?.id, _kohataId);
+    expect(controller.plan.currentGroupId, 'sample-group-kohata');
+    expect(find.text('木幡方向'), findsWidgets);
+    expect(_distance(_mapCenter(tester)!, point.position), lessThan(1000));
+  });
+
+  testWidgets('the first map centre is the controller selection', (
+    tester,
+  ) async {
+    await pumpGoApp(tester, location: '/plan', size: TestSizes.phone);
+    final context = tester.element(find.byType(Scaffold).first);
+    final controller = context.read<PlanSession>().controller;
+    final point = controller.pointById(_kohataId)!;
+    controller.selectPoint(point);
+    GoRouter.of(context).go('/go');
+    await settle(tester);
+    final map = tester.widget<PlanMap>(find.byType(PlanMap));
+    expect(map.initialCenter, point.position);
+  });
+
+  testWidgets('a failed plan load shows the old error with 重试', (tester) async {
+    final repository = _FlakyLoadRepository();
+    await pumpGoApp(tester, repository: repository);
+    expect(find.byKey(const ValueKey('go-load-error')), findsOneWidget);
+    expect(find.text('计划加载失败'), findsOneWidget);
+    // Debug builds (tests) add the raw error below the old detail.
+    expect(find.textContaining('请稍后重试。'), findsOneWidget);
+    expect(find.textContaining('disk unavailable'), findsOneWidget);
+
+    repository.fail = false;
+    await tester.tap(find.text('重试'));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('go-load-error')), findsNothing);
+    expect(find.byKey(const ValueKey('go-current-card')), findsOneWidget);
+  });
+
+  testWidgets('record badges show one photo or a stack of photos', (
+    tester,
+  ) async {
+    await pumpGoApp(tester, size: TestSizes.desktop);
+    // 井用机前步行道 (current) has 2 records, 宇治桥 1, 宇治川河畔 none.
+    Finder badgeIn(String pointId, String badge) => find.descendant(
+      of: find.byKey(ValueKey('go-queue-row-$pointId')),
+      matching: find.byKey(ValueKey(badge)),
+    );
+    expect(
+      badgeIn('anitabi-115908-7evkbmy2', 'go-record-badge-many'),
+      findsOneWidget,
+    );
+    expect(
+      badgeIn('anitabi-115908-7gs3o1mm', 'go-record-badge-one'),
+      findsOneWidget,
+    );
+    expect(
+      badgeIn('anitabi-115908-sample-uji-02', 'go-record-badge-one'),
+      findsNothing,
+    );
+    expect(
+      badgeIn('anitabi-115908-sample-uji-02', 'go-record-badge-many'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the collapsed sheet camera button shows the record badge', (
+    tester,
+  ) async {
+    await pumpGoApp(tester, size: TestSizes.phone);
+    await tester.drag(
+      find.byKey(const ValueKey('go-group-name')),
+      const Offset(0, 800),
+    );
+    await settle(tester, frames: 16);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('go-compact-target')),
+        matching: find.byKey(const ValueKey('go-record-badge-many')),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an empty plan offers 去添加 instead of a queue', (tester) async {

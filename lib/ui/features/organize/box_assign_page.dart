@@ -16,7 +16,8 @@ import 'assign_widgets.dart';
 import 'group_picker.dart';
 import 'organize_common.dart';
 
-/// Opens the target-group picker of 框选分配 (can create a group).
+/// Opens the target-group picker of 框选分配. A group created through
+/// 「新建片区」 is returned as the new target (old `_createGroup`).
 Future<String?> pickBoxAssignTarget(
   BuildContext context, {
   required PilgrimagePlanGroup? current,
@@ -26,8 +27,10 @@ Future<String?> pickBoxAssignTarget(
     context,
     title: '选择片区',
     subtitle: '共 $count 个片区',
+    subtitleBuilder: (plan) => '共 ${plan.groups.length} 个片区',
     selectedGroupId: current?.id,
     includeUngrouped: false,
+    selectCreated: true,
   );
 }
 

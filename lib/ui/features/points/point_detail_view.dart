@@ -108,8 +108,12 @@ class _PointDetailViewState extends State<PointDetailView> {
     _closeIfModal();
   }
 
+  /// Old map screen `_setCurrentPoint`: the new target is also selected so
+  /// the 巡礼 map recentres on it.
   void _setCurrent(PilgrimagePoint point) {
-    _controller.setCurrentPoint(point);
+    final controller = _controller;
+    controller.setCurrentPoint(point);
+    if (point.hasCoordinate) controller.selectPoint(point);
     _closeIfModal();
   }
 
@@ -136,7 +140,7 @@ class _PointDetailViewState extends State<PointDetailView> {
       await controller.movePointToGroup(latest, groupId);
     } catch (_) {
       if (mounted) {
-        context.showToast('移动到片区失败，请稍后重试。', kind: ToastKind.error);
+        context.showToast('移动片区失败', kind: ToastKind.error);
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
@@ -61,6 +62,11 @@ class _GoPageState extends State<GoPage> {
   String? _planId;
   MapPanelSnap? _snapBeforeDetail;
 
+  /// Last seen `controller.selectedPoint` (see [_followControllerSelection]).
+  PilgrimagePlanController? _seenController;
+  String? _seenSelectedId;
+  int _seenCompletedCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +121,45 @@ class _GoPageState extends State<GoPage> {
   List<PlanGroupBucket> _buckets(PilgrimagePlanController controller) =>
       planGroupBuckets(controller.plan, controller.completedPointIds);
 
+  /// Follows points selected elsewhere through the controller, e.g.
+  /// 「⋯ › 设为当前目标」 in the point details: the point becomes the
+  /// selection, its group is shown and the map recentres (old map screen
+  /// `_setCurrentPoint`). Changes that are side effects are ignored: a
+  /// fresh controller, a deleted selection falling back, and completion /
+  /// reopen moving the target on.
+  void _followControllerSelection(PilgrimagePlanController controller) {
+    final id = controller.selectedPoint?.id;
+    final completedCount = controller.completedPointIds.length;
+    final previousId = _seenSelectedId;
+    final sameController = identical(controller, _seenController);
+    final statusChanged = completedCount != _seenCompletedCount;
+    _seenController = controller;
+    _seenSelectedId = id;
+    _seenCompletedCount = completedCount;
+    if (!sameController || id == null || id == previousId || statusChanged) {
+      return;
+    }
+    if (previousId != null && controller.pointById(previousId) == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_seenController, controller)) return;
+      final point = controller.pointById(id);
+      if (point == null || controller.selectedPoint?.id != id) return;
+      setState(() {
+        _selectedId = point.id;
+        _overlapIds = const [];
+      });
+      controller.setCurrentGroup(
+        goBucketIdForPoint(point, _buckets(controller)),
+      );
+      if (point.hasCoordinate) unawaited(_map.moveTo(point.position));
+    });
+  }
+
+  /// Marks a selection made by this page as seen so it is not followed.
+  void _markSelectionSeen(String pointId) {
+    _seenSelectedId = pointId;
+  }
+
   // -------------------------------------------------------------------------
   // Selection, groups, map
   // -------------------------------------------------------------------------
@@ -135,6 +180,7 @@ class _GoPageState extends State<GoPage> {
         _overlapIds = const [];
       }
     });
+    _markSelectionSeen(point.id);
     controller.selectPoint(point);
     controller.setCurrentGroup(goBucketIdForPoint(point, _buckets(controller)));
     if (_inspector.isOpen && _sidePanel) {
@@ -325,6 +371,7 @@ class _GoPageState extends State<GoPage> {
   }
 
   void _setCurrent(PilgrimagePoint point) {
+    if (point.hasCoordinate) _markSelectionSeen(point.id);
     _controller.setCurrentPoint(point);
     setState(() {
       if (_selectedId == point.id) _selectedId = null;
@@ -433,13 +480,21 @@ class _GoPageState extends State<GoPage> {
     final session = context.watch<PlanSession>();
     final settings = context.watch<SettingsStore>().settings;
     if (!session.isReady) {
+      final error = session.loadError;
       return Scaffold(
-        body: session.loadError == null
+        body: error == null
             ? const Center(child: CircularProgressIndicator())
-            : ErrorState(detail: '${session.loadError}', onRetry: session.load),
+            // Old `_PlanLoadState`: the raw error only in debug builds.
+            : ErrorState(
+                key: const ValueKey('go-load-error'),
+                title: '计划加载失败',
+                detail: kDebugMode ? '请稍后重试。\n$error' : '请稍后重试。',
+                onRetry: () => unawaited(session.load()),
+              ),
       );
     }
     final controller = session.controller;
+    _followControllerSelection(controller);
     final plan = controller.plan;
     final buckets = _buckets(controller);
     final groupIndex = goGroupIndex(buckets, plan.currentGroupId);
@@ -464,8 +519,11 @@ class _GoPageState extends State<GoPage> {
     if (_planId != plan.id) {
       final switched = _planId != null;
       _planId = plan.id;
+      // Old map screen: selected → current → first visible → group centre.
+      // The page-local selection is empty on mount, so use the
+      // controller's.
       final center = goInitialMapCenter(
-        selected: selected,
+        selected: controller.selectedPoint,
         current: current,
         visiblePoints: goVisibleMapPoints(
           allPoints,
@@ -612,6 +670,7 @@ class _GoPageState extends State<GoPage> {
                     child: GoCompactTargetRow(
                       point: focus,
                       status: controller.statusFor(focus),
+                      recordCount: controller.recordsForPoint(focus.id).length,
                       label: showSelectionCard ? '选中点位' : '当前目标',
                       actions: _actionsFor(focus, controller.statusFor(focus)),
                     ),
