@@ -7,7 +7,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 
 const root = resolve('build/web');
 const host = process.env.MIRIAGO_PREVIEW_HOST ?? '127.0.0.1';
-const port = Number.parseInt(process.env.MIRIAGO_PREVIEW_PORT ?? '8791', 10);
+const port = Number.parseInt(process.env.MIRIAGO_PREVIEW_PORT ?? '8792', 10);
 const anitabiFilePattern = /^g(?:\d+)?\.json$/;
 
 const contentTypes = {

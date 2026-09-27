@@ -7,15 +7,15 @@
     "beforeDevCommand": "npm run build:web:desktop:debug",
     "beforeBuildCommand": "npm run build:web:desktop",
     "frontendDist": "../build/web",
-    "devUrl": "http://127.0.0.1:8791"
+    "devUrl": "http://127.0.0.1:8792"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
         "title": "MiriaGo",
-        "width": 430,
-        "height": 860,
+        "width": 1280,
+        "height": 800,
         "minWidth": 360,
         "minHeight": 560,
         "resizable": true,
