@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "scripts": {
+    "prepare:web": "node tool/copy_maplibre_assets.mjs",
+    "build:web:desktop": "npm run prepare:web && flutter build web --release --no-pub --no-web-resources-cdn",
+    "build:web:desktop:debug": "npm run prepare:web && flutter build web --debug --no-web-resources-cdn",
+    "preview:web": "node tool/web_preview_server.mjs",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:build:portable": "tauri build --no-bundle",
+    "desktop:build:linux": "tauri build --bundles deb,rpm,appimage"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "maplibre-gl": "5.24.0"
+  }
+}

@@ -1,0 +1,223 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../data/anitabi_image_url.dart';
+import '../plan/pilgrimage_models.dart';
+import 'image_load_limiter.dart';
+
+typedef AnitabiNetworkImageBuilder =
+    Widget Function(
+      String url,
+      ImageFrameBuilder frameBuilder,
+      ImageLoadingBuilder loadingBuilder,
+      ImageErrorWidgetBuilder errorBuilder,
+    );
+
+/// How long a granted load permit may stay held without a first frame or a
+/// final error. `Image.network` has no timeout, so a stalled response would
+/// otherwise hold its slot for the widget's whole lifetime.
+const anitabiImagePermitWatchdog = Duration(seconds: 25);
+
+class AnitabiNetworkImage extends StatefulWidget {
+  const AnitabiNetworkImage({
+    required this.url,
+    required this.errorBuilder,
+    this.imageSource = AnitabiImageSource.auto,
+    this.loadingBuilder,
+    this.fit,
+    this.width,
+    this.height,
+    this.gaplessPlayback = false,
+    this.imageBuilder,
+    this.loadLimiter,
+    super.key,
+  });
+
+  final String url;
+  final AnitabiImageSource imageSource;
+  final BoxFit? fit;
+  final double? width;
+  final double? height;
+  final bool gaplessPlayback;
+  final WidgetBuilder? loadingBuilder;
+  final WidgetBuilder errorBuilder;
+  final AnitabiNetworkImageBuilder? imageBuilder;
+  final ImageLoadLimiter? loadLimiter;
+
+  @override
+  State<AnitabiNetworkImage> createState() => _AnitabiNetworkImageState();
+}
+
+class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
+  late List<String> _candidates;
+  int _candidateIndex = 0;
+  var _isTryingNextCandidate = false;
+  ImageLoadPermit? _permit;
+  Future<ImageLoadPermit>? _permitRequest;
+  Timer? _permitWatchdog;
+  // Set once a permit was granted for the current url; the load keeps going
+  // even after the watchdog hands the permit back.
+  var _loadGranted = false;
+  var _finishedLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetCandidates();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnitabiNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url ||
+        oldWidget.imageSource != widget.imageSource ||
+        oldWidget.loadLimiter != widget.loadLimiter) {
+      _resetCandidates();
+    }
+  }
+
+  @override
+  void dispose() {
+    _releasePermit();
+    super.dispose();
+  }
+
+  void _resetCandidates() {
+    _releasePermit();
+    _permitRequest = null;
+    _loadGranted = false;
+    _finishedLoading = false;
+    _candidates = candidateAnitabiImageUrls(
+      widget.url,
+      source: widget.imageSource,
+    );
+    _candidateIndex = 0;
+    _isTryingNextCandidate = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_candidates.isEmpty) {
+      return widget.errorBuilder(context);
+    }
+
+    final limiter = widget.loadLimiter;
+    if (limiter != null && !_finishedLoading && !_loadGranted) {
+      _requestPermit(limiter);
+      return _loadingPlaceholder();
+    }
+
+    return _buildImage();
+  }
+
+  void _requestPermit(ImageLoadLimiter limiter) {
+    if (_permitRequest != null) {
+      return;
+    }
+    final request = limiter.acquire();
+    _permitRequest = request;
+    request.then((permit) {
+      if (!mounted || _permitRequest != request || _finishedLoading) {
+        permit.release();
+        return;
+      }
+      setState(() {
+        _permit = permit;
+        _loadGranted = true;
+      });
+      _permitWatchdog = Timer(anitabiImagePermitWatchdog, () {
+        // Keep the image loading; only stop it from starving other loads.
+        _permitWatchdog = null;
+        _releasePermit();
+      });
+    });
+  }
+
+  Widget _buildImage() {
+    if (_isTryingNextCandidate) {
+      return _loadingPlaceholder();
+    }
+
+    final candidate = _candidates[_candidateIndex];
+    // Image reports a null loading progress on its first build, before any
+    // bytes arrive, so only a decoded frame proves that the load finished.
+    Widget frameBuilder(
+      BuildContext context,
+      Widget child,
+      int? frame,
+      bool wasSynchronouslyLoaded,
+    ) {
+      if (frame != null || wasSynchronouslyLoaded) {
+        _finishLoading();
+      }
+      return child;
+    }
+
+    Widget loadingBuilder(
+      BuildContext context,
+      Widget child,
+      ImageChunkEvent? loadingProgress,
+    ) {
+      if (_finishedLoading) {
+        return child;
+      }
+      return widget.loadingBuilder?.call(context) ?? child;
+    }
+
+    Widget errorBuilder(
+      BuildContext context,
+      Object error,
+      StackTrace? stackTrace,
+    ) {
+      if (_candidateIndex < _candidates.length - 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _candidateIndex += 1;
+            _isTryingNextCandidate = false;
+          });
+        });
+        _isTryingNextCandidate = true;
+        return _loadingPlaceholder();
+      }
+      _finishLoading();
+      return widget.errorBuilder(context);
+    }
+
+    return widget.imageBuilder?.call(
+          candidate,
+          frameBuilder,
+          loadingBuilder,
+          errorBuilder,
+        ) ??
+        Image.network(
+          candidate,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          gaplessPlayback: widget.gaplessPlayback,
+          frameBuilder: frameBuilder,
+          loadingBuilder: loadingBuilder,
+          errorBuilder: errorBuilder,
+        );
+  }
+
+  Widget _loadingPlaceholder() {
+    return widget.loadingBuilder?.call(context) ?? const SizedBox.shrink();
+  }
+
+  void _finishLoading() {
+    _finishedLoading = true;
+    _releasePermit();
+  }
+
+  void _releasePermit() {
+    _permitWatchdog?.cancel();
+    _permitWatchdog = null;
+    _permit?.release();
+    _permit = null;
+  }
+}

@@ -1,0 +1,473 @@
+import 'dart:math';
+
+enum ColorMatchMode {
+  natural,
+  standard,
+  strong;
+
+  String get label {
+    return switch (this) {
+      ColorMatchMode.natural => '自然',
+      ColorMatchMode.standard => '标准',
+      ColorMatchMode.strong => '强匹配',
+    };
+  }
+}
+
+class ColorGradingParams {
+  const ColorGradingParams({
+    this.brightness = 0,
+    this.exposure = 0,
+    this.contrast = 1,
+    this.saturation = 1,
+    this.temperature = 0,
+    this.tint = 0,
+    this.highlights = 0,
+    this.shadows = 0,
+    this.redShadowCurve = 0,
+    this.redMidCurve = 0,
+    this.redHighlightCurve = 0,
+    this.greenShadowCurve = 0,
+    this.greenMidCurve = 0,
+    this.greenHighlightCurve = 0,
+    this.blueShadowCurve = 0,
+    this.blueMidCurve = 0,
+    this.blueHighlightCurve = 0,
+  });
+
+  final double brightness;
+  final double exposure;
+  final double contrast;
+  final double saturation;
+  final double temperature;
+  final double tint;
+  final double highlights;
+  final double shadows;
+  final double redShadowCurve;
+  final double redMidCurve;
+  final double redHighlightCurve;
+  final double greenShadowCurve;
+  final double greenMidCurve;
+  final double greenHighlightCurve;
+  final double blueShadowCurve;
+  final double blueMidCurve;
+  final double blueHighlightCurve;
+
+  static const defaults = ColorGradingParams();
+
+  ColorGradingParams copyWith({
+    double? brightness,
+    double? exposure,
+    double? contrast,
+    double? saturation,
+    double? temperature,
+    double? tint,
+    double? highlights,
+    double? shadows,
+    double? redShadowCurve,
+    double? redMidCurve,
+    double? redHighlightCurve,
+    double? greenShadowCurve,
+    double? greenMidCurve,
+    double? greenHighlightCurve,
+    double? blueShadowCurve,
+    double? blueMidCurve,
+    double? blueHighlightCurve,
+  }) {
+    return ColorGradingParams(
+      brightness: brightness ?? this.brightness,
+      exposure: exposure ?? this.exposure,
+      contrast: contrast ?? this.contrast,
+      saturation: saturation ?? this.saturation,
+      temperature: temperature ?? this.temperature,
+      tint: tint ?? this.tint,
+      highlights: highlights ?? this.highlights,
+      shadows: shadows ?? this.shadows,
+      redShadowCurve: redShadowCurve ?? this.redShadowCurve,
+      redMidCurve: redMidCurve ?? this.redMidCurve,
+      redHighlightCurve: redHighlightCurve ?? this.redHighlightCurve,
+      greenShadowCurve: greenShadowCurve ?? this.greenShadowCurve,
+      greenMidCurve: greenMidCurve ?? this.greenMidCurve,
+      greenHighlightCurve: greenHighlightCurve ?? this.greenHighlightCurve,
+      blueShadowCurve: blueShadowCurve ?? this.blueShadowCurve,
+      blueMidCurve: blueMidCurve ?? this.blueMidCurve,
+      blueHighlightCurve: blueHighlightCurve ?? this.blueHighlightCurve,
+    );
+  }
+
+  ColorGradingParams clamped() {
+    return ColorGradingParams(
+      brightness: brightness.clamp(-0.25, 0.25),
+      exposure: exposure.clamp(-1.0, 1.0),
+      contrast: contrast.clamp(0.7, 1.4),
+      saturation: saturation.clamp(0.5, 1.6),
+      temperature: temperature.clamp(-1.0, 1.0),
+      tint: tint.clamp(-1.0, 1.0),
+      highlights: highlights.clamp(-1.0, 1.0),
+      shadows: shadows.clamp(-1.0, 1.0),
+      redShadowCurve: redShadowCurve.clamp(-1.0, 1.0),
+      redMidCurve: redMidCurve.clamp(-1.0, 1.0),
+      redHighlightCurve: redHighlightCurve.clamp(-1.0, 1.0),
+      greenShadowCurve: greenShadowCurve.clamp(-1.0, 1.0),
+      greenMidCurve: greenMidCurve.clamp(-1.0, 1.0),
+      greenHighlightCurve: greenHighlightCurve.clamp(-1.0, 1.0),
+      blueShadowCurve: blueShadowCurve.clamp(-1.0, 1.0),
+      blueMidCurve: blueMidCurve.clamp(-1.0, 1.0),
+      blueHighlightCurve: blueHighlightCurve.clamp(-1.0, 1.0),
+    );
+  }
+
+  static ColorGradingParams lerp(
+    ColorGradingParams a,
+    ColorGradingParams b,
+    double t,
+  ) {
+    final amount = t.clamp(0.0, 1.0);
+    double mix(double x, double y) => x + (y - x) * amount;
+    return ColorGradingParams(
+      brightness: mix(a.brightness, b.brightness),
+      exposure: mix(a.exposure, b.exposure),
+      contrast: mix(a.contrast, b.contrast),
+      saturation: mix(a.saturation, b.saturation),
+      temperature: mix(a.temperature, b.temperature),
+      tint: mix(a.tint, b.tint),
+      highlights: mix(a.highlights, b.highlights),
+      shadows: mix(a.shadows, b.shadows),
+      redShadowCurve: mix(a.redShadowCurve, b.redShadowCurve),
+      redMidCurve: mix(a.redMidCurve, b.redMidCurve),
+      redHighlightCurve: mix(a.redHighlightCurve, b.redHighlightCurve),
+      greenShadowCurve: mix(a.greenShadowCurve, b.greenShadowCurve),
+      greenMidCurve: mix(a.greenMidCurve, b.greenMidCurve),
+      greenHighlightCurve: mix(a.greenHighlightCurve, b.greenHighlightCurve),
+      blueShadowCurve: mix(a.blueShadowCurve, b.blueShadowCurve),
+      blueMidCurve: mix(a.blueMidCurve, b.blueMidCurve),
+      blueHighlightCurve: mix(a.blueHighlightCurve, b.blueHighlightCurve),
+    ).clamped();
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'brightness': brightness,
+      'exposure': exposure,
+      'contrast': contrast,
+      'saturation': saturation,
+      'temperature': temperature,
+      'tint': tint,
+      'highlights': highlights,
+      'shadows': shadows,
+      'redShadowCurve': redShadowCurve,
+      'redMidCurve': redMidCurve,
+      'redHighlightCurve': redHighlightCurve,
+      'greenShadowCurve': greenShadowCurve,
+      'greenMidCurve': greenMidCurve,
+      'greenHighlightCurve': greenHighlightCurve,
+      'blueShadowCurve': blueShadowCurve,
+      'blueMidCurve': blueMidCurve,
+      'blueHighlightCurve': blueHighlightCurve,
+    };
+  }
+
+  factory ColorGradingParams.fromJson(Map<String, Object?> json) {
+    double value(String key, double fallback) {
+      return (json[key] as num?)?.toDouble() ?? fallback;
+    }
+
+    return ColorGradingParams(
+      brightness: value('brightness', 0),
+      exposure: value('exposure', 0),
+      contrast: value('contrast', 1),
+      saturation: value('saturation', 1),
+      temperature: value('temperature', 0),
+      tint: value('tint', 0),
+      highlights: value('highlights', 0),
+      shadows: value('shadows', 0),
+      redShadowCurve: value('redShadowCurve', 0),
+      redMidCurve: value('redMidCurve', value('redCurve', 0)),
+      redHighlightCurve: value('redHighlightCurve', 0),
+      greenShadowCurve: value('greenShadowCurve', 0),
+      greenMidCurve: value('greenMidCurve', value('greenCurve', 0)),
+      greenHighlightCurve: value('greenHighlightCurve', 0),
+      blueShadowCurve: value('blueShadowCurve', 0),
+      blueMidCurve: value('blueMidCurve', value('blueCurve', 0)),
+      blueHighlightCurve: value('blueHighlightCurve', 0),
+    ).clamped();
+  }
+
+  /// Tone zones and RGB curves are luminance-weighted in the saved render, so
+  /// a linear color matrix can only approximate them.
+  bool get hasNonLinearAdjustments {
+    const epsilon = 0.0005;
+    return [
+      highlights,
+      shadows,
+      redShadowCurve,
+      redMidCurve,
+      redHighlightCurve,
+      greenShadowCurve,
+      greenMidCurve,
+      greenHighlightCurve,
+      blueShadowCurve,
+      blueMidCurve,
+      blueHighlightCurve,
+    ].any((value) => value.abs() > epsilon);
+  }
+
+  /// Preview matrix in the same order as the saved render: exposure, contrast
+  /// around mid grey, then the brightness offset. Exact for the linear
+  /// adjustments; tone zones and curves are approximated.
+  List<double> toColorMatrix() {
+    final p = clamped();
+    var matrix = _identityMatrix();
+    matrix = _multiplyMatrix(
+      _exposureMatrix(pow(2.0, p.exposure).toDouble()),
+      matrix,
+    );
+    matrix = _multiplyMatrix(_contrastMatrix(p.contrast), matrix);
+    matrix = _multiplyMatrix(_brightnessMatrix(p.brightness), matrix);
+    matrix = _multiplyMatrix(_saturationMatrix(p.saturation), matrix);
+    matrix = _multiplyMatrix(
+      _channelBalanceMatrix(p.temperature, p.tint),
+      matrix,
+    );
+    matrix = _multiplyMatrix(
+      _toneZoneApproximationMatrix(p.highlights, p.shadows),
+      matrix,
+    );
+    matrix = _multiplyMatrix(
+      _rgbCurveApproximationMatrix(
+        p.redCurvePreview,
+        p.greenCurvePreview,
+        p.blueCurvePreview,
+      ),
+      matrix,
+    );
+    return matrix;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ColorGradingParams &&
+        other.brightness == brightness &&
+        other.exposure == exposure &&
+        other.contrast == contrast &&
+        other.saturation == saturation &&
+        other.temperature == temperature &&
+        other.tint == tint &&
+        other.highlights == highlights &&
+        other.shadows == shadows &&
+        other.redShadowCurve == redShadowCurve &&
+        other.redMidCurve == redMidCurve &&
+        other.redHighlightCurve == redHighlightCurve &&
+        other.greenShadowCurve == greenShadowCurve &&
+        other.greenMidCurve == greenMidCurve &&
+        other.greenHighlightCurve == greenHighlightCurve &&
+        other.blueShadowCurve == blueShadowCurve &&
+        other.blueMidCurve == blueMidCurve &&
+        other.blueHighlightCurve == blueHighlightCurve;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    brightness,
+    exposure,
+    contrast,
+    saturation,
+    temperature,
+    tint,
+    highlights,
+    shadows,
+    redShadowCurve,
+    redMidCurve,
+    redHighlightCurve,
+    greenShadowCurve,
+    greenMidCurve,
+    greenHighlightCurve,
+    blueShadowCurve,
+    blueMidCurve,
+    blueHighlightCurve,
+  ]);
+
+  double get redCurvePreview =>
+      redShadowCurve * 0.25 + redMidCurve * 0.50 + redHighlightCurve * 0.25;
+  double get greenCurvePreview =>
+      greenShadowCurve * 0.25 +
+      greenMidCurve * 0.50 +
+      greenHighlightCurve * 0.25;
+  double get blueCurvePreview =>
+      blueShadowCurve * 0.25 + blueMidCurve * 0.50 + blueHighlightCurve * 0.25;
+}
+
+List<double> _identityMatrix() {
+  return const [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+}
+
+List<double> _brightnessMatrix(double brightness) {
+  final offset = brightness * 255;
+  return [
+    1,
+    0,
+    0,
+    0,
+    offset,
+    0,
+    1,
+    0,
+    0,
+    offset,
+    0,
+    0,
+    1,
+    0,
+    offset,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
+}
+
+List<double> _exposureMatrix(double scale) {
+  return [
+    scale,
+    0,
+    0,
+    0,
+    0,
+    0,
+    scale,
+    0,
+    0,
+    0,
+    0,
+    0,
+    scale,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
+}
+
+List<double> _contrastMatrix(double contrast) {
+  final offset = 128 * (1 - contrast);
+  return [
+    contrast,
+    0,
+    0,
+    0,
+    offset,
+    0,
+    contrast,
+    0,
+    0,
+    offset,
+    0,
+    0,
+    contrast,
+    0,
+    offset,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
+}
+
+List<double> _saturationMatrix(double saturation) {
+  const lumR = 0.2126;
+  const lumG = 0.7152;
+  const lumB = 0.0722;
+  final inv = 1 - saturation;
+  return [
+    lumR * inv + saturation,
+    lumG * inv,
+    lumB * inv,
+    0,
+    0,
+    lumR * inv,
+    lumG * inv + saturation,
+    lumB * inv,
+    0,
+    0,
+    lumR * inv,
+    lumG * inv,
+    lumB * inv + saturation,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
+}
+
+List<double> _channelBalanceMatrix(double temperature, double tint) {
+  final r = 1 + 0.10 * temperature - 0.04 * tint;
+  final g = 1 + 0.08 * tint;
+  final b = 1 - 0.10 * temperature - 0.04 * tint;
+  return [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
+}
+
+List<double> _toneZoneApproximationMatrix(double highlights, double shadows) {
+  final contrast = 1 + highlights * 0.12 - shadows * 0.10;
+  final offset = 255 * (shadows * 0.08 + highlights * 0.02);
+  return [
+    contrast,
+    0,
+    0,
+    0,
+    offset,
+    0,
+    contrast,
+    0,
+    0,
+    offset,
+    0,
+    0,
+    contrast,
+    0,
+    offset,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ];
+}
+
+List<double> _rgbCurveApproximationMatrix(
+  double redCurve,
+  double greenCurve,
+  double blueCurve,
+) {
+  final r = 1 + redCurve * 0.14;
+  final g = 1 + greenCurve * 0.14;
+  final b = 1 + blueCurve * 0.14;
+  return [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
+}
+
+List<double> _multiplyMatrix(List<double> a, List<double> b) {
+  final result = List<double>.filled(20, 0);
+  for (var row = 0; row < 4; row += 1) {
+    for (var col = 0; col < 4; col += 1) {
+      var sum = 0.0;
+      for (var k = 0; k < 4; k += 1) {
+        sum += a[row * 5 + k] * b[k * 5 + col];
+      }
+      result[row * 5 + col] = sum;
+    }
+
+    var offset = a[row * 5 + 4];
+    for (var k = 0; k < 4; k += 1) {
+      offset += a[row * 5 + k] * b[k * 5 + 4];
+    }
+    result[row * 5 + 4] = offset;
+  }
+  return result;
+}

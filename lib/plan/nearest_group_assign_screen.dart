@@ -1,0 +1,1786 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../app_theme.dart';
+import '../map/map_colors.dart';
+import '../widgets/responsive_button.dart';
+import '../data/anitabi_image_source_scope.dart';
+import '../widgets/auto_caching_reference_thumbnail.dart';
+import '../data/app_file_reclamation.dart';
+import '../data/pilgrimage_repository.dart';
+import '../map/map_marker_scale.dart';
+import '../map/map_tile_config.dart';
+import '../data/user_reference_image_stub.dart'
+    if (dart.library.io) '../data/user_reference_image_io.dart';
+import '../point_detail/point_detail_sheet.dart';
+import '../utils/selected_item_order.dart';
+import '../widgets/confirm_action_dialog.dart';
+import '../widgets/input_dialog.dart';
+import '../widgets/snackbar_helper.dart';
+import '../widgets/app_back_button.dart';
+import 'pilgrimage_models.dart';
+import 'plan_group_utils.dart';
+
+class NearestGroupAssignScreen extends StatefulWidget {
+  const NearestGroupAssignScreen({
+    required this.plan,
+    required this.settings,
+    required this.repository,
+    super.key,
+  });
+
+  final PilgrimagePlan plan;
+  final AppSettings settings;
+  final PilgrimageRepository repository;
+
+  @override
+  State<NearestGroupAssignScreen> createState() =>
+      _NearestGroupAssignScreenState();
+}
+
+class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
+  final MapController _mapController = MapController();
+  final Distance _distance = const Distance();
+  late PilgrimagePlan _plan = widget.plan;
+  late double _distanceMeters = widget.settings.nearestAssignDistanceMeters
+      .clamp(50.0, 5000.0);
+  PilgrimagePoint? _selectedPoint;
+  var _isSaving = false;
+  var _didUpdate = false;
+
+  List<PilgrimagePoint> get _ungroupedPoints => _plan.points
+      .where((point) => point.groupId == null && point.hasCoordinate)
+      .toList(growable: false);
+
+  // Anchors and the sorted group list only change with the plan; building
+  // them once per plan keeps the distance slider responsive for large
+  // imports (they were recomputed for every point on every frame).
+  PilgrimagePlan? _anchorsPlan;
+  Map<String, LatLng> _anchorsByGroupId = const {};
+  List<PilgrimagePlanGroup> _sortedTargetGroups = const [];
+
+  void _refreshAnchors() {
+    if (identical(_anchorsPlan, _plan)) return;
+    _anchorsPlan = _plan;
+    _anchorsByGroupId = {
+      for (final group in _plan.groups)
+        group.id: ?resolvedGroupAnchorPosition(group, _plan.points),
+    };
+    _sortedTargetGroups = sortGroupsByPlanOrder(
+      _plan.groups.where((group) => _anchorsByGroupId.containsKey(group.id)),
+    );
+  }
+
+  List<PilgrimagePlanGroup> get _targetGroups {
+    _refreshAnchors();
+    return _sortedTargetGroups;
+  }
+
+  LatLng? _anchorOf(PilgrimagePlanGroup group) {
+    _refreshAnchors();
+    return _anchorsByGroupId[group.id];
+  }
+
+  Map<String, Set<String>> get _assignments {
+    final assignments = <String, Set<String>>{};
+    for (final point in _ungroupedPoints) {
+      final nearest = _nearestGroupFor(point);
+      if (nearest == null) {
+        continue;
+      }
+      final meters = _distance(point.position, _anchorOf(nearest)!);
+      if (meters <= _distanceMeters) {
+        assignments.putIfAbsent(nearest.id, () => {}).add(point.id);
+      }
+    }
+    return assignments;
+  }
+
+  int get _assignableCount =>
+      _assignments.values.fold(0, (total, ids) => total + ids.length);
+
+  @override
+  Widget build(BuildContext context) {
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      _ungroupedPoints,
+      isSelected: (point) => point.id == _selectedPoint?.id,
+    );
+
+    return PopScope(
+      canPop: !_isSaving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        Navigator.of(context).pop(_didUpdate);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: AppBackButton(
+            onPressed: () => Navigator.of(context).pop(_didUpdate),
+          ),
+          title: const Text('最近分配'),
+        ),
+        body: Stack(
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _mapCenter,
+                initialZoom: 14.5,
+                minZoom: 4,
+                maxZoom: widget.settings.mapMaxZoom.toDouble(),
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
+              ),
+              children: [
+                configuredMapTileLayer(widget.settings),
+                CircleLayer(
+                  circles: [
+                    for (final group in _targetGroups)
+                      CircleMarker(
+                        point: _anchorOf(group)!,
+                        radius: _distanceMeters,
+                        useRadiusInMeter: true,
+                        color: AppColors.accent.withValues(alpha: 0.12),
+                        borderColor: AppColors.accentDark.withValues(
+                          alpha: 0.72,
+                        ),
+                        borderStrokeWidth: 2,
+                      ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    for (final group in _targetGroups)
+                      Marker(
+                        point: _anchorOf(group)!,
+                        width: scaledMapMarkerDimension(
+                          38,
+                          widget.settings.mapMarkerScale,
+                        ),
+                        height: scaledMapMarkerDimension(
+                          38,
+                          widget.settings.mapMarkerScale,
+                        ),
+                        child: ScaledMapMarker(
+                          scale: widget.settings.mapMarkerScale,
+                          baseWidth: 38,
+                          baseHeight: 38,
+                          child: _AnchorMarker(name: group.name),
+                        ),
+                      ),
+                    for (final point in mapPoints)
+                      Marker(
+                        point: point.position,
+                        width: scaledMapMarkerDimension(
+                          point.id == _selectedPoint?.id ? 42 : 36,
+                          widget.settings.mapMarkerScale,
+                        ),
+                        height: scaledMapMarkerDimension(
+                          point.id == _selectedPoint?.id ? 42 : 36,
+                          widget.settings.mapMarkerScale,
+                        ),
+                        child: ScaledMapMarker(
+                          scale: widget.settings.mapMarkerScale,
+                          baseWidth: point.id == _selectedPoint?.id ? 42 : 36,
+                          baseHeight: point.id == _selectedPoint?.id ? 42 : 36,
+                          child: _AssignPointMarker(
+                            selected: point.id == _selectedPoint?.id,
+                            assignable: _isAssignable(point),
+                            onTap: () => _selectPoint(point),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                configuredMapAttribution(widget.settings),
+              ],
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 12,
+              child: SafeArea(
+                bottom: false,
+                child: _NearestAssignPanel(
+                  distanceMeters: _distanceMeters,
+                  assignableCount: _assignableCount,
+                  ungroupedCount: _ungroupedPoints.length,
+                  groupCount: _targetGroups.length,
+                  isSaving: _isSaving,
+                  onDistanceChanged: (value) {
+                    setState(() {
+                      _distanceMeters = value;
+                    });
+                  },
+                  onAssign: _confirmAssign,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: _selectedPoint == null
+                  ? _NearestAssignHintCard(
+                      ungroupedCount: _ungroupedPoints.length,
+                      groupCount: _targetGroups.length,
+                    )
+                  : _NearestAssignPointCard(
+                      planId: _plan.id,
+                      repository: widget.repository,
+                      imageSource: widget.settings.anitabiImageSource,
+                      onThumbnailCached: () {
+                        if (mounted) _didUpdate = true;
+                      },
+                      point: _selectedPoint!,
+                      nearestGroup: _nearestGroupFor(_selectedPoint!),
+                      distanceMeters: _nearestDistanceFor(_selectedPoint!),
+                      assignable: _isAssignable(_selectedPoint!),
+                      onOpenDetail: () => _showPointDetail(_selectedPoint!),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  LatLng get _mapCenter {
+    final positions = [
+      for (final point in _ungroupedPoints) point.position,
+      for (final group in _targetGroups) _anchorOf(group)!,
+    ];
+    if (positions.isEmpty) {
+      return previewCurrentLocation;
+    }
+    final latitude =
+        positions.map((point) => point.latitude).reduce((a, b) => a + b) /
+        positions.length;
+    final longitude =
+        positions.map((point) => point.longitude).reduce((a, b) => a + b) /
+        positions.length;
+    return LatLng(latitude, longitude);
+  }
+
+  PilgrimagePlanGroup? _nearestGroupFor(PilgrimagePoint point) {
+    PilgrimagePlanGroup? nearestGroup;
+    var nearestMeters = double.infinity;
+    final groups = _targetGroups;
+    for (final group in groups) {
+      final meters = _distance(point.position, _anchorsByGroupId[group.id]!);
+      if (meters < nearestMeters) {
+        nearestMeters = meters;
+        nearestGroup = group;
+      }
+    }
+    return nearestGroup;
+  }
+
+  double? _nearestDistanceFor(PilgrimagePoint point) {
+    final group = _nearestGroupFor(point);
+    if (group == null) {
+      return null;
+    }
+    return _distance(point.position, _anchorOf(group)!);
+  }
+
+  bool _isAssignable(PilgrimagePoint point) {
+    final distance = _nearestDistanceFor(point);
+    return distance != null && distance <= _distanceMeters;
+  }
+
+  void _selectPoint(PilgrimagePoint point) {
+    setState(() {
+      _selectedPoint = point;
+    });
+  }
+
+  Future<void> _confirmAssign() async {
+    if (_isSaving) {
+      return;
+    }
+    final assignments = _assignments;
+    final count = assignments.values.fold(
+      0,
+      (total, ids) => total + ids.length,
+    );
+    if (count == 0) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '当前距离内没有可分配点位',
+      );
+      return;
+    }
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '确认最近分配',
+      message:
+          '将把 $count 个未分组点位分配到最近的片区关键点，最大距离为 ${_formatDistance(_distanceMeters)}。',
+      confirmLabel: '开始分配',
+      emphasizedValues: ['$count 个未分组点位'],
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+    final PilgrimagePlan updatedPlan;
+    try {
+      // One atomic write: either every point moves or none does.
+      updatedPlan = await widget.repository.assignPointsToGroups(
+        planId: _plan.id,
+        groupIdsByPointId: {
+          for (final entry in assignments.entries)
+            for (final pointId in entry.value) pointId: entry.key,
+        },
+      );
+    } catch (_) {
+      final reloadedPlan = await _reloadPlan();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (reloadedPlan != null) {
+          _plan = reloadedPlan;
+        }
+        _selectedPoint = null;
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '最近分配失败');
+      return;
+    }
+
+    // The distance is remembered only after the assignment was stored.
+    var settingsSaved = true;
+    try {
+      final settings = await widget.repository.loadAppSettings();
+      await widget.repository.saveAppSettings(
+        settings.copyWith(nearestAssignDistanceMeters: _distanceMeters),
+      );
+    } catch (_) {
+      settingsSaved = false;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+      _isSaving = false;
+    });
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: settingsSaved
+          ? AppStatusBannerKind.success
+          : AppStatusBannerKind.warning,
+      title: settingsSaved ? '已分配 $count 个点位' : '已分配 $count 个点位，距离设置未保存',
+    );
+  }
+
+  Future<PilgrimagePlan?> _reloadPlan() async {
+    try {
+      final plans = await widget.repository.loadPlans();
+      return plans.where((plan) => plan.id == _plan.id).firstOrNull;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _showPointDetail(PilgrimagePoint point) {
+    PointDetailSheet.show(
+      context,
+      point: point,
+      status: VisitStatus.pending,
+      onSetCurrent: () {},
+      onOpenCamera: () {
+        ScaffoldMessenger.of(
+          context,
+        ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '请先完成片区分配');
+      },
+      onComplete: () {},
+      onReplaceReference: _replaceReferenceImage,
+      actionScope: PointDetailActionScope.assign,
+      groups: _plan.groups,
+      groupBuckets: planGroupBuckets(_plan, _plan.completedPointIds),
+      onMoveToGroup: _movePointToGroup,
+      onDelete: _deletePoint,
+      navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
+    );
+  }
+
+  Future<void> _replaceReferenceImage(
+    PilgrimagePoint point,
+    StoredUserReferenceImage image,
+  ) async {
+    final updatedPlan = await widget.repository.updatePointInPlan(
+      planId: _plan.id,
+      point: point.copyWith(
+        referenceImageUrl: null,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = updatedPlan.points.firstWhere((p) => p.id == point.id);
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _movePointToGroup(PilgrimagePoint point, String? groupId) async {
+    final updatedPlan = await widget.repository.movePointsToGroup(
+      planId: _plan.id,
+      pointIds: {point.id},
+      groupId: groupId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _deletePoint(PilgrimagePoint point) async {
+    final updatedPlan = await widget.repository.deletePointFromPlan(
+      planId: _plan.id,
+      pointId: point.id,
+    );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+    });
+  }
+}
+
+class BoxGroupAssignScreen extends StatefulWidget {
+  const BoxGroupAssignScreen({
+    required this.plan,
+    required this.repository,
+    required this.settings,
+    super.key,
+  });
+
+  final PilgrimagePlan plan;
+  final PilgrimageRepository repository;
+  final AppSettings settings;
+
+  @override
+  State<BoxGroupAssignScreen> createState() => _BoxGroupAssignScreenState();
+}
+
+class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
+  final MapController _mapController = MapController();
+  late PilgrimagePlan _plan = widget.plan;
+  String? _targetGroupId;
+  PilgrimagePoint? _selectedPoint;
+  var _isBoxSelecting = false;
+  var _isSaving = false;
+  var _didUpdate = false;
+  Offset? _selectionStart;
+  Offset? _selectionEnd;
+
+  List<PilgrimagePoint> get _ungroupedPoints => _plan.points
+      .where((point) => point.groupId == null && point.hasCoordinate)
+      .toList(growable: false);
+
+  List<PilgrimagePlanGroup> get _groups => sortGroupsByPlanOrder(_plan.groups);
+
+  LatLng? _anchorOf(PilgrimagePlanGroup group) =>
+      resolvedGroupAnchorPosition(group, _plan.points);
+
+  PilgrimagePlanGroup? get _targetGroup {
+    final groupId = _targetGroupId;
+    if (groupId == null) {
+      return _groups.firstOrNull;
+    }
+    return _groups.where((group) => group.id == groupId).firstOrNull ??
+        _groups.firstOrNull;
+  }
+
+  Rect? get _selectionRect {
+    final start = _selectionStart;
+    final end = _selectionEnd;
+    if (start == null || end == null) {
+      return null;
+    }
+    return Rect.fromPoints(start, end);
+  }
+
+  List<PilgrimagePoint> get _selectedBoxPoints {
+    final rect = _normalizedSelectionRect;
+    if (rect == null) {
+      return const [];
+    }
+    return _ungroupedPoints
+        .where((point) {
+          final offset = _mapController.camera.latLngToScreenOffset(
+            point.position,
+          );
+          return rect.contains(offset);
+        })
+        .toList(growable: false);
+  }
+
+  Rect? get _normalizedSelectionRect {
+    final rect = _selectionRect;
+    if (rect == null) {
+      return null;
+    }
+    return Rect.fromLTRB(
+      math.min(rect.left, rect.right),
+      math.min(rect.top, rect.bottom),
+      math.max(rect.left, rect.right),
+      math.max(rect.top, rect.bottom),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final targetGroup = _targetGroup;
+    final selectedBoxPoints = _selectedBoxPoints;
+    final mapPoints = selectedItemsLast<PilgrimagePoint>(
+      _ungroupedPoints,
+      isSelected: (point) => point.id == _selectedPoint?.id,
+    );
+
+    return PopScope(
+      canPop: !_isSaving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        Navigator.of(context).pop(_didUpdate);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: AppBackButton(
+            onPressed: () => Navigator.of(context).pop(_didUpdate),
+          ),
+          title: const Text('框选分配'),
+        ),
+        body: Stack(
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _mapCenter,
+                initialZoom: 14.5,
+                minZoom: 4,
+                maxZoom: widget.settings.mapMaxZoom.toDouble(),
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
+              ),
+              children: [
+                configuredMapTileLayer(widget.settings),
+                MarkerLayer(
+                  markers: [
+                    for (final group in _groups)
+                      if (_anchorOf(group) case final anchor?)
+                        Marker(
+                          point: anchor,
+                          width: scaledMapMarkerDimension(
+                            38,
+                            widget.settings.mapMarkerScale,
+                          ),
+                          height: scaledMapMarkerDimension(
+                            38,
+                            widget.settings.mapMarkerScale,
+                          ),
+                          child: ScaledMapMarker(
+                            scale: widget.settings.mapMarkerScale,
+                            baseWidth: 38,
+                            baseHeight: 38,
+                            child: _AnchorMarker(name: group.name),
+                          ),
+                        ),
+                    for (final point in mapPoints)
+                      Marker(
+                        point: point.position,
+                        width: scaledMapMarkerDimension(
+                          point.id == _selectedPoint?.id ? 42 : 36,
+                          widget.settings.mapMarkerScale,
+                        ),
+                        height: scaledMapMarkerDimension(
+                          point.id == _selectedPoint?.id ? 42 : 36,
+                          widget.settings.mapMarkerScale,
+                        ),
+                        child: ScaledMapMarker(
+                          scale: widget.settings.mapMarkerScale,
+                          baseWidth: point.id == _selectedPoint?.id ? 42 : 36,
+                          baseHeight: point.id == _selectedPoint?.id ? 42 : 36,
+                          child: _AssignPointMarker(
+                            selected: point.id == _selectedPoint?.id,
+                            assignable: selectedBoxPoints.any(
+                              (candidate) => candidate.id == point.id,
+                            ),
+                            onTap: () => _selectPoint(point),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                configuredMapAttribution(widget.settings),
+              ],
+            ),
+            if (_isBoxSelecting)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: (details) {
+                    setState(() {
+                      _selectionStart = details.localPosition;
+                      _selectionEnd = details.localPosition;
+                    });
+                  },
+                  onPanUpdate: (details) {
+                    setState(() {
+                      _selectionEnd = details.localPosition;
+                    });
+                  },
+                  child: CustomPaint(
+                    painter: _SelectionRectPainter(_selectionRect),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 12,
+              child: SafeArea(
+                bottom: false,
+                child: _BoxAssignPanel(
+                  groups: _groups,
+                  targetGroup: targetGroup,
+                  selectedCount: selectedBoxPoints.length,
+                  ungroupedCount: _ungroupedPoints.length,
+                  isBoxSelecting: _isBoxSelecting,
+                  isSaving: _isSaving,
+                  onSelectGroup: (group) {
+                    setState(() {
+                      _targetGroupId = group.id;
+                    });
+                  },
+                  onCreateGroup: _createGroup,
+                  onToggleBoxSelection: () {
+                    setState(() {
+                      _isBoxSelecting = !_isBoxSelecting;
+                      _selectionStart = null;
+                      _selectionEnd = null;
+                    });
+                  },
+                  onAssign: _confirmAssignBox,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: _selectedPoint == null
+                  ? _NearestAssignHintCard(
+                      ungroupedCount: _ungroupedPoints.length,
+                      groupCount: _groups.length,
+                    )
+                  : _NearestAssignPointCard(
+                      planId: _plan.id,
+                      repository: widget.repository,
+                      imageSource: widget.settings.anitabiImageSource,
+                      onThumbnailCached: () {
+                        if (mounted) _didUpdate = true;
+                      },
+                      point: _selectedPoint!,
+                      nearestGroup: targetGroup,
+                      distanceMeters: null,
+                      assignable: selectedBoxPoints.any(
+                        (point) => point.id == _selectedPoint!.id,
+                      ),
+                      assignableLabel: '已框选',
+                      unassignableLabel: '未框选',
+                      onOpenDetail: () => _showPointDetail(_selectedPoint!),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  LatLng get _mapCenter {
+    final positions = [
+      for (final point in _ungroupedPoints) point.position,
+      for (final group in _groups) ?_anchorOf(group),
+    ];
+    if (positions.isEmpty) {
+      return previewCurrentLocation;
+    }
+    final latitude =
+        positions.map((point) => point.latitude).reduce((a, b) => a + b) /
+        positions.length;
+    final longitude =
+        positions.map((point) => point.longitude).reduce((a, b) => a + b) /
+        positions.length;
+    return LatLng(latitude, longitude);
+  }
+
+  void _selectPoint(PilgrimagePoint point) {
+    if (_isBoxSelecting) {
+      return;
+    }
+    setState(() {
+      _selectedPoint = point;
+    });
+  }
+
+  Future<void> _createGroup() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => const _BoxAssignCreateGroupDialog(),
+    );
+    final trimmedName = name?.trim();
+    if (trimmedName == null || trimmedName.isEmpty || !mounted) {
+      return;
+    }
+
+    final nextOrderIndex = _groups.isEmpty
+        ? 0
+        : _groups
+                  .map((group) => group.orderIndex)
+                  .reduce((a, b) => a > b ? a : b) +
+              1;
+    final now = DateTime.now();
+    final group = PilgrimagePlanGroup(
+      id: 'group-${now.microsecondsSinceEpoch}',
+      name: trimmedName,
+      orderIndex: nextOrderIndex,
+      createdAt: now,
+    );
+    setState(() {
+      _isSaving = true;
+    });
+    try {
+      final updatedPlan = await widget.repository.createPlanGroup(
+        planId: _plan.id,
+        group: group,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _plan = updatedPlan;
+        _targetGroupId = group.id;
+        _didUpdate = true;
+        _isSaving = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '片区创建失败');
+    }
+  }
+
+  Future<void> _confirmAssignBox() async {
+    if (_isSaving) {
+      return;
+    }
+    final targetGroup = _targetGroup;
+    final points = _selectedBoxPoints;
+    if (targetGroup == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '请先创建片区');
+      return;
+    }
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.warning,
+        title: '框选范围内没有未分组点位',
+      );
+      return;
+    }
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '确认框选分配',
+      message: '将把 ${points.length} 个未分组点位移动到「${targetGroup.name}」。',
+      confirmLabel: '分配',
+      emphasizedValues: ['${points.length} 个未分组点位', targetGroup.name],
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+    try {
+      final updatedPlan = await widget.repository.movePointsToGroup(
+        planId: _plan.id,
+        pointIds: points.map((point) => point.id).toSet(),
+        groupId: targetGroup.id,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _plan = updatedPlan;
+        _selectedPoint = null;
+        _selectionStart = null;
+        _selectionEnd = null;
+        _didUpdate = true;
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: '已分配 ${points.length} 个点位',
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '框选分配失败');
+    }
+  }
+
+  void _showPointDetail(PilgrimagePoint point) {
+    PointDetailSheet.show(
+      context,
+      point: point,
+      status: VisitStatus.pending,
+      onSetCurrent: () {},
+      onOpenCamera: () {
+        ScaffoldMessenger.of(
+          context,
+        ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '请先完成片区分配');
+      },
+      onComplete: () {},
+      onReplaceReference: _replaceReferenceImage,
+      actionScope: PointDetailActionScope.assign,
+      groups: _plan.groups,
+      groupBuckets: planGroupBuckets(_plan, _plan.completedPointIds),
+      onMoveToGroup: _movePointToGroup,
+      onDelete: _deletePoint,
+      navigationApp: widget.settings.navigationApp,
+      settings: widget.settings,
+    );
+  }
+
+  Future<void> _replaceReferenceImage(
+    PilgrimagePoint point,
+    StoredUserReferenceImage image,
+  ) async {
+    final updatedPlan = await widget.repository.updatePointInPlan(
+      planId: _plan.id,
+      point: point.copyWith(
+        referenceImageUrl: null,
+        referenceThumbnailPath: image.thumbnailPath,
+        referenceFullImagePath: image.fullImagePath,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = updatedPlan.points.firstWhere((p) => p.id == point.id);
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _movePointToGroup(PilgrimagePoint point, String? groupId) async {
+    final updatedPlan = await widget.repository.movePointsToGroup(
+      planId: _plan.id,
+      pointIds: {point.id},
+      groupId: groupId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+    });
+  }
+
+  Future<void> _deletePoint(PilgrimagePoint point) async {
+    final updatedPlan = await widget.repository.deletePointFromPlan(
+      planId: _plan.id,
+      pointId: point.id,
+    );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+    });
+  }
+}
+
+class _BoxAssignGroupPicker extends StatefulWidget {
+  const _BoxAssignGroupPicker({
+    required this.groups,
+    required this.selectedGroup,
+    required this.enabled,
+    required this.onSelected,
+    required this.onCreateGroup,
+  });
+
+  final List<PilgrimagePlanGroup> groups;
+  final PilgrimagePlanGroup? selectedGroup;
+  final bool enabled;
+  final ValueChanged<PilgrimagePlanGroup> onSelected;
+  final Future<void> Function() onCreateGroup;
+
+  @override
+  State<_BoxAssignGroupPicker> createState() => _BoxAssignGroupPickerState();
+}
+
+class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
+  final _menuController = MenuController();
+  var _isOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = MediaQuery.sizeOf(context).width - 32;
+        final menuWidth = math.min(availableWidth, constraints.maxWidth);
+        return MenuAnchor(
+          key: const ValueKey('box-assign-group-picker'),
+          controller: _menuController,
+          onOpen: () => setState(() => _isOpen = true),
+          onClose: () => setState(() => _isOpen = false),
+          alignmentOffset: const Offset(0, 2),
+          style: MenuStyle(
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+            backgroundColor: WidgetStatePropertyAll(AppColors.surface),
+            elevation: const WidgetStatePropertyAll(8),
+            shadowColor: WidgetStatePropertyAll(
+              AppColors.textPrimary.withValues(alpha: 0.16),
+            ),
+            side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(8),
+                  top: Radius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          builder: (context, controller, child) {
+            return Material(
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(8),
+                  bottom: Radius.circular(_isOpen ? 4 : 8),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: const ValueKey('box-assign-group-picker-button'),
+                onTap: widget.enabled
+                    ? () {
+                        if (controller.isOpen) {
+                          controller.close();
+                        } else {
+                          controller.open();
+                        }
+                      }
+                    : null,
+                child: SizedBox(
+                  height: AppButtonStyles.compactHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        const Icon(LucideIcons.folder, size: 19),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.selectedGroup?.name ?? '选择片区',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          _isOpen
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.chevronDown,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          menuChildren: [
+            SizedBox(
+              key: const ValueKey('box-assign-group-menu'),
+              width: menuWidth,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '选择片区',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '共 ${widget.groups.length} 个片区',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        primary: false,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final group in widget.groups)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: MenuItemButton(
+                                  key: ValueKey(
+                                    'box-assign-group-option-${group.id}',
+                                  ),
+                                  onPressed: () => widget.onSelected(group),
+                                  leadingIcon:
+                                      group.id == widget.selectedGroup?.id
+                                      ? Icon(
+                                          LucideIcons.check,
+                                          color: accentColor,
+                                          size: 19,
+                                        )
+                                      : const SizedBox(width: 19),
+                                  style: ButtonStyle(
+                                    minimumSize: const WidgetStatePropertyAll(
+                                      Size.fromHeight(42),
+                                    ),
+                                    padding: const WidgetStatePropertyAll(
+                                      EdgeInsets.symmetric(horizontal: 10),
+                                    ),
+                                    backgroundColor: WidgetStatePropertyAll(
+                                      group.id == widget.selectedGroup?.id
+                                          ? accentColor.withValues(alpha: 0.09)
+                                          : Colors.transparent,
+                                    ),
+                                    overlayColor:
+                                        WidgetStateProperty.resolveWith((
+                                          states,
+                                        ) {
+                                          if (group.id ==
+                                              widget.selectedGroup?.id) {
+                                            return Colors.transparent;
+                                          }
+                                          return states.contains(
+                                                WidgetState.hovered,
+                                              )
+                                              ? accentColor.withValues(
+                                                  alpha: 0.035,
+                                                )
+                                              : Colors.transparent;
+                                        }),
+                                    foregroundColor: WidgetStatePropertyAll(
+                                      group.id == widget.selectedGroup?.id
+                                          ? accentColor
+                                          : AppColors.textPrimary,
+                                    ),
+                                    shape: WidgetStatePropertyAll(
+                                      RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    group.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: AppColors.border,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
+                      child: MenuItemButton(
+                        key: const ValueKey('box-assign-create-group'),
+                        onPressed: widget.enabled
+                            ? () async {
+                                _menuController.close();
+                                await widget.onCreateGroup();
+                              }
+                            : null,
+                        leadingIcon: Icon(
+                          LucideIcons.plus,
+                          color: accentColor,
+                          size: 20,
+                        ),
+                        style: ButtonStyle(
+                          minimumSize: const WidgetStatePropertyAll(
+                            Size.fromHeight(42),
+                          ),
+                          foregroundColor: WidgetStatePropertyAll(accentColor),
+                          overlayColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.hovered)
+                                ? accentColor.withValues(alpha: 0.035)
+                                : Colors.transparent,
+                          ),
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          shape: WidgetStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                        child: const Text(
+                          '新建片区',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BoxAssignCreateGroupDialog extends StatefulWidget {
+  const _BoxAssignCreateGroupDialog();
+
+  @override
+  State<_BoxAssignCreateGroupDialog> createState() =>
+      _BoxAssignCreateGroupDialogState();
+}
+
+class _BoxAssignCreateGroupDialogState
+    extends State<_BoxAssignCreateGroupDialog> {
+  final _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _controller.text.trim();
+    if (name.isEmpty) {
+      setState(() => _errorText = '片区名不能为空');
+      return;
+    }
+    Navigator.of(context).pop(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppInputDialog(
+      title: '新建片区',
+      content: AppDialogField(
+        label: '片区名称',
+        child: TextField(
+          onTapOutside: dismissKeyboardOnTapOutside,
+          key: const ValueKey('box-assign-group-name-field'),
+          controller: _controller,
+          autofocus: true,
+          decoration: appDialogInputDecoration(errorText: _errorText),
+          textInputAction: TextInputAction.done,
+          onChanged: (_) {
+            if (_errorText != null) {
+              setState(() => _errorText = null);
+            }
+          },
+          onSubmitted: (_) => _submit(),
+        ),
+      ),
+      confirmLabel: '创建',
+      onConfirm: _submit,
+    );
+  }
+}
+
+class _BoxAssignPanel extends StatelessWidget {
+  const _BoxAssignPanel({
+    required this.groups,
+    required this.targetGroup,
+    required this.selectedCount,
+    required this.ungroupedCount,
+    required this.isBoxSelecting,
+    required this.isSaving,
+    required this.onSelectGroup,
+    required this.onCreateGroup,
+    required this.onToggleBoxSelection,
+    required this.onAssign,
+  });
+
+  final List<PilgrimagePlanGroup> groups;
+  final PilgrimagePlanGroup? targetGroup;
+  final int selectedCount;
+  final int ungroupedCount;
+  final bool isBoxSelecting;
+  final bool isSaving;
+  final ValueChanged<PilgrimagePlanGroup> onSelectGroup;
+  final Future<void> Function() onCreateGroup;
+  final VoidCallback onToggleBoxSelection;
+  final VoidCallback onAssign;
+
+  @override
+  Widget build(BuildContext context) {
+    const actionButtonWidth = 112.0;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.96),
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _BoxAssignGroupPicker(
+                    groups: groups,
+                    selectedGroup: targetGroup,
+                    enabled: !isSaving,
+                    onSelected: onSelectGroup,
+                    onCreateGroup: onCreateGroup,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  key: const ValueKey('box-assign-toggle-button'),
+                  width: actionButtonWidth,
+                  height: 36,
+                  child: OutlinedButton(
+                    onPressed: isSaving ? null : onToggleBoxSelection,
+                    style: AppButtonStyles.compactOutlinedButton(),
+                    child: ResponsiveButtonContent(
+                      icon: isBoxSelecting ? LucideIcons.x : LucideIcons.scan,
+                      iconSize: 17,
+                      label: isBoxSelecting ? '结束框选' : '框选',
+                      shortLabel: isBoxSelecting ? '结束' : '框选',
+                      semanticLabel: isBoxSelecting ? '结束框选' : '开始框选',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '已框选 $selectedCount / 待分配 $ungroupedCount',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  key: const ValueKey('box-assign-submit-button'),
+                  width: actionButtonWidth,
+                  height: 36,
+                  child: FilledButton(
+                    onPressed:
+                        isSaving || targetGroup == null || selectedCount == 0
+                        ? null
+                        : onAssign,
+                    style: AppButtonStyles.compactFilledButton(),
+                    child: ResponsiveButtonContent(
+                      icon: LucideIcons.folderInput,
+                      iconSize: 17,
+                      label: isSaving ? '分配中' : '分配',
+                      semanticLabel: isSaving ? '正在分配' : '分配选中点位',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionRectPainter extends CustomPainter {
+  const _SelectionRectPainter(this.rect);
+
+  final Rect? rect;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = this.rect;
+    if (rect == null) {
+      return;
+    }
+    final normalized = Rect.fromLTRB(
+      math.min(rect.left, rect.right),
+      math.min(rect.top, rect.bottom),
+      math.max(rect.left, rect.right),
+      math.max(rect.top, rect.bottom),
+    );
+    final fillPaint = Paint()
+      ..color = AppColors.accent.withValues(alpha: 0.14)
+      ..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..color = AppColors.accent
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(normalized, fillPaint);
+    canvas.drawRect(normalized, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(_SelectionRectPainter oldDelegate) {
+    return oldDelegate.rect != rect;
+  }
+}
+
+class _NearestAssignPanel extends StatelessWidget {
+  const _NearestAssignPanel({
+    required this.distanceMeters,
+    required this.assignableCount,
+    required this.ungroupedCount,
+    required this.groupCount,
+    required this.isSaving,
+    required this.onDistanceChanged,
+    required this.onAssign,
+  });
+
+  final double distanceMeters;
+  final int assignableCount;
+  final int ungroupedCount;
+  final int groupCount;
+  final bool isSaving;
+  final ValueChanged<double> onDistanceChanged;
+  final VoidCallback onAssign;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.96),
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(LucideIcons.wandSparkles, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '最大距离 ${_formatDistance(distanceMeters)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                Text(
+                  '可分配 $assignableCount/$ungroupedCount',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '未分组点位会分配到距离最近、且在最大距离范围内的片区关键点。',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.25,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '当前 ${_formatDistance(distanceMeters)}',
+                  style: TextStyle(
+                    color: AppColors.accentDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                Text(
+                  '50 m - 5 km',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    value: distanceMeters.clamp(50.0, 5000.0),
+                    min: 50,
+                    max: 5000,
+                    divisions: 99,
+                    label: _formatDistance(distanceMeters),
+                    onChanged: isSaving ? null : onDistanceChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 38,
+                  child: FilledButton(
+                    onPressed: isSaving || groupCount == 0 ? null : onAssign,
+                    child: Text(isSaving ? '分配中' : '分配'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NearestAssignPointCard extends StatelessWidget {
+  const _NearestAssignPointCard({
+    required this.planId,
+    required this.repository,
+    required this.imageSource,
+    required this.onThumbnailCached,
+    required this.point,
+    required this.nearestGroup,
+    required this.distanceMeters,
+    required this.assignable,
+    required this.onOpenDetail,
+    this.assignableLabel = '在最大距离范围内',
+    this.unassignableLabel = '超出最大距离',
+  });
+
+  final String planId;
+  final PilgrimageRepository repository;
+  final AnitabiImageSource imageSource;
+  final VoidCallback onThumbnailCached;
+  final PilgrimagePoint point;
+  final PilgrimagePlanGroup? nearestGroup;
+  final double? distanceMeters;
+  final bool assignable;
+  final String assignableLabel;
+  final String unassignableLabel;
+  final VoidCallback onOpenDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomInset),
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpenDetail,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: AnitabiImageSourceScope(
+                      source: imageSource,
+                      child: AutoCachingReferenceThumbnail(
+                        key: ValueKey('$planId:${point.id}'),
+                        planId: planId,
+                        point: point,
+                        repository: repository,
+                        // Cache completion must not replace concurrent group edits.
+                        onPlanUpdated: (_) => onThumbnailCached(),
+                        placeholder: const Icon(LucideIcons.image),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        point.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        nearestGroup == null
+                            ? '没有可用片区关键点'
+                            : '${nearestGroup!.name} · ${_formatDistance(distanceMeters ?? 0)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        assignable ? assignableLabel : unassignableLabel,
+                        style: TextStyle(
+                          color: assignable
+                              ? AppColors.accentDark
+                              : AppColors.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  assignable ? LucideIcons.circleCheckBig : LucideIcons.info,
+                  color: assignable ? AppColors.accentDark : AppColors.warning,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NearestAssignHintCard extends StatelessWidget {
+  const _NearestAssignHintCard({
+    required this.ungroupedCount,
+    required this.groupCount,
+  });
+
+  final int ungroupedCount;
+  final int groupCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomInset),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            groupCount == 0
+                ? '请先在片区管理中设置关键点'
+                : '未分组 $ungroupedCount 个 · 点击地图点位查看详情',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssignPointMarker extends StatelessWidget {
+  const _AssignPointMarker({
+    required this.selected,
+    required this.assignable,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final bool assignable;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = assignable ? MapColors.accent : MapColors.surfaceMuted;
+    return IconButton(
+      tooltip: assignable ? '可分配点位' : '距离外点位',
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: selected ? MapColors.accentDark : color,
+        foregroundColor: selected || assignable
+            ? MapColors.onAccent
+            : AppColors.textSecondary,
+        side: BorderSide(
+          color: selected ? AppColors.warning : MapColors.border,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      icon: const Icon(LucideIcons.mapPin, size: 20),
+    );
+  }
+}
+
+class _AnchorMarker extends StatelessWidget {
+  const _AnchorMarker({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: name,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: MapColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: MapColors.accentDark, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(LucideIcons.flag, color: MapColors.accentDark),
+      ),
+    );
+  }
+}
+
+String _formatDistance(double meters) {
+  if (meters >= 1000) {
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+  return '${meters.round()} m';
+}

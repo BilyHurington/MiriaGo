@@ -1,0 +1,84 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../app_theme.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
+import '../desktop/desktop_asset_image.dart';
+import '../plan/pilgrimage_models.dart';
+
+String? resolveVisitRecordDisplayPhotoPath(PilgrimageVisitRecord record) {
+  return _firstDisplayableVisitRecordPath([
+    record.gradedPhotoPath,
+    record.photoPath,
+    record.originalPhotoPath,
+  ]);
+}
+
+String? resolveVisitRecordSourcePhotoPath(PilgrimageVisitRecord record) {
+  return _firstDisplayableVisitRecordPath([
+    record.originalPhotoPath,
+    record.photoPath,
+    record.gradedPhotoPath,
+  ]);
+}
+
+bool visitRecordPhotoPathCanDisplay(String? path) {
+  final value = path?.trim();
+  if (value == null || value.isEmpty) {
+    return false;
+  }
+  return isDesktopAssetPath(value) || value.startsWith('docs/sample_images/');
+}
+
+String? _firstDisplayableVisitRecordPath(Iterable<String?> paths) {
+  for (final path in paths) {
+    if (visitRecordPhotoPathCanDisplay(path)) {
+      return path;
+    }
+  }
+  return null;
+}
+
+class VisitRecordPhoto extends StatelessWidget {
+  const VisitRecordPhoto({
+    this.path,
+    this.fit = BoxFit.cover,
+    this.target = ImageDecodeTarget.list,
+    super.key,
+  });
+
+  final String? path;
+  final BoxFit fit;
+  final ImageDecodeTarget target;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedPath = path?.trim();
+    if (resolvedPath == null || resolvedPath.isEmpty) {
+      return const _PhotoPlaceholder();
+    }
+
+    if (isDesktopAssetPath(resolvedPath)) {
+      return BoundedImage(path: resolvedPath, fit: fit, target: target);
+    }
+
+    if (resolvedPath.startsWith('docs/sample_images/')) {
+      return BoundedImage(path: resolvedPath, fit: fit, target: target);
+    }
+
+    return const _PhotoPlaceholder();
+  }
+}
+
+class _PhotoPlaceholder extends StatelessWidget {
+  const _PhotoPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.surfaceMuted,
+      child: const Center(child: Icon(LucideIcons.image)),
+    );
+  }
+}

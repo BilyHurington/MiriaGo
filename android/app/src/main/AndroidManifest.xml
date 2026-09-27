@@ -1,0 +1,106 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Saving to the shared Pictures folder before scoped storage (API 24-28).
+         Photo picking uses the system picker / ACTION_GET_CONTENT and needs no
+         read permission. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
+    <application
+        android:label="MiriaGo"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:targetApi="31">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- MiriaGo plan packages announced with their own MIME type, plus
+                 application/octet-stream: Android has no mapping for .sjhplan, so
+                 most senders (Gmail, Drive, Downloads, MiriaGo's own share sheet)
+                 report octet-stream, and their content URIs usually do not carry
+                 the file name. The Dart importer rejects anything that is not a
+                 plan package with an error message. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="application/vnd.miriago.plan+json"/>
+                <data android:mimeType="application/vnd.miriago.plan+zip"/>
+                <data android:mimeType="application/vnd.seichi-junrei.plan+json"/>
+                <data android:mimeType="application/octet-stream"/>
+            </intent-filter>
+            <!-- JSON/text only when the content URI path ends in .sjhplan so the
+                 app is not offered for every JSON or text file. pathPattern is
+                 ignored without a host, matching is case-sensitive, and ".*"
+                 stops at the first dot, so list patterns for paths containing
+                 extra dots in both lower and upper case. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="content"/>
+                <data android:host="*"/>
+                <data android:mimeType="application/json"/>
+                <data android:mimeType="text/plain"/>
+                <data android:pathPattern=".*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.sjhplan"/>
+                <data android:pathPattern=".*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.SJHPLAN"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.SJHPLAN"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <package android:name="com.google.android.apps.maps"/>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

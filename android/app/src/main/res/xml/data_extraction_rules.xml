@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup and device-transfer rules for Android 12 (API 31) and higher.
+     Mirrors backup_rules.xml: keep user data, skip re-downloadable Anitabi
+     reference image caches under <data dir>/app_flutter and the cache dir. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="app_flutter/reference_full" />
+        <exclude domain="root" path="app_flutter/reference_thumbnails" />
+        <exclude domain="root" path="cache" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="app_flutter/reference_full" />
+        <exclude domain="root" path="app_flutter/reference_thumbnails" />
+        <exclude domain="root" path="cache" />
+    </device-transfer>
+</data-extraction-rules>
