@@ -63,10 +63,10 @@ class MapControlButton extends StatelessWidget {
             boxShadow: Elevations.level2(c),
           ),
           child: ClipOval(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: _MaybeBlur(
+              sigma: 12,
               child: Material(
-                color: selected ? c.primary : c.surfaceOverlay,
+                color: selected ? c.primary : Effects.glass(c),
                 shape: CircleBorder(
                   side: BorderSide(
                     color: selected ? c.primary : c.hairline,
@@ -488,6 +488,22 @@ class MapOverlapPager extends StatelessWidget {
           icon: const Icon(Symbols.chevron_right_rounded),
         ),
       ],
+    );
+  }
+}
+
+class _MaybeBlur extends StatelessWidget {
+  const _MaybeBlur({required this.sigma, required this.child});
+
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Effects.backdropBlur) return child;
+    return BackdropFilter(
+      filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      child: child,
     );
   }
 }

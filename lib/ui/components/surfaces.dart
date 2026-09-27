@@ -150,7 +150,7 @@ class GlassPanel extends StatelessWidget {
     final c = context.colors;
     final decorated = DecoratedBox(
       decoration: BoxDecoration(
-        color: translucent ? c.surfaceOverlay : c.surface,
+        color: translucent ? Effects.glass(c) : c.surface,
         borderRadius: borderRadius,
         border: Border.all(color: c.hairline.withValues(alpha: 0.7)),
       ),
@@ -163,7 +163,7 @@ class GlassPanel extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: borderRadius,
-        child: translucent
+        child: translucent && Effects.backdropBlur
             ? BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
                 child: decorated,

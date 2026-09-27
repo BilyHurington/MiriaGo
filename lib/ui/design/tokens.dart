@@ -1,5 +1,6 @@
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 /// Semantic colour tokens of the Miria design system.
@@ -467,3 +468,15 @@ abstract final class MiriaFonts {
 
 /// Linear interpolation helper for numeric tokens.
 double lerpToken(double a, double b, double t) => lerpDouble(a, b, t)!;
+
+/// Visual effects that depend on the renderer.
+abstract final class Effects {
+  /// Backdrop blur for glass surfaces. Disabled on Flutter Web, where a
+  /// BackdropFilter above an HTML platform view (the MapLibre map) paints
+  /// over it and hides the map. Glass surfaces fall back to opaque colours.
+  static bool get backdropBlur => !kIsWeb;
+
+  /// Background for "glass" surfaces: translucent when blur is available.
+  static Color glass(MiriaColors c) =>
+      backdropBlur ? c.surfaceOverlay : c.surface;
+}

@@ -230,6 +230,7 @@ class _ToastCardState extends State<_ToastCard>
             child: ClipRRect(
               borderRadius: Radii.mdAll,
               child: BackdropFilter(
+                enabled: Effects.backdropBlur,
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 child: Container(
                   decoration: BoxDecoration(
