@@ -57,9 +57,17 @@ class _MiriaGoBootstrapState extends State<MiriaGoBootstrap> {
   StackTrace? _stackTrace;
   bool _loading = true;
 
+  /// Deep link / reloaded URL (web): captured before the loading screen's
+  /// own MaterialApp reports '/' and overwrites the browser location.
+  String? _platformInitialRoute;
+
   @override
   void initState() {
     super.initState();
+    final route = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+    if (route.isNotEmpty && route != '/' && route != Navigator.defaultRouteName) {
+      _platformInitialRoute = route;
+    }
     unawaited(_start());
   }
 
@@ -78,7 +86,7 @@ class _MiriaGoBootstrapState extends State<MiriaGoBootstrap> {
       await session.load();
       StartupService.runStartupSideEffects(repository);
       _lastTabPath = widget.initialLocation == null
-          ? await UiStateStore.loadLastTabPath()
+          ? _platformInitialRoute ?? await UiStateStore.loadLastTabPath()
           : null;
       if (!mounted) return;
       setState(() {
