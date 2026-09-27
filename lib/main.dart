@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'application/app_services.dart';
 import 'desktop/tauri_bridge.dart';
 import 'ui/app/app.dart';
+import 'ui/devtools/layout_lab.dart';
+import 'ui/devtools/preview_seeds.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +21,21 @@ Future<void> main() async {
     ], await rootBundle.loadString('assets/fonts/Inter-LICENSE.txt'));
   });
   _installDesktopErrorLogging();
-  runApp(const MiriaGoBootstrap());
+  final query = kIsWeb && !isTauriLauncherAvailable
+      ? Uri.base.queryParameters
+      : const <String, String>{};
+  final seed = query['seed'];
+  if (query.containsKey('lab')) {
+    runApp(LayoutLab(seed: seed, route: query['route'] ?? '/go'));
+    return;
+  }
+  runApp(
+    MiriaGoBootstrap(
+      repositoryLoader: seed == null
+          ? StartupService.createDefaultRepository
+          : () => PreviewSeeds.build(seed),
+    ),
+  );
 }
 
 void _installDesktopErrorLogging() {

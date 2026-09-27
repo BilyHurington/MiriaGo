@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "miriago-next-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tool/web_preview_server.mjs"],
+      "port": 8792
+    }
+  ]
+}
