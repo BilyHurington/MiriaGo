@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/ui/app/app.dart';
+import 'package:miriago/ui/map/plan_map.dart';
 
 /// Common window sizes from DESIGN §5.8.
 abstract final class TestSizes {
@@ -24,6 +25,8 @@ Future<PilgrimageRepository> pumpMiriaApp(
   PilgrimageRepository? repository,
 }) async {
   final repo = repository ?? SamplePilgrimageRepository();
+  PlanMap.debugDisableTiles = true;
+  addTearDown(() => PlanMap.debugDisableTiles = false);
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;

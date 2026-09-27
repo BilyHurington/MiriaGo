@@ -328,6 +328,10 @@ class PlanMap extends StatefulWidget {
   /// Renders no base map at all (tests).
   final bool disableTiles;
 
+  /// Global test switch: when true every [PlanMap] renders without tiles,
+  /// so router-built pages never hit the network in widget tests.
+  static bool debugDisableTiles = false;
+
   @override
   State<PlanMap> createState() => _PlanMapState();
 }
@@ -337,7 +341,9 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   bool _ownsController = false;
   bool _ready = false;
   EdgeInsets _obscured = EdgeInsets.zero;
-  late final AnimationController _animation = AnimationController(vsync: this);
+  AnimationController? _animationController;
+  AnimationController get _animation =>
+      _animationController ??= AnimationController(vsync: this);
   StreamSubscription<MapEvent>? _events;
   Completer<void>? _animationDone;
   VoidCallback? _tick;
@@ -380,7 +386,7 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   void dispose() {
     _stopAnimation();
     _events?.cancel();
-    _animation.dispose();
+    _animationController?.dispose();
     _controller._detach(this);
     if (_ownsController) _controller.dispose();
     super.dispose();
@@ -388,7 +394,7 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
 
   void _onMapEvent(MapEvent event) {
     // A user gesture interrupts a programmatic animation.
-    if (_animation.isAnimating &&
+    if ((_animationController?.isAnimating ?? false) &&
         event.source != MapEventSource.mapController &&
         event.source != MapEventSource.nonRotatedSizeChange) {
       _stopAnimation();
@@ -396,7 +402,8 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
   }
 
   void _stopAnimation() {
-    if (_animation.isAnimating) _animation.stop();
+    final animation = _animationController;
+    if (animation != null && animation.isAnimating) animation.stop();
     _detachTick();
     final done = _animationDone;
     _animationDone = null;
@@ -405,7 +412,7 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
 
   void _detachTick() {
     final tick = _tick;
-    if (tick != null) _animation.removeListener(tick);
+    if (tick != null) _animationController?.removeListener(tick);
     _tick = null;
     _curve?.dispose();
     _curve = null;
@@ -516,7 +523,7 @@ class _PlanMapState extends State<PlanMap> with SingleTickerProviderStateMixin {
         ? InteractiveFlag.all
         : InteractiveFlag.all & ~InteractiveFlag.rotate;
 
-    final Widget? tiles = widget.disableTiles
+    final Widget? tiles = widget.disableTiles || PlanMap.debugDisableTiles
         ? null
         : widget.tileLayerOverride ??
               configuredMapTileLayer(settings, dark: dark);
