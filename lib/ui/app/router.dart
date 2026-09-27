@@ -26,6 +26,7 @@ import '../features/settings/privacy_page.dart';
 import '../features/settings/settings_page.dart';
 import '../features/transfer/transfer_page.dart';
 import '../features/works/works_page.dart';
+import '../dev/component_gallery.dart';
 import 'shell.dart';
 
 /// Route paths. Use these constants (or the helpers) instead of literals.
@@ -244,6 +245,11 @@ GoRouter buildRouter({required String initialLocation}) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        parentNavigatorKey: rootNavigatorKey,
+        path: '/_lab/components',
+        builder: (context, state) => const ComponentGalleryPage(),
       ),
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,

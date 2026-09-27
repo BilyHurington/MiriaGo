@@ -291,6 +291,8 @@ ThemeData buildMiriaTheme(MiriaColors c, {TargetPlatform? platform}) {
       labelStyle: text.bodyMedium?.copyWith(color: c.textSecondary),
       floatingLabelStyle: text.bodyMedium?.copyWith(color: c.primaryText),
       helperStyle: text.bodySmall?.copyWith(color: c.textSecondary),
+      helperMaxLines: 3,
+      errorMaxLines: 3,
       errorStyle: text.bodySmall?.copyWith(color: c.danger),
       prefixIconColor: c.textSecondary,
       suffixIconColor: c.textSecondary,
