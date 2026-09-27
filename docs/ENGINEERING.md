@@ -156,6 +156,14 @@ else calls them.
 
 ## 6. Tests
 
+- Pages with maps: wrap tests in `PointFeatureOverrides(disableMapTiles: true)`
+  (lib/ui/features/points/point_shared.dart) or use `pumpGoApp` from
+  test/ui/go/go_test_helpers.dart so no network tiles load.
+- Reusable point UI (owner A, `features/points/point_shared.dart`):
+  `PointThumbnail`, `PointReferenceImage`, `PointActionLayout`,
+  `PointFeatureOverrides`. `PointInspectorScope(alwaysInline:)` forces inline
+  details.
+
 - Logic tests for services in `test/application/<area>/…`.
 - Widget tests in `test/ui/<area>/…` using `test/helpers/pump_app.dart`
   (`pumpMiriaApp(tester, location: '/plan/works', size: const Size(390, 844))`).
