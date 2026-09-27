@@ -126,5 +126,5 @@ npm run desktop:dev
 - `flutter analyze --no-pub`：No issues found。
 - `flutter test --no-pub`：**1192 个测试全部通过**（1 个跳过，沿用旧仓库）。
 - `flutter build web --release`：成功。Material Symbols 图标字体经 tree-shaking 从 15 MB 降到约 50 KB。
-- 提交：`MiriaGo-Next` 本地 `main` 分支，从导入基线开始共约 25 个提交，**未推送**，也没有关联远端。
+- 提交：`MiriaGo-Next` 本地 `main` 分支，从导入基线开始共 23 个提交（含本条说明），**未推送**，也没有关联远端。
 - 原项目目录 `Seichi-Junrei-Helper` 在整个开发过程中只读，没有修改（开发前写入过一次 `docs/memory/PROJECT_PROGRESS.md` 设计记录，发生在你要求「不要修改原项目」之前）。
