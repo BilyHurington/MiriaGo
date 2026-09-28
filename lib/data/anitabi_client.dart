@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../plan/pilgrimage_models.dart';
+import 'anitabi_endpoint_sync.dart';
 import 'anitabi_image_url.dart';
 import 'anitabi_service_config.dart';
 import 'anitabi_static_data_reader.dart';
@@ -32,9 +33,28 @@ class AnitabiClient {
   }
 
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
-    final uri = (_serviceConfig ?? AnitabiServiceConfig.current).apiUri(
-      'bangumi/$bangumiId/lite',
-    );
+    try {
+      return await _fetchBangumiLite(
+        bangumiId,
+        _serviceConfig ?? AnitabiServiceConfig.current,
+      );
+    } on Object catch (error) {
+      final recovery = AnitabiEndpointRecovery.handler;
+      // An API 404 means this work is unknown, not that the API moved.
+      if (recovery == null ||
+          !isSuspectedAnitabiAddressFailure(error, notFoundMeansMoved: false)) {
+        rethrow;
+      }
+      if (!await recovery()) rethrow;
+      return _fetchBangumiLite(bangumiId, AnitabiServiceConfig.current);
+    }
+  }
+
+  Future<AnitabiBangumiLite> _fetchBangumiLite(
+    int bangumiId,
+    AnitabiServiceConfig config,
+  ) async {
+    final uri = config.apiUri('bangumi/$bangumiId/lite');
     final response = await _httpClient.get(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AnitabiException(response.statusCode, response.body);

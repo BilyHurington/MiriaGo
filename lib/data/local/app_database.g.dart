@@ -4474,6 +4474,18 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         requiredDuringInsert: false,
         defaultValue: const Constant(''),
       );
+  static const VerificationMeta _anitabiRemoteStateJsonMeta =
+      const VerificationMeta('anitabiRemoteStateJson');
+  @override
+  late final GeneratedColumn<String> anitabiRemoteStateJson =
+      GeneratedColumn<String>(
+        'anitabi_remote_state_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
   static const VerificationMeta _comparisonExportConfigMigratedMeta =
       const VerificationMeta('comparisonExportConfigMigrated');
   @override
@@ -4749,6 +4761,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     comparisonShowPilgrimName,
     comparisonPilgrimName,
     comparisonExportConfigJson,
+    anitabiRemoteStateJson,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -5026,6 +5039,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         comparisonExportConfigJson.isAcceptableOrUnknown(
           data['comparison_export_config_json']!,
           _comparisonExportConfigJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('anitabi_remote_state_json')) {
+      context.handle(
+        _anitabiRemoteStateJsonMeta,
+        anitabiRemoteStateJson.isAcceptableOrUnknown(
+          data['anitabi_remote_state_json']!,
+          _anitabiRemoteStateJsonMeta,
         ),
       );
     }
@@ -5325,6 +5347,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.string,
         data['${effectivePrefix}comparison_export_config_json'],
       )!,
+      anitabiRemoteStateJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}anitabi_remote_state_json'],
+      )!,
       comparisonExportConfigMigrated: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}comparison_export_config_migrated'],
@@ -5441,6 +5467,7 @@ class AppSettingsEntry extends DataClass
   final bool comparisonShowPilgrimName;
   final String comparisonPilgrimName;
   final String comparisonExportConfigJson;
+  final String anitabiRemoteStateJson;
   final bool comparisonExportConfigMigrated;
   final String customThemeColorName;
   final int customThemeColorValue;
@@ -5490,6 +5517,7 @@ class AppSettingsEntry extends DataClass
     required this.comparisonShowPilgrimName,
     required this.comparisonPilgrimName,
     required this.comparisonExportConfigJson,
+    required this.anitabiRemoteStateJson,
     required this.comparisonExportConfigMigrated,
     required this.customThemeColorName,
     required this.customThemeColorValue,
@@ -5562,6 +5590,7 @@ class AppSettingsEntry extends DataClass
     map['comparison_export_config_json'] = Variable<String>(
       comparisonExportConfigJson,
     );
+    map['anitabi_remote_state_json'] = Variable<String>(anitabiRemoteStateJson);
     map['comparison_export_config_migrated'] = Variable<bool>(
       comparisonExportConfigMigrated,
     );
@@ -5633,6 +5662,7 @@ class AppSettingsEntry extends DataClass
       comparisonShowPilgrimName: Value(comparisonShowPilgrimName),
       comparisonPilgrimName: Value(comparisonPilgrimName),
       comparisonExportConfigJson: Value(comparisonExportConfigJson),
+      anitabiRemoteStateJson: Value(anitabiRemoteStateJson),
       comparisonExportConfigMigrated: Value(comparisonExportConfigMigrated),
       customThemeColorName: Value(customThemeColorName),
       customThemeColorValue: Value(customThemeColorValue),
@@ -5719,6 +5749,9 @@ class AppSettingsEntry extends DataClass
       ),
       comparisonExportConfigJson: serializer.fromJson<String>(
         json['comparisonExportConfigJson'],
+      ),
+      anitabiRemoteStateJson: serializer.fromJson<String>(
+        json['anitabiRemoteStateJson'],
       ),
       comparisonExportConfigMigrated: serializer.fromJson<bool>(
         json['comparisonExportConfigMigrated'],
@@ -5826,6 +5859,9 @@ class AppSettingsEntry extends DataClass
       'comparisonExportConfigJson': serializer.toJson<String>(
         comparisonExportConfigJson,
       ),
+      'anitabiRemoteStateJson': serializer.toJson<String>(
+        anitabiRemoteStateJson,
+      ),
       'comparisonExportConfigMigrated': serializer.toJson<bool>(
         comparisonExportConfigMigrated,
       ),
@@ -5898,6 +5934,7 @@ class AppSettingsEntry extends DataClass
     bool? comparisonShowPilgrimName,
     String? comparisonPilgrimName,
     String? comparisonExportConfigJson,
+    String? anitabiRemoteStateJson,
     bool? comparisonExportConfigMigrated,
     String? customThemeColorName,
     int? customThemeColorValue,
@@ -5957,6 +5994,8 @@ class AppSettingsEntry extends DataClass
     comparisonPilgrimName: comparisonPilgrimName ?? this.comparisonPilgrimName,
     comparisonExportConfigJson:
         comparisonExportConfigJson ?? this.comparisonExportConfigJson,
+    anitabiRemoteStateJson:
+        anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
     comparisonExportConfigMigrated:
         comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
     customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6069,6 +6108,9 @@ class AppSettingsEntry extends DataClass
       comparisonExportConfigJson: data.comparisonExportConfigJson.present
           ? data.comparisonExportConfigJson.value
           : this.comparisonExportConfigJson,
+      anitabiRemoteStateJson: data.anitabiRemoteStateJson.present
+          ? data.anitabiRemoteStateJson.value
+          : this.anitabiRemoteStateJson,
       comparisonExportConfigMigrated:
           data.comparisonExportConfigMigrated.present
           ? data.comparisonExportConfigMigrated.value
@@ -6163,6 +6205,7 @@ class AppSettingsEntry extends DataClass
           ..write('comparisonShowPilgrimName: $comparisonShowPilgrimName, ')
           ..write('comparisonPilgrimName: $comparisonPilgrimName, ')
           ..write('comparisonExportConfigJson: $comparisonExportConfigJson, ')
+          ..write('anitabiRemoteStateJson: $anitabiRemoteStateJson, ')
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -6227,6 +6270,7 @@ class AppSettingsEntry extends DataClass
     comparisonShowPilgrimName,
     comparisonPilgrimName,
     comparisonExportConfigJson,
+    anitabiRemoteStateJson,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -6283,6 +6327,7 @@ class AppSettingsEntry extends DataClass
           other.comparisonShowPilgrimName == this.comparisonShowPilgrimName &&
           other.comparisonPilgrimName == this.comparisonPilgrimName &&
           other.comparisonExportConfigJson == this.comparisonExportConfigJson &&
+          other.anitabiRemoteStateJson == this.anitabiRemoteStateJson &&
           other.comparisonExportConfigMigrated ==
               this.comparisonExportConfigMigrated &&
           other.customThemeColorName == this.customThemeColorName &&
@@ -6340,6 +6385,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<bool> comparisonShowPilgrimName;
   final Value<String> comparisonPilgrimName;
   final Value<String> comparisonExportConfigJson;
+  final Value<String> anitabiRemoteStateJson;
   final Value<bool> comparisonExportConfigMigrated;
   final Value<String> customThemeColorName;
   final Value<int> customThemeColorValue;
@@ -6390,6 +6436,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.comparisonShowPilgrimName = const Value.absent(),
     this.comparisonPilgrimName = const Value.absent(),
     this.comparisonExportConfigJson = const Value.absent(),
+    this.anitabiRemoteStateJson = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6441,6 +6488,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.comparisonShowPilgrimName = const Value.absent(),
     this.comparisonPilgrimName = const Value.absent(),
     this.comparisonExportConfigJson = const Value.absent(),
+    this.anitabiRemoteStateJson = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6492,6 +6540,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<bool>? comparisonShowPilgrimName,
     Expression<String>? comparisonPilgrimName,
     Expression<String>? comparisonExportConfigJson,
+    Expression<String>? anitabiRemoteStateJson,
     Expression<bool>? comparisonExportConfigMigrated,
     Expression<String>? customThemeColorName,
     Expression<int>? customThemeColorValue,
@@ -6558,6 +6607,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'comparison_pilgrim_name': comparisonPilgrimName,
       if (comparisonExportConfigJson != null)
         'comparison_export_config_json': comparisonExportConfigJson,
+      if (anitabiRemoteStateJson != null)
+        'anitabi_remote_state_json': anitabiRemoteStateJson,
       if (comparisonExportConfigMigrated != null)
         'comparison_export_config_migrated': comparisonExportConfigMigrated,
       if (customThemeColorName != null)
@@ -6627,6 +6678,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<bool>? comparisonShowPilgrimName,
     Value<String>? comparisonPilgrimName,
     Value<String>? comparisonExportConfigJson,
+    Value<String>? anitabiRemoteStateJson,
     Value<bool>? comparisonExportConfigMigrated,
     Value<String>? customThemeColorName,
     Value<int>? customThemeColorValue,
@@ -6690,6 +6742,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           comparisonPilgrimName ?? this.comparisonPilgrimName,
       comparisonExportConfigJson:
           comparisonExportConfigJson ?? this.comparisonExportConfigJson,
+      anitabiRemoteStateJson:
+          anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
       comparisonExportConfigMigrated:
           comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
       customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6844,6 +6898,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         comparisonExportConfigJson.value,
       );
     }
+    if (anitabiRemoteStateJson.present) {
+      map['anitabi_remote_state_json'] = Variable<String>(
+        anitabiRemoteStateJson.value,
+      );
+    }
     if (comparisonExportConfigMigrated.present) {
       map['comparison_export_config_migrated'] = Variable<bool>(
         comparisonExportConfigMigrated.value,
@@ -6971,6 +7030,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('comparisonShowPilgrimName: $comparisonShowPilgrimName, ')
           ..write('comparisonPilgrimName: $comparisonPilgrimName, ')
           ..write('comparisonExportConfigJson: $comparisonExportConfigJson, ')
+          ..write('anitabiRemoteStateJson: $anitabiRemoteStateJson, ')
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -9896,6 +9956,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<bool> comparisonShowPilgrimName,
       Value<String> comparisonPilgrimName,
       Value<String> comparisonExportConfigJson,
+      Value<String> anitabiRemoteStateJson,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -9948,6 +10009,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<bool> comparisonShowPilgrimName,
       Value<String> comparisonPilgrimName,
       Value<String> comparisonExportConfigJson,
+      Value<String> anitabiRemoteStateJson,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10121,6 +10183,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<String> get comparisonExportConfigJson => $composableBuilder(
     column: $table.comparisonExportConfigJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get anitabiRemoteStateJson => $composableBuilder(
+    column: $table.anitabiRemoteStateJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10374,6 +10441,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get anitabiRemoteStateJson => $composableBuilder(
+    column: $table.anitabiRemoteStateJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -10620,6 +10692,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get anitabiRemoteStateJson => $composableBuilder(
+    column: $table.anitabiRemoteStateJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -10791,6 +10868,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> comparisonShowPilgrimName = const Value.absent(),
                 Value<String> comparisonPilgrimName = const Value.absent(),
                 Value<String> comparisonExportConfigJson = const Value.absent(),
+                Value<String> anitabiRemoteStateJson = const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -10845,6 +10923,7 @@ class $$AppSettingsEntriesTableTableManager
                 comparisonShowPilgrimName: comparisonShowPilgrimName,
                 comparisonPilgrimName: comparisonPilgrimName,
                 comparisonExportConfigJson: comparisonExportConfigJson,
+                anitabiRemoteStateJson: anitabiRemoteStateJson,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,
@@ -10899,6 +10978,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> comparisonShowPilgrimName = const Value.absent(),
                 Value<String> comparisonPilgrimName = const Value.absent(),
                 Value<String> comparisonExportConfigJson = const Value.absent(),
+                Value<String> anitabiRemoteStateJson = const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -10953,6 +11033,7 @@ class $$AppSettingsEntriesTableTableManager
                 comparisonShowPilgrimName: comparisonShowPilgrimName,
                 comparisonPilgrimName: comparisonPilgrimName,
                 comparisonExportConfigJson: comparisonExportConfigJson,
+                anitabiRemoteStateJson: anitabiRemoteStateJson,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,

@@ -155,6 +155,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(''))();
   TextColumn get comparisonExportConfigJson =>
       text().withDefault(const Constant(''))();
+  TextColumn get anitabiRemoteStateJson =>
+      text().withDefault(const Constant(''))();
   BoolColumn get comparisonExportConfigMigrated =>
       boolean().withDefault(const Constant(true))();
   TextColumn get customThemeColorName =>
@@ -203,7 +205,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 43;
+  int get schemaVersion => 44;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -694,6 +696,15 @@ class AppDatabase extends _$AppDatabase {
           'map_appearance',
           appSettingsEntries,
           appSettingsEntries.mapAppearance,
+        );
+      }
+      if (from < 44) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'anitabi_remote_state_json',
+          appSettingsEntries,
+          appSettingsEntries.anitabiRemoteStateJson,
         );
       }
     }),

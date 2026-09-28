@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "version": 1,
+  "updatedAt": "2026-09-28",
+  "services": {
+    "site": "https://www.anitabi.cn",
+    "staticData": "https://www.anitabi.cn/d",
+    "api": "https://api.anitabi.cn",
+    "officialImage": "https://image.anitabi.cn",
+    "mirrorImage": "https://img-tc.anitabi.cn"
+  }
+}

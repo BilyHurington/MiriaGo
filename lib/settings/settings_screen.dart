@@ -11,6 +11,8 @@ import '../camera_reference/camera_zoom_capabilities.dart';
 import '../data/pilgrimage_repository.dart';
 import '../data/reference_cache_cleanup.dart';
 import '../data/valhalla_service_config.dart';
+import '../data/anitabi_endpoint_sync.dart';
+import '../data/anitabi_remote_state.dart';
 import '../data/anitabi_service_config.dart';
 import '../desktop/tauri_bridge.dart';
 import '../map/map_tile_config.dart';
@@ -1353,15 +1355,12 @@ class _AnitabiServiceSettingsPageState
     extends State<_AnitabiServiceSettingsPage> {
   late AppSettings _settings = widget.settings;
   var _testing = false;
+  var _checking = false;
   Map<String, String> _testResults = const {};
 
-  AnitabiServiceConfig get _config => AnitabiServiceConfig(
-    siteBaseUrl: _settings.anitabiSiteBaseUrl,
-    staticDataBaseUrl: _settings.anitabiStaticDataBaseUrl,
-    apiBaseUrl: _settings.anitabiApiBaseUrl,
-    officialImageBaseUrl: _settings.anitabiOfficialImageBaseUrl,
-    mirrorImageBaseUrl: _settings.anitabiMirrorImageBaseUrl,
-  );
+  /// The addresses in use: custom ones, else the remote configuration, else
+  /// the built-in defaults.
+  AnitabiServiceConfig get _config => _settings.anitabiServiceConfig;
 
   void _update(AppSettings settings) {
     setState(() {
@@ -1383,6 +1382,59 @@ class _AnitabiServiceSettingsPageState
       validator: validateAnitabiBaseUrl,
       onSaved: (value) =>
           onSaved(normalizeAnitabiBaseUrl(value, fallback: value.trim())),
+    );
+  }
+
+  /// Picks up sync state written by [AnitabiEndpointSync] while this page
+  /// was open.
+  Future<void> _reloadFromSync(AnitabiEndpointSync sync) async {
+    final latest = await sync.loadSettings();
+    if (!mounted) {
+      return;
+    }
+    _update(latest);
+  }
+
+  Future<void> _setAutoUpdate(bool enabled) async {
+    final sync = AnitabiEndpointSync.active;
+    if (sync == null) {
+      _update(
+        _settings.copyWith(
+          anitabiRemoteStateJson: _settings.anitabiRemoteState
+              .copyWith(autoUpdate: enabled)
+              .encode(),
+        ),
+      );
+      return;
+    }
+    await sync.setAutoUpdate(enabled);
+    await _reloadFromSync(sync);
+  }
+
+  Future<void> _checkNow() async {
+    final sync = AnitabiEndpointSync.active;
+    if (sync == null) {
+      return;
+    }
+    setState(() => _checking = true);
+    final AnitabiSyncOutcome outcome;
+    try {
+      outcome = await sync.checkNow();
+      await _reloadFromSync(sync);
+    } finally {
+      if (mounted) {
+        setState(() => _checking = false);
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    final succeeded =
+        outcome == AnitabiSyncOutcome.updated ||
+        outcome == AnitabiSyncOutcome.unchanged;
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: succeeded ? AppStatusBannerKind.success : AppStatusBannerKind.error,
+      title: outcome.label,
     );
   }
 
@@ -1473,13 +1525,14 @@ class _AnitabiServiceSettingsPageState
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
+    final remoteState = settings.anitabiRemoteState;
     final services =
         <
           ({
             Key key,
             IconData icon,
             String title,
-            String value,
+            AnitabiServiceField field,
             ValueChanged<String> onSaved,
           })
         >[
@@ -1487,7 +1540,7 @@ class _AnitabiServiceSettingsPageState
             key: const ValueKey('anitabi-site-base-url'),
             icon: LucideIcons.globe,
             title: '主站地址',
-            value: settings.anitabiSiteBaseUrl,
+            field: AnitabiServiceField.site,
             onSaved: (value) =>
                 _update(settings.copyWith(anitabiSiteBaseUrl: value)),
           ),
@@ -1495,7 +1548,7 @@ class _AnitabiServiceSettingsPageState
             key: const ValueKey('anitabi-static-data-base-url'),
             icon: LucideIcons.braces,
             title: '静态地图数据',
-            value: settings.anitabiStaticDataBaseUrl,
+            field: AnitabiServiceField.staticData,
             onSaved: (value) =>
                 _update(settings.copyWith(anitabiStaticDataBaseUrl: value)),
           ),
@@ -1503,7 +1556,7 @@ class _AnitabiServiceSettingsPageState
             key: const ValueKey('anitabi-api-base-url'),
             icon: LucideIcons.webhook,
             title: '数据 API',
-            value: settings.anitabiApiBaseUrl,
+            field: AnitabiServiceField.api,
             onSaved: (value) =>
                 _update(settings.copyWith(anitabiApiBaseUrl: value)),
           ),
@@ -1511,7 +1564,7 @@ class _AnitabiServiceSettingsPageState
             key: const ValueKey('anitabi-official-image-base-url'),
             icon: LucideIcons.image,
             title: '官方图片服务',
-            value: settings.anitabiOfficialImageBaseUrl,
+            field: AnitabiServiceField.officialImage,
             onSaved: (value) =>
                 _update(settings.copyWith(anitabiOfficialImageBaseUrl: value)),
           ),
@@ -1519,7 +1572,7 @@ class _AnitabiServiceSettingsPageState
             key: const ValueKey('anitabi-mirror-image-base-url'),
             icon: LucideIcons.cloud,
             title: '备用图片服务',
-            value: settings.anitabiMirrorImageBaseUrl,
+            field: AnitabiServiceField.mirrorImage,
             onSaved: (value) =>
                 _update(settings.copyWith(anitabiMirrorImageBaseUrl: value)),
           ),
@@ -1536,20 +1589,36 @@ class _AnitabiServiceSettingsPageState
             for (var index = 0; index < services.length; index += 1) ...[
               if (index > 0)
                 Divider(height: 1, thickness: 1, color: AppColors.border),
-              _AnitabiServiceRow(
-                key: services[index].key,
-                icon: services[index].icon,
-                title: services[index].title,
-                url: services[index].value,
-                status: _testResults[services[index].title],
-                testing:
-                    _testing &&
-                    !_testResults.containsKey(services[index].title),
-                onTap: () => _edit(
-                  title: services[index].title,
-                  value: services[index].value,
-                  onSaved: services[index].onSaved,
-                ),
+              Builder(
+                builder: (context) {
+                  final service = services[index];
+                  final resolved = settings.resolvedAnitabiAddress(
+                    service.field,
+                  );
+                  return _AnitabiServiceRow(
+                    key: service.key,
+                    icon: service.icon,
+                    title: service.title,
+                    url: resolved.value,
+                    source: resolved.source,
+                    status: _testResults[service.title],
+                    testing:
+                        _testing && !_testResults.containsKey(service.title),
+                    onTap: () => _edit(
+                      title: service.title,
+                      value: resolved.value,
+                      onSaved: (value) {
+                        // Confirming the address already in use keeps it
+                        // following the remote configuration.
+                        if (value == resolved.value &&
+                            resolved.source != AnitabiServiceSource.custom) {
+                          return;
+                        }
+                        service.onSaved(value);
+                      },
+                    ),
+                  );
+                },
               ),
             ],
             const SizedBox(height: 12),
@@ -1579,9 +1648,82 @@ class _AnitabiServiceSettingsPageState
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _SettingsSection(
+          title: '地址自动更新',
+          titleSpacing: 4,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('失效时自动获取新地址', style: _cardTitleTextStyle),
+                      const SizedBox(height: 3),
+                      Text(
+                        '连接 Anitabi 失败时，从 MiriaGo 仓库读取最新服务地址，验证可用后再替换。自定义的地址不会被改动。',
+                        style: _secondaryTextStyle,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(
+                  key: const ValueKey('anitabi-service-auto-update'),
+                  value: remoteState.autoUpdate,
+                  onChanged: _checking ? null : _setAutoUpdate,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _anitabiRemoteStatusText(remoteState),
+              key: const ValueKey('anitabi-service-remote-status'),
+              style: _secondaryTextStyle,
+            ),
+            if (AnitabiEndpointSync.active != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('anitabi-service-check-now'),
+                  onPressed: _checking || _testing ? null : _checkNow,
+                  icon: _checking
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(LucideIcons.refreshCw),
+                  label: Text(_checking ? '正在检查' : '立即检查更新'),
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
   }
+}
+
+String _anitabiRemoteStatusText(AnitabiRemoteState state) {
+  final lastGood = state.lastGood;
+  final applied = lastGood == null
+      ? '尚未应用远程配置'
+      : '已应用远程配置 v${lastGood.version}';
+  final lastCheck = state.lastCheckAt;
+  if (lastCheck == null) {
+    return applied;
+  }
+  final result = AnitabiSyncOutcome.values
+      .where((outcome) => outcome.name == state.lastResult)
+      .firstOrNull;
+  final local = lastCheck.toLocal();
+  String two(int value) => value.toString().padLeft(2, '0');
+  final time =
+      '${local.year}-${two(local.month)}-${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}';
+  return '$applied · 上次检查 $time${result == null ? '' : '，${result.label}'}';
 }
 
 class _ComparisonStyleSettingsPage extends StatefulWidget {
@@ -1846,8 +1988,8 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
             const SizedBox(height: 8),
             _AnitabiServiceEntryRow(
               key: const ValueKey('anitabi-service-settings-entry'),
-              siteUrl: settings.anitabiSiteBaseUrl,
-              usingDefaults: _usesDefaultAnitabiService(settings),
+              siteUrl: settings.anitabiServiceConfig.siteBaseUrl,
+              summary: _anitabiServiceSummary(settings),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => _AnitabiServiceSettingsPage(
@@ -4432,6 +4574,7 @@ class _AnitabiServiceRow extends StatelessWidget {
     required this.title,
     required this.url,
     required this.onTap,
+    this.source = AnitabiServiceSource.builtIn,
     this.status,
     this.testing = false,
   });
@@ -4439,6 +4582,7 @@ class _AnitabiServiceRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String url;
+  final AnitabiServiceSource source;
   final VoidCallback onTap;
   final String? status;
   final bool testing;
@@ -4464,16 +4608,39 @@ class _AnitabiServiceRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        switch (source) {
+                          AnitabiServiceSource.builtIn => '默认',
+                          AnitabiServiceSource.remote => '远程配置',
+                          AnitabiServiceSource.custom => '自定义',
+                        },
+                        key: ValueKey('anitabi-service-source-$title'),
+                        style: TextStyle(
+                          color: source == AnitabiServiceSource.builtIn
+                              ? AppColors.textSecondary
+                              : AppColors.accentForeground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -4538,12 +4705,12 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
   const _AnitabiServiceEntryRow({
     super.key,
     required this.siteUrl,
-    required this.usingDefaults,
+    required this.summary,
     required this.onTap,
   });
 
   final String siteUrl;
-  final bool usingDefaults;
+  final String summary;
   final VoidCallback onTap;
 
   @override
@@ -4574,7 +4741,7 @@ class _AnitabiServiceEntryRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    usingDefaults ? '使用默认地址，点击管理全部服务' : '已自定义，点击管理全部服务',
+                    summary,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _secondaryTextStyle,
@@ -5017,13 +5184,18 @@ String _mapProviderHint(MapTileProvider provider) {
   };
 }
 
-bool _usesDefaultAnitabiService(AppSettings settings) {
-  return settings.anitabiSiteBaseUrl == defaultAnitabiSiteBaseUrl &&
-      settings.anitabiStaticDataBaseUrl == defaultAnitabiStaticDataBaseUrl &&
-      settings.anitabiApiBaseUrl == defaultAnitabiApiBaseUrl &&
-      settings.anitabiOfficialImageBaseUrl ==
-          defaultAnitabiOfficialImageBaseUrl &&
-      settings.anitabiMirrorImageBaseUrl == defaultAnitabiMirrorImageBaseUrl;
+String _anitabiServiceSummary(AppSettings settings) {
+  final sources = {
+    for (final field in AnitabiServiceField.values)
+      settings.resolvedAnitabiAddress(field).source,
+  };
+  if (sources.contains(AnitabiServiceSource.custom)) {
+    return '已自定义，点击管理全部服务';
+  }
+  if (sources.contains(AnitabiServiceSource.remote)) {
+    return '使用远程更新的地址，点击管理全部服务';
+  }
+  return '使用默认地址，点击管理全部服务';
 }
 
 String _anitabiImageSourceLabel(AnitabiImageSource source) {
@@ -5035,12 +5207,12 @@ String _anitabiImageSourceLabel(AnitabiImageSource source) {
 }
 
 String _anitabiImageSourceDescription(AppSettings settings) {
+  final config = settings.anitabiServiceConfig;
   return switch (settings.anitabiImageSource) {
     AnitabiImageSource.auto =>
-      '优先使用 ${settings.anitabiOfficialImageBaseUrl}；失败后尝试 ${settings.anitabiMirrorImageBaseUrl}。',
-    AnitabiImageSource.official =>
-      '固定使用 ${settings.anitabiOfficialImageBaseUrl}。',
-    AnitabiImageSource.mirror => '固定使用 ${settings.anitabiMirrorImageBaseUrl}。',
+      '优先使用 ${config.officialImageBaseUrl}；失败后尝试 ${config.mirrorImageBaseUrl}。',
+    AnitabiImageSource.official => '固定使用 ${config.officialImageBaseUrl}。',
+    AnitabiImageSource.mirror => '固定使用 ${config.mirrorImageBaseUrl}。',
   };
 }
 

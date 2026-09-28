@@ -1158,7 +1158,9 @@ class _AnitabiLinkImportScreenState extends State<_AnitabiLinkImportScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            _LinkExampleCard(siteBaseUrl: widget.settings.anitabiSiteBaseUrl),
+            _LinkExampleCard(
+              siteBaseUrl: widget.settings.anitabiServiceConfig.siteBaseUrl,
+            ),
           ],
         ),
       ),

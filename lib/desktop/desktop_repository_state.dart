@@ -95,6 +95,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'comparisonShowPilgrimName': settings.comparisonShowPilgrimName,
     'comparisonPilgrimName': settings.comparisonPilgrimName,
     'comparisonExportConfigJson': settings.comparisonExportConfigJson,
+    'anitabiRemoteStateJson': settings.anitabiRemoteStateJson,
     'comparisonExportConfigMigrated': settings.comparisonExportConfigMigrated,
     'customThemeColorName': settings.customThemeColorName,
     'customThemeColorValue': settings.customThemeColorValue,
@@ -204,6 +205,10 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     ),
     comparisonExportConfigJson: _stringValue(
       json['comparisonExportConfigJson'],
+      fallback: '',
+    ),
+    anitabiRemoteStateJson: _stringValue(
+      json['anitabiRemoteStateJson'],
       fallback: '',
     ),
     comparisonExportConfigMigrated:

@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
+import '../data/anitabi_remote_state.dart';
 import '../data/anitabi_service_config.dart';
 import '../data/valhalla_service_config.dart';
 
@@ -222,6 +223,7 @@ class AppSettings {
     this.mapMaxZoom = 22,
     this.continuousMapLocation = true,
     this.mapAppearance = MapAppearance.automatic,
+    this.anitabiRemoteStateJson = '',
   });
 
   final double uiScale;
@@ -272,6 +274,9 @@ class AppSettings {
   final bool continuousMapLocation;
   final MapAppearance mapAppearance;
 
+  /// Remote Anitabi address sync state ([AnitabiRemoteState] as JSON).
+  final String anitabiRemoteStateJson;
+
   AppSettings copyWith({
     double? uiScale,
     double? fontScale,
@@ -320,6 +325,7 @@ class AppSettings {
     int? mapMaxZoom,
     bool? continuousMapLocation,
     MapAppearance? mapAppearance,
+    String? anitabiRemoteStateJson,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -396,18 +402,50 @@ class AppSettings {
       continuousMapLocation:
           continuousMapLocation ?? this.continuousMapLocation,
       mapAppearance: mapAppearance ?? this.mapAppearance,
+      anitabiRemoteStateJson:
+          anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
     );
   }
 }
 
 extension AppSettingsAnitabiServiceConfig on AppSettings {
-  AnitabiServiceConfig get anitabiServiceConfig => AnitabiServiceConfig(
-    siteBaseUrl: anitabiSiteBaseUrl,
-    staticDataBaseUrl: anitabiStaticDataBaseUrl,
-    apiBaseUrl: anitabiApiBaseUrl,
-    officialImageBaseUrl: anitabiOfficialImageBaseUrl,
-    mirrorImageBaseUrl: anitabiMirrorImageBaseUrl,
+  AnitabiRemoteState get anitabiRemoteState =>
+      AnitabiRemoteState.decode(anitabiRemoteStateJson);
+
+  String storedAnitabiAddress(AnitabiServiceField field) => switch (field) {
+    AnitabiServiceField.site => anitabiSiteBaseUrl,
+    AnitabiServiceField.staticData => anitabiStaticDataBaseUrl,
+    AnitabiServiceField.api => anitabiApiBaseUrl,
+    AnitabiServiceField.officialImage => anitabiOfficialImageBaseUrl,
+    AnitabiServiceField.mirrorImage => anitabiMirrorImageBaseUrl,
+  };
+
+  /// Effective address and its source: user setting, remote config or the
+  /// built-in default.
+  ({String value, AnitabiServiceSource source}) resolvedAnitabiAddress(
+    AnitabiServiceField field, {
+    AnitabiRemoteServices? remote,
+  }) => resolveAnitabiAddress(
+    field,
+    stored: storedAnitabiAddress(field),
+    remote: remote ?? anitabiRemoteState.lastGood,
   );
+
+  /// Addresses actually used for requests.
+  AnitabiServiceConfig get anitabiServiceConfig =>
+      anitabiServiceConfigWith(anitabiRemoteState.lastGood);
+
+  AnitabiServiceConfig anitabiServiceConfigWith(AnitabiRemoteServices? remote) {
+    String value(AnitabiServiceField field) =>
+        resolvedAnitabiAddress(field, remote: remote).value;
+    return AnitabiServiceConfig(
+      siteBaseUrl: value(AnitabiServiceField.site),
+      staticDataBaseUrl: value(AnitabiServiceField.staticData),
+      apiBaseUrl: value(AnitabiServiceField.api),
+      officialImageBaseUrl: value(AnitabiServiceField.officialImage),
+      mirrorImageBaseUrl: value(AnitabiServiceField.mirrorImage),
+    );
+  }
 }
 
 class PilgrimageVisitRecord {
@@ -727,7 +765,8 @@ PilgrimageWork fillMissingWorkFields(
   return PilgrimageWork(
     id: stored.id,
     bangumiId: stored.bangumiId ?? incoming.bangumiId,
-    bangumiSubjectType: stored.bangumiSubjectType ?? incoming.bangumiSubjectType,
+    bangumiSubjectType:
+        stored.bangumiSubjectType ?? incoming.bangumiSubjectType,
     coverImageUrl: storedCover == null || storedCover.trim().isEmpty
         ? (incoming.coverImageUrl?.trim().isNotEmpty == true
               ? incoming.coverImageUrl

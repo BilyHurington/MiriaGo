@@ -147,6 +147,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       comparisonShowPilgrimName: row.comparisonShowPilgrimName,
       comparisonPilgrimName: row.comparisonPilgrimName,
       comparisonExportConfigJson: row.comparisonExportConfigJson,
+      anitabiRemoteStateJson: row.anitabiRemoteStateJson,
       comparisonExportConfigMigrated: row.comparisonExportConfigMigrated,
       customThemeColorName: row.customThemeColorName,
       customThemeColorValue: row.customThemeColorValue,
@@ -799,8 +800,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       final targetGroupPoints =
           await (_database.select(_database.points)..where(
                 (table) =>
-                    table.planId.equals(planId) &
-                    table.groupId.equals(groupId),
+                    table.planId.equals(planId) & table.groupId.equals(groupId),
               ))
               .get();
       nextGroupOrderIndex =
@@ -863,10 +863,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           .go();
 
       if (deletedCurrentPoint) {
-        await _setFirstPendingPointCurrent(
-          planId,
-          after: previousCurrentPoint,
-        );
+        await _setFirstPendingPointCurrent(planId, after: previousCurrentPoint);
       }
       await _touchPlan(planId);
     });
@@ -998,10 +995,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           );
 
       if (completedCurrentPoint) {
-        await _setFirstPendingPointCurrent(
-          planId,
-          after: previousCurrentPoint,
-        );
+        await _setFirstPendingPointCurrent(planId, after: previousCurrentPoint);
       }
 
       await _touchPlan(planId);
@@ -1363,6 +1357,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             comparisonExportConfigJson: Value(
               settings.comparisonExportConfigJson.trim(),
             ),
+            anitabiRemoteStateJson: Value(settings.anitabiRemoteStateJson),
             comparisonExportConfigMigrated: Value(
               settings.comparisonExportConfigMigrated,
             ),
@@ -1591,10 +1586,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           .go();
 
       if (deletedCurrentPoint) {
-        await _setFirstPendingPointCurrent(
-          planId,
-          after: previousCurrentPoint,
-        );
+        await _setFirstPendingPointCurrent(planId, after: previousCurrentPoint);
       }
 
       await _touchPlan(planId);

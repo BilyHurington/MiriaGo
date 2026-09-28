@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'app_theme.dart';
+import 'data/anitabi_endpoint_sync.dart';
 import 'data/anitabi_image_source_scope.dart';
 import 'data/anitabi_service_config.dart';
 import 'data/reference_image_cache_stub.dart'
@@ -50,6 +51,8 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   PilgrimagePlanController? _planController;
   AppSettings _settings = const AppSettings();
+  var _settingsLoaded = false;
+  late final AnitabiEndpointSync _anitabiSync;
   Object? _loadError;
   int _selectedIndex = 0;
   final _incomingPlanFiles = const IncomingPlanFileChannel();
@@ -57,6 +60,13 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _anitabiSync = AnitabiEndpointSync(
+      loadSettings: () async =>
+          _settingsLoaded ? _settings : widget.repository.loadAppSettings(),
+      saveSettings: _storeSettings,
+    );
+    AnitabiEndpointSync.active = _anitabiSync;
+    AnitabiEndpointRecovery.handler = _anitabiSync.recoverAfterFailure;
     _incomingPlanFiles.listen(
       _importPlanFromPath,
       onError: _showIncomingPlanFileError,
@@ -68,6 +78,10 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    if (identical(AnitabiEndpointSync.active, _anitabiSync)) {
+      AnitabiEndpointSync.active = null;
+      AnitabiEndpointRecovery.handler = null;
+    }
     _planController?.dispose();
     super.dispose();
   }
@@ -106,6 +120,7 @@ class _AppShellState extends State<AppShell> {
           visitRepository: widget.repository,
         );
         _settings = settings;
+        _settingsLoaded = true;
       });
     } catch (error, stackTrace) {
       debugPrint('Failed to load active pilgrimage plan: $error');
@@ -197,7 +212,18 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  Future<void> _saveSettings(AppSettings settings) async {
+  /// Settings edited in the UI. The address sync state is owned by
+  /// [AnitabiEndpointSync], so a page holding an older copy of the settings
+  /// never rolls it back.
+  Future<void> _saveSettings(AppSettings settings) => _storeSettings(
+    settings.copyWith(anitabiRemoteStateJson: _settings.anitabiRemoteStateJson),
+  );
+
+  Future<void> _storeSettings(AppSettings settings) async {
+    if (!mounted) {
+      await widget.repository.saveAppSettings(settings);
+      return;
+    }
     _applyAnitabiServiceConfig(settings);
     applyAppColorsFromSettings(
       settings,

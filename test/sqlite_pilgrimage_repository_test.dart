@@ -44,6 +44,44 @@ class _GatedPathProviderPlatform extends _FakePathProviderPlatform {
 
 void main() {
   test(
+    'schema 44 adds Anitabi remote state and persists it across restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'miriago-anitabi-remote-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File(p.join(directory.path, 'app.sqlite'));
+      final oldDatabase = AppDatabase(NativeDatabase(file));
+      final oldRepository = SqlitePilgrimageRepository(database: oldDatabase);
+      await oldRepository.saveAppSettings(const AppSettings(mapMaxZoom: 21));
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN anitabi_remote_state_json',
+      );
+      await oldDatabase.customStatement('PRAGMA user_version = 43');
+      await oldDatabase.close();
+
+      final database = AppDatabase(NativeDatabase(file));
+      final repository = SqlitePilgrimageRepository(database: database);
+      final settings = await repository.loadAppSettings();
+      expect(settings.mapMaxZoom, 21);
+      expect(settings.anitabiRemoteStateJson, isEmpty);
+      await repository.saveAppSettings(
+        settings.copyWith(anitabiRemoteStateJson: '{"autoUpdate":false}'),
+      );
+      await database.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      addTearDown(reopened.close);
+      final reopenedSettings = await SqlitePilgrimageRepository(
+        database: reopened,
+      ).loadAppSettings();
+      expect(reopenedSettings.anitabiRemoteStateJson, '{"autoUpdate":false}');
+      expect(reopenedSettings.anitabiRemoteState.autoUpdate, isFalse);
+    },
+  );
+
+  test(
     'schema 42 map appearance migration preserves data and survives restart',
     () async {
       final directory = await Directory.systemTemp.createTemp(
