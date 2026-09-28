@@ -63,19 +63,33 @@ class _AnitabiCovers extends AnitabiClient {
 }
 
 class _BangumiCovers extends BangumiApiClient {
-  _BangumiCovers(this.covers, {this.fail = false});
+  _BangumiCovers(this.covers, {this.unreachable = const {}});
 
   final Map<int, String> covers;
-  final bool fail;
+  final Set<int> unreachable;
   final lookups = <int>[];
 
   @override
   Future<String?> fetchSubjectCover(int bangumiId) async {
     lookups.add(bangumiId);
-    if (fail) {
+    if (unreachable.contains(bangumiId)) {
       throw const BangumiApiException(503, '');
     }
     return covers[bangumiId];
+  }
+}
+
+/// Deletes the work while its cover is being looked up.
+class _DeletingBangumi extends BangumiApiClient {
+  _DeletingBangumi(this.repository);
+
+  final SamplePilgrimageRepository repository;
+
+  @override
+  Future<String?> fetchSubjectCover(int bangumiId) async {
+    final plan = (await repository.loadPlans()).single;
+    await repository.deleteWorkFromPlan(planId: plan.id, workId: 'gone');
+    return 'https://lain.bgm.tv/1.jpg';
   }
 }
 
@@ -129,41 +143,55 @@ void main() {
   group('WorkCoverBackfill', () {
     setUp(WorkCoverBackfill.resetSession);
 
+    WorkCoverBackfill backfill(
+      SamplePilgrimageRepository repository,
+      _AnitabiCovers anitabi,
+      BangumiApiClient bangumi,
+    ) => WorkCoverBackfill(
+      repository: repository,
+      anitabiClient: () => anitabi,
+      bangumiApiClient: () => bangumi,
+    );
+
     test('fills missing covers without replacing existing ones', () async {
       final repository = SamplePilgrimageRepository(
         plans: [
           _plan('a', [
-            _work('anitabi', bangumiId: 1),
-            _work('bangumi', bangumiId: 2),
+            _work('bangumi', bangumiId: 1),
+            _work('offline-bangumi', bangumiId: 2),
             _work('kept', bangumiId: 3, cover: 'https://example.com/mine.jpg'),
             _work('manual'),
           ]),
           _plan('b', [_work('same-work', bangumiId: 1)]),
         ],
       );
-      final anitabi = _AnitabiCovers({1: _anitabiCover, 3: _anitabiCover});
-      final bangumi = _BangumiCovers({2: 'https://lain.bgm.tv/2.jpg'});
+      final anitabi = _AnitabiCovers({2: _anitabiCover});
+      final bangumi = _BangumiCovers(
+        {1: 'https://lain.bgm.tv/1.jpg'},
+        unreachable: {2},
+      );
 
-      final updated = await WorkCoverBackfill(
-        repository: repository,
-        anitabiClient: anitabi,
-        bangumiApiClient: bangumi,
-      ).run();
+      final updated = await backfill(repository, anitabi, bangumi).run();
 
-      expect(anitabi.lookups, [1, 2]);
-      expect(bangumi.lookups, [2]);
+      expect(bangumi.lookups, [1, 2]);
+      // The 2 MB Anitabi index is only for works Bangumi could not answer.
+      expect(anitabi.lookups, [2]);
       expect(updated.keys, unorderedEquals(['a', 'b']));
+      expect(
+        updated['a']!.map((work) => work.coverImageUrl),
+        unorderedEquals(['https://lain.bgm.tv/1.jpg', _anitabiCover]),
+      );
       final plans = {
         for (final plan in await repository.loadPlans()) plan.id: plan,
       };
       String? cover(String planId, String workId) => plans[planId]!.works
           .singleWhere((work) => work.id == workId)
           .coverImageUrl;
-      expect(cover('a', 'anitabi'), _anitabiCover);
-      expect(cover('a', 'bangumi'), 'https://lain.bgm.tv/2.jpg');
+      expect(cover('a', 'bangumi'), 'https://lain.bgm.tv/1.jpg');
+      expect(cover('a', 'offline-bangumi'), _anitabiCover);
       expect(cover('a', 'kept'), 'https://example.com/mine.jpg');
       expect(cover('a', 'manual'), isNull);
-      expect(cover('b', 'same-work'), _anitabiCover);
+      expect(cover('b', 'same-work'), 'https://lain.bgm.tv/1.jpg');
     });
 
     test('each work is looked up once per session', () async {
@@ -174,16 +202,30 @@ void main() {
       );
       final anitabi = _AnitabiCovers({});
       final bangumi = _BangumiCovers({});
-      WorkCoverBackfill backfill() => WorkCoverBackfill(
-        repository: repository,
-        anitabiClient: anitabi,
-        bangumiApiClient: bangumi,
-      );
 
-      expect(await backfill().run(), isEmpty);
-      expect(await backfill().run(), isEmpty);
-      expect(anitabi.lookups, [1]);
+      expect(await backfill(repository, anitabi, bangumi).run(), isEmpty);
+      expect(await backfill(repository, anitabi, bangumi).run(), isEmpty);
       expect(bangumi.lookups, [1]);
+      expect(anitabi.lookups, isEmpty);
+    });
+
+    test('works beyond the per-run limit are looked up next run', () async {
+      final repository = SamplePilgrimageRepository(
+        plans: [
+          _plan('a', [
+            for (var id = 1; id <= WorkCoverBackfill.maxLookupsPerRun + 2; id++)
+              _work('w$id', bangumiId: id),
+          ]),
+        ],
+      );
+      final bangumi = _BangumiCovers({});
+      await backfill(repository, _AnitabiCovers({}), bangumi).run();
+      expect(bangumi.lookups, hasLength(WorkCoverBackfill.maxLookupsPerRun));
+      await backfill(repository, _AnitabiCovers({}), bangumi).run();
+      expect(
+        bangumi.lookups,
+        hasLength(WorkCoverBackfill.maxLookupsPerRun + 2),
+      );
     });
 
     test('offline lookups keep the work and retry next session', () async {
@@ -193,10 +235,10 @@ void main() {
         ],
       );
 
-      final offline = await WorkCoverBackfill(
-        repository: repository,
-        anitabiClient: _AnitabiCovers({}, fail: true),
-        bangumiApiClient: _BangumiCovers({}, fail: true),
+      final offline = await backfill(
+        repository,
+        _AnitabiCovers({}, fail: true),
+        _BangumiCovers({}, unreachable: {1}),
       ).run();
       expect(offline, isEmpty);
       expect(
@@ -205,15 +247,33 @@ void main() {
       );
 
       WorkCoverBackfill.resetSession();
-      await WorkCoverBackfill(
-        repository: repository,
-        anitabiClient: _AnitabiCovers({1: _anitabiCover}),
-        bangumiApiClient: _BangumiCovers({}),
+      await backfill(
+        repository,
+        _AnitabiCovers({}),
+        _BangumiCovers({1: 'https://lain.bgm.tv/1.jpg'}),
       ).run();
       expect(
         (await repository.loadPlans()).single.works.single.coverImageUrl,
-        _anitabiCover,
+        'https://lain.bgm.tv/1.jpg',
       );
+    });
+
+    test('a work deleted during the lookup is not brought back', () async {
+      final repository = SamplePilgrimageRepository(
+        plans: [
+          _plan('a', [_work('gone', bangumiId: 1)]),
+        ],
+      );
+      final bangumi = _DeletingBangumi(repository);
+
+      final updated = await backfill(
+        repository,
+        _AnitabiCovers({}),
+        bangumi,
+      ).run();
+
+      expect(updated, isEmpty);
+      expect((await repository.loadPlans()).single.works, isEmpty);
     });
   });
 

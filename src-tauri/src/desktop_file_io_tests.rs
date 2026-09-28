@@ -411,7 +411,7 @@ fn export_extension_cannot_redirect_or_silently_overwrite_another_file() {
 fn ipc_export_command_rejects_arbitrary_paths_without_a_dialog() {
     let root = TestDirectory::new();
     let path = root.0.join("unauthorized.csv");
-    let result = super::super::write_export_file(super::super::WriteExportFileRequest {
+    let result = super::super::write_export_file_blocking(super::super::WriteExportFileRequest {
         path: path.to_str().unwrap().to_string(),
         extension: "csv".to_string(),
         data_base64: "YQ==".to_string(),
@@ -621,19 +621,23 @@ fn cleanup_rejects_nested_links_without_deleting_their_targets() {
 
 #[test]
 fn cleanup_ipc_accepts_only_tokens_and_rejects_path_deletion_requests() {
-    use super::super::{cleanup_import_assets, finalize_import_assets, ImportAssetsTokenRequest};
+    use super::super::ImportAssetsTokenRequest;
     for request in [
         r#"{"path":"/tmp/user-data"}"#,
         r#"{"restoreToken":"unknown","path":"/tmp/user-data"}"#,
     ] {
         assert!(serde_json::from_str::<ImportAssetsTokenRequest>(request).is_err());
     }
-    assert!(cleanup_import_assets(ImportAssetsTokenRequest {
-        restore_token: "unknown".to_string()
-    })
-    .is_err());
-    assert!(finalize_import_assets(ImportAssetsTokenRequest {
-        restore_token: "unknown".to_string()
-    })
-    .is_err());
+    assert!(
+        super::super::cleanup_import_assets_blocking(ImportAssetsTokenRequest {
+            restore_token: "unknown".to_string()
+        })
+        .is_err()
+    );
+    assert!(
+        super::super::finalize_import_assets_blocking(ImportAssetsTokenRequest {
+            restore_token: "unknown".to_string()
+        })
+        .is_err()
+    );
 }

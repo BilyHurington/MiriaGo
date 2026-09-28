@@ -13,6 +13,9 @@ class AnitabiStaticDataReader {
     this.reportFailures = true,
   }) : _httpClient = httpClient ?? http.Client();
 
+  /// Per static file; the index is about 2 MB, so allow slow networks.
+  static const requestTimeout = Duration(seconds: 45);
+
   final http.Client _httpClient;
   final AnitabiServiceConfig? serviceConfig;
 
@@ -48,28 +51,11 @@ class AnitabiStaticDataReader {
     required AnitabiServiceConfig config,
   }) async {
     try {
-      final String body;
-      if (isTauriLauncherAvailable) {
-        body = await fetchDesktopAnitabiStaticJson(
-          fileName: fileName,
-          version: version,
-          baseUrl: config.staticDataBaseUrl,
-        );
-      } else if (kIsWeb) {
-        final proxyUri = Uri.base
-            .resolve('/__anitabi_static__/$fileName')
-            .replace(
-              queryParameters: {
-                if (version != null && version.isNotEmpty) 'v': version,
-                'upstream': config.staticDataBaseUrl,
-              },
-            );
-        body = (await _checkedGet(proxyUri)).body;
-      } else {
-        body = (await _checkedGet(
-          config.staticDataUri(fileName, version: version),
-        )).body;
-      }
+      final body = await _fetchBody(
+        fileName,
+        version: version,
+        config: config,
+      ).timeout(requestTimeout);
       // An error or landing page served in place of the data file means the
       // address no longer serves Anitabi data.
       final trimmed = body.trimLeft();
@@ -82,6 +68,34 @@ class AnitabiStaticDataReader {
     } catch (error) {
       throw AnitabiStaticDataUnavailableException(error);
     }
+  }
+
+  Future<String> _fetchBody(
+    String fileName, {
+    required String? version,
+    required AnitabiServiceConfig config,
+  }) async {
+    if (isTauriLauncherAvailable) {
+      return fetchDesktopAnitabiStaticJson(
+        fileName: fileName,
+        version: version,
+        baseUrl: config.staticDataBaseUrl,
+      );
+    }
+    if (kIsWeb) {
+      final proxyUri = Uri.base
+          .resolve('/__anitabi_static__/$fileName')
+          .replace(
+            queryParameters: {
+              if (version != null && version.isNotEmpty) 'v': version,
+              'upstream': config.staticDataBaseUrl,
+            },
+          );
+      return (await _checkedGet(proxyUri)).body;
+    }
+    return (await _checkedGet(
+      config.staticDataUri(fileName, version: version),
+    )).body;
   }
 
   Future<http.Response> _checkedGet(Uri uri) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import '../data/anitabi_client.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/copyable_text.dart';
@@ -19,6 +20,7 @@ class WorkManagerScreen extends StatefulWidget {
     required this.repository,
     required this.settings,
     BangumiApiClient? bangumiApiClient,
+    this.loadAnitabiPointTotals = loadSharedAnitabiPointTotals,
     super.key,
   }) : bangumiApiClient = bangumiApiClient ?? BangumiApiClient();
 
@@ -27,14 +29,74 @@ class WorkManagerScreen extends StatefulWidget {
   final AppSettings settings;
   final BangumiApiClient bangumiApiClient;
 
+  /// Anitabi point totals by Bangumi ID, from the app-wide static index.
+  final Future<Map<int, int>> Function() loadAnitabiPointTotals;
+
   @override
   State<WorkManagerScreen> createState() => _WorkManagerScreenState();
+}
+
+/// Point totals from the shared Anitabi static index (one download for
+/// every work, reused across the app).
+Future<Map<int, int>> loadSharedAnitabiPointTotals() async {
+  final client = AnitabiClient();
+  try {
+    return await client.fetchStaticPointCounts();
+  } finally {
+    client.close();
+  }
 }
 
 class _WorkManagerScreenState extends State<WorkManagerScreen> {
   late PilgrimagePlan _plan = widget.plan;
   var _didUpdate = false;
   var _isSaving = false;
+
+  /// Null while loading; empty after a failure.
+  Map<int, int>? _anitabiTotals;
+  var _anitabiTotalsRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnitabiTotalsIfNeeded();
+  }
+
+  void _loadAnitabiTotalsIfNeeded() {
+    if (_anitabiTotalsRequested ||
+        !_plan.works.any((work) => work.bangumiId != null)) {
+      return;
+    }
+    _anitabiTotalsRequested = true;
+    widget.loadAnitabiPointTotals().then(
+      (totals) {
+        if (mounted) {
+          setState(() => _anitabiTotals = totals);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('Anitabi point totals unavailable: $error');
+        if (mounted) {
+          setState(() => _anitabiTotals = const {});
+        }
+      },
+    );
+  }
+
+  _AnitabiTotal _anitabiTotalFor(PilgrimageWork work) {
+    final bangumiId = work.bangumiId;
+    if (bangumiId == null) {
+      return const _AnitabiTotal.none();
+    }
+    final totals = _anitabiTotals;
+    if (totals == null) {
+      return const _AnitabiTotal.loading();
+    }
+    final total = totals[bangumiId];
+    return total == null
+        ? const _AnitabiTotal.none()
+        : _AnitabiTotal.known(total);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +135,7 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
                   pointCount: _plan.points
                       .where((point) => point.work.id == work.id)
                       .length,
+                  anitabiTotal: _anitabiTotalFor(work),
                   disabled: _isSaving,
                   onDelete: () => _confirmDeleteWork(work),
                 ),
@@ -174,6 +237,8 @@ class _WorkManagerScreenState extends State<WorkManagerScreen> {
       _plan = updatedPlan;
       _didUpdate = true;
     });
+    // A Bangumi work may have just been added to a plan that had none.
+    _loadAnitabiTotalsIfNeeded();
   }
 
   List<PilgrimageWork> _worksForPlan(PilgrimagePlan plan) {
@@ -313,12 +378,14 @@ class _WorkManageCard extends StatefulWidget {
   const _WorkManageCard({
     required this.work,
     required this.pointCount,
+    required this.anitabiTotal,
     required this.disabled,
     required this.onDelete,
   });
 
   final PilgrimageWork work;
   final int pointCount;
+  final _AnitabiTotal anitabiTotal;
   final bool disabled;
   final VoidCallback onDelete;
 
@@ -397,6 +464,7 @@ class _WorkManageCardState extends State<_WorkManageCard> {
                   key: ValueKey('work-manage-badges-${work.id}'),
                   work: work,
                   pointCount: pointCount,
+                  anitabiTotal: widget.anitabiTotal,
                 ),
               ],
             ),
@@ -459,11 +527,42 @@ class _WorkManageCardState extends State<_WorkManageCard> {
   }
 }
 
+/// A work's point total on Anitabi, as far as it is known.
+class _AnitabiTotal {
+  const _AnitabiTotal.known(int this.count) : loading = false;
+  const _AnitabiTotal.loading() : count = null, loading = true;
+
+  /// Manual work, not on Anitabi, or the total could not be loaded.
+  const _AnitabiTotal.none() : count = null, loading = false;
+
+  final int? count;
+  final bool loading;
+}
+
 class _WorkBadges extends StatelessWidget {
-  const _WorkBadges({required this.work, required this.pointCount, super.key});
+  const _WorkBadges({
+    required this.work,
+    required this.pointCount,
+    required this.anitabiTotal,
+    super.key,
+  });
 
   final PilgrimageWork work;
   final int pointCount;
+  final _AnitabiTotal anitabiTotal;
+
+  /// "Added" is what this plan holds; the Anitabi total says how many the
+  /// work has, so a newly added work does not look empty.
+  String get _pointLabel {
+    final total = anitabiTotal.count;
+    if (total != null) {
+      return '已加入 $pointCount · Anitabi 共 $total 点位';
+    }
+    if (anitabiTotal.loading) {
+      return '已加入 $pointCount · Anitabi 共 … 点位';
+    }
+    return '已加入 $pointCount 点位';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +580,10 @@ class _WorkBadges extends StatelessWidget {
             emphasized: isBangumiWork,
           ),
           const SizedBox(width: 6),
-          _WorkManageBadge(label: '$pointCount 个点位'),
+          _WorkManageBadge(
+            key: ValueKey('work-point-count-${work.id}'),
+            label: _pointLabel,
+          ),
         ],
       ),
     );
@@ -489,7 +591,11 @@ class _WorkBadges extends StatelessWidget {
 }
 
 class _WorkManageBadge extends StatelessWidget {
-  const _WorkManageBadge({required this.label, this.emphasized = false});
+  const _WorkManageBadge({
+    required this.label,
+    this.emphasized = false,
+    super.key,
+  });
 
   final String label;
   final bool emphasized;

@@ -276,6 +276,26 @@ class DesktopPilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimageWork?> fillMissingWorkFieldsIfPresent({
+    required String planId,
+    required PilgrimageWork work,
+  }) {
+    return _write<PilgrimageWork?>(
+      (draft) =>
+          draft.fillMissingWorkFieldsIfPresent(planId: planId, work: work),
+      (draft, stored) async {
+        if (stored == null) {
+          return;
+        }
+        await _savePlanBundle(
+          draft,
+          draft.snapshot().plans.firstWhere((plan) => plan.id == planId),
+        );
+      },
+    );
+  }
+
+  @override
   Future<PilgrimagePlan> createPlanGroup({
     required String planId,
     required PilgrimagePlanGroup group,

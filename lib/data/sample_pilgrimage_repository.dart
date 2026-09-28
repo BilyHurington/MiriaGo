@@ -342,6 +342,28 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimageWork?> fillMissingWorkFieldsIfPresent({
+    required String planId,
+    required PilgrimageWork work,
+  }) async {
+    final index = _plans.indexWhere((plan) => plan.id == planId);
+    if (index == -1) {
+      return null;
+    }
+    final plan = _plans[index];
+    final stored = plan.works.where((w) => w.id == work.id).firstOrNull;
+    if (stored == null) {
+      return null;
+    }
+    final works = _mergeWork(plan.works, work);
+    _plans[index] = plan.copyWith(
+      works: works,
+      points: _withStoredWorks(plan.points, works),
+    );
+    return works.firstWhere((w) => w.id == work.id);
+  }
+
+  @override
   Future<PilgrimagePlan> createPlanGroup({
     required String planId,
     required PilgrimagePlanGroup group,

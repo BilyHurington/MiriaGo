@@ -605,6 +605,26 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }
 
   @override
+  Future<PilgrimageWork?> fillMissingWorkFieldsIfPresent({
+    required String planId,
+    required PilgrimageWork work,
+  }) {
+    return _database.transaction(() async {
+      final existing =
+          await (_database.select(_database.works)..where(
+                (table) =>
+                    table.id.equals(_storageId(planId, work.id)) &
+                    table.planId.equals(planId),
+              ))
+              .getSingleOrNull();
+      if (existing == null) {
+        return null;
+      }
+      return _fillStoredWork(planId: planId, existing: existing, work: work);
+    });
+  }
+
+  @override
   Future<PilgrimagePlan> createPlanGroup({
     required String planId,
     required PilgrimagePlanGroup group,
@@ -1745,6 +1765,15 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return;
     }
 
+    await _fillStoredWork(planId: planId, existing: existing, work: work);
+  }
+
+  Future<PilgrimageWork> _fillStoredWork({
+    required String planId,
+    required Work existing,
+    required PilgrimageWork work,
+  }) async {
+    final storageId = existing.id;
     final stored = _workFromRow(existing, planId);
     final merged = fillMissingWorkFields(stored, work);
     Value<T> changed<T>(T storedValue, T mergedValue) =>
@@ -1769,6 +1798,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
         _database.works,
       )..where((table) => table.id.equals(storageId))).write(update);
     }
+    return merged;
   }
 
   Future<void> _insertPilgrimagePlanGroup({

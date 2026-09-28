@@ -8,9 +8,17 @@ import '../plan/pilgrimage_models.dart';
 
 class BangumiApiClient {
   BangumiApiClient({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+    : _httpClient = httpClient ?? http.Client(),
+      _ownsHttpClient = httpClient == null;
 
   final http.Client _httpClient;
+  final bool _ownsHttpClient;
+
+  void close() {
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
+  }
 
   Future<List<PilgrimageWork>> searchSubjects(
     String keyword, {

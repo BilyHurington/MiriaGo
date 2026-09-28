@@ -9,23 +9,24 @@ import 'pilgrimage_repository.dart';
 /// imported from Anitabi before covers were read, plan packages without
 /// covers, and works saved before covers existed.
 ///
-/// Anitabi's static index is tried first (one download covers every work),
-/// then the Bangumi API. Each Bangumi ID is looked up at most once per app
-/// session; failures are retried on the next launch. Existing covers are
-/// never replaced.
+/// Each work is looked up with a small Bangumi API request; Anitabi's static
+/// index (about 2 MB) is only downloaded when Bangumi is unreachable. Each
+/// Bangumi ID is looked up at most once per app session; works still without
+/// a cover are retried on the next launch. Existing covers are never
+/// replaced, and works deleted meanwhile are not brought back.
 class WorkCoverBackfill {
   WorkCoverBackfill({
     required this.repository,
-    AnitabiClient? anitabiClient,
-    BangumiApiClient? bangumiApiClient,
-  }) : _anitabiClient = anitabiClient ?? AnitabiClient(),
-       _bangumiApiClient = bangumiApiClient ?? BangumiApiClient();
+    AnitabiClient Function()? anitabiClient,
+    BangumiApiClient Function()? bangumiApiClient,
+  }) : _createAnitabiClient = anitabiClient,
+       _createBangumiApiClient = bangumiApiClient;
 
   /// Off in widget tests, which have no network.
   static var automaticEnabled = true;
 
-  /// Bangumi API lookups per run, to stay polite when many works lack covers.
-  static const maxBangumiLookups = 20;
+  /// Works looked up per run, to stay polite when many lack covers.
+  static const maxLookupsPerRun = 20;
 
   static final _attempted = <int>{};
   static Future<void> _queue = Future.value();
@@ -34,10 +35,11 @@ class WorkCoverBackfill {
   static void resetSession() => _attempted.clear();
 
   final PilgrimageRepository repository;
-  final AnitabiClient _anitabiClient;
-  final BangumiApiClient _bangumiApiClient;
+  final AnitabiClient Function()? _createAnitabiClient;
+  final BangumiApiClient Function()? _createBangumiApiClient;
 
-  /// Returns the works that got a cover, by plan ID. Runs one at a time.
+  /// Returns the stored works that got a cover, by plan ID. Runs one at a
+  /// time.
   Future<Map<String, List<PilgrimageWork>>> run() {
     final result = _queue.then((_) => _run());
     _queue = result.then((_) {}, onError: (_) {});
@@ -64,22 +66,27 @@ class WorkCoverBackfill {
     if (pending.isEmpty) {
       return const {};
     }
-    _attempted.addAll(pending.keys);
 
-    final covers = await _lookupCovers(pending.keys.toList());
+    final bangumiIds = pending.keys.take(maxLookupsPerRun).toList();
+    _attempted.addAll(bangumiIds);
+    final covers = await _lookupCovers(bangumiIds);
+
     final updated = <String, List<PilgrimageWork>>{};
-    for (final MapEntry(key: bangumiId, value: entries) in pending.entries) {
+    for (final bangumiId in bangumiIds) {
       final cover = covers[bangumiId];
       if (cover == null) {
         continue;
       }
-      for (final entry in entries) {
-        final work = entry.work.withCoverImageUrl(cover);
+      for (final entry in pending[bangumiId]!) {
         try {
-          await repository.addWorkToPlan(planId: entry.planId, work: work);
-          updated.putIfAbsent(entry.planId, () => []).add(work);
+          final stored = await repository.fillMissingWorkFieldsIfPresent(
+            planId: entry.planId,
+            work: entry.work.withCoverImageUrl(cover),
+          );
+          if (stored != null) {
+            updated.putIfAbsent(entry.planId, () => []).add(stored);
+          }
         } on Object catch (error) {
-          // The plan may have been deleted meanwhile.
           debugPrint('Failed to save work cover: $error');
         }
       }
@@ -89,9 +96,33 @@ class WorkCoverBackfill {
 
   Future<Map<int, String>> _lookupCovers(List<int> bangumiIds) async {
     final covers = <int, String>{};
+    final unreachable = <int>[];
+    final bangumi = _createBangumiApiClient?.call() ?? BangumiApiClient();
     try {
       for (final bangumiId in bangumiIds) {
-        final lite = await _anitabiClient.fetchBangumiLiteFromStatic(bangumiId);
+        try {
+          final cover = await bangumi.fetchSubjectCover(bangumiId);
+          if (cover != null) {
+            covers[bangumiId] = cover;
+          }
+        } on Object catch (error) {
+          debugPrint('Bangumi cover for $bangumiId unavailable: $error');
+          unreachable.add(bangumiId);
+        }
+      }
+    } finally {
+      if (_createBangumiApiClient == null) {
+        bangumi.close();
+      }
+    }
+    if (unreachable.isEmpty) {
+      return covers;
+    }
+
+    final anitabi = _createAnitabiClient?.call() ?? AnitabiClient();
+    try {
+      for (final bangumiId in unreachable) {
+        final lite = await anitabi.fetchBangumiLiteFromStatic(bangumiId);
         final cover = lite?.coverImageUrl;
         if (cover != null) {
           covers[bangumiId] = cover;
@@ -99,20 +130,9 @@ class WorkCoverBackfill {
       }
     } on Object catch (error) {
       debugPrint('Anitabi covers unavailable: $error');
-    }
-
-    final remaining = [
-      for (final bangumiId in bangumiIds)
-        if (!covers.containsKey(bangumiId)) bangumiId,
-    ].take(maxBangumiLookups);
-    for (final bangumiId in remaining) {
-      try {
-        final cover = await _bangumiApiClient.fetchSubjectCover(bangumiId);
-        if (cover != null) {
-          covers[bangumiId] = cover;
-        }
-      } on Object catch (error) {
-        debugPrint('Bangumi cover for $bangumiId unavailable: $error');
+    } finally {
+      if (_createAnitabiClient == null) {
+        anitabi.close();
       }
     }
     return covers;

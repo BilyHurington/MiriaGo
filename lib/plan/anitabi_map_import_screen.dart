@@ -43,24 +43,24 @@ import 'plan_order.dart';
 import 'work_manager_screen.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
-  AnitabiMapImportScreen({
+  const AnitabiMapImportScreen({
     required this.plan,
     required this.repository,
     this.initialBangumiId,
     this.initialPointId,
     this.initialSettings,
-    AnitabiClient? anitabiClient,
+    this.anitabiClient,
     super.key,
-  }) : anitabiClient =
-           anitabiClient ??
-           AnitabiClient(serviceConfig: initialSettings?.anitabiServiceConfig);
+  });
 
   final PilgrimagePlan plan;
   final PilgrimageRepository repository;
   final int? initialBangumiId;
   final String? initialPointId;
   final AppSettings? initialSettings;
-  final AnitabiClient anitabiClient;
+
+  /// Injected in tests; otherwise the page creates and closes its own.
+  final AnitabiClient? anitabiClient;
 
   @override
   State<AnitabiMapImportScreen> createState() => _AnitabiMapImportScreenState();
@@ -74,6 +74,11 @@ class _ImportOverlapPointBrowser {
 }
 
 class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
+  late final AnitabiClient _anitabiClient =
+      widget.anitabiClient ??
+      AnitabiClient(
+        serviceConfig: widget.initialSettings?.anitabiServiceConfig,
+      );
   static const double _fallbackLoadedPointsZoom = 15;
   static const Duration _thumbnailBoundsDebounceDuration = Duration(
     milliseconds: 180,
@@ -170,11 +175,14 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   void dispose() {
     _thumbnailBoundsDebounce?.cancel();
     _visibleBoundsNotifier.dispose();
+    if (widget.anitabiClient == null) {
+      _anitabiClient.close();
+    }
     super.dispose();
   }
 
   Future<void> _refreshAnitabiData() async {
-    widget.anitabiClient.clearStaticCache();
+    _anitabiClient.clearStaticCache();
     ScaffoldMessenger.of(context).showStatusSnack(
       kind: AppStatusBannerKind.running,
       title: '正在清除缓存并重新加载 Anitabi 点位...',
@@ -266,10 +274,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       if (!_isActiveLoad(generation)) {
         return;
       }
-      final points = await widget.anitabiClient.fetchPoints(
-        bangumiId,
-        lite: lite,
-      );
+      final points = await _anitabiClient.fetchPoints(bangumiId, lite: lite);
       if (!_isActiveLoad(generation)) {
         return;
       }
@@ -362,7 +367,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       }
       final work = _workForBangumiId(lite.bangumiId) ?? _workFromLite(lite);
 
-      final points = await widget.anitabiClient.fetchPoints(
+      final points = await _anitabiClient.fetchPoints(
         lite.bangumiId,
         lite: lite,
       );
@@ -410,8 +415,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
     try {
       final result =
-          await widget.anitabiClient.findPointGlobally(pointId: pointId) ??
-          await widget.anitabiClient.findPointInBangumi(
+          await _anitabiClient.findPointGlobally(pointId: pointId) ??
+          await _anitabiClient.findPointInBangumi(
             bangumiId: bangumiId,
             pointId: pointId,
           );
@@ -462,7 +467,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     }
 
     try {
-      return await widget.anitabiClient.fetchBangumiLite(bangumiId);
+      return await _anitabiClient.fetchBangumiLite(bangumiId);
     } catch (_) {
       return AnitabiBangumiLite(
         bangumiId: bangumiId,
@@ -483,16 +488,16 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     if (staticLite != null) {
       return staticLite;
     }
-    return widget.anitabiClient.fetchBangumiLite(bangumiId);
+    return _anitabiClient.fetchBangumiLite(bangumiId);
   }
 
   Future<AnitabiBangumiLite?> _fetchStaticBangumiLiteIfSupported(
     int bangumiId,
   ) {
-    if (widget.anitabiClient.runtimeType != AnitabiClient) {
+    if (_anitabiClient.runtimeType != AnitabiClient) {
       return Future.value();
     }
-    return widget.anitabiClient.fetchBangumiLiteFromStatic(bangumiId);
+    return _anitabiClient.fetchBangumiLiteFromStatic(bangumiId);
   }
 
   PilgrimageWork? _workForBangumiId(int bangumiId) {

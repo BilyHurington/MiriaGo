@@ -3374,10 +3374,17 @@ void main() {
           plan: plan,
           repository: repository,
           settings: const AppSettings(),
+          loadAnitabiPointTotals: () async => {work.bangumiId!: 582},
         ),
       ),
     );
     await tester.pumpAndSettle();
+    // Added points and the work's Anitabi total are told apart.
+    final pointCount = plan.points.where((p) => p.work.id == work.id).length;
+    expect(
+      find.text('已加入 $pointCount · Anitabi 共 582 点位'),
+      findsOneWidget,
+    );
 
     final moreButton = find.byKey(ValueKey('work-manage-more-${work.id}'));
     expect(moreButton, findsOneWidget);
@@ -3626,7 +3633,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('原创短片'), findsOneWidget);
-    expect(find.textContaining('0 个点位'), findsOneWidget);
+    expect(find.text('已加入 0 点位'), findsOneWidget);
   });
 
   testWidgets('route planner skill is introduced once and linked', (

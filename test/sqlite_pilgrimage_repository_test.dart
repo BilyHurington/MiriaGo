@@ -43,6 +43,54 @@ class _GatedPathProviderPlatform extends _FakePathProviderPlatform {
 }
 
 void main() {
+  test('fills a missing work field only while the work exists', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.createPlan(name: 'Covers', area: 'Kyoto');
+    const work = PilgrimageWork(
+      id: 'bangumi-1',
+      bangumiId: 1,
+      title: 'Work',
+      subtitle: '',
+      city: 'Kyoto',
+      source: WorkSource.bangumi,
+    );
+    await repository.addWorkToPlan(planId: plan.id, work: work);
+
+    final stored = await repository.fillMissingWorkFieldsIfPresent(
+      planId: plan.id,
+      work: work.withCoverImageUrl('https://lain.bgm.tv/1.jpg'),
+    );
+    expect(stored?.coverImageUrl, 'https://lain.bgm.tv/1.jpg');
+    // An existing cover is never replaced.
+    await repository.fillMissingWorkFieldsIfPresent(
+      planId: plan.id,
+      work: work.withCoverImageUrl('https://example.com/other.jpg'),
+    );
+    expect(
+      (await repository.loadActivePlan()).works.single.coverImageUrl,
+      'https://lain.bgm.tv/1.jpg',
+    );
+
+    await repository.deleteWorkFromPlan(planId: plan.id, workId: work.id);
+    expect(
+      await repository.fillMissingWorkFieldsIfPresent(
+        planId: plan.id,
+        work: work.withCoverImageUrl('https://lain.bgm.tv/1.jpg'),
+      ),
+      isNull,
+    );
+    expect(
+      await repository.fillMissingWorkFieldsIfPresent(
+        planId: 'deleted-plan',
+        work: work,
+      ),
+      isNull,
+    );
+    expect(await database.select(database.works).get(), isEmpty);
+  });
+
   test(
     'schema 44 and 45 add Anitabi remote state and skill tip flag',
     () async {

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -14,22 +16,65 @@ class AnitabiClient {
     http.Client? httpClient,
     AnitabiStaticDataReader? staticDataReader,
     AnitabiServiceConfig? serviceConfig,
-  }) : _httpClient = httpClient ?? http.Client(),
+  }) : this._(
+         httpClient ?? http.Client(),
+         ownsHttpClient: httpClient == null,
+         staticDataReader: staticDataReader,
+         serviceConfig: serviceConfig,
+       );
+
+  AnitabiClient._(
+    this._httpClient, {
+    required bool ownsHttpClient,
+    required AnitabiStaticDataReader? staticDataReader,
+    required AnitabiServiceConfig? serviceConfig,
+  }) : _ownsHttpClient = ownsHttpClient,
+       // Clients with their own transport (tests) keep a private index.
+       _sharesStaticIndex = ownsHttpClient && staticDataReader == null,
        _serviceConfig = serviceConfig,
        _staticDataReader =
            staticDataReader ??
            AnitabiStaticDataReader(
-             httpClient: httpClient,
+             httpClient: _httpClient,
              serviceConfig: serviceConfig,
            );
 
+  /// Per request; the static index is about 2 MB, so it gets longer in the
+  /// reader.
+  static const apiTimeout = Duration(seconds: 20);
+
+  /// Upper bound for looking a work up across every static page.
+  static const staticPagesDeadline = Duration(seconds: 90);
+
+  /// How long the app-wide copy of the static index is reused.
+  static const sharedIndexLifetime = Duration(minutes: 30);
+
+  static final _sharedIndexLoads = <String, Future<AnitabiStaticIndex>>{};
+  static final _sharedIndexLoadedAt = <String, DateTime>{};
+
   final http.Client _httpClient;
+  final bool _ownsHttpClient;
+  final bool _sharesStaticIndex;
   final AnitabiServiceConfig? _serviceConfig;
   final AnitabiStaticDataReader _staticDataReader;
-  AnitabiStaticIndex? _cachedStaticIndex;
+  Future<AnitabiStaticIndex>? _cachedStaticIndex;
+
+  String get _staticIndexKey =>
+      (_serviceConfig ?? AnitabiServiceConfig.current).staticDataBaseUrl;
 
   void clearStaticCache() {
     _cachedStaticIndex = null;
+    if (_sharesStaticIndex) {
+      _sharedIndexLoads.remove(_staticIndexKey);
+      _sharedIndexLoadedAt.remove(_staticIndexKey);
+    }
+  }
+
+  /// Releases the HTTP connection pool this client created.
+  void close() {
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
   }
 
   Future<AnitabiBangumiLite> fetchBangumiLite(int bangumiId) async {
@@ -55,7 +100,7 @@ class AnitabiClient {
     AnitabiServiceConfig config,
   ) async {
     final uri = config.apiUri('bangumi/$bangumiId/lite');
-    final response = await _httpClient.get(uri);
+    final response = await _httpClient.get(uri).timeout(apiTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AnitabiException(response.statusCode, response.body);
     }
@@ -70,6 +115,14 @@ class AnitabiClient {
         .where((work) => work.bangumiId == bangumiId)
         .firstOrNull;
     return work?.toBangumiLite();
+  }
+
+  /// Anitabi point totals for every work in the static index, by Bangumi ID.
+  Future<Map<int, int>> fetchStaticPointCounts() async {
+    final staticIndex = await _fetchStaticIndex();
+    return {
+      for (final work in staticIndex.works) work.bangumiId: work.points.length,
+    };
   }
 
   Future<List<AnitabiPoint>> fetchPoints(
@@ -177,6 +230,7 @@ class AnitabiClient {
       return null;
     }
 
+    final deadline = DateTime.now().add(staticPagesDeadline);
     final guessedPageIndex = workIndex ~/ staticIndex.pageSize;
     final guessedPoints = await _fetchStaticPointsFromPage(
       staticIndex: staticIndex,
@@ -191,6 +245,11 @@ class AnitabiClient {
     for (var pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
       if (pageIndex == guessedPageIndex) {
         continue;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        throw AnitabiStaticDataUnavailableException(
+          TimeoutException('Anitabi static pages', staticPagesDeadline),
+        );
       }
       final points = await _fetchStaticPointsFromPage(
         staticIndex: staticIndex,
@@ -209,11 +268,11 @@ class AnitabiClient {
     required AnitabiMapWorkLite work,
     required int pageIndex,
   }) async {
-    final pageResponse = await _getAnitabiStaticJson(
+    final pageBody = await _staticDataReader.read(
       'g$pageIndex.json',
       version: staticIndex.version,
     );
-    final page = (jsonDecode(pageResponse.body) as List<Object?>)
+    final page = (await _decodeJson(pageBody) as List<Object?>)
         .whereType<List<Object?>>();
     for (final entry in page) {
       final entryBangumiId = (entry[0] as num).toInt();
@@ -249,42 +308,78 @@ class AnitabiClient {
         .firstOrNull;
   }
 
-  Future<AnitabiStaticIndex> _fetchStaticIndex() async {
-    final cached = _cachedStaticIndex;
-    if (cached != null) {
-      return cached;
+  /// The static index, loaded once and shared: by every default client in
+  /// the app for [sharedIndexLifetime], otherwise by this client. Concurrent
+  /// callers share one download; a failed load is not kept.
+  Future<AnitabiStaticIndex> _fetchStaticIndex() {
+    if (!_sharesStaticIndex) {
+      final cached = _cachedStaticIndex;
+      if (cached != null) {
+        return cached;
+      }
+      final load = _cachedStaticIndex = _loadStaticIndex();
+      load.then(
+        (_) {},
+        onError: (Object _) {
+          if (identical(_cachedStaticIndex, load)) {
+            _cachedStaticIndex = null;
+          }
+        },
+      );
+      return load;
     }
 
-    final indexResponse = await _getAnitabiStaticJson(
+    final key = _staticIndexKey;
+    final loadedAt = _sharedIndexLoadedAt[key];
+    if (loadedAt != null &&
+        DateTime.now().difference(loadedAt) > sharedIndexLifetime) {
+      _sharedIndexLoads.remove(key);
+      _sharedIndexLoadedAt.remove(key);
+    }
+    return _sharedIndexLoads.putIfAbsent(key, () {
+      final load = _loadStaticIndex();
+      load.then(
+        (_) => _sharedIndexLoadedAt[key] = DateTime.now(),
+        onError: (Object _) {
+          if (identical(_sharedIndexLoads[key], load)) {
+            _sharedIndexLoads.remove(key);
+          }
+        },
+      );
+      return load;
+    });
+  }
+
+  Future<AnitabiStaticIndex> _loadStaticIndex() async {
+    final body = await _staticDataReader.read(
       'g.json',
       version: DateTime.now().millisecondsSinceEpoch.toString(),
     );
-    final index = jsonDecode(indexResponse.body) as List<Object?>;
-    final rawWorks = (index[0] as List<Object?>).whereType<List<Object?>>();
-    final works = rawWorks
+    return body.length > _backgroundParseThreshold
+        ? compute(parseAnitabiStaticIndex, body)
+        : parseAnitabiStaticIndex(body);
+  }
+
+  static Future<Object?> _decodeJson(String body) async =>
+      body.length > _backgroundParseThreshold
+      ? compute(jsonDecode, body)
+      : jsonDecode(body);
+}
+
+/// Bodies above this are parsed off the UI isolate (the full index is about
+/// 2 MB); small ones are not worth the isolate hop.
+const _backgroundParseThreshold = 256 * 1024;
+
+AnitabiStaticIndex parseAnitabiStaticIndex(String body) {
+  final index = jsonDecode(body) as List<Object?>;
+  final rawWorks = (index[0] as List<Object?>).whereType<List<Object?>>();
+  return AnitabiStaticIndex(
+    works: rawWorks
         .map(AnitabiMapWorkLite.fromCompactJson)
-        .toList(growable: false);
-
-    final staticIndex = AnitabiStaticIndex(
-      works: works,
-      pageSize: (index[1] as num).toInt(),
-      version: _stringValue(index.length > 2 ? index[2] : null),
-    );
-    _cachedStaticIndex = staticIndex;
-    return staticIndex;
-  }
-
-  Future<http.Response> _getAnitabiStaticJson(
-    String fileName, {
-    String? version,
-  }) async {
-    final body = await _staticDataReader.read(fileName, version: version);
-    return http.Response.bytes(
-      utf8.encode(body),
-      200,
-      headers: const {'content-type': 'application/json; charset=utf-8'},
-    );
-  }
+        .toList(growable: false),
+    pageSize: (index[1] as num).toInt(),
+    version: _stringValue(index.length > 2 ? index[2] : null),
+  );
 }
 
 class AnitabiStaticIndex {

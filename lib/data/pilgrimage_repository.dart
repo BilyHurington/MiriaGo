@@ -81,6 +81,14 @@ abstract interface class PilgrimageRepository {
     required PilgrimageWork work,
   });
 
+  /// Fills fields the stored work is missing (e.g. a cover found later),
+  /// never adding a work or overwriting a value. Returns the stored work, or
+  /// null when the plan or the work no longer exists.
+  Future<PilgrimageWork?> fillMissingWorkFieldsIfPresent({
+    required String planId,
+    required PilgrimageWork work,
+  });
+
   Future<PilgrimagePlan> createPlanGroup({
     required String planId,
     required PilgrimagePlanGroup group,

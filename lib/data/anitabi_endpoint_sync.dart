@@ -275,6 +275,7 @@ class AnitabiEndpointSync {
     try {
       if (changed.contains(AnitabiServiceField.staticData)) {
         final body = await AnitabiStaticDataReader(
+          httpClient: _client,
           serviceConfig: candidate,
           reportFailures: false,
         ).read('g.json');

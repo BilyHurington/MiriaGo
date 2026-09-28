@@ -14,6 +14,27 @@ use crate::storage;
 #[path = "desktop_file_io.rs"]
 mod file_io;
 
+/// Serializes desktop database commands now that they run off the main
+/// thread; the Flutter side already issues writes one at a time.
+static DESKTOP_DB: Mutex<()> = Mutex::new(());
+
+fn lock_desktop_db() -> std::sync::MutexGuard<'static, ()> {
+    DESKTOP_DB
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Runs file, database and network work on the blocking pool so the main
+/// thread (and with it the window) never waits on it. Synchronous Tauri
+/// commands run on the main thread.
+async fn run_blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
 static EXPORT_AUTHORIZATION: Mutex<file_io::ExportAuthorization> =
     Mutex::new(file_io::ExportAuthorization::new());
 static IMPORT_RESTORATIONS: LazyLock<Mutex<file_io::ImportRestorations>> =
@@ -277,7 +298,13 @@ pub fn prepare_export_destination(
 }
 
 #[tauri::command]
-pub fn write_export_file(
+pub async fn write_export_file(
+    request: WriteExportFileRequest,
+) -> Result<ExportDestinationResult, String> {
+    run_blocking(move || write_export_file_blocking(request)).await
+}
+
+fn write_export_file_blocking(
     request: WriteExportFileRequest,
 ) -> Result<ExportDestinationResult, String> {
     let path = EXPORT_AUTHORIZATION
@@ -291,7 +318,12 @@ pub fn write_export_file(
 }
 
 #[tauri::command]
-pub fn load_desktop_state() -> Result<DesktopStateResult, String> {
+pub async fn load_desktop_state() -> Result<DesktopStateResult, String> {
+    run_blocking(load_desktop_state_blocking).await
+}
+
+fn load_desktop_state_blocking() -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     crate::startup_log::write("opening desktop database");
     let result = (|| {
         let database = crate::desktop_db::DesktopDatabase::open()?;
@@ -312,7 +344,16 @@ pub fn load_desktop_state() -> Result<DesktopStateResult, String> {
 }
 
 #[tauri::command]
-pub fn save_desktop_state(request: SaveDesktopStateRequest) -> Result<DesktopStateResult, String> {
+pub async fn save_desktop_state(
+    request: SaveDesktopStateRequest,
+) -> Result<DesktopStateResult, String> {
+    run_blocking(move || save_desktop_state_blocking(request)).await
+}
+
+fn save_desktop_state_blocking(
+    request: SaveDesktopStateRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.save_state_json(&request.state_json)?;
     Ok(DesktopStateResult {
@@ -322,9 +363,16 @@ pub fn save_desktop_state(request: SaveDesktopStateRequest) -> Result<DesktopSta
 }
 
 #[tauri::command]
-pub fn save_desktop_plan_bundle(
+pub async fn save_desktop_plan_bundle(
     request: SaveDesktopPlanBundleRequest,
 ) -> Result<DesktopStateResult, String> {
+    run_blocking(move || save_desktop_plan_bundle_blocking(request)).await
+}
+
+fn save_desktop_plan_bundle_blocking(
+    request: SaveDesktopPlanBundleRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.save_plan_bundle_json(
         &request.plan_json,
@@ -338,9 +386,16 @@ pub fn save_desktop_plan_bundle(
 }
 
 #[tauri::command]
-pub fn delete_desktop_plan(
+pub async fn delete_desktop_plan(
     request: DeleteDesktopPlanRequest,
 ) -> Result<DesktopStateResult, String> {
+    run_blocking(move || delete_desktop_plan_blocking(request)).await
+}
+
+fn delete_desktop_plan_blocking(
+    request: DeleteDesktopPlanRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.delete_plan(&request.plan_id, request.active_plan_id.as_deref())?;
     Ok(DesktopStateResult {
@@ -350,9 +405,16 @@ pub fn delete_desktop_plan(
 }
 
 #[tauri::command]
-pub fn set_desktop_active_plan(
+pub async fn set_desktop_active_plan(
     request: SetDesktopActivePlanRequest,
 ) -> Result<DesktopStateResult, String> {
+    run_blocking(move || set_desktop_active_plan_blocking(request)).await
+}
+
+fn set_desktop_active_plan_blocking(
+    request: SetDesktopActivePlanRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.set_active_plan(&request.plan_id)?;
     Ok(DesktopStateResult {
@@ -362,9 +424,16 @@ pub fn set_desktop_active_plan(
 }
 
 #[tauri::command]
-pub fn save_desktop_settings(
+pub async fn save_desktop_settings(
     request: SaveDesktopSettingsRequest,
 ) -> Result<DesktopStateResult, String> {
+    run_blocking(move || save_desktop_settings_blocking(request)).await
+}
+
+fn save_desktop_settings_blocking(
+    request: SaveDesktopSettingsRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.save_settings_json(&request.settings_json)?;
     Ok(DesktopStateResult {
@@ -374,9 +443,16 @@ pub fn save_desktop_settings(
 }
 
 #[tauri::command]
-pub fn save_desktop_visit_record(
+pub async fn save_desktop_visit_record(
     request: SaveDesktopVisitRecordRequest,
 ) -> Result<DesktopStateResult, String> {
+    run_blocking(move || save_desktop_visit_record_blocking(request)).await
+}
+
+fn save_desktop_visit_record_blocking(
+    request: SaveDesktopVisitRecordRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.save_visit_record_json(&request.record_json)?;
     Ok(DesktopStateResult {
@@ -386,9 +462,16 @@ pub fn save_desktop_visit_record(
 }
 
 #[tauri::command]
-pub fn delete_desktop_visit_record(
+pub async fn delete_desktop_visit_record(
     request: DeleteDesktopVisitRecordRequest,
 ) -> Result<DesktopStateResult, String> {
+    run_blocking(move || delete_desktop_visit_record_blocking(request)).await
+}
+
+fn delete_desktop_visit_record_blocking(
+    request: DeleteDesktopVisitRecordRequest,
+) -> Result<DesktopStateResult, String> {
+    let _db = lock_desktop_db();
     let mut database = crate::desktop_db::DesktopDatabase::open()?;
     database.delete_visit_record(&request.record_id)?;
     Ok(DesktopStateResult {
@@ -398,7 +481,13 @@ pub fn delete_desktop_visit_record(
 }
 
 #[tauri::command]
-pub fn restore_import_assets(
+pub async fn restore_import_assets(
+    request: RestoreImportAssetsRequest,
+) -> Result<RestoreImportAssetsResult, String> {
+    run_blocking(move || restore_import_assets_blocking(request)).await
+}
+
+fn restore_import_assets_blocking(
     request: RestoreImportAssetsRequest,
 ) -> Result<RestoreImportAssetsResult, String> {
     let dirs = storage::ensure_data_dirs()?;
@@ -415,7 +504,11 @@ pub fn restore_import_assets(
 }
 
 #[tauri::command]
-pub fn cleanup_import_assets(request: ImportAssetsTokenRequest) -> Result<(), String> {
+pub async fn cleanup_import_assets(request: ImportAssetsTokenRequest) -> Result<(), String> {
+    run_blocking(move || cleanup_import_assets_blocking(request)).await
+}
+
+fn cleanup_import_assets_blocking(request: ImportAssetsTokenRequest) -> Result<(), String> {
     IMPORT_RESTORATIONS
         .lock()
         .map_err(|error| error.to_string())?
@@ -423,7 +516,11 @@ pub fn cleanup_import_assets(request: ImportAssetsTokenRequest) -> Result<(), St
 }
 
 #[tauri::command]
-pub fn finalize_import_assets(request: ImportAssetsTokenRequest) -> Result<(), String> {
+pub async fn finalize_import_assets(request: ImportAssetsTokenRequest) -> Result<(), String> {
+    run_blocking(move || finalize_import_assets_blocking(request)).await
+}
+
+fn finalize_import_assets_blocking(request: ImportAssetsTokenRequest) -> Result<(), String> {
     IMPORT_RESTORATIONS
         .lock()
         .map_err(|error| error.to_string())?
@@ -431,7 +528,11 @@ pub fn finalize_import_assets(request: ImportAssetsTokenRequest) -> Result<(), S
 }
 
 #[tauri::command]
-pub fn write_asset(request: WriteAssetRequest) -> Result<ReadAssetResult, String> {
+pub async fn write_asset(request: WriteAssetRequest) -> Result<ReadAssetResult, String> {
+    run_blocking(move || write_asset_blocking(request)).await
+}
+
+fn write_asset_blocking(request: WriteAssetRequest) -> Result<ReadAssetResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_local_asset_path(&request.path)?;
     let bytes = file_io::decode_bounded(&request.data_base64, file_io::MAX_ASSET_BYTES)?;
@@ -449,7 +550,11 @@ pub fn write_asset(request: WriteAssetRequest) -> Result<ReadAssetResult, String
 }
 
 #[tauri::command]
-pub fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> {
+pub async fn read_asset(request: ReadAssetRequest) -> Result<ReadAssetResult, String> {
+    run_blocking(move || read_asset_blocking(request)).await
+}
+
+fn read_asset_blocking(request: ReadAssetRequest) -> Result<ReadAssetResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_local_asset_path(&request.path)?;
     let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
@@ -471,7 +576,15 @@ fn asset_read_limit(requested: Option<u64>) -> Result<usize, String> {
 }
 
 #[tauri::command]
-pub fn inspect_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFileResult, String> {
+pub async fn inspect_reference_cache_asset(
+    request: ReadAssetRequest,
+) -> Result<AssetFileResult, String> {
+    run_blocking(move || inspect_reference_cache_asset_blocking(request)).await
+}
+
+fn inspect_reference_cache_asset_blocking(
+    request: ReadAssetRequest,
+) -> Result<AssetFileResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_reference_cache_path(&request.path)?;
     let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
@@ -496,7 +609,15 @@ pub fn inspect_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetF
 }
 
 #[tauri::command]
-pub fn delete_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFileResult, String> {
+pub async fn delete_reference_cache_asset(
+    request: ReadAssetRequest,
+) -> Result<AssetFileResult, String> {
+    run_blocking(move || delete_reference_cache_asset_blocking(request)).await
+}
+
+fn delete_reference_cache_asset_blocking(
+    request: ReadAssetRequest,
+) -> Result<AssetFileResult, String> {
     let dirs = storage::ensure_data_dirs()?;
     let relative_path = safe_reference_cache_path(&request.path)?;
     let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
@@ -520,7 +641,13 @@ pub fn delete_reference_cache_asset(request: ReadAssetRequest) -> Result<AssetFi
 }
 
 #[tauri::command]
-pub fn fetch_anitabi_static_json(
+pub async fn fetch_anitabi_static_json(
+    request: FetchAnitabiStaticJsonRequest,
+) -> Result<AnitabiStaticJsonResult, String> {
+    run_blocking(move || fetch_anitabi_static_json_blocking(request)).await
+}
+
+fn fetch_anitabi_static_json_blocking(
     request: FetchAnitabiStaticJsonRequest,
 ) -> Result<AnitabiStaticJsonResult, String> {
     let file_name = safe_anitabi_static_file_name(&request.file_name)?;
@@ -635,9 +762,16 @@ fn safe_anitabi_static_version(version: &str) -> Option<String> {
     Some(trimmed.to_string())
 }
 
+/// Largest Anitabi static file accepted (the index is about 2 MB).
+const MAX_ANITABI_STATIC_BYTES: u64 = 16 * 1024 * 1024;
+
 fn fetch_text(url: &str) -> Result<String, String> {
+    use std::io::Read as _;
+
     let response = reqwest::blocking::Client::builder()
         .user_agent("MiriaGo desktop launcher")
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(40))
         .build()
         .map_err(|error| error.to_string())?
         .get(url)
@@ -646,7 +780,21 @@ fn fetch_text(url: &str) -> Result<String, String> {
     if !response.status().is_success() {
         return Err(format!("request failed: {}", response.status()));
     }
-    response.text().map_err(|error| error.to_string())
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_ANITABI_STATIC_BYTES)
+    {
+        return Err("response too large".to_string());
+    }
+    let mut body = Vec::new();
+    response
+        .take(MAX_ANITABI_STATIC_BYTES + 1)
+        .read_to_end(&mut body)
+        .map_err(|error| error.to_string())?;
+    if body.len() as u64 > MAX_ANITABI_STATIC_BYTES {
+        return Err("response too large".to_string());
+    }
+    String::from_utf8(body).map_err(|error| error.to_string())
 }
 
 fn mime_type_for_path(path: &std::path::Path) -> String {
