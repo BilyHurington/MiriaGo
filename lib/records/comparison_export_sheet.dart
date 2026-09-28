@@ -48,7 +48,7 @@ class ComparisonExportSheet extends StatefulWidget {
       context: context,
       showDragHandle: false,
       enableDrag: false,
-      isDismissible: false,
+      isDismissible: true,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       builder: (context) => ComparisonExportSheet(
@@ -260,26 +260,29 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 12, 10),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Text(
-              '导出对比图',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
+    return InkWell(
+      onTap: exporting ? null : () => Navigator.of(context).pop(),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '导出对比图',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: '关闭',
-            onPressed: exporting ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(LucideIcons.x),
-          ),
-        ],
+            IconButton(
+              tooltip: '关闭',
+              onPressed: exporting ? null : () => Navigator.of(context).pop(),
+              icon: const Icon(LucideIcons.x),
+            ),
+          ],
+        ),
       ),
     );
   }
