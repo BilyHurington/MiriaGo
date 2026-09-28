@@ -42,6 +42,8 @@ class ComparisonExportConfigEditor extends StatelessWidget {
         const _FieldLabel('图片格式与质量'),
         const SizedBox(height: 8),
         ConstrainedMenuAnchor(
+          maxMenuWidth: double.infinity,
+          screenPadding: EdgeInsets.zero,
           builder: (context, controller, child) => Material(
             color: AppColors.surface,
             shape: RoundedRectangleBorder(

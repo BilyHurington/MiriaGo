@@ -172,6 +172,12 @@ void main() {
     await tester.ensureVisible(encoding);
     await tester.tap(encoding);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('constrained-menu-panel')))
+          .width,
+      tester.getSize(encoding).width,
+    );
     await tester.tap(find.text('PNG 无损').last);
     await tester.pumpAndSettle();
     expect(config.imageEncoding, ComparisonImageEncoding.png);
