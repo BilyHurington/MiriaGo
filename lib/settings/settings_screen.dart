@@ -2934,11 +2934,10 @@ class _AboutSettingsPage extends StatelessWidget {
               label: '开源许可',
               value: 'MIT License',
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(LucideIcons.shieldCheck),
-              title: const Text('隐私政策'),
-              trailing: const Icon(LucideIcons.chevronRight),
+            _AboutInfoTile(
+              icon: LucideIcons.shieldCheck,
+              label: '隐私政策',
+              value: '查看隐私政策',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const PrivacyPolicyScreen(),
@@ -5334,35 +5333,53 @@ class _AboutInfoTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.textSecondary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: _captionTextStyle),
-                const SizedBox(height: 2),
-                CopyableText(
-                  text: value,
-                  copyLabel: value,
-                  style: const TextStyle(fontSize: 14, letterSpacing: 0),
-                ),
-              ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.textSecondary, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: _captionTextStyle),
+                  const SizedBox(height: 2),
+                  if (onTap == null)
+                    CopyableText(
+                      text: value,
+                      copyLabel: value,
+                      style: const TextStyle(fontSize: 14, letterSpacing: 0),
+                    )
+                  else
+                    Text(
+                      value,
+                      style: const TextStyle(fontSize: 14, letterSpacing: 0),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              Icon(
+                LucideIcons.chevronRight,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+          ],
+        ),
       ),
     );
   }
