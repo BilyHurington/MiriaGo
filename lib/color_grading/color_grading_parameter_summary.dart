@@ -137,7 +137,7 @@ class _ColorGradingParameterSheet extends StatelessWidget {
           itemCount: items.length + 1,
           separatorBuilder: (_, index) => index == 0
               ? const SizedBox(height: 10)
-              : const Divider(height: 18),
+              : const SizedBox(height: 18),
           itemBuilder: (context, index) {
             if (index == 0) {
               return const Text(
