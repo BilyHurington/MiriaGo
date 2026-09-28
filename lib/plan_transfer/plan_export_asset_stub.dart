@@ -69,6 +69,8 @@ Uint8List readExportZipSourceFile(String path) {
 
 int exportZipSourceFileLength(String path) => 0;
 
+bool exportZipSourceFileExists(String path) => false;
+
 Future<List<int>?> readExportNetworkBytes(String url) async {
   final normalizedUrl = url.trim();
   if (!_isNetworkUrl(normalizedUrl)) {

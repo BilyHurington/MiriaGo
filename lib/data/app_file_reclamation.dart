@@ -17,10 +17,7 @@ enum AppOwnedDirectory {
   importedPlanAssets('imported_plan_assets'),
   referenceFull('reference_full'),
   referenceThumbnails('reference_thumbnails'),
-  userReferenceImages('user_reference_images'),
-
-  /// Where uploads were stored before `user_reference_images`.
-  legacyUserReferences('user_references');
+  userReferenceImages('user_reference_images');
 
   const AppOwnedDirectory(this.directoryName);
   final String directoryName;
@@ -33,7 +30,6 @@ const pointOwnedDirectories = {
   AppOwnedDirectory.referenceFull,
   AppOwnedDirectory.referenceThumbnails,
   AppOwnedDirectory.userReferenceImages,
-  AppOwnedDirectory.legacyUserReferences,
 };
 
 class AppFileReclamationResult {

@@ -59,7 +59,8 @@ enum PlanExportWarningType {
   fullReferenceMissing('fullReferenceMissing'),
   userReferenceMissing('userReferenceMissing'),
   visitPhotoMissing('visitPhotoMissing'),
-  gradedPhotoMissing('gradedPhotoMissing');
+  gradedPhotoMissing('gradedPhotoMissing'),
+  deletedDuringExport('deletedDuringExport');
 
   const PlanExportWarningType(this.key);
 
@@ -375,9 +376,9 @@ Future<PlanExportV2Result> _buildPlanExportV2Package({
   if (encoded.skipped.isNotEmpty) {
     // Deleted between collecting assets and zipping them; the package is
     // still usable, the importer treats them as missing.
-    warnings.add(
-      '${encoded.skipped.length} 个文件在导出过程中被删除，未包含在数据包中',
-    );
+    warnings.add('${encoded.skipped.length} 个文件在导出过程中被删除，未包含在数据包中');
+    warningCounts[PlanExportWarningType.deletedDuringExport.key] =
+        encoded.skipped.length;
   }
 
   return PlanExportV2Result(
@@ -621,10 +622,14 @@ Future<({List<int> bytes, List<String> skipped})> _encodePlanExportZip(
     final List<int> bytes;
     try {
       bytes =
-          entry.source.bytes ??
-          readExportZipSourceFile(entry.source.filePath!);
+          entry.source.bytes ?? readExportZipSourceFile(entry.source.filePath!);
     } on Object {
-      // The file was deleted (or became unreadable) after it was collected.
+      // Only a file deleted after it was collected is skipped; any other
+      // read failure (permissions, I/O) still fails the export loudly.
+      final path = entry.source.filePath;
+      if (path == null || exportZipSourceFileExists(path)) {
+        rethrow;
+      }
       skipped.add(entry.name);
       continue;
     }

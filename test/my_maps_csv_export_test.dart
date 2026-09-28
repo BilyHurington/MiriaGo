@@ -41,6 +41,9 @@ void main() {
       '-Tokyo-': '-Tokyo-',
       '+Anime': '+Anime',
       '-ABCD1 Exit': '-ABCD1 Exit',
+      '+A:A': "'+A:A",
+      '+1:1': "'+1:1",
+      '-R1C1': "'-R1C1",
     };
     final result = buildMyMapsCsvExport(
       plan: plan.copyWith(

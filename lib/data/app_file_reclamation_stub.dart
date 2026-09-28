@@ -50,5 +50,4 @@ const _desktopReclaimableDirectories = [
   'reference_thumbnails',
   'imported_plan_assets',
   'user_reference_images',
-  'user_references',
 ];

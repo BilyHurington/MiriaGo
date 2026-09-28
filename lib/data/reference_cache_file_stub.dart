@@ -23,4 +23,4 @@ Future<int> deleteReferenceCacheFile(String path) async {
 }
 
 /// Desktop cache paths are app-relative (`assets/reference_full/...`).
-String referenceCacheIdentity(String path) => path.replaceAll('\\', '/');
+String referenceCacheIdentity(String path) => path.trim().replaceAll('\\', '/');

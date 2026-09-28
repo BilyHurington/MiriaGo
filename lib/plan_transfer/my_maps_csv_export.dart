@@ -125,7 +125,8 @@ String _neutralizeSpreadsheetFormula(String value) {
 }
 
 final _formulaLikePattern = RegExp(
-  r'[(!|=]|^\s*[\d.]+\s*[-+*/^]|^\s*\$?[A-Za-z]{1,3}\$?\d+(?![A-Za-z])',
+  r'[(!|=]|^\s*[\d.]+\s*[-+*/^]|^\s*\$?[A-Za-z]{1,3}\$?\d+(?![A-Za-z])'
+  r'|^\s*\$?[A-Za-z]{1,3}\s*:|^\s*\$?\d+\s*:\s*\$?\d+|^\s*[Rr]\d+[Cc]\d+',
 );
 
 String _singleLine(String value) {

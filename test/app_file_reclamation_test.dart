@@ -222,12 +222,13 @@ void main() {
       'user_reference_images/p/a.jpg',
       recentlyUsed: true,
     );
-    final legacy = await file('user_references/old.jpg');
+    // Not an app-owned folder: never reclaimed.
+    final outside = await file('user_references/old.jpg');
     final repository = SamplePilgrimageRepository(visitRecords: []);
 
     final result = await reclaimUnreferencedAppFiles(
       repository: repository,
-      candidatePaths: [fresh.path, stale.path, upload.path, legacy.path],
+      candidatePaths: [fresh.path, stale.path, upload.path, outside.path],
       ownedDirectories: pointOwnedDirectories,
     );
 
@@ -235,8 +236,8 @@ void main() {
     expect(stale.existsSync(), isFalse);
     // The grace period is only for shared caches.
     expect(upload.existsSync(), isFalse);
-    expect(legacy.existsSync(), isFalse);
-    expect(result.deletedFileCount, 3);
+    expect(outside.existsSync(), isTrue);
+    expect(result.deletedFileCount, 2);
   });
 
   test('replacing a reference reclaims only the released files', () async {

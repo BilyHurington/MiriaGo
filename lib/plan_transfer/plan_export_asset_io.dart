@@ -120,6 +120,8 @@ Uint8List readExportZipSourceFile(String path) {
   return bytes;
 }
 
+bool exportZipSourceFileExists(String path) => File(path).existsSync();
+
 /// Size of an export asset, used to size the ZIP output buffer up front.
 int exportZipSourceFileLength(String path) {
   try {

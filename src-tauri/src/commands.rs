@@ -776,12 +776,11 @@ fn safe_reference_cache_path(path: &str) -> Result<PathBuf, String> {
 /// Folders of files the app creates and may reclaim once nothing references
 /// them: downloaded caches, imported package assets and uploaded reference
 /// images. The Flutter side checks references before asking.
-const RECLAIMABLE_ASSET_PREFIXES: [&str; 5] = [
+const RECLAIMABLE_ASSET_PREFIXES: [&str; 4] = [
     "assets/reference_full/",
     "assets/reference_thumbnails/",
     "assets/imported_plan_assets/",
     "assets/user_reference_images/",
-    "assets/user_references/",
 ];
 
 fn safe_reclaimable_asset_path(path: &str) -> Result<PathBuf, String> {
@@ -900,13 +899,13 @@ mod tests {
             "assets/reference_thumbnails/a.jpg",
             "assets/imported_plan_assets/package/a.jpg",
             "assets/user_reference_images/p-1/a.jpg",
-            "assets/user_references/a.jpg",
         ] {
             assert!(safe_reclaimable_asset_path(allowed).is_ok(), "{allowed}");
         }
         for refused in [
             "assets/maps/a.json",
             "assets/visit_photos/a.jpg",
+            "assets/user_references/a.jpg",
             "assets/reference_full/../maps/a.json",
             "../assets/reference_full/a.jpg",
             "/etc/passwd",
