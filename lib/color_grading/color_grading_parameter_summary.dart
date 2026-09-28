@@ -5,9 +5,16 @@ import '../app_theme.dart';
 import 'color_grading_params.dart';
 
 class ColorGradingParameterSummary extends StatelessWidget {
-  const ColorGradingParameterSummary({required this.activeParams, super.key});
+  const ColorGradingParameterSummary({
+    required this.activeParams,
+    required this.intensity,
+    required this.onIntensityChanged,
+    super.key,
+  });
 
   final ColorGradingParams activeParams;
+  final double intensity;
+  final ValueChanged<double> onIntensityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +28,33 @@ class ColorGradingParameterSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '调色强度',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+              ),
+              Text(
+                '${(intensity * 100).round()}%',
+                style: TextStyle(
+                  color: AppColors.accentDark,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: intensity,
+            min: 0,
+            max: 1,
+            divisions: 100,
+            onChanged: onIntensityChanged,
+          ),
+          Divider(color: AppColors.border),
+          const SizedBox(height: 8),
           Row(
             children: [
               const Expanded(
