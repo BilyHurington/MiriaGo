@@ -6,6 +6,7 @@ import '../data/anitabi_image_source_scope.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/public_http.dart';
 import '../widgets/anitabi_network_image.dart';
+import '../widgets/public_network_image.dart';
 import 'pilgrimage_models.dart';
 
 class PilgrimageWorkCover extends StatelessWidget {
@@ -51,25 +52,22 @@ class PilgrimageWorkCover extends StatelessWidget {
                     ColoredBox(color: AppColors.surfaceMuted),
                 errorBuilder: (_) => const _WorkCoverFallback(),
                 imageBuilder:
-                    (url, frameBuilder, loadingBuilder, errorBuilder) =>
-                        Image.network(
-                          url,
-                          width: width,
-                          height: height,
-                          fit: BoxFit.cover,
-                          cacheWidth: 200,
-                          filterQuality: FilterQuality.medium,
-                          frameBuilder: frameBuilder,
-                          loadingBuilder: loadingBuilder,
-                          errorBuilder: errorBuilder,
-                        ),
+                    (url, frameBuilder, loadingBuilder, errorBuilder) => Image(
+                      image: publicNetworkImage(url, cacheWidth: 200),
+                      width: width,
+                      height: height,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      frameBuilder: frameBuilder,
+                      loadingBuilder: loadingBuilder,
+                      errorBuilder: errorBuilder,
+                    ),
               )
-            : Image.network(
-                imageUrl,
+            : Image(
+                image: publicNetworkImage(imageUrl, cacheWidth: 200),
                 width: width,
                 height: height,
                 fit: BoxFit.cover,
-                cacheWidth: 200,
                 filterQuality: FilterQuality.medium,
                 loadingBuilder: (context, child, progress) {
                   return progress == null

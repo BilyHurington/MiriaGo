@@ -93,7 +93,8 @@ for (const [address, prefix] of [
 for (const [address, prefix] of [
   // ::/96 covers :: and ::1; IPv4-mapped and NAT64 forms are refused
   // outright rather than unpacked.
-  ['::', 96], ['::ffff:0:0', 96], ['64:ff9b::', 96], ['fc00::', 7],
+  ['::', 96], ['::ffff:0:0', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48],
+  ['fc00::', 7],
   ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
 ]) {
   reservedAddresses.addSubnet(address, prefix, 'ipv6');
@@ -103,8 +104,9 @@ for (const [address, prefix] of [
 // into dotted decimal and brackets IPv6 hosts. Names are not resolved.
 function isLocalOrPrivateHost(hostname) {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
-  if (host === '' || host === 'localhost' || host.endsWith('.localhost') ||
-      host.endsWith('.local')) {
+  if (host === '' || host === 'localhost' ||
+      ['.localhost', '.local', '.home.arpa', '.internal', '.lan']
+        .some((suffix) => host.endsWith(suffix))) {
     return true;
   }
   const family = isIP(host);
@@ -149,10 +151,21 @@ async function fetchAnitabiStatic(fileName, version, upstreamValue) {
     return null;
   }
   const declared = Number(response.headers.get('content-length') ?? 0);
-  if (declared > maxAnitabiStaticBytes) {
+  if (declared > maxAnitabiStaticBytes || response.body == null) {
     return null;
   }
-  const body = Buffer.from(await response.arrayBuffer());
+  // Count while reading: a chunked response has no declared length.
+  const chunks = [];
+  let received = 0;
+  for await (const chunk of response.body) {
+    received += chunk.length;
+    if (received > maxAnitabiStaticBytes) {
+      await response.body.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(chunk);
+  }
+  const body = Buffer.concat(chunks);
   const start = body.subarray(0, 64).toString('utf8').trimStart();
   // Only JSON is passed on: an upstream error or landing page must never be
   // served from the preview's own origin.

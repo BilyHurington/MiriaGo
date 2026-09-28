@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../data/anitabi_image_fetcher.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/bounded_image_decoder.dart';
+import '../data/public_http.dart';
 import '../plan_transfer/plan_export_delivery.dart';
 import '../plan_transfer/plan_export_delivery_result.dart';
 import 'comparison_export_budget.dart';
@@ -62,9 +63,13 @@ Future<Uint8List?> readRemoteComparisonImage(
   }
   final ownedClient = client ?? http.Client();
   try {
-    final response = await ownedClient
-        .send(http.Request('GET', uri))
-        .timeout(const Duration(seconds: 12));
+    // A blob: URL is the web's own captured photo; network URLs come from
+    // plan data and must stay off this device and the local network.
+    final response =
+        await (uri.scheme == 'blob'
+                ? ownedClient.send(http.Request('GET', uri))
+                : sendPublicGet(ownedClient, uri, allowHttp: true))
+            .timeout(const Duration(seconds: 12));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       await response.stream.listen(null).cancel();
       return null;

@@ -37,6 +37,14 @@ void main() {
       'fe80::1',
       'fe80::1%en0',
       'ff02::1',
+      '64:ff9b:1::c0a8:101',
+      'router.lan',
+      'nas.home.arpa',
+      'db.internal',
+      // Dart keeps these as typed; browsers turn them into 127.0.0.1.
+      Uri.parse('http://１２７.０.０.１/').host,
+      Uri.parse('http://%31%32%37.0.0.1/').host,
+      Uri.parse('http://ｌｏｃａｌｈｏｓｔ/').host,
     ]) {
       expect(isLocalOrPrivateHost(host), isTrue, reason: host);
     }
@@ -49,6 +57,8 @@ void main() {
       '::ffff:8.8.8.8',
       '123.example.com',
       'cafe.be',
+      'xn--fiqs8s.example',
+      'img_cdn.example.com',
     ]) {
       expect(isLocalOrPrivateHost(host), isFalse, reason: host);
     }
@@ -126,6 +136,16 @@ void main() {
           allowHttp: true,
         )).body,
         'ok',
+      );
+    });
+
+    test('a malformed redirect is a client error', () async {
+      await expectLater(
+        getPublic(
+          redirecting({'https://a.example/x': 'http://[::1'}, []),
+          Uri.parse('https://a.example/x'),
+        ),
+        throwsA(isA<http.ClientException>()),
       );
     });
 

@@ -99,14 +99,6 @@ Uri _resolve(
   );
 }
 
-/// Whether [uri] is an HTTPS address on a public host, as required for
-/// Anitabi services and every redirect they answer with.
-bool isPublicHttpsUri(Uri uri) =>
-    uri.scheme == 'https' &&
-    uri.host.isNotEmpty &&
-    uri.userInfo.isEmpty &&
-    !isLocalOrPrivateHost(uri.host);
-
 /// Whether [host] names this device, the local network or a reserved
 /// address, in any spelling the network stack would accept: IPv6 (with or
 /// without brackets, IPv4-mapped, NAT64), a trailing dot, or a numeric IPv4
@@ -122,8 +114,7 @@ bool isLocalOrPrivateHost(String host) {
   }
   if (normalized.isEmpty ||
       normalized == 'localhost' ||
-      normalized.endsWith('.localhost') ||
-      normalized.endsWith('.local')) {
+      _localSuffixes.any(normalized.endsWith)) {
     return true;
   }
   if (normalized.contains(':')) {
@@ -134,6 +125,13 @@ bool isLocalOrPrivateHost(String host) {
       return true;
     }
     return _isReservedIPv6(bytes);
+  }
+  // Dart keeps non-ASCII and percent-encoded host characters as they are,
+  // while browsers and web views decode and IDNA-map them (a full-width
+  // "１２７.０.０.１" becomes 127.0.0.1). Real internationalised names arrive
+  // as punycode, so anything else is refused.
+  if (!_asciiHost.hasMatch(normalized)) {
+    return true;
   }
   if (!_numericHost.hasMatch(normalized)) {
     return false;
@@ -151,6 +149,17 @@ bool isLocalOrPrivateHost(String host) {
   return _isReservedIPv4(octets);
 }
 
+/// Names reserved for private networks (RFC 6762, 6761, 8375; ICANN's
+/// `.internal`) and the widely used `.lan`.
+const _localSuffixes = [
+  '.localhost',
+  '.local',
+  '.home.arpa',
+  '.internal',
+  '.lan',
+];
+
+final _asciiHost = RegExp(r'^[a-z0-9._-]+$');
 final _numericHost = RegExp(r'^(0x[0-9a-f]*|\d+)(\.(0x[0-9a-f]*|\d+))*$');
 final _decimalOctet = RegExp(r'^(0|[1-9]\d{0,2})$');
 
@@ -188,6 +197,15 @@ bool _isReservedIPv6(List<int> bytes) {
       bytes[3] == 0x9b &&
       zero(4, 12)) {
     return _isReservedIPv4(embeddedIPv4);
+  }
+  // Local-use NAT64 (64:ff9b:1::/48) reaches the gateway's private side.
+  if (bytes[0] == 0x00 &&
+      bytes[1] == 0x64 &&
+      bytes[2] == 0xff &&
+      bytes[3] == 0x9b &&
+      bytes[4] == 0x00 &&
+      bytes[5] == 0x01) {
+    return true;
   }
   return (bytes[0] & 0xfe) == 0xfc || // unique local fc00::/7
       (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) || // link local

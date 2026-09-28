@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/anitabi_image_url.dart';
 import '../plan/pilgrimage_models.dart';
+import 'public_network_image.dart';
 import 'image_load_limiter.dart';
 
 typedef AnitabiNetworkImageBuilder =
@@ -193,8 +194,8 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
           loadingBuilder,
           errorBuilder,
         ) ??
-        Image.network(
-          candidate,
+        Image(
+          image: publicNetworkImage(candidate),
           width: widget.width,
           height: widget.height,
           fit: widget.fit,

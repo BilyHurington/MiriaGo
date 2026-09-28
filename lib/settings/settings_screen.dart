@@ -14,6 +14,7 @@ import '../data/valhalla_service_config.dart';
 import '../data/anitabi_endpoint_sync.dart';
 import '../data/anitabi_remote_state.dart';
 import '../data/anitabi_service_config.dart';
+import '../data/public_http.dart';
 import '../desktop/tauri_bridge.dart';
 import '../map/map_tile_config.dart';
 import '../map/valhalla_route_client.dart';
@@ -1547,11 +1548,11 @@ class _AnitabiServiceSettingsPageState
   Future<String> _probe(http.Client client, Uri uri) async {
     final stopwatch = Stopwatch()..start();
     try {
-      final request = http.Request('GET', uri)
-        ..headers['range'] = 'bytes=0-2047';
-      final response = await client
-          .send(request)
-          .timeout(const Duration(seconds: 12));
+      final response = await sendPublicGet(
+        client,
+        uri,
+        headers: const {'range': 'bytes=0-2047'},
+      ).timeout(const Duration(seconds: 12));
       await response.stream.timeout(const Duration(seconds: 12)).drain<void>();
       stopwatch.stop();
       if (response.statusCode < 200 || response.statusCode >= 300) {

@@ -694,8 +694,9 @@ fn is_local_or_private_host(host: &url::Host<&str>) -> bool {
             let domain = domain.trim_end_matches('.').to_ascii_lowercase();
             domain.is_empty()
                 || domain == "localhost"
-                || domain.ends_with(".localhost")
-                || domain.ends_with(".local")
+                || [".localhost", ".local", ".home.arpa", ".internal", ".lan"]
+                    .iter()
+                    .any(|suffix| domain.ends_with(suffix))
         }
         url::Host::Ipv4(address) => is_reserved_ipv4(*address),
         url::Host::Ipv6(address) => is_reserved_ipv6(*address),
@@ -731,6 +732,10 @@ fn is_reserved_ipv6(address: std::net::Ipv6Addr) -> bool {
         let [a, b] = segments[6].to_be_bytes();
         let [c, d] = segments[7].to_be_bytes();
         return is_reserved_ipv4(std::net::Ipv4Addr::new(a, b, c, d));
+    }
+    // Local-use NAT64 (64:ff9b:1::/48) reaches the gateway's private side.
+    if segments[0] == 0x64 && segments[1] == 0xff9b && segments[2] == 1 {
+        return true;
     }
     (segments[0] & 0xfe00) == 0xfc00 // unique local
         || (segments[0] & 0xffc0) == 0xfe80 // link local
@@ -977,6 +982,10 @@ mod tests {
             "https://localhost./d",
             "https://100.64.0.1/d",
             "https://224.0.0.1/d",
+            "https://[64:ff9b:1::c0a8:101]/d",
+            "https://router.lan/d",
+            "https://nas.home.arpa/d",
+            "https://%EF%BC%91%EF%BC%92%EF%BC%97.0.0.1/d",
         ] {
             assert!(safe_public_https_base_url(blocked).is_err(), "{blocked}");
         }

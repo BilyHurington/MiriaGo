@@ -34,7 +34,11 @@ Future<http.StreamedResponse> sendPublicGet(
     if (redirects >= maxRedirects) {
       throw http.ClientException('Too many redirects', current);
     }
-    current = current.resolve(location);
+    try {
+      current = current.resolve(location);
+    } on FormatException catch (error) {
+      throw http.ClientException('Invalid redirect: ${error.message}', current);
+    }
   }
 }
 
