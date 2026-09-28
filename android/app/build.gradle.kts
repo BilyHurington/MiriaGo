@@ -49,6 +49,14 @@ android {
 
     defaultConfig {
         applicationId = "app.miriago.miriago"
+        // Opt-in side-by-side install (e.g. -PmiriagoApplicationIdSuffix=.next
+        // or ORG_GRADLE_PROJECT_miriagoApplicationIdSuffix=.next). Default
+        // builds keep the original id so they upgrade the installed app.
+        val idSuffix = providers.gradleProperty("miriagoApplicationIdSuffix")
+            .orElse("").get()
+        if (idSuffix.isNotBlank()) applicationIdSuffix = idSuffix
+        manifestPlaceholders["appLabel"] = providers.gradleProperty("miriagoAppLabel")
+            .orElse("MiriaGo").get()
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

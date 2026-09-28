@@ -27,6 +27,8 @@ in `lib/ui/**` and `lib/application/**`.
 | `pubspec.yaml` | new UI dependencies, Inter font, font license asset | new UI |
 | `src-tauri/tauri.conf.json` | window 1280×800 (min 360×560 unchanged); devUrl port 8792 | desktop uses wide layouts; preview port |
 | `tool/web_preview_server.mjs` | default port 8792 | avoid clashing with the old preview (8791) |
+| `android/app/build.gradle.kts` | opt-in `miriagoApplicationIdSuffix` / `miriagoAppLabel` Gradle properties (defaults unchanged) | install Next next to the old app for testing |
+| `android/app/src/main/AndroidManifest.xml` | `android:label="${appLabel}"` placeholder (default `MiriaGo`) | same |
 
 `lib/app_theme.dart` is kept unchanged as a legacy module because backend
 map helpers read `AppColors.*`; the new UI keeps it in sync through

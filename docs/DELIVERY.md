@@ -50,6 +50,18 @@ npm run desktop:dev
 
 最后一条是 Tauri 桌面版，需要先 `npm install`。
 
+**和旧版并存安装（测试用）**：包名加后缀 `.next`，桌面名称为「MiriaGo Next」，不会覆盖旧版。签名直接读取旧仓库的 `key.properties`，只需把 keystore 复制到 `android/app/`（该文件被 git 忽略）：
+
+```bash
+ORG_GRADLE_PROJECT_miriagoApplicationIdSuffix=.next ORG_GRADLE_PROJECT_miriagoAppLabel="MiriaGo Next" ORG_GRADLE_PROJECT_releaseSigningPropertiesFile=/Users/bilyhurington/Documents/Seichi-Junrei-Helper/android/key.properties flutter build apk --release --no-pub
+```
+
+```bash
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+不加这些参数时，构建出的包与旧版包名相同，会原地升级旧版。
+
 **Android release 构建**：需要把旧仓库的 `android/key.properties` 和 release keystore 自行复制过来。这两个文件被 git 忽略，没有复制到新仓库，这是有意为之。
 
 ## 3. 交付内容
