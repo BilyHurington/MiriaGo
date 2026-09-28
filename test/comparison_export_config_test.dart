@@ -164,8 +164,10 @@ void main() {
     expect(find.text('巡礼者信息'), findsNothing);
     expect(find.text('调色参数'), findsNothing);
 
-    final encoding = find.byType(
-      DropdownButtonFormField<ComparisonImageEncoding>,
+    final encoding = find.byKey(const ValueKey('comparison-encoding-selector'));
+    expect(
+      find.byType(DropdownButtonFormField<ComparisonImageEncoding>),
+      findsNothing,
     );
     await tester.ensureVisible(encoding);
     await tester.tap(encoding);

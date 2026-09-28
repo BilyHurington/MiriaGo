@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import '../widgets/constrained_menu_anchor.dart';
 import 'comparison_export_config.dart';
 
 class ComparisonExportConfigEditor extends StatelessWidget {
@@ -38,18 +39,45 @@ class ComparisonExportConfigEditor extends StatelessWidget {
           onChanged: onChanged,
         ),
         const SizedBox(height: 18),
-        DropdownButtonFormField<ComparisonImageEncoding>(
-          key: ValueKey('comparison-encoding-${config.imageEncoding.name}'),
-          initialValue: config.imageEncoding,
-          decoration: const InputDecoration(labelText: '图片格式与质量'),
-          isExpanded: true,
-          items: [
+        const _FieldLabel('图片格式与质量'),
+        const SizedBox(height: 8),
+        ConstrainedMenuAnchor(
+          builder: (context, controller, child) => Material(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: AppColors.border),
+            ),
+            child: InkWell(
+              key: const ValueKey('comparison-encoding-selector'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(config.imageEncoding.label)),
+                    const Icon(LucideIcons.chevronDown, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          menuChildrenBuilder: (context, width) => [
             for (final encoding in ComparisonImageEncoding.values)
-              DropdownMenuItem(value: encoding, child: Text(encoding.label)),
+              MenuItemButton(
+                onPressed: () =>
+                    onChanged(config.copyWith(imageEncoding: encoding)),
+                leadingIcon: config.imageEncoding == encoding
+                    ? const Icon(LucideIcons.check, size: 18)
+                    : const SizedBox(width: 18),
+                child: Text(encoding.label),
+              ),
           ],
-          onChanged: (value) {
-            if (value != null) onChanged(config.copyWith(imageEncoding: value));
-          },
         ),
         const SizedBox(height: 20),
         const _SectionDivider(),
