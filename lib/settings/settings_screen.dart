@@ -1153,7 +1153,7 @@ class _PhotoLocationStrategyDropdown extends StatelessWidget {
           onTap: () =>
               controller.isOpen ? controller.close() : controller.open(),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 Expanded(child: Text(_photoLocationStrategyMenuLabel(value))),
