@@ -12,6 +12,7 @@ import 'data/reference_image_cache_stub.dart'
     if (dart.library.io) 'data/reference_image_cache_io.dart';
 import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
+import 'data/work_cover_backfill.dart';
 import 'map/map_tile_config.dart';
 import 'map/pilgrimage_map_screen.dart';
 import 'plan/add_points_screen.dart';
@@ -137,7 +138,35 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _initializeApp() async {
     await _loadActivePlan();
+    _scheduleWorkCoverBackfill();
     await _loadInitialIncomingPlanFile();
+  }
+
+  /// Looks up missing work covers in the background, e.g. after a plan
+  /// package without covers was imported.
+  void _scheduleWorkCoverBackfill() {
+    if (!WorkCoverBackfill.automaticEnabled) {
+      return;
+    }
+    unawaited(_backfillWorkCovers());
+  }
+
+  Future<void> _backfillWorkCovers() async {
+    try {
+      final updated = await WorkCoverBackfill(
+        repository: widget.repository,
+      ).run();
+      final controller = _planController;
+      if (!mounted || controller == null) {
+        return;
+      }
+      final works = updated[controller.plan.id];
+      if (works != null) {
+        controller.refreshWorks(works);
+      }
+    } on Object catch (error) {
+      debugPrint('Work cover backfill failed: $error');
+    }
   }
 
   void _openMap() {
@@ -153,6 +182,7 @@ class _AppShellState extends State<AppShell> {
       ),
     );
     await _loadActivePlan();
+    _scheduleWorkCoverBackfill();
   }
 
   Future<void> _openAddPoints() async {
@@ -204,6 +234,7 @@ class _AppShellState extends State<AppShell> {
     );
     if (imported == true) {
       await _loadActivePlan();
+      _scheduleWorkCoverBackfill();
       if (mounted) {
         setState(() {
           _selectedIndex = 0;
@@ -302,6 +333,7 @@ class _AppShellState extends State<AppShell> {
         return;
       }
       await _loadActivePlan();
+      _scheduleWorkCoverBackfill();
       if (!mounted) {
         return;
       }

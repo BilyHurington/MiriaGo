@@ -3909,6 +3909,60 @@ void main() {
     expect(updatedPlan.points, hasLength(1));
   });
 
+  testWidgets('Anitabi import stores the work cover and fills missing ones', (
+    tester,
+  ) async {
+    const cover = 'https://image.anitabi.cn/bangumi/12345.jpg?plan=h160';
+    const lite = AnitabiBangumiLite(
+      bangumiId: 12345,
+      title: 'PID 作品',
+      subtitle: 'Pid Work',
+      city: '京都',
+      center: LatLng(35, 135),
+      zoom: 14,
+      pointsLength: 1,
+      coverImageUrl: cover,
+    );
+    for (final existing in [
+      null,
+      const PilgrimageWork(
+        id: 'existing-work',
+        bangumiId: 12345,
+        title: '已有作品',
+        subtitle: '',
+        city: '京都',
+        source: WorkSource.bangumi,
+      ),
+    ]) {
+      final repository = SamplePilgrimageRepository(plans: const []);
+      var plan = await repository.createPlan(name: '封面测试', area: '京都');
+      if (existing != null) {
+        plan = await repository.addWorkToPlan(planId: plan.id, work: existing);
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          key: UniqueKey(),
+          home: AnitabiMapImportScreen(
+            plan: plan,
+            repository: repository,
+            initialBangumiId: 12345,
+            initialPointId: 'point-1',
+            anitabiClient: _FakeAnitabiClient(liteByBangumi: {12345: lite}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入计划'));
+      await tester.pumpAndSettle();
+
+      final work = (await repository.loadActivePlan()).works.single;
+      expect(work.id, existing?.id ?? 'bangumi-12345');
+      expect(work.title, existing?.title ?? 'PID 作品');
+      expect(work.coverImageUrl, cover);
+    }
+  });
+
   testWidgets('Anitabi point card shortens import action when narrow', (
     tester,
   ) async {

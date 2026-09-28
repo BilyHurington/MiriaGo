@@ -64,6 +64,33 @@ class BangumiApiClient {
         .toList(growable: false);
   }
 
+  /// Cover thumbnail of one subject, or null when it has none or is marked
+  /// as adult content.
+  Future<String?> fetchSubjectCover(int bangumiId) async {
+    final response = await _httpClient
+        .get(
+          Uri.parse('${BangumiConfig.apiBaseUrl}/v0/subjects/$bangumiId'),
+          headers: {
+            'Authorization': 'Bearer ${BangumiConfig.apiToken}',
+            if (!kIsWeb) 'User-Agent': BangumiConfig.userAgent,
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 404) {
+      return null;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw BangumiApiException(response.statusCode, response.body);
+    }
+    final subject = jsonDecode(utf8.decode(response.bodyBytes));
+    if (subject is! Map<String, Object?> ||
+        subject['nsfw'] != false ||
+        (subject.containsKey('adult') && subject['adult'] != false)) {
+      return null;
+    }
+    return _coverImageUrl(subject['images']);
+  }
+
   Future<List<PilgrimageWork>> searchAnime(String keyword) {
     return searchSubjects(keyword, types: const {BangumiSubjectType.anime});
   }

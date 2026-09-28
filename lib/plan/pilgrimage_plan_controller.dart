@@ -71,6 +71,25 @@ class PilgrimagePlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Swaps in updated copies of works (e.g. a cover found later) without
+  /// touching visit state, which may have unsaved changes in flight.
+  void refreshWorks(List<PilgrimageWork> works) {
+    final byId = {for (final work in works) work.id: work};
+    if (!_plan.works.any((work) => byId.containsKey(work.id))) {
+      return;
+    }
+    _plan = _plan.copyWith(
+      works: [for (final work in _plan.works) byId[work.id] ?? work],
+      points: [
+        for (final point in _plan.points)
+          byId[point.work.id] == null
+              ? point
+              : point.copyWith(work: byId[point.work.id]),
+      ],
+    );
+    notifyListeners();
+  }
+
   List<PilgrimagePoint> get completedPoints => points
       .where((point) => _completedPointIds.contains(point.id))
       .toList(growable: false);

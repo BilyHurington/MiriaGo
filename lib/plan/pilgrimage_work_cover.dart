@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import '../data/anitabi_image_source_scope.dart';
+import '../data/anitabi_image_url.dart';
+import '../widgets/anitabi_network_image.dart';
 import 'pilgrimage_models.dart';
 
 class PilgrimageWorkCover extends StatelessWidget {
@@ -33,6 +36,32 @@ class PilgrimageWorkCover extends StatelessWidget {
         ),
         child: imageUrl == null || imageUrl.isEmpty
             ? const _WorkCoverFallback()
+            : isAnitabiImageUrl(imageUrl)
+            // Anitabi covers follow the configured image services and fall
+            // back to the mirror like reference images.
+            ? AnitabiNetworkImage(
+                url: anitabiThumbnailImageUrl(imageUrl) ?? imageUrl,
+                imageSource: AnitabiImageSourceScope.of(context),
+                width: width,
+                height: height,
+                fit: BoxFit.cover,
+                loadingBuilder: (_) =>
+                    ColoredBox(color: AppColors.surfaceMuted),
+                errorBuilder: (_) => const _WorkCoverFallback(),
+                imageBuilder:
+                    (url, frameBuilder, loadingBuilder, errorBuilder) =>
+                        Image.network(
+                          url,
+                          width: width,
+                          height: height,
+                          fit: BoxFit.cover,
+                          cacheWidth: 200,
+                          filterQuality: FilterQuality.medium,
+                          frameBuilder: frameBuilder,
+                          loadingBuilder: loadingBuilder,
+                          errorBuilder: errorBuilder,
+                        ),
+              )
             : Image.network(
                 imageUrl,
                 width: width,

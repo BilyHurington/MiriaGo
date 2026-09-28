@@ -591,6 +591,17 @@ class PilgrimageWork {
   final String city;
   final WorkSource source;
 
+  PilgrimageWork withCoverImageUrl(String? coverImageUrl) => PilgrimageWork(
+    id: id,
+    bangumiId: bangumiId,
+    bangumiSubjectType: bangumiSubjectType,
+    coverImageUrl: coverImageUrl,
+    title: title,
+    subtitle: subtitle,
+    city: city,
+    source: source,
+  );
+
   BangumiSubjectType? get displayBangumiSubjectType {
     if (bangumiSubjectType != null) {
       return bangumiSubjectType;

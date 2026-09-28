@@ -512,7 +512,18 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       subtitle: lite.subtitle,
       city: lite.city,
       source: WorkSource.bangumi,
+      coverImageUrl: lite.coverImageUrl,
     );
+  }
+
+  /// The work to store with imported points: fills a cover the plan's copy
+  /// is missing, never replacing one it already has.
+  PilgrimageWork _workForImport(PilgrimageWork work) {
+    final lite = _lite;
+    if (lite == null || lite.bangumiId != work.bangumiId) {
+      return work;
+    }
+    return fillMissingWorkFields(work, _workFromLite(lite));
   }
 
   void _replaceImportedPlan(PilgrimagePlan plan) {
@@ -881,10 +892,11 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     required String failureMessage,
     bool exitBoxSelectionOnSuccess = false,
   }) async {
-    final work = _selectedWork;
-    if (work == null || points.isEmpty || _isImporting) {
+    final selectedWork = _selectedWork;
+    if (selectedWork == null || points.isEmpty || _isImporting) {
       return;
     }
+    final work = _workForImport(selectedWork);
 
     final pilgrimagePoints = points
         .where((point) => point.bangumiId == work.bangumiId)

@@ -308,6 +308,7 @@ class AnitabiBangumiLite {
     required this.center,
     required this.zoom,
     required this.pointsLength,
+    this.coverImageUrl,
   });
 
   factory AnitabiBangumiLite.fromJson(Map<String, Object?> json) {
@@ -322,6 +323,7 @@ class AnitabiBangumiLite {
       center: LatLng((geo[0] as num).toDouble(), (geo[1] as num).toDouble()),
       zoom: (json['zoom'] as num?)?.toDouble() ?? 12,
       pointsLength: json['pointsLength'] as int? ?? 0,
+      coverImageUrl: anitabiCoverImageUrl(json['cover']),
     );
   }
 
@@ -332,6 +334,9 @@ class AnitabiBangumiLite {
   final LatLng center;
   final double zoom;
   final int pointsLength;
+
+  /// Cover thumbnail on the official Anitabi image host, if Anitabi has one.
+  final String? coverImageUrl;
 }
 
 class AnitabiPointLookupResult {
@@ -355,6 +360,7 @@ class AnitabiMapWorkLite {
     required this.center,
     required this.zoom,
     required this.points,
+    this.coverImageUrl,
   });
 
   factory AnitabiMapWorkLite.fromCompactJson(List<Object?> json) {
@@ -368,6 +374,7 @@ class AnitabiMapWorkLite {
       center: LatLng(centerLat, centerLng),
       zoom: (json[11] as num?)?.toDouble() ?? 12,
       points: _compactLitePoints(json[12]),
+      coverImageUrl: anitabiCoverImageUrl(json.length > 6 ? json[6] : null),
     );
   }
 
@@ -378,6 +385,7 @@ class AnitabiMapWorkLite {
   final LatLng center;
   final double zoom;
   final Map<String, AnitabiMapLitePoint> points;
+  final String? coverImageUrl;
 
   AnitabiMapLitePoint? pointById(String pointId) {
     return points[pointId];
@@ -392,6 +400,7 @@ class AnitabiMapWorkLite {
       center: center,
       zoom: zoom,
       pointsLength: points.length,
+      coverImageUrl: coverImageUrl,
     );
   }
 
@@ -554,6 +563,24 @@ String? _anitabiImageUrl(String? url) {
     return 'https://image.anitabi.cn${url.substring('/images'.length)}';
   }
   return canonicalAnitabiImageUrl(url);
+}
+
+/// Normalizes an Anitabi cover (`/images/bangumi/1.jpg` in the static index,
+/// an absolute URL in the API) to a thumbnail on the official image host, so
+/// it follows the configured image services when displayed.
+String? anitabiCoverImageUrl(Object? value) {
+  if (value is! String || value.trim().isEmpty) {
+    return null;
+  }
+  final url = _anitabiImageUrl(value.trim());
+  final uri = url == null ? null : Uri.tryParse(url);
+  if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) {
+    return null;
+  }
+  return anitabiThumbnailImageUrl(
+    url,
+    serviceConfig: const AnitabiServiceConfig(),
+  );
 }
 
 String? formatAnitabiSceneTime(Object? second) {

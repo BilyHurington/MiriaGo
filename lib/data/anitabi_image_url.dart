@@ -128,6 +128,18 @@ List<String> candidateAnitabiImageUrls(
   };
 }
 
+/// Whether [url] points at an Anitabi image service (built-in or configured).
+bool isAnitabiImageUrl(String? url, {AnitabiServiceConfig? serviceConfig}) {
+  if (url == null || url.isEmpty) {
+    return false;
+  }
+  return _knownImageRelativePath(
+        Uri.tryParse(url),
+        serviceConfig ?? AnitabiServiceConfig.current,
+      ) !=
+      null;
+}
+
 Uri? _imageRequestUri(Uri? uri, AnitabiServiceConfig config) {
   final relativePath = _knownImageRelativePath(uri, config);
   if (uri == null || relativePath == null) {
