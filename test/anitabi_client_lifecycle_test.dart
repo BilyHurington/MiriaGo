@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -94,5 +95,40 @@ void main() {
     await tester.pump(AnitabiClient.apiTimeout);
     await tester.pump();
     expect(failure, isA<TimeoutException>());
+  });
+
+  group('shared index', () {
+    tearDown(() => AnitabiClient.sharedHttpClientForTesting = null);
+
+    test('a failed shared download reaches callers only', () async {
+      AnitabiClient.sharedHttpClientForTesting = MockClient(
+        (_) async => http.Response('', 503),
+      );
+      await expectLater(
+        AnitabiClient().fetchStaticPointCounts(),
+        throwsA(isA<AnitabiStaticDataUnavailableException>()),
+      );
+    });
+
+    test('closing the client that started it does not abort it', () async {
+      final gate = Completer<http.Response>();
+      var downloads = 0;
+      AnitabiClient.sharedHttpClientForTesting = MockClient((_) {
+        downloads++;
+        return gate.future;
+      });
+      final first = AnitabiClient();
+      final second = AnitabiClient();
+
+      final firstCounts = first.fetchStaticPointCounts();
+      final secondCounts = second.fetchStaticPointCounts();
+      first.close();
+      gate.complete(http.Response.bytes(utf8.encode(_index), 200));
+
+      expect(await secondCounts, {115908: 2});
+      expect(await firstCounts, {115908: 2});
+      expect(await AnitabiClient().fetchStaticPointCounts(), {115908: 2});
+      expect(downloads, 1);
+    });
   });
 }

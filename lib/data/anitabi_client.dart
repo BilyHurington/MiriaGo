@@ -49,8 +49,16 @@ class AnitabiClient {
   /// How long the app-wide copy of the static index is reused.
   static const sharedIndexLifetime = Duration(minutes: 30);
 
-  static final _sharedIndexLoads = <String, Future<AnitabiStaticIndex>>{};
-  static final _sharedIndexLoadedAt = <String, DateTime>{};
+  /// The app-wide static index; one entry, for the address in use.
+  static _SharedStaticIndex? _shared;
+  static http.Client? _sharedHttpClient;
+
+  @visibleForTesting
+  static set sharedHttpClientForTesting(http.Client? client) {
+    _shared?.expiry?.cancel();
+    _shared = null;
+    _sharedHttpClient = client;
+  }
 
   final http.Client _httpClient;
   final bool _ownsHttpClient;
@@ -64,14 +72,20 @@ class AnitabiClient {
 
   void clearStaticCache() {
     _cachedStaticIndex = null;
-    if (_sharesStaticIndex) {
-      _sharedIndexLoads.remove(_staticIndexKey);
-      _sharedIndexLoadedAt.remove(_staticIndexKey);
+    final shared = _shared;
+    if (_sharesStaticIndex && shared != null && shared.key == _staticIndexKey) {
+      shared.expiry?.cancel();
+      _shared = null;
     }
   }
 
-  /// Releases the HTTP connection pool this client created.
+  var _closed = false;
+
+  /// Releases the HTTP connection pool this client created. Requests it
+  /// aborts are not reported as a possible Anitabi address change.
   void close() {
+    _closed = true;
+    _staticDataReader.markClosed();
     if (_ownsHttpClient) {
       _httpClient.close();
     }
@@ -86,7 +100,8 @@ class AnitabiClient {
     } on Object catch (error) {
       final recovery = AnitabiEndpointRecovery.handler;
       // An API 404 means this work is unknown, not that the API moved.
-      if (recovery == null ||
+      if (_closed ||
+          recovery == null ||
           !isSuspectedAnitabiAddressFailure(error, notFoundMeansMoved: false)) {
         rethrow;
       }
@@ -330,28 +345,45 @@ class AnitabiClient {
     }
 
     final key = _staticIndexKey;
-    final loadedAt = _sharedIndexLoadedAt[key];
-    if (loadedAt != null &&
-        DateTime.now().difference(loadedAt) > sharedIndexLifetime) {
-      _sharedIndexLoads.remove(key);
-      _sharedIndexLoadedAt.remove(key);
+    final shared = _shared;
+    if (shared != null && shared.key == key && !shared.isExpired) {
+      return shared.load;
     }
-    return _sharedIndexLoads.putIfAbsent(key, () {
-      final load = _loadStaticIndex();
-      load.then(
-        (_) => _sharedIndexLoadedAt[key] = DateTime.now(),
-        onError: (Object _) {
-          if (identical(_sharedIndexLoads[key], load)) {
-            _sharedIndexLoads.remove(key);
+    shared?.expiry?.cancel();
+    // A dedicated, never-closed client: closing the client that happened to
+    // start a shared download must not abort it for everyone else.
+    final reader = AnitabiStaticDataReader(
+      httpClient: _sharedHttpClient ??= http.Client(),
+      serviceConfig: _serviceConfig,
+    );
+    final entry = _SharedStaticIndex(key, _loadStaticIndex(reader));
+    _shared = entry;
+    entry.load.then<void>(
+      (_) {
+        if (!identical(_shared, entry)) {
+          return;
+        }
+        entry.loadedAt = DateTime.now();
+        // Frees the parsed index (several MB) once it is no longer reused.
+        entry.expiry = Timer(sharedIndexLifetime, () {
+          if (identical(_shared, entry)) {
+            _shared = null;
           }
-        },
-      );
-      return load;
-    });
+        });
+      },
+      onError: (Object _) {
+        if (identical(_shared, entry)) {
+          _shared = null;
+        }
+      },
+    );
+    return entry.load;
   }
 
-  Future<AnitabiStaticIndex> _loadStaticIndex() async {
-    final body = await _staticDataReader.read(
+  Future<AnitabiStaticIndex> _loadStaticIndex([
+    AnitabiStaticDataReader? reader,
+  ]) async {
+    final body = await (reader ?? _staticDataReader).read(
       'g.json',
       version: DateTime.now().millisecondsSinceEpoch.toString(),
     );
@@ -364,6 +396,21 @@ class AnitabiClient {
       body.length > _backgroundParseThreshold
       ? compute(jsonDecode, body)
       : jsonDecode(body);
+}
+
+class _SharedStaticIndex {
+  _SharedStaticIndex(this.key, this.load);
+
+  final String key;
+  final Future<AnitabiStaticIndex> load;
+  DateTime? loadedAt;
+  Timer? expiry;
+
+  bool get isExpired {
+    final loaded = loadedAt;
+    return loaded != null &&
+        DateTime.now().difference(loaded) > AnitabiClient.sharedIndexLifetime;
+  }
 }
 
 /// Bodies above this are parsed off the UI isolate (the full index is about

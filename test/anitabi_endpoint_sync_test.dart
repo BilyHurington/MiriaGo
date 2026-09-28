@@ -414,7 +414,7 @@ void main() {
       );
       expect(
         isSuspectedAnitabiAddressFailure(TimeoutException('slow')),
-        isTrue,
+        isFalse,
       );
     });
   });

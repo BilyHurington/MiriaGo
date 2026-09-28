@@ -14,7 +14,13 @@ class AnitabiStaticDataReader {
   }) : _httpClient = httpClient ?? http.Client();
 
   /// Per static file; the index is about 2 MB, so allow slow networks.
-  static const requestTimeout = Duration(seconds: 45);
+  static const requestTimeout = Duration(seconds: 120);
+
+  var _closed = false;
+
+  /// Requests failing because the owner closed the HTTP client are not a
+  /// sign that Anitabi moved.
+  void markClosed() => _closed = true;
 
   final http.Client _httpClient;
   final AnitabiServiceConfig? serviceConfig;
@@ -31,6 +37,7 @@ class AnitabiStaticDataReader {
     } on AnitabiStaticDataUnavailableException catch (error) {
       final recovery = AnitabiEndpointRecovery.handler;
       if (!reportFailures ||
+          _closed ||
           recovery == null ||
           !isSuspectedAnitabiAddressFailure(error.cause)) {
         rethrow;

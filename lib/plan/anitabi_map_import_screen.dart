@@ -74,11 +74,8 @@ class _ImportOverlapPointBrowser {
 }
 
 class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
-  late final AnitabiClient _anitabiClient =
-      widget.anitabiClient ??
-      AnitabiClient(
-        serviceConfig: widget.initialSettings?.anitabiServiceConfig,
-      );
+  late final AnitabiClient _anitabiClient;
+  late final bool _ownsAnitabiClient;
   static const double _fallbackLoadedPointsZoom = 15;
   static const Duration _thumbnailBoundsDebounceDuration = Duration(
     milliseconds: 180,
@@ -134,6 +131,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   @override
   void initState() {
     super.initState();
+    _ownsAnitabiClient = widget.anitabiClient == null;
+    _anitabiClient =
+        widget.anitabiClient ??
+        AnitabiClient(
+          serviceConfig: widget.initialSettings?.anitabiServiceConfig,
+        );
     _importedPointIds = widget.plan.points.map((point) => point.id).toSet();
     _loadSettings();
     final initialBangumiId = widget.initialBangumiId;
@@ -175,7 +178,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   void dispose() {
     _thumbnailBoundsDebounce?.cancel();
     _visibleBoundsNotifier.dispose();
-    if (widget.anitabiClient == null) {
+    if (_ownsAnitabiClient) {
       _anitabiClient.close();
     }
     super.dispose();

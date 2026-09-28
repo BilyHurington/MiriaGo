@@ -280,11 +280,20 @@ class DesktopPilgrimageRepository implements PilgrimageRepository {
     required String planId,
     required PilgrimageWork work,
   }) {
+    PilgrimageWork? before;
     return _write<PilgrimageWork?>(
-      (draft) =>
-          draft.fillMissingWorkFieldsIfPresent(planId: planId, work: work),
+      (draft) async {
+        before = (await draft.loadPlans())
+            .where((plan) => plan.id == planId)
+            .firstOrNull
+            ?.works
+            .where((stored) => stored.id == work.id)
+            .firstOrNull;
+        return draft.fillMissingWorkFieldsIfPresent(planId: planId, work: work);
+      },
       (draft, stored) async {
-        if (stored == null) {
+        // Nothing was missing: skip rewriting the whole plan bundle.
+        if (stored == null || (before != null && _sameWork(before!, stored))) {
           return;
         }
         await _savePlanBundle(
@@ -294,6 +303,14 @@ class DesktopPilgrimageRepository implements PilgrimageRepository {
       },
     );
   }
+
+  static bool _sameWork(PilgrimageWork a, PilgrimageWork b) =>
+      a.bangumiId == b.bangumiId &&
+      a.bangumiSubjectType == b.bangumiSubjectType &&
+      a.coverImageUrl == b.coverImageUrl &&
+      a.title == b.title &&
+      a.subtitle == b.subtitle &&
+      a.city == b.city;
 
   @override
   Future<PilgrimagePlan> createPlanGroup({

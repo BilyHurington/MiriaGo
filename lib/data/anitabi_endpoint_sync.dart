@@ -306,6 +306,10 @@ bool isSuspectedAnitabiAddressFailure(
   Object error, {
   bool notFoundMeansMoved = true,
 }) {
+  // Slow networks time out far more often than Anitabi moves.
+  if (error is TimeoutException) {
+    return false;
+  }
   final code = error is AnitabiException
       ? error.statusCode
       // The desktop launcher reports "request failed: 404 Not Found".
