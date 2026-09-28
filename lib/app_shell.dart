@@ -121,6 +121,7 @@ class _AppShellState extends State<AppShell> {
           visitRepository: widget.repository,
         );
         _settings = settings;
+        _storedSettings = settings;
         _settingsLoaded = true;
       });
     } catch (error, stackTrace) {
@@ -261,7 +262,7 @@ class _AppShellState extends State<AppShell> {
         ScaffoldMessenger.of(context).showStatusSnack(
           kind: AppStatusBannerKind.error,
           title: '设置保存失败',
-          subtitle: '已恢复为保存前的设置，请稍后重试',
+          subtitle: '修改未能保存，请稍后重试',
         );
       }
       return false;
@@ -270,23 +271,27 @@ class _AppShellState extends State<AppShell> {
 
   var _settingsRevision = 0;
 
-  /// Applies [settings] right away and stores them. If storing fails the
-  /// previous settings are applied again, unless a newer change has been
+  /// The settings last confirmed as stored (loaded or saved).
+  AppSettings? _storedSettings;
+
+  /// Applies [settings] right away and stores them. If storing fails, the
+  /// last stored settings are applied again, unless a newer change has been
   /// made since (its own save decides what is stored), and the error is
-  /// rethrown.
+  /// rethrown. Saves complete in the order they were made.
   Future<void> _storeSettings(AppSettings settings) async {
     if (!mounted) {
       await widget.repository.saveAppSettings(settings);
       return;
     }
-    final previous = _settings;
+    final fallback = _storedSettings ?? _settings;
     final revision = ++_settingsRevision;
     _applySettings(settings);
     try {
       await widget.repository.saveAppSettings(settings);
+      _storedSettings = settings;
     } on Object {
       if (mounted && revision == _settingsRevision) {
-        _applySettings(previous);
+        _applySettings(_storedSettings ?? fallback);
       }
       rethrow;
     }

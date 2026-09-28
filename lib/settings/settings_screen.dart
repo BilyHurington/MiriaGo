@@ -480,8 +480,10 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
     _settings = widget.settings;
   }
 
+  /// The settings last confirmed as stored, shown again if a save fails.
+  late AppSettings _stored = widget.settings;
+
   Future<bool> _update(AppSettings settings) async {
-    final previous = _settings;
     applyAppColorsFromSettings(
       settings,
       platformBrightness: MediaQuery.platformBrightnessOf(context),
@@ -490,9 +492,11 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
       _settings = settings;
     });
     final saved = await widget.onChanged(settings);
-    // Saving failed: show what is actually stored again.
-    if (!saved && mounted && identical(_settings, settings)) {
-      setState(() => _settings = previous);
+    if (saved) {
+      _stored = settings;
+    } else if (mounted && identical(_settings, settings)) {
+      // Show what is actually stored again.
+      setState(() => _settings = _stored);
     }
     return saved;
   }
@@ -831,15 +835,19 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
     _settings = widget.settings;
   }
 
+  /// The settings last confirmed as stored, shown again if a save fails.
+  late AppSettings _stored = widget.settings;
+
   Future<bool> _update(AppSettings settings) async {
-    final previous = _settings;
     setState(() {
       _settings = settings;
     });
     final saved = await widget.onChanged(settings);
-    // Saving failed: show what is actually stored again.
-    if (!saved && mounted && identical(_settings, settings)) {
-      setState(() => _settings = previous);
+    if (saved) {
+      _stored = settings;
+    } else if (mounted && identical(_settings, settings)) {
+      // Show what is actually stored again.
+      setState(() => _settings = _stored);
     }
     return saved;
   }
@@ -1379,16 +1387,20 @@ class _AnitabiServiceSettingsPageState
   /// the built-in defaults.
   AnitabiServiceConfig get _config => _settings.anitabiServiceConfig;
 
+  /// The settings last confirmed as stored, shown again if a save fails.
+  late AppSettings _stored = widget.settings;
+
   Future<bool> _update(AppSettings settings) async {
-    final previous = _settings;
     setState(() {
       _settings = settings;
       _testResults = const {};
     });
     final saved = await widget.onChanged(settings);
-    // Saving failed: show what is actually stored again.
-    if (!saved && mounted && identical(_settings, settings)) {
-      setState(() => _settings = previous);
+    if (saved) {
+      _stored = settings;
+    } else if (mounted && identical(_settings, settings)) {
+      // Show what is actually stored again.
+      setState(() => _settings = _stored);
     }
     return saved;
   }
@@ -1410,12 +1422,28 @@ class _AnitabiServiceSettingsPageState
 
   /// Picks up sync state written by [AnitabiEndpointSync] while this page
   /// was open.
+  /// Shows what the sync has just stored; it is saved already.
   Future<void> _reloadFromSync(AnitabiEndpointSync sync) async {
     final latest = await sync.loadSettings();
     if (!mounted) {
       return;
     }
-    _update(latest);
+    setState(() {
+      _settings = latest;
+      _stored = latest;
+      _testResults = const {};
+    });
+  }
+
+  void _showSaveFailed() {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.error,
+      title: '设置保存失败',
+      subtitle: '请稍后重试',
+    );
   }
 
   Future<void> _setAutoUpdate(bool enabled) async {
@@ -1430,7 +1458,12 @@ class _AnitabiServiceSettingsPageState
       );
       return;
     }
-    await sync.setAutoUpdate(enabled);
+    try {
+      await sync.setAutoUpdate(enabled);
+    } on Object catch (error) {
+      debugPrint('Failed to save Anitabi auto update: $error');
+      _showSaveFailed();
+    }
     await _reloadFromSync(sync);
   }
 
@@ -1440,9 +1473,13 @@ class _AnitabiServiceSettingsPageState
       return;
     }
     setState(() => _checking = true);
-    final AnitabiSyncOutcome outcome;
+    AnitabiSyncOutcome? outcome;
     try {
       outcome = await sync.checkNow();
+    } on Object catch (error) {
+      debugPrint('Anitabi address check could not be saved: $error');
+    }
+    try {
       await _reloadFromSync(sync);
     } finally {
       if (mounted) {
@@ -1450,6 +1487,10 @@ class _AnitabiServiceSettingsPageState
       }
     }
     if (!mounted) {
+      return;
+    }
+    if (outcome == null) {
+      _showSaveFailed();
       return;
     }
     final succeeded =
@@ -1799,29 +1840,39 @@ class _ComparisonStyleSettingsPageState
       _config = migratedConfig;
       ComparisonExportConfig.lastUsed = migratedConfig;
       _pilgrimNameController.text = migratedConfig.pilgrimName;
+      _stored = (config: migratedConfig, settings: settings);
       _loading = false;
     });
   }
 
+  /// The last configuration confirmed as stored, shown again if a save
+  /// fails.
+  ({ComparisonExportConfig config, AppSettings settings})? _stored;
+
   Future<void> _updateConfig(ComparisonExportConfig config) async {
-    final previousConfig = _config;
-    final previousSettings = _settings;
+    final stored = _stored ??= (config: _config, settings: _settings);
     final settings = config.applyToSettings(_settings);
     setState(() {
       _config = config;
       _settings = settings;
     });
     ComparisonExportConfig.lastUsed = config;
-    if (await widget.onChanged(settings) ||
-        !mounted ||
-        !identical(_settings, settings)) {
+    if (await widget.onChanged(settings)) {
+      _stored = (config: config, settings: settings);
       return;
     }
+    if (!mounted || !identical(_settings, settings)) {
+      return;
+    }
+    final restore = _stored ?? stored;
     setState(() {
-      _config = previousConfig;
-      _settings = previousSettings;
+      _config = restore.config;
+      _settings = restore.settings;
+      if (_pilgrimNameController.text != restore.config.pilgrimName) {
+        _pilgrimNameController.text = restore.config.pilgrimName;
+      }
     });
-    ComparisonExportConfig.lastUsed = previousConfig;
+    ComparisonExportConfig.lastUsed = restore.config;
   }
 
   @override
@@ -1884,15 +1935,19 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
     _settings = widget.settings;
   }
 
+  /// The settings last confirmed as stored, shown again if a save fails.
+  late AppSettings _stored = widget.settings;
+
   Future<bool> _update(AppSettings settings) async {
-    final previous = _settings;
     setState(() {
       _settings = settings;
     });
     final saved = await widget.onChanged(settings);
-    // Saving failed: show what is actually stored again.
-    if (!saved && mounted && identical(_settings, settings)) {
-      setState(() => _settings = previous);
+    if (saved) {
+      _stored = settings;
+    } else if (mounted && identical(_settings, settings)) {
+      // Show what is actually stored again.
+      setState(() => _settings = _stored);
     }
     return saved;
   }
@@ -2185,15 +2240,19 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
     _settings = widget.settings;
   }
 
+  /// The settings last confirmed as stored, shown again if a save fails.
+  late AppSettings _stored = widget.settings;
+
   Future<bool> _update(AppSettings settings) async {
-    final previous = _settings;
     setState(() {
       _settings = settings;
     });
     final saved = await widget.onChanged(settings);
-    // Saving failed: show what is actually stored again.
-    if (!saved && mounted && identical(_settings, settings)) {
-      setState(() => _settings = previous);
+    if (saved) {
+      _stored = settings;
+    } else if (mounted && identical(_settings, settings)) {
+      // Show what is actually stored again.
+      setState(() => _settings = _stored);
     }
     return saved;
   }
