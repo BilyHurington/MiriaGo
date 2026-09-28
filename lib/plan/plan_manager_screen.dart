@@ -302,7 +302,10 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                 onPressed: _sorting || _savingOrder ? null : _createEmptyPlan,
               ),
               const SizedBox(height: 4),
-              const RoutePlannerSkillLink(lead: '不想手动整理点位？'),
+              RoutePlannerSkillLink(
+                lead: '不想手动整理点位？',
+                repository: widget.repository,
+              ),
               const SizedBox(height: 10),
               if (activePlan != null) ...[
                 _PlanCard(

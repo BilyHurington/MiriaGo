@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../data/pilgrimage_repository.dart';
 import 'confirm_action_dialog.dart';
 import 'snackbar_helper.dart';
 
@@ -16,6 +17,17 @@ const routePlannerSkillDescription =
     '让 ChatGPT、Claude Code、Codex 等 AI 助手调用 MiriaGo 路线规划 Skill。\n'
     '它会从 Anitabi、Google My Maps 等来源收集作品点位，自动划分区域、规划路线并生成行程备注；'
     '关键步骤会先向你确认，最终导出可直接使用的 .sjhplan 计划包。';
+
+Future<void> _saveRoutePlannerSkillDismissal(
+  PilgrimageRepository repository,
+) async {
+  final settings = await repository.loadAppSettings();
+  if (!settings.routePlannerSkillPromotionDismissed) {
+    await repository.saveAppSettings(
+      settings.copyWith(routePlannerSkillPromotionDismissed: true),
+    );
+  }
+}
 
 Future<void> openRoutePlannerSkillGuide(BuildContext context) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
@@ -53,18 +65,57 @@ Future<void> showRoutePlannerSkillIntroDialog(BuildContext context) async {
 
 /// Card on the import/export page.
 class RoutePlannerSkillCard extends StatefulWidget {
-  const RoutePlannerSkillCard({super.key});
+  const RoutePlannerSkillCard({required this.repository, super.key});
+
+  final PilgrimageRepository repository;
 
   @override
   State<RoutePlannerSkillCard> createState() => _RoutePlannerSkillCardState();
 }
 
 class _RoutePlannerSkillCardState extends State<RoutePlannerSkillCard> {
-  bool _dismissed = false;
+  bool? _dismissed;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDismissal();
+  }
+
+  Future<void> _loadDismissal() async {
+    try {
+      final settings = await widget.repository.loadAppSettings();
+      if (mounted) {
+        setState(
+          () => _dismissed = settings.routePlannerSkillPromotionDismissed,
+        );
+      }
+    } on Object {
+      if (mounted) setState(() => _dismissed = false);
+    }
+  }
+
+  Future<void> _dismiss() async {
+    setState(() => _saving = true);
+    try {
+      await _saveRoutePlannerSkillDismissal(widget.repository);
+      if (mounted) setState(() => _dismissed = true);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '关闭提示失败，请重试。',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
+    if (_dismissed != false) return const SizedBox.shrink();
 
     return InkWell(
       key: const ValueKey('route-planner-skill-card'),
@@ -103,7 +154,7 @@ class _RoutePlannerSkillCardState extends State<RoutePlannerSkillCard> {
                   key: const ValueKey('route-planner-skill-dismiss'),
                   tooltip: '关闭',
                   visualDensity: VisualDensity.compact,
-                  onPressed: () => setState(() => _dismissed = true),
+                  onPressed: _saving ? null : _dismiss,
                   icon: const Icon(LucideIcons.x, size: 18),
                 ),
               ],
@@ -140,21 +191,63 @@ class _RoutePlannerSkillCardState extends State<RoutePlannerSkillCard> {
 
 /// One-line pointer to the skill, for pages where a card would be too much.
 class RoutePlannerSkillLink extends StatefulWidget {
-  const RoutePlannerSkillLink({required this.lead, super.key});
+  const RoutePlannerSkillLink({
+    required this.lead,
+    required this.repository,
+    super.key,
+  });
 
   /// Text before the link, e.g. "想省去手动整理？".
   final String lead;
+  final PilgrimageRepository repository;
 
   @override
   State<RoutePlannerSkillLink> createState() => _RoutePlannerSkillLinkState();
 }
 
 class _RoutePlannerSkillLinkState extends State<RoutePlannerSkillLink> {
-  bool _dismissed = false;
+  bool? _dismissed;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDismissal();
+  }
+
+  Future<void> _loadDismissal() async {
+    try {
+      final settings = await widget.repository.loadAppSettings();
+      if (mounted) {
+        setState(
+          () => _dismissed = settings.routePlannerSkillPromotionDismissed,
+        );
+      }
+    } on Object {
+      if (mounted) setState(() => _dismissed = false);
+    }
+  }
+
+  Future<void> _dismiss() async {
+    setState(() => _saving = true);
+    try {
+      await _saveRoutePlannerSkillDismissal(widget.repository);
+      if (mounted) setState(() => _dismissed = true);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '关闭提示失败，请重试。',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
+    if (_dismissed != false) return const SizedBox.shrink();
 
     final style = TextStyle(
       color: AppColors.textSecondary,
@@ -204,7 +297,7 @@ class _RoutePlannerSkillLinkState extends State<RoutePlannerSkillLink> {
               tooltip: '关闭',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-              onPressed: () => setState(() => _dismissed = true),
+              onPressed: _saving ? null : _dismiss,
               icon: const Icon(LucideIcons.x, size: 16),
             ),
           ],

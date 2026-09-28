@@ -225,6 +225,7 @@ class AppSettings {
     this.mapAppearance = MapAppearance.automatic,
     this.anitabiRemoteStateJson = '',
     this.routePlannerSkillTipShown = false,
+    this.routePlannerSkillPromotionDismissed = false,
   });
 
   final double uiScale;
@@ -282,6 +283,8 @@ class AppSettings {
   /// points page.
   final bool routePlannerSkillTipShown;
 
+  final bool routePlannerSkillPromotionDismissed;
+
   AppSettings copyWith({
     double? uiScale,
     double? fontScale,
@@ -332,6 +335,7 @@ class AppSettings {
     MapAppearance? mapAppearance,
     String? anitabiRemoteStateJson,
     bool? routePlannerSkillTipShown,
+    bool? routePlannerSkillPromotionDismissed,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -412,6 +416,9 @@ class AppSettings {
           anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
       routePlannerSkillTipShown:
           routePlannerSkillTipShown ?? this.routePlannerSkillTipShown,
+      routePlannerSkillPromotionDismissed:
+          routePlannerSkillPromotionDismissed ??
+          this.routePlannerSkillPromotionDismissed,
     );
   }
 }

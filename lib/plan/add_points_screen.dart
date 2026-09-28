@@ -250,7 +250,10 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
                   : () => _openQuickManualPointForm(context, currentPlan),
             ),
             const SizedBox(height: 8),
-            const RoutePlannerSkillLink(lead: '点位很多、懒得逐个整理？'),
+            RoutePlannerSkillLink(
+              lead: '点位很多、懒得逐个整理？',
+              repository: widget.repository,
+            ),
           ],
         ),
       ),
@@ -258,14 +261,16 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
   }
 
   Future<void> _introduceRoutePlannerSkill() async {
-    if (widget.settings.routePlannerSkillTipShown) {
+    if (widget.settings.routePlannerSkillTipShown ||
+        widget.settings.routePlannerSkillPromotionDismissed) {
       return;
     }
     // Mark it first so the introduction never repeats, whatever happens
     // while it is open.
     try {
       final latest = await widget.repository.loadAppSettings();
-      if (latest.routePlannerSkillTipShown) {
+      if (latest.routePlannerSkillTipShown ||
+          latest.routePlannerSkillPromotionDismissed) {
         return;
       }
       await widget.repository.saveAppSettings(

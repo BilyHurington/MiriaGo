@@ -3670,6 +3670,10 @@ void main() {
       find.byKey(const ValueKey('route-planner-skill-link')),
       findsNothing,
     );
+    expect(
+      (await repository.loadAppSettings()).routePlannerSkillPromotionDismissed,
+      isTrue,
+    );
     Navigator.of(tester.element(find.byType(AddPointsScreen))).pop();
     await tester.pumpAndSettle();
 
@@ -3689,10 +3693,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('route-planner-skill-card')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text(routePlannerSkillTitle), findsOneWidget);
-    expect(find.text('点击查看使用说明'), findsOneWidget);
+    expect(find.text(routePlannerSkillTitle), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(home: PlanManagerScreen(repository: repository)),
@@ -3700,7 +3703,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('route-planner-skill-link')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('route planner skill card dismissal survives reopening', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ImportExportScreen(plan: plan, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('route-planner-skill-card')),
       findsOneWidget,
+    );
+    expect(find.text('点击查看使用说明'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('route-planner-skill-dismiss')));
+    await tester.pumpAndSettle();
+    expect(
+      (await repository.loadAppSettings()).routePlannerSkillPromotionDismissed,
+      isTrue,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ImportExportScreen(plan: plan, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('route-planner-skill-card')),
+      findsNothing,
     );
   });
 

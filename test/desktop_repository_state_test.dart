@@ -136,6 +136,7 @@ void main() {
         comparisonExportConfigMigrated: true,
         anitabiRemoteStateJson: '{"autoUpdate":false}',
         routePlannerSkillTipShown: true,
+        routePlannerSkillPromotionDismissed: true,
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
         showPlanGroupProgress: false,
@@ -236,6 +237,7 @@ void main() {
     expect(decoded.settings.comparisonExportConfigMigrated, isTrue);
     expect(decoded.settings.anitabiRemoteStateJson, '{"autoUpdate":false}');
     expect(decoded.settings.routePlannerSkillTipShown, isTrue);
+    expect(decoded.settings.routePlannerSkillPromotionDismissed, isTrue);
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);
     expect(decoded.settings.showPlanGroupProgress, isFalse);
