@@ -10,6 +10,7 @@ import 'anitabi_endpoint_sync.dart';
 import 'anitabi_image_url.dart';
 import 'anitabi_service_config.dart';
 import 'anitabi_static_data_reader.dart';
+import 'public_http.dart';
 
 class AnitabiClient {
   AnitabiClient({
@@ -115,7 +116,7 @@ class AnitabiClient {
     AnitabiServiceConfig config,
   ) async {
     final uri = config.apiUri('bangumi/$bangumiId/lite');
-    final response = await _httpClient.get(uri).timeout(apiTimeout);
+    final response = await getPublic(_httpClient, uri).timeout(apiTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AnitabiException(response.statusCode, response.body);
     }

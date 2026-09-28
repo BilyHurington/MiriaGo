@@ -1,5 +1,6 @@
 import '../plan/pilgrimage_models.dart';
 import 'anitabi_service_config.dart';
+import 'public_http.dart';
 
 const anitabiOfficialImageHost = 'image.anitabi.cn';
 const anitabiMirrorImageHost = 'img-tc.anitabi.cn';
@@ -115,7 +116,11 @@ List<String> candidateAnitabiImageUrls(
   final originalUri = Uri.tryParse(url);
   final requestUri = _imageRequestUri(originalUri, config);
   if (requestUri == null) {
-    return [resolved];
+    // Not an Anitabi image: a URL from plan data, which must not reach into
+    // this device or the local network.
+    return originalUri != null && isPublicWebUri(originalUri, allowHttp: true)
+        ? [resolved]
+        : const [];
   }
 
   return switch (source) {

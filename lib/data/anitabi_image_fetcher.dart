@@ -4,6 +4,7 @@ import '../plan/pilgrimage_models.dart';
 import 'anitabi_image_url.dart';
 import 'anitabi_service_config.dart';
 import 'image_bytes.dart';
+import 'public_http.dart';
 import 'bounded_image_decoder.dart';
 
 typedef AnitabiImageHttpGetter =
@@ -44,9 +45,11 @@ Future<List<int>?> fetchAnitabiImageBytes(
       if (maxBytes != null || client != null) {
         final ownedClient = client ?? http.Client();
         try {
-          final response = await ownedClient
-              .send(http.Request('GET', uri))
-              .timeout(timeout);
+          final response = await sendPublicGet(
+            ownedClient,
+            uri,
+            allowHttp: true,
+          ).timeout(timeout);
           if (response.statusCode < 200 || response.statusCode >= 300) {
             await response.stream.listen(null).cancel();
             continue;
@@ -85,7 +88,12 @@ Future<List<int>?> fetchAnitabiImageBytes(
   return null;
 }
 
-Future<http.Response> _defaultHttpGet(Uri uri, {Duration? timeout}) {
-  final request = http.get(uri);
-  return timeout == null ? request : request.timeout(timeout);
+Future<http.Response> _defaultHttpGet(Uri uri, {Duration? timeout}) async {
+  final client = http.Client();
+  try {
+    final request = getPublic(client, uri, allowHttp: true);
+    return await (timeout == null ? request : request.timeout(timeout));
+  } finally {
+    client.close();
+  }
 }

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../data/anitabi_image_fetcher.dart';
 import '../data/anitabi_image_url.dart';
 import '../data/image_bytes.dart';
+import '../data/public_http.dart';
 import '../data/reference_asset_paths.dart';
 import '../desktop/desktop_asset_image.dart';
 import '../desktop/tauri_bridge.dart' as tauri;
@@ -82,13 +83,22 @@ Future<List<int>?> readExportNetworkBytes(String url) async {
       );
       return bytes == null || !isSupportedImageBytes(bytes) ? null : bytes;
     }
-    final response = await http.get(uri).timeout(_exportNetworkTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return null;
+    final client = http.Client();
+    try {
+      final response = await getPublic(
+        client,
+        uri,
+        allowHttp: true,
+      ).timeout(_exportNetworkTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      return isSupportedImageBytes(response.bodyBytes)
+          ? response.bodyBytes
+          : null;
+    } finally {
+      client.close();
     }
-    return isSupportedImageBytes(response.bodyBytes)
-        ? response.bodyBytes
-        : null;
   } on Object {
     return null;
   }

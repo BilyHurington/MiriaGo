@@ -10,11 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:miriago/color_grading/color_grading_params.dart';
 import 'package:miriago/color_grading/color_grading_screen.dart';
+import 'package:miriago/data/public_http.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_plan_controller.dart';
 
 void main() {
-  for (final source in ['absent', '404', 'corrupt', 'over-budget']) {
+  for (final source in [
+    'absent',
+    '404',
+    'corrupt',
+    'over-budget',
+    'local-network',
+  ]) {
     testWidgets(
       'unavailable reference ($source) preserves saved grading controls',
       (tester) async {
@@ -22,6 +29,10 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final previous = HttpOverrides.current;
         HttpOverrides.global = null;
+        // The test server is on this device; only 'local-network' checks
+        // that such references are refused.
+        allowLocalNetworkHostsForTesting = source != 'local-network';
+        addTearDown(() => allowLocalNetworkHostsForTesting = false);
         late Directory root;
         late HttpServer server;
         var requests = 0;
@@ -95,7 +106,10 @@ void main() {
           }
         });
         await tester.pump();
-        expect(requests, source == 'absent' ? 0 : 1);
+        expect(
+          requests,
+          source == 'absent' || source == 'local-network' ? 0 : 1,
+        );
         expect(find.byType(Slider), findsOneWidget);
         tester.widget<Slider>(find.byType(Slider)).onChanged!(0.4);
         await tester.pump();

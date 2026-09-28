@@ -5,6 +5,7 @@ import '../desktop/tauri_bridge.dart';
 import 'anitabi_client.dart';
 import 'anitabi_endpoint_sync.dart';
 import 'anitabi_service_config.dart';
+import 'public_http.dart';
 
 class AnitabiStaticDataReader {
   AnitabiStaticDataReader({
@@ -98,15 +99,18 @@ class AnitabiStaticDataReader {
               'upstream': config.staticDataBaseUrl,
             },
           );
-      return (await _checkedGet(proxyUri)).body;
+      // Same-origin dev proxy; it checks the upstream itself.
+      return (await _checkedGet(proxyUri, publicOnly: false)).body;
     }
     return (await _checkedGet(
       config.staticDataUri(fileName, version: version),
     )).body;
   }
 
-  Future<http.Response> _checkedGet(Uri uri) async {
-    final response = await _httpClient.get(uri);
+  Future<http.Response> _checkedGet(Uri uri, {bool publicOnly = true}) async {
+    final response = publicOnly
+        ? await getPublic(_httpClient, uri)
+        : await _httpClient.get(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AnitabiException(response.statusCode, response.body);
     }

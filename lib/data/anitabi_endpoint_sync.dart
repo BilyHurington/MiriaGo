@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../plan/pilgrimage_models.dart';
@@ -8,6 +9,7 @@ import 'anitabi_client.dart';
 import 'anitabi_remote_state.dart';
 import 'anitabi_service_config.dart';
 import 'anitabi_static_data_reader.dart';
+import 'public_http.dart';
 
 /// Where the app looks for `config/anitabi-services.json`, in order.
 /// raw.githubusercontent.com updates within minutes but is often unreachable
@@ -110,8 +112,16 @@ class AnitabiEndpointSync {
 
   /// Called after an Anitabi request failed in a way that suggests the
   /// address changed. Rate limited; returns whether addresses changed.
-  Future<bool> recoverAfterFailure() async =>
-      await _runOnce(automatic: true) == AnitabiSyncOutcome.updated;
+  Future<bool> recoverAfterFailure() async {
+    try {
+      return await _runOnce(automatic: true) == AnitabiSyncOutcome.updated;
+    } on Object catch (error) {
+      // e.g. the new addresses could not be saved; the caller reports its
+      // own failure instead.
+      debugPrint('Anitabi address recovery failed: $error');
+      return false;
+    }
+  }
 
   /// "立即检查" in settings: ignores the daily limit but has a short cooldown.
   Future<AnitabiSyncOutcome> checkNow() {
@@ -283,9 +293,10 @@ class AnitabiEndpointSync {
         if (index is! List || index.isEmpty) return false;
       }
       if (changed.contains(AnitabiServiceField.api)) {
-        final response = await _client
-            .get(candidate.apiUri('bangumi/115908/lite'))
-            .timeout(const Duration(seconds: 12));
+        final response = await getPublic(
+          _client,
+          candidate.apiUri('bangumi/115908/lite'),
+        ).timeout(const Duration(seconds: 12));
         if (response.statusCode != 200) return false;
         final lite = jsonDecode(utf8.decode(response.bodyBytes));
         if (lite is! Map || lite['id'] == null) return false;

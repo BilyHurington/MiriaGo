@@ -665,44 +665,77 @@ fn fetch_anitabi_static_json_blocking(
 
 fn safe_public_https_base_url(value: &str) -> Result<String, String> {
     let parsed = reqwest::Url::parse(value.trim()).map_err(|_| "invalid HTTPS base URL")?;
-    if parsed.scheme() != "https"
-        || parsed.host_str().is_none()
-        || !parsed.username().is_empty()
-        || parsed.password().is_some()
-        || parsed.query().is_some()
-        || parsed.fragment().is_some()
-    {
+    if parsed.query().is_some() || parsed.fragment().is_some() {
         return Err("invalid HTTPS base URL".to_string());
     }
-    let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
-    if is_local_or_private_host(&host) {
-        return Err("local or private hosts are not allowed".to_string());
-    }
+    check_public_https_url(&parsed)?;
     Ok(value.trim().trim_end_matches('/').to_string())
 }
 
-fn is_local_or_private_host(host: &str) -> bool {
-    if host == "localhost"
-        || host.ends_with(".localhost")
-        || host.ends_with(".local")
-        || host == "::1"
-    {
+/// An HTTPS URL on a public host; applied to the base URL and to every
+/// redirect it answers with.
+fn check_public_https_url(url: &reqwest::Url) -> Result<(), String> {
+    if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
+        return Err("invalid HTTPS base URL".to_string());
+    }
+    match url.host() {
+        Some(host) if !is_local_or_private_host(&host) => Ok(()),
+        Some(_) => Err("local or private hosts are not allowed".to_string()),
+        None => Err("invalid HTTPS base URL".to_string()),
+    }
+}
+
+/// Whether a host names this device, the local network or a reserved
+/// address. The url crate already turns numeric IPv4 spellings
+/// (`2130706433`, `0x7f.1`) into addresses. Names are not resolved.
+fn is_local_or_private_host(host: &url::Host<&str>) -> bool {
+    match host {
+        url::Host::Domain(domain) => {
+            let domain = domain.trim_end_matches('.').to_ascii_lowercase();
+            domain.is_empty()
+                || domain == "localhost"
+                || domain.ends_with(".localhost")
+                || domain.ends_with(".local")
+        }
+        url::Host::Ipv4(address) => is_reserved_ipv4(*address),
+        url::Host::Ipv6(address) => is_reserved_ipv6(*address),
+    }
+}
+
+fn is_reserved_ipv4(address: std::net::Ipv4Addr) -> bool {
+    let [first, second, third, _] = address.octets();
+    address.is_unspecified()
+        || address.is_loopback()
+        || address.is_private()
+        || address.is_link_local()
+        || address.is_broadcast()
+        || address.is_multicast()
+        || first == 0
+        || (first == 100 && (64..=127).contains(&second))
+        || (first == 192 && second == 0 && third == 0)
+        || (first == 198 && (second == 18 || second == 19))
+        || first >= 240
+}
+
+fn is_reserved_ipv6(address: std::net::Ipv6Addr) -> bool {
+    let segments = address.segments();
+    if let Some(mapped) = address.to_ipv4_mapped() {
+        return is_reserved_ipv4(mapped);
+    }
+    // ::, ::1 and IPv4-compatible addresses.
+    if segments[..6].iter().all(|segment| *segment == 0) {
         return true;
     }
-    let octets = host
-        .split('.')
-        .map(str::parse::<u8>)
-        .collect::<Result<Vec<_>, _>>();
-    let Ok(octets) = octets else {
-        return false;
-    };
-    if octets.len() != 4 {
-        return false;
+    // NAT64 (64:ff9b::a.b.c.d).
+    if segments[0] == 0x64 && segments[1] == 0xff9b && segments[2..6].iter().all(|s| *s == 0) {
+        let [a, b] = segments[6].to_be_bytes();
+        let [c, d] = segments[7].to_be_bytes();
+        return is_reserved_ipv4(std::net::Ipv4Addr::new(a, b, c, d));
     }
-    matches!(
-        (octets[0], octets[1]),
-        (0, _) | (10, _) | (127, _) | (169, 254) | (172, 16..=31) | (192, 168)
-    )
+    (segments[0] & 0xfe00) == 0xfc00 // unique local
+        || (segments[0] & 0xffc0) == 0xfe80 // link local
+        || (segments[0] & 0xffc0) == 0xfec0 // site local
+        || address.is_multicast()
 }
 
 fn export_filter_label(mime_type: &str, extension: &str) -> String {
@@ -771,7 +804,18 @@ fn fetch_text(url: &str) -> Result<String, String> {
     let response = reqwest::blocking::Client::builder()
         .user_agent("MiriaGo desktop launcher")
         .connect_timeout(std::time::Duration::from_secs(10))
-        .timeout(std::time::Duration::from_secs(40))
+        .timeout(std::time::Duration::from_secs(120))
+        // Every hop must stay on a public HTTPS host, so a public address
+        // cannot bounce the request into the local network.
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 5 {
+                attempt.error("too many redirects")
+            } else if check_public_https_url(attempt.url()).is_err() {
+                attempt.error("redirect to a non-public address")
+            } else {
+                attempt.follow()
+            }
+        }))
         .build()
         .map_err(|error| error.to_string())?
         .get(url)
@@ -873,6 +917,25 @@ mod tests {
         assert!(safe_public_https_base_url("http://ww.anitabi.cn/d").is_err());
         assert!(safe_public_https_base_url("https://localhost:8080/d").is_err());
         assert!(safe_public_https_base_url("https://192.168.1.2/d").is_err());
+        for blocked in [
+            "https://[::1]/d",
+            "https://[0:0:0:0:0:0:0:1]/d",
+            "https://[::ffff:127.0.0.1]/d",
+            "https://[::ffff:c0a8:0102]/d",
+            "https://[fd00::1]/d",
+            "https://[fe80::1]/d",
+            "https://[64:ff9b::a00:1]/d",
+            "https://2130706433/d",
+            "https://0x7f.1/d",
+            "https://127.1/d",
+            "https://localhost./d",
+            "https://100.64.0.1/d",
+            "https://224.0.0.1/d",
+        ] {
+            assert!(safe_public_https_base_url(blocked).is_err(), "{blocked}");
+        }
+        assert!(safe_public_https_base_url("https://[2606:4700::1111]/d").is_ok());
+        assert!(safe_public_https_base_url("https://1.1.1.1/d").is_ok());
         assert!(safe_public_https_base_url("https://example.com/d?token=x").is_err());
     }
 

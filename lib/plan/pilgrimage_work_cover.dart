@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../app_theme.dart';
 import '../data/anitabi_image_source_scope.dart';
 import '../data/anitabi_image_url.dart';
+import '../data/public_http.dart';
 import '../widgets/anitabi_network_image.dart';
 import 'pilgrimage_models.dart';
 
@@ -34,7 +35,8 @@ class PilgrimageWorkCover extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: AppColors.border),
         ),
-        child: imageUrl == null || imageUrl.isEmpty
+        child:
+            imageUrl == null || imageUrl.isEmpty || !_isPublicCoverUrl(imageUrl)
             ? const _WorkCoverFallback()
             : isAnitabiImageUrl(imageUrl)
             // Anitabi covers follow the configured image services and fall
@@ -81,6 +83,13 @@ class PilgrimageWorkCover extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Covers can come from imported plan packages; never load one from this
+/// device or the local network.
+bool _isPublicCoverUrl(String url) {
+  final uri = Uri.tryParse(url);
+  return uri != null && isPublicWebUri(uri, allowHttp: true);
 }
 
 class _WorkCoverFallback extends StatelessWidget {

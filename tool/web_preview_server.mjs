@@ -3,6 +3,7 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { BlockList, isIP } from 'node:net';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 
 const root = resolve('build/web');
@@ -80,21 +81,47 @@ function safeAnitabiVersion(version) {
   return /^[A-Za-z0-9_-]+$/.test(version) ? version : '';
 }
 
+const reservedAddresses = new BlockList();
+for (const [address, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+  ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24],
+  ['192.168.0.0', 16], ['198.18.0.0', 15], ['224.0.0.0', 4],
+  ['240.0.0.0', 4],
+]) {
+  reservedAddresses.addSubnet(address, prefix, 'ipv4');
+}
+for (const [address, prefix] of [
+  // ::/96 covers :: and ::1; IPv4-mapped and NAT64 forms are refused
+  // outright rather than unpacked.
+  ['::', 96], ['::ffff:0:0', 96], ['64:ff9b::', 96], ['fc00::', 7],
+  ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
+]) {
+  reservedAddresses.addSubnet(address, prefix, 'ipv6');
+}
+
+// WHATWG URL already turns numeric IPv4 spellings (2130706433, 0x7f.1)
+// into dotted decimal and brackets IPv6 hosts. Names are not resolved.
+function isLocalOrPrivateHost(hostname) {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (host === '' || host === 'localhost' || host.endsWith('.localhost') ||
+      host.endsWith('.local')) {
+    return true;
+  }
+  const family = isIP(host);
+  if (family === 4) {
+    return reservedAddresses.check(host, 'ipv4');
+  }
+  if (family === 6) {
+    return reservedAddresses.check(host, 'ipv6');
+  }
+  return false;
+}
+
 function safePublicHttpsBaseUrl(value) {
   try {
     const url = new URL(value);
-    const host = url.hostname.toLowerCase();
-    const octets = host.split('.').map(Number);
-    const privateIpv4 = octets.length === 4 && octets.every(Number.isInteger) && (
-      octets[0] === 0 || octets[0] === 10 || octets[0] === 127 ||
-      (octets[0] === 169 && octets[1] === 254) ||
-      (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-      (octets[0] === 192 && octets[1] === 168)
-    );
     if (url.protocol !== 'https:' || url.username || url.password ||
-        url.search || url.hash || host === 'localhost' ||
-        host.endsWith('.localhost') || host.endsWith('.local') ||
-        host === '::1' || privateIpv4) {
+        url.search || url.hash || isLocalOrPrivateHost(url.hostname)) {
       return null;
     }
     return value.replace(/\/+$/, '');
@@ -102,6 +129,8 @@ function safePublicHttpsBaseUrl(value) {
     return null;
   }
 }
+
+const maxAnitabiStaticBytes = 16 * 1024 * 1024;
 
 async function fetchAnitabiStatic(fileName, version, upstreamValue) {
   const query = version ? `?v=${encodeURIComponent(version)}` : '';
@@ -111,8 +140,27 @@ async function fetchAnitabiStatic(fileName, version, upstreamValue) {
   }
   const response = await fetch(`${baseUrl}/${fileName}${query}`, {
     headers: {'user-agent': 'MiriaGo local web preview'},
+    // A redirect could lead into the local network; Anitabi does not use
+    // them for static files.
+    redirect: 'error',
+    signal: AbortSignal.timeout(120_000),
   });
-  return response.ok ? response : null;
+  if (!response.ok) {
+    return null;
+  }
+  const declared = Number(response.headers.get('content-length') ?? 0);
+  if (declared > maxAnitabiStaticBytes) {
+    return null;
+  }
+  const body = Buffer.from(await response.arrayBuffer());
+  const start = body.subarray(0, 64).toString('utf8').trimStart();
+  // Only JSON is passed on: an upstream error or landing page must never be
+  // served from the preview's own origin.
+  if (body.length > maxAnitabiStaticBytes ||
+      !(start.startsWith('[') || start.startsWith('{'))) {
+    return null;
+  }
+  return body;
 }
 
 async function serveAnitabiStatic(url, response) {
@@ -125,18 +173,19 @@ async function serveAnitabiStatic(url, response) {
   }
 
   try {
-    const upstreamResponse = await fetchAnitabiStatic(fileName, version, upstream);
-    if (upstreamResponse == null) {
+    const body = await fetchAnitabiStatic(fileName, version, upstream);
+    if (body == null) {
       text(response, 502, `Unable to fetch Anitabi static file: ${fileName}`);
       return;
     }
 
     response.writeHead(200, {
-      'content-type': upstreamResponse.headers.get('content-type') ?? 'application/json; charset=utf-8',
+      'content-type': 'application/json; charset=utf-8',
+      'x-content-type-options': 'nosniff',
       'cache-control': 'no-store',
       'access-control-allow-origin': '*',
     });
-    response.end(Buffer.from(await upstreamResponse.arrayBuffer()));
+    response.end(body);
   } catch (error) {
     text(response, 502, `Anitabi proxy error: ${error}`);
   }

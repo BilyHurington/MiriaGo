@@ -75,7 +75,7 @@ String? validateAnitabiBaseUrl(String value) {
   if (uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment) {
     return '地址不能包含账号、查询参数或片段';
   }
-  if (_isLocalOrPrivateHost(uri.host)) {
+  if (isLocalOrPrivateHost(uri.host)) {
     return '不能使用本机或局域网地址';
   }
   return null;
@@ -99,24 +99,98 @@ Uri _resolve(
   );
 }
 
-bool _isLocalOrPrivateHost(String host) {
-  final normalized = host.toLowerCase();
-  if (normalized == 'localhost' ||
+/// Whether [uri] is an HTTPS address on a public host, as required for
+/// Anitabi services and every redirect they answer with.
+bool isPublicHttpsUri(Uri uri) =>
+    uri.scheme == 'https' &&
+    uri.host.isNotEmpty &&
+    uri.userInfo.isEmpty &&
+    !isLocalOrPrivateHost(uri.host);
+
+/// Whether [host] names this device, the local network or a reserved
+/// address, in any spelling the network stack would accept: IPv6 (with or
+/// without brackets, IPv4-mapped, NAT64), a trailing dot, or a numeric IPv4
+/// form other than plain dotted decimal (e.g. `2130706433`, `0x7f.1`), which
+/// is refused outright. Names are not resolved.
+bool isLocalOrPrivateHost(String host) {
+  var normalized = host.toLowerCase().trim();
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+    normalized = normalized.substring(1, normalized.length - 1);
+  }
+  while (normalized.endsWith('.')) {
+    normalized = normalized.substring(0, normalized.length - 1);
+  }
+  if (normalized.isEmpty ||
+      normalized == 'localhost' ||
       normalized.endsWith('.localhost') ||
-      normalized.endsWith('.local') ||
-      normalized == '::1') {
+      normalized.endsWith('.local')) {
     return true;
   }
-  final parts = normalized.split('.').map(int.tryParse).toList();
-  if (parts.length != 4 || parts.any((part) => part == null)) {
+  if (normalized.contains(':')) {
+    final List<int> bytes;
+    try {
+      bytes = Uri.parseIPv6Address(normalized.split('%').first);
+    } on FormatException {
+      return true;
+    }
+    return _isReservedIPv6(bytes);
+  }
+  if (!_numericHost.hasMatch(normalized)) {
     return false;
   }
-  final first = parts[0]!;
-  final second = parts[1]!;
+  final parts = normalized.split('.');
+  final octets = [
+    for (final part in parts)
+      if (_decimalOctet.hasMatch(part)) int.parse(part),
+  ];
+  if (parts.length != 4 ||
+      octets.length != 4 ||
+      octets.any((octet) => octet > 255)) {
+    return true;
+  }
+  return _isReservedIPv4(octets);
+}
+
+final _numericHost = RegExp(r'^(0x[0-9a-f]*|\d+)(\.(0x[0-9a-f]*|\d+))*$');
+final _decimalOctet = RegExp(r'^(0|[1-9]\d{0,2})$');
+
+bool _isReservedIPv4(List<int> octets) {
+  final first = octets[0];
+  final second = octets[1];
   return first == 0 ||
       first == 10 ||
+      (first == 100 && second >= 64 && second <= 127) ||
       first == 127 ||
       (first == 169 && second == 254) ||
       (first == 172 && second >= 16 && second <= 31) ||
-      (first == 192 && second == 168);
+      (first == 192 && second == 0 && octets[2] == 0) ||
+      (first == 192 && second == 168) ||
+      (first == 198 && (second == 18 || second == 19)) ||
+      first >= 224;
+}
+
+bool _isReservedIPv6(List<int> bytes) {
+  bool zero(int from, int to) =>
+      bytes.sublist(from, to).every((byte) => byte == 0);
+  final embeddedIPv4 = bytes.sublist(12, 16);
+  // ::, ::1 and IPv4-compatible (::a.b.c.d).
+  if (zero(0, 12)) {
+    return true;
+  }
+  // IPv4-mapped (::ffff:a.b.c.d).
+  if (zero(0, 10) && bytes[10] == 0xff && bytes[11] == 0xff) {
+    return _isReservedIPv4(embeddedIPv4);
+  }
+  // NAT64 (64:ff9b::a.b.c.d).
+  if (bytes[0] == 0x00 &&
+      bytes[1] == 0x64 &&
+      bytes[2] == 0xff &&
+      bytes[3] == 0x9b &&
+      zero(4, 12)) {
+    return _isReservedIPv4(embeddedIPv4);
+  }
+  return (bytes[0] & 0xfe) == 0xfc || // unique local fc00::/7
+      (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) || // link local
+      (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0xc0) || // site local
+      bytes[0] == 0xff; // multicast
 }
