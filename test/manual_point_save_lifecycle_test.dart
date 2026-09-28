@@ -155,7 +155,9 @@ Future<GlobalKey<NavigatorState>> _open(
                     builder: (_) => AddPointsScreen(
                       plan: _plan,
                       repository: repository,
-                      settings: const AppSettings(),
+                      settings: const AppSettings(
+                        routePlannerSkillTipShown: true,
+                      ),
                     ),
                   ),
                 );

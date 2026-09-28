@@ -25,6 +25,7 @@ import '../widgets/image_viewer_screen.dart';
 import '../widgets/app_scaled_route.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/responsive_button.dart';
+import '../widgets/route_planner_skill_hint.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
 import 'pending_reference_lifecycle.dart';
@@ -180,6 +181,16 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
   var _didUpdate = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_introduceRoutePlannerSkill());
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentPlan = _plan;
     final hasBangumiWork =
@@ -237,10 +248,36 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
                   ? null
                   : () => _openQuickManualPointForm(context, currentPlan),
             ),
+            const SizedBox(height: 8),
+            const RoutePlannerSkillLink(lead: '点位很多、懒得逐个整理？'),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _introduceRoutePlannerSkill() async {
+    if (widget.settings.routePlannerSkillTipShown) {
+      return;
+    }
+    // Mark it first so the introduction never repeats, whatever happens
+    // while it is open.
+    try {
+      final latest = await widget.repository.loadAppSettings();
+      if (latest.routePlannerSkillTipShown) {
+        return;
+      }
+      await widget.repository.saveAppSettings(
+        latest.copyWith(routePlannerSkillTipShown: true),
+      );
+    } on Object catch (error) {
+      debugPrint('Failed to record the route planner skill tip: $error');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await showRoutePlannerSkillIntroDialog(context);
   }
 
   Future<void> _openWorkManager(

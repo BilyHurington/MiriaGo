@@ -224,6 +224,7 @@ class AppSettings {
     this.continuousMapLocation = true,
     this.mapAppearance = MapAppearance.automatic,
     this.anitabiRemoteStateJson = '',
+    this.routePlannerSkillTipShown = false,
   });
 
   final double uiScale;
@@ -277,6 +278,10 @@ class AppSettings {
   /// Remote Anitabi address sync state ([AnitabiRemoteState] as JSON).
   final String anitabiRemoteStateJson;
 
+  /// Whether the route-planner skill introduction was shown on the add
+  /// points page.
+  final bool routePlannerSkillTipShown;
+
   AppSettings copyWith({
     double? uiScale,
     double? fontScale,
@@ -326,6 +331,7 @@ class AppSettings {
     bool? continuousMapLocation,
     MapAppearance? mapAppearance,
     String? anitabiRemoteStateJson,
+    bool? routePlannerSkillTipShown,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -404,6 +410,8 @@ class AppSettings {
       mapAppearance: mapAppearance ?? this.mapAppearance,
       anitabiRemoteStateJson:
           anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
+      routePlannerSkillTipShown:
+          routePlannerSkillTipShown ?? this.routePlannerSkillTipShown,
     );
   }
 }

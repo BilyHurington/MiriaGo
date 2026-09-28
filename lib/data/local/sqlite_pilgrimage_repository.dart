@@ -148,6 +148,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       comparisonPilgrimName: row.comparisonPilgrimName,
       comparisonExportConfigJson: row.comparisonExportConfigJson,
       anitabiRemoteStateJson: row.anitabiRemoteStateJson,
+      routePlannerSkillTipShown: row.routePlannerSkillTipShown,
       comparisonExportConfigMigrated: row.comparisonExportConfigMigrated,
       customThemeColorName: row.customThemeColorName,
       customThemeColorValue: row.customThemeColorValue,
@@ -1358,6 +1359,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.comparisonExportConfigJson.trim(),
             ),
             anitabiRemoteStateJson: Value(settings.anitabiRemoteStateJson),
+            routePlannerSkillTipShown: Value(
+              settings.routePlannerSkillTipShown,
+            ),
             comparisonExportConfigMigrated: Value(
               settings.comparisonExportConfigMigrated,
             ),

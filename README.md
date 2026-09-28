@@ -51,6 +51,7 @@ MiriaGo 想把这些麻烦收进一个顺手的流程里：
 - iOS：当前通过 TestFlight 分发测试版本。
 - macOS / Windows：Release 中提供 zip 包。Linux x64 提供 AppImage、DEB、RPM 和 zip；Linux zip 需要系统已安装 WebKitGTK 4.1 等运行依赖，并非独立免依赖包。Windows / Linux zip 含随包的 `MiriaGoData` 文件夹。
 - 使用指南：[docs/USAGE.md](docs/USAGE.md)
+- AI 规划行程：配合 [MiriaGo 路线规划 Skill](https://github.com/BilyHurington/miriago-route-planner-skill)，可让 ChatGPT、Claude Code、Codex 等 AI 助手收集点位、划分片区、规划路线并写好行程备注，最后生成可直接导入的 `.sjhplan` 计划包。
 - 数据源默认使用 OpenFreeMap + MapLibre 显示地图，并使用 Anitabi 默认图片源读取参考图。设置中可以切换 OpenFreeMap 样式、OpenStreetMap、自定义 XYZ 瓦片 URL、自定义 MapLibre style URL，以及 Anitabi 参考图备用图片源。导航仍交给外部地图应用，例如 Google Maps 或系统地图。
 
 ## 功能亮点

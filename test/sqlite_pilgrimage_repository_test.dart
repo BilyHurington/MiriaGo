@@ -44,7 +44,7 @@ class _GatedPathProviderPlatform extends _FakePathProviderPlatform {
 
 void main() {
   test(
-    'schema 44 adds Anitabi remote state and persists it across restart',
+    'schema 44 and 45 add Anitabi remote state and skill tip flag',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'miriago-anitabi-remote-',
@@ -58,6 +58,10 @@ void main() {
         'ALTER TABLE app_settings_entries '
         'DROP COLUMN anitabi_remote_state_json',
       );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN route_planner_skill_tip_shown',
+      );
       await oldDatabase.customStatement('PRAGMA user_version = 43');
       await oldDatabase.close();
 
@@ -66,8 +70,12 @@ void main() {
       final settings = await repository.loadAppSettings();
       expect(settings.mapMaxZoom, 21);
       expect(settings.anitabiRemoteStateJson, isEmpty);
+      expect(settings.routePlannerSkillTipShown, isFalse);
       await repository.saveAppSettings(
-        settings.copyWith(anitabiRemoteStateJson: '{"autoUpdate":false}'),
+        settings.copyWith(
+          anitabiRemoteStateJson: '{"autoUpdate":false}',
+          routePlannerSkillTipShown: true,
+        ),
       );
       await database.close();
 
@@ -78,6 +86,7 @@ void main() {
       ).loadAppSettings();
       expect(reopenedSettings.anitabiRemoteStateJson, '{"autoUpdate":false}');
       expect(reopenedSettings.anitabiRemoteState.autoUpdate, isFalse);
+      expect(reopenedSettings.routePlannerSkillTipShown, isTrue);
     },
   );
 

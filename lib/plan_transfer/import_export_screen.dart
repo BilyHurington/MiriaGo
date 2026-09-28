@@ -8,6 +8,7 @@ import '../platform/platform_flags_stub.dart'
     if (dart.library.io) '../platform/platform_flags_io.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/route_planner_skill_hint.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/app_back_button.dart';
 import 'my_maps_csv_export.dart';
@@ -113,6 +114,8 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
                   ? _showExternalIosImportHelp
                   : _importFromFile,
             ),
+            const SizedBox(height: 10),
+            const RoutePlannerSkillCard(),
             const SizedBox(height: 20),
             _SectionTitle(
               icon: LucideIcons.package,

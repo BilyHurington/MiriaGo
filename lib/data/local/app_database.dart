@@ -157,6 +157,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(''))();
   TextColumn get anitabiRemoteStateJson =>
       text().withDefault(const Constant(''))();
+  BoolColumn get routePlannerSkillTipShown =>
+      boolean().withDefault(const Constant(false))();
   BoolColumn get comparisonExportConfigMigrated =>
       boolean().withDefault(const Constant(true))();
   TextColumn get customThemeColorName =>
@@ -205,7 +207,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 44;
+  int get schemaVersion => 45;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -705,6 +707,15 @@ class AppDatabase extends _$AppDatabase {
           'anitabi_remote_state_json',
           appSettingsEntries,
           appSettingsEntries.anitabiRemoteStateJson,
+        );
+      }
+      if (from < 45) {
+        await _addColumnIfMissing(
+          migrator,
+          'app_settings_entries',
+          'route_planner_skill_tip_shown',
+          appSettingsEntries,
+          appSettingsEntries.routePlannerSkillTipShown,
         );
       }
     }),

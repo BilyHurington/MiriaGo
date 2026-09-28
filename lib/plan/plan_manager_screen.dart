@@ -8,6 +8,7 @@ import '../plan_transfer/import_export_screen.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/copyable_text.dart';
+import '../widgets/route_planner_skill_hint.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/app_back_button.dart';
 import 'pilgrimage_models.dart';
@@ -300,7 +301,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
               _CreatePlanButton(
                 onPressed: _sorting || _savingOrder ? null : _createEmptyPlan,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 4),
+              const RoutePlannerSkillLink(lead: '不想手动整理点位？'),
+              const SizedBox(height: 10),
               if (activePlan != null) ...[
                 _PlanCard(
                   plan: activePlan,
