@@ -3382,7 +3382,7 @@ void main() {
     // Added points and the work's Anitabi total are told apart.
     final pointCount = plan.points.where((p) => p.work.id == work.id).length;
     expect(
-      find.text('已加入 $pointCount · Anitabi 共 582 点位'),
+      find.text('已加入 $pointCount · 共 582 点位'),
       findsOneWidget,
     );
 

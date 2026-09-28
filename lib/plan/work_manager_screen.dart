@@ -556,10 +556,10 @@ class _WorkBadges extends StatelessWidget {
   String get _pointLabel {
     final total = anitabiTotal.count;
     if (total != null) {
-      return '已加入 $pointCount · Anitabi 共 $total 点位';
+      return '已加入 $pointCount · 共 $total 点位';
     }
     if (anitabiTotal.loading) {
-      return '已加入 $pointCount · Anitabi 共 … 点位';
+      return '已加入 $pointCount · 共 … 点位';
     }
     return '已加入 $pointCount 点位';
   }

@@ -51,13 +51,13 @@ void main() {
     final pending = Completer<Map<int, int>>();
     expect(
       await badge(tester, () => pending.future, settle: false),
-      '已加入 N · Anitabi 共 … 点位',
+      '已加入 N · 共 … 点位',
     );
     pending.complete(const {});
 
     expect(
       await badge(tester, () async => {115908: 582}),
-      '已加入 N · Anitabi 共 582 点位',
+      '已加入 N · 共 582 点位',
     );
     expect(await badge(tester, () async => const {}), '已加入 N 点位');
     expect(
