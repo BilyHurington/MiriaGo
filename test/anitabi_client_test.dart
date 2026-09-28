@@ -92,11 +92,11 @@ void main() {
   test('finds a compact Anitabi point inside a specific bangumi', () async {
     final client = AnitabiClient(
       httpClient: _FixtureHttpClient({
-        'https://ww.anitabi.cn/d/g.json':
+        'https://www.anitabi.cn/d/g.json':
             '[[[8290,"头文字D",0,"頭文字D","日本","#d8101b","/images/bangumi/8290.jpg",7.7,"TV",36.098525,139.518473,7.1,["qdmnf6iqj",36.335315,138.738551,15644]],[999001,"其他作品",0,"Other","日本","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["other",34.1,134.1,1]]],1,1780488405409]',
-        'https://ww.anitabi.cn/d/g0.json':
+        'https://www.anitabi.cn/d/g0.json':
             '[[8290,0,[["qdmnf6iqj","峠の釜めしや看板",0,0,0,1073,"/images/points/8290/qdmnf6iqj_1732560149766.jpg",0,null,"",0,0,0,"碓氷峠",3134]],1771771832628]]',
-        'https://ww.anitabi.cn/d/g1.json':
+        'https://www.anitabi.cn/d/g1.json':
             '[[999001,0,[["other","其他地点",0,0,0,0,"/images/points/999001/other.jpg",0,1,125,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1771771832628]]',
       }),
     );
@@ -122,11 +122,11 @@ void main() {
   test('finds a compact Anitabi point globally across related works', () async {
     final client = AnitabiClient(
       httpClient: _FixtureHttpClient({
-        'https://ww.anitabi.cn/d/g.json':
+        'https://www.anitabi.cn/d/g.json':
             '[[[282923,"上伊那牡丹，酒醉身姿似百合花般",0,"上伊那ぼたん、酔へる姿は百合の花","秩父市","#476347","/images/bangumi/282923.jpg",7.6,"漫画系列",37.238036,138.957161,6.3,["ttr1hpv2a",35.648102,139.703165,1]],[543360,"上伊那牡丹，酒醉身姿似百合花般",0,"上伊那ぼたん、酔へる姿は百合の花","秩父市","#ff9a8a","/images/bangumi/543360.jpg",0,"TV",0,0,0,["djnfcvo",35.647974,139.70287,1]]],1,1783421160481]',
-        'https://ww.anitabi.cn/d/g0.json':
+        'https://www.anitabi.cn/d/g0.json':
             '[[282923,0,[["ttr1hpv2a","代官山",0,0,0,1099,"/images/points/282923/ttr1hpv2a.jpg",0,4,"",0,0,0,"EP4",133]],1783421160481]]',
-        'https://ww.anitabi.cn/d/g1.json':
+        'https://www.anitabi.cn/d/g1.json':
             '[[543360,0,[["djnfcvo","代官山駅",0,0,0,1099,"/images/user/1099/bangumi/543360/points/djnfcvo-1776496761302.jpg",0,2,1021,0,0,0,"EP2",133]],1783421160481]]',
       }),
     );
@@ -149,9 +149,9 @@ void main() {
   test('fetches complete points from static Anitabi map data first', () async {
     final client = AnitabiClient(
       httpClient: _FixtureHttpClient({
-        'https://ww.anitabi.cn/d/g.json':
+        'https://www.anitabi.cn/d/g.json':
             '[[[999001,"测试作品",0,"Fixture Work","测试市","#61a4d8","/images/bangumi/999001.jpg",7.5,"TV",34.421,134.057,11,["p1",34.1,134.1,1,"p2",34.2,134.2,2,"p3",34.3,134.3,3]]],250,1780488405409]',
-        'https://ww.anitabi.cn/d/g0.json':
+        'https://www.anitabi.cn/d/g0.json':
             '[[999001,0,[["p1","地点一",0,0,0,0,"/images/points/999001/p1.jpg",0,1,125,"备注一","Anitabi","https://anitabi.cn/map?bangumi=999001"],["p2","地点二",0,0,0,0,"/images/points/999001/p2.jpg",0,2,130,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"],["p3","地点三",0,0,0,0,"/images/points/999001/p3.jpg",0,3,135,0,"Anitabi","https://anitabi.cn/map?bangumi=999001"]],1771771832628]]',
         'https://api.anitabi.cn/bangumi/999001/points/detail?haveImage=true':
             '[{"id":"p1","name":"地点一","geo":[34.1,134.1],"image":"https://image.anitabi.cn/points/999001/p1.jpg?plan=h160","ep":1,"s":125}]',

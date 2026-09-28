@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -125,6 +127,7 @@ class _NavigationRouteConfirmScreenState
   Object? _error;
   var _loading = true;
   var _requestToken = 0;
+  final _disposed = Completer<void>();
 
   late final List<PilgrimagePoint> _resolvedStops = _coordinateStops(
     point: widget.point,
@@ -141,6 +144,14 @@ class _NavigationRouteConfirmScreenState
     _loadRoute(_remainingStops);
   }
 
+  @override
+  void dispose() {
+    // Stops a pending location lookup so it cannot prompt or keep GPS running
+    // after the user left, and prevents the route request that would follow.
+    if (!_disposed.isCompleted) _disposed.complete();
+    super.dispose();
+  }
+
   Future<void> _loadRoute(List<PilgrimagePoint> stops) async {
     final requestToken = ++_requestToken;
     setState(() {
@@ -149,6 +160,7 @@ class _NavigationRouteConfirmScreenState
     });
     try {
       final start = _start ?? await _resolveLocation();
+      if (!mounted || requestToken != _requestToken) return;
       final route = await _routeClient.route(
         baseUrl: widget.settings.valhallaBaseUrl,
         locations: [start, for (final stop in stops) stop.position],
@@ -159,6 +171,8 @@ class _NavigationRouteConfirmScreenState
         _route = route;
         _loading = false;
       });
+    } on CurrentLocationCancelled {
+      return;
     } on Object catch (error) {
       if (!mounted || requestToken != _requestToken) return;
       setState(() {
@@ -171,7 +185,7 @@ class _NavigationRouteConfirmScreenState
   Future<LatLng> _resolveLocation() async {
     final custom = widget.locationResolver;
     if (custom != null) return custom();
-    final position = await resolveCurrentLocation();
+    final position = await resolveCurrentLocation(cancelled: _disposed.future);
     return LatLng(position.latitude, position.longitude);
   }
 
@@ -492,7 +506,7 @@ class _GroupNameRow extends StatelessWidget {
   }
 }
 
-class _RoutePreviewMap extends StatelessWidget {
+class _RoutePreviewMap extends StatefulWidget {
   const _RoutePreviewMap({
     required this.settings,
     required this.dark,
@@ -506,16 +520,62 @@ class _RoutePreviewMap extends StatelessWidget {
   final List<PilgrimagePoint> stops;
 
   @override
+  State<_RoutePreviewMap> createState() => _RoutePreviewMapState();
+}
+
+class _RoutePreviewMapState extends State<_RoutePreviewMap> {
+  final _mapController = MapController();
+  static const _fitPadding = EdgeInsets.fromLTRB(40, 28, 40, 28);
+
+  @override
+  void didUpdateWidget(covariant _RoutePreviewMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // initialCameraFit only applies once; the route (and the user's start
+    // position) usually arrives after the first build.
+    if (!_samePoints(oldWidget.routePoints, widget.routePoints) &&
+        widget.routePoints.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          _mapController.fitCamera(
+            CameraFit.coordinates(
+              coordinates: widget.routePoints,
+              padding: _fitPadding,
+              maxZoom: 17,
+            ),
+          );
+        } on Object {
+          // The map may not be laid out yet; the next update re-fits.
+        }
+      });
+    }
+  }
+
+  static bool _samePoints(List<LatLng> a, List<LatLng> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final settings = widget.settings;
+    final dark = widget.dark;
+    final routePoints = widget.routePoints;
+    final stops = widget.stops;
     if (routePoints.isEmpty) {
       return const SizedBox.expand();
     }
 
     return FlutterMap(
+      mapController: _mapController,
       options: MapOptions(
         initialCameraFit: CameraFit.coordinates(
           coordinates: routePoints,
-          padding: const EdgeInsets.fromLTRB(40, 28, 40, 28),
+          padding: _fitPadding,
           maxZoom: 17,
         ),
         minZoom: 4,

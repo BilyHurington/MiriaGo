@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -119,7 +121,8 @@ void main() {
       find.byKey(const ValueKey('in-app-navigation-screen')),
       findsOneWidget,
     );
-    expect(find.textContaining('井用机前步行道'), findsOneWidget);
+    // The stop name appears in the bottom panel and in the arrival step.
+    expect(find.textContaining('井用机前步行道'), findsWidgets);
     expect(find.text('片区'), findsOneWidget);
   });
 
@@ -251,6 +254,41 @@ void main() {
     await tester.pump();
     expect(externalOpened, isTrue);
   });
+
+  testWidgets('leaving before the location resolves requests no route', (
+    tester,
+  ) async {
+    final location = Completer<LatLng>();
+    final routes = _CountingRouteClient();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FilledButton(
+              onPressed: () => NavigationRouteConfirmScreen.open(
+                context,
+                point: point,
+                settings: const AppSettings(),
+                stops: const [point],
+                routeClient: routes,
+                locationResolver: () => location.future,
+              ),
+              child: const Text('打开确认'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('打开确认'));
+    // The confirm screen shows an indeterminate progress bar while waiting.
+    await tester.pump(const Duration(milliseconds: 400));
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pump(const Duration(milliseconds: 400));
+    location.complete(const LatLng(34.887, 135.805));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(routes.requests, 0);
+  });
 }
 
 class _TestRouteClient extends ValhallaRouteClient {
@@ -283,5 +321,23 @@ class _FailingRouteClient extends ValhallaRouteClient {
     required List<LatLng> locations,
   }) async {
     throw const ValhallaRouteException('测试路径服务不可用');
+  }
+}
+
+class _CountingRouteClient extends ValhallaRouteClient {
+  var requests = 0;
+
+  @override
+  Future<NavigationRoute> route({
+    required String baseUrl,
+    required List<LatLng> locations,
+  }) async {
+    requests++;
+    return NavigationRoute(
+      shape: locations,
+      maneuvers: const [],
+      distanceKm: 1,
+      duration: const Duration(minutes: 10),
+    );
   }
 }

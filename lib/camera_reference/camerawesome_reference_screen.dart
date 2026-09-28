@@ -8,21 +8,19 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_image_fetcher.dart';
 import '../data/anitabi_image_url.dart';
-import '../map/current_location_resolver.dart';
 import '../plan/pilgrimage_models.dart';
 import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/reference_image_status.dart';
 import '../records/visit_record_file_ops_stub.dart'
     if (dart.library.io) '../records/visit_record_file_ops_io.dart';
 import '../widgets/snackbar_helper.dart';
-import '../widgets/anitabi_network_image.dart';
-import '../widgets/reference_thumbnail_stub.dart'
-    if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
+
 import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import 'camera_storage_stub.dart'
@@ -30,6 +28,7 @@ import 'camera_storage_stub.dart'
     as camera_storage;
 import 'auto_comparison_gallery_backup.dart';
 import 'camera_zoom_capabilities.dart';
+import 'native_camera_controller.dart';
 import 'gallery_capture_time_stub.dart'
     if (dart.library.io) 'gallery_capture_time_io.dart';
 import 'photo_location.dart';
@@ -56,12 +55,16 @@ class CamerawesomeReferenceScreen extends StatefulWidget {
     required this.point,
     required this.settings,
     this.controller,
+    @visibleForTesting this.nativeCameraController,
     super.key,
   });
 
   final PilgrimagePoint point;
   final AppSettings settings;
   final PilgrimagePlanController? controller;
+
+  /// Injected by tests; the screen creates and owns one otherwise.
+  final NativeCameraController? nativeCameraController;
 
   @override
   State<CamerawesomeReferenceScreen> createState() =>
@@ -73,7 +76,8 @@ class _CamerawesomeReferenceScreenState
   final ImagePicker _imagePicker = ImagePicker();
   late final ValueNotifier<double> _overlayOpacity;
   late final ValueNotifier<double> _zoom;
-  late final _NativeCameraController _nativeCameraController;
+  late final NativeCameraController _nativeCameraController;
+  late final bool _ownsNativeCameraController;
 
   Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
@@ -95,7 +99,9 @@ class _CamerawesomeReferenceScreenState
     super.initState();
     _overlayOpacity = ValueNotifier<double>(0.46);
     _zoom = ValueNotifier<double>(0);
-    _nativeCameraController = _NativeCameraController();
+    _ownsNativeCameraController = widget.nativeCameraController == null;
+    _nativeCameraController =
+        widget.nativeCameraController ?? NativeCameraController();
     _photoLocationStrategy = widget.settings.photoLocationStrategy;
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -105,7 +111,13 @@ class _CamerawesomeReferenceScreenState
     _refreshReferenceAspectRatio();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(_ensurePhotoLocationStrategy());
+        // The shutter asks again when this early prompt fails.
+        unawaited(
+          _ensurePhotoLocationStrategy().catchError((Object error) {
+            debugPrint('Could not resolve photo location strategy: $error');
+            return null;
+          }),
+        );
       }
     });
   }
@@ -126,7 +138,9 @@ class _CamerawesomeReferenceScreenState
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _overlayOpacity.dispose();
     _zoom.dispose();
-    _nativeCameraController.dispose();
+    if (_ownsNativeCameraController) {
+      _nativeCameraController.dispose();
+    }
     super.dispose();
   }
 
@@ -141,7 +155,22 @@ class _CamerawesomeReferenceScreenState
       return;
     }
 
-    final bytes = await picked.readAsBytes();
+    Uint8List bytes;
+    try {
+      bytes = await readImageStreamBounded(
+        picked.openRead(),
+        declaredLength: await picked.length(),
+      );
+      await probeBoundedImage(bytes);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: error is ImageBudgetException ? error.message : '参考图读取失败',
+        );
+      }
+      return;
+    }
     if (!mounted) {
       return;
     }
@@ -212,7 +241,6 @@ class _CamerawesomeReferenceScreenState
       photoPath,
       capturedAtOverride: capturedAt,
       restoreLandscape: restoreLandscape,
-      applyPhotoLocation: false,
     );
     if (mounted) {
       setState(() => _galleryImage = null);
@@ -242,20 +270,115 @@ class _CamerawesomeReferenceScreenState
       single: (single) => single.file?.path,
       multiple: (multiple) => multiple.fileBySensor.values.first?.path,
     );
-    if (path == null || !mounted) {
+    if (path == null) {
+      return;
+    }
+    if (!mounted) {
+      deleteVisitRecordLocalFile(path);
       return;
     }
 
-    await _openConfirmation(path);
+    // The photo already exists; a dismissed strategy prompt only skips
+    // location for this photo instead of dropping the capture.
+    PhotoLocationStrategy? strategy;
+    try {
+      strategy = await _ensurePhotoLocationStrategy();
+    } catch (error, stackTrace) {
+      // CameraAwesome drops this future, so a failure must end here; nobody
+      // else will open or clean up the captured file.
+      debugPrint('Capture strategy lookup failed: $error\n$stackTrace');
+      deleteVisitRecordLocalFile(path);
+      _showCaptureFailed();
+      return;
+    }
+    try {
+      await _openConfirmation(
+        path,
+        photoLocationStrategy: strategy ?? PhotoLocationStrategy.disabled,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Opening capture confirmation failed: $error\n$stackTrace');
+      _showCaptureFailed();
+    }
+  }
+
+  Future<void> _captureWithNativeCamera(_ReferenceImageSource reference) {
+    return _nativeCameraController.runExclusiveCapture(() async {
+      try {
+        await _captureWithNativeCameraExclusive(reference);
+      } catch (error, stackTrace) {
+        // The shutter drops this future, so every failure (settings lookup,
+        // capture, confirmation) must end here instead of escaping as an
+        // unhandled async error. runExclusiveCapture resets the busy state.
+        debugPrint('Native camera capture failed: $error\n$stackTrace');
+        _showCaptureFailed();
+      }
+    });
+  }
+
+  Future<void> _captureWithNativeCameraExclusive(
+    _ReferenceImageSource reference,
+  ) async {
+    if (_shouldWaitForReferenceAspectRatio(reference)) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.running,
+        title: '正在读取参考图比例，请稍后拍摄。',
+        icon: LucideIcons.ratio,
+      );
+      return;
+    }
+    final strategy = await _ensurePhotoLocationStrategy();
+    if (strategy == null || !mounted) {
+      return;
+    }
+    // Take the picture first; location is resolved on the confirmation
+    // screen so a slow GPS fix never delays the shutter. Native failures
+    // (including a preview disposed mid-capture) throw into the caller.
+    final path = await _nativeCameraController.takePicture();
+    if (path == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.warning,
+          title: '相机尚未就绪，请稍后再拍。',
+        );
+      }
+      return;
+    }
+    await _openConfirmation(path, photoLocationStrategy: strategy);
+  }
+
+  void _showCaptureFailed() {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showStatusSnack(kind: AppStatusBannerKind.error, title: '拍摄失败，请重试。');
+  }
+
+  /// Native preview writer when available; on Android it falls back to the
+  /// app-level EXIF channel, so the CameraAwesome fallback can still save
+  /// locations. Null when no writer exists on this platform.
+  PhotoLocationWriter? get _photoLocationWriter {
+    if (kIsWeb) {
+      return null;
+    }
+    if (_nativeCameraController.ready ||
+        defaultTargetPlatform == TargetPlatform.android) {
+      return _nativeCameraController.writePhotoLocation;
+    }
+    return null;
   }
 
   Future<VisitRecordConfirmationResult?> _openConfirmation(
     String photoPath, {
     DateTime? capturedAtOverride,
     bool? restoreLandscape,
-    bool applyPhotoLocation = true,
+    PhotoLocationStrategy photoLocationStrategy =
+        PhotoLocationStrategy.disabled,
   }) async {
     if (!mounted) {
+      deleteVisitRecordLocalFile(photoPath);
       return null;
     }
 
@@ -265,6 +388,7 @@ class _CamerawesomeReferenceScreenState
 
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
+    final writer = _photoLocationWriter;
     final result = await Navigator.of(context)
         .push<VisitRecordConfirmationResult>(
           MaterialPageRoute<VisitRecordConfirmationResult>(
@@ -279,13 +403,15 @@ class _CamerawesomeReferenceScreenState
                   ? null
                   : _remoteReferenceImageUrl,
               capturedAtOverride: capturedAtOverride,
+              discardSourcePhoto: () async =>
+                  deleteVisitRecordLocalFile(photoPath),
               settings: widget.settings.copyWith(
                 photoLocationStrategy: _photoLocationStrategy,
               ),
-              photoLocationStrategy: applyPhotoLocation
-                  ? _photoLocationStrategy
-                  : PhotoLocationStrategy.disabled,
-              writePhotoLocation: _nativeCameraController.writePhotoLocation,
+              photoLocationStrategy: writer == null
+                  ? PhotoLocationStrategy.disabled
+                  : photoLocationStrategy,
+              writePhotoLocation: writer,
               saveVisitPhotoToGallery: shouldAutoSaveVisitPhotoToGallery(
                 widget.settings,
               ),
@@ -296,9 +422,6 @@ class _CamerawesomeReferenceScreenState
           ),
         );
 
-    if (result == null) {
-      deleteVisitRecordLocalFile(photoPath);
-    }
     if (!mounted) {
       return result;
     }
@@ -327,9 +450,16 @@ class _CamerawesomeReferenceScreenState
   }
 
   Future<PhotoLocationStrategy?> _resolvePhotoLocationStrategy() async {
+    AppSettings? persistedSettings;
     if (_photoLocationStrategy == PhotoLocationStrategy.askOnFirstCapture) {
-      final persistedSettings = await widget.controller?.repository
-          ?.loadAppSettings();
+      try {
+        persistedSettings = await widget.controller?.repository
+            ?.loadAppSettings();
+      } catch (error) {
+        // Still ask: failing every shutter tap would never show the prompt.
+        // The choice is then saved on top of the widget.settings snapshot.
+        debugPrint('Could not load settings for location strategy: $error');
+      }
       final persistedStrategy = persistedSettings?.photoLocationStrategy;
       if (persistedStrategy != null &&
           persistedStrategy != PhotoLocationStrategy.askOnFirstCapture) {
@@ -356,38 +486,19 @@ class _CamerawesomeReferenceScreenState
     setState(() => _photoLocationStrategy = selected);
     final repository = widget.controller?.repository;
     if (repository != null) {
-      await repository.saveAppSettings(
-        widget.settings.copyWith(photoLocationStrategy: selected),
-      );
+      try {
+        // widget.settings is the snapshot from when the camera opened; only
+        // the strategy may change on top of the persisted settings.
+        await repository.saveAppSettings(
+          (persistedSettings ?? widget.settings).copyWith(
+            photoLocationStrategy: selected,
+          ),
+        );
+      } catch (error) {
+        debugPrint('Could not persist photo location strategy: $error');
+      }
     }
     return selected;
-  }
-
-  Future<PhotoLocationData?> _resolveRecentLocationForCapture(
-    PhotoLocationStrategy strategy,
-  ) async {
-    if (strategy != PhotoLocationStrategy.useRecentLocation) {
-      return null;
-    }
-    try {
-      return await resolveRecentPhotoLocation();
-    } on CurrentLocationException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showStatusSnack(
-          kind: AppStatusBannerKind.warning,
-          title: '${currentLocationFailureMessage(error)}本次照片不记录定位。',
-        );
-      }
-      return null;
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showStatusSnack(
-          kind: AppStatusBannerKind.warning,
-          title: '定位获取失败，本次照片不记录定位。',
-        );
-      }
-      return null;
-    }
   }
 
   Future<void> _restoreCameraOrientation({required bool landscape}) {
@@ -474,32 +585,7 @@ class _CamerawesomeReferenceScreenState
               },
               onModeChanged: (mode) => setState(() => _mode = mode),
               onOpacityChanged: (value) => _overlayOpacity.value = value,
-              onCapture: () async {
-                if (_shouldWaitForReferenceAspectRatio(reference)) {
-                  ScaffoldMessenger.of(context).showStatusSnack(
-                    kind: AppStatusBannerKind.running,
-                    title: '正在读取参考图比例，请稍后拍摄。',
-                    icon: LucideIcons.ratio,
-                  );
-                  return;
-                }
-                final strategy = await _ensurePhotoLocationStrategy();
-                if (strategy == null || !mounted) {
-                  return;
-                }
-                final location = await _resolveRecentLocationForCapture(
-                  strategy,
-                );
-                if (!mounted) {
-                  return;
-                }
-                final path = await _nativeCameraController.takePicture(
-                  location: location,
-                );
-                if (path != null) {
-                  await _openConfirmation(path);
-                }
-              },
+              onCapture: () => _captureWithNativeCamera(reference),
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
               onPreferPortraitUi: _preferPortraitCameraUi,
@@ -644,24 +730,25 @@ Future<double?> _resolveReferenceAspectRatio({
   required String? url,
   required AnitabiImageSource imageSource,
 }) async {
-  final localBytes =
-      bytes ??
-      (localPath == null
-          ? null
-          : await reference_image_bytes.readReferenceImageBytes(localPath));
-  if (localBytes != null) {
-    return _decodeImageAspectRatio(localBytes);
-  }
-
-  if (url == null || url.isEmpty) {
-    return null;
-  }
-
   try {
+    final localBytes =
+        bytes ??
+        (localPath == null
+            ? null
+            : await reference_image_bytes.readReferenceImageBytes(localPath));
+    if (localBytes != null) {
+      return _decodeImageAspectRatio(localBytes);
+    }
+
+    if (url == null || url.isEmpty) {
+      return null;
+    }
+
     final remoteBytes = await fetchAnitabiImageBytes(
       url,
       source: imageSource,
       timeout: const Duration(seconds: 5),
+      maxBytes: maxImageEncodedBytes,
     );
     if (remoteBytes == null) {
       return null;
@@ -674,319 +761,13 @@ Future<double?> _resolveReferenceAspectRatio({
 
 Future<double?> _decodeImageAspectRatio(Uint8List bytes) async {
   try {
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
+    final image = await probeBoundedImage(bytes);
     if (image.width <= 0 || image.height <= 0) {
       return null;
     }
     return image.width / image.height;
   } catch (_) {
     return null;
-  }
-}
-
-class _NativeCameraController extends ChangeNotifier {
-  MethodChannel? _channel;
-  int? _viewId;
-  var _ready = false;
-  var _busy = false;
-  String? _error;
-  var _minZoomRatio = 1.0;
-  var _maxZoomRatio = 1.0;
-  var _zoomRatio = 1.0;
-  var _flashMode = 'auto';
-  var _lensFacing = 'back';
-  var _lensMode = 'backAuto';
-  var _supportsTelephoto = false;
-  var _captureAspectRatio = 1.0;
-  var _cropCaptureToAspectRatio = true;
-  double? _preferredInitialZoomRatio;
-  double? _appliedCaptureAspectRatio;
-  bool? _appliedCropCaptureToAspectRatio;
-  double? _appliedInitialZoomRatio;
-  var _configuringCapture = false;
-  var _configurationGeneration = 0;
-  Future<void>? _configurationFuture;
-
-  bool get ready => _ready;
-  bool get busy => _busy;
-  String? get error => _error;
-  double get minZoomRatio => _minZoomRatio;
-  double get maxZoomRatio => _maxZoomRatio;
-  double get zoomRatio => _zoomRatio;
-  String get flashMode => _flashMode;
-  String get lensFacing => _lensFacing;
-  String get lensMode => _lensMode;
-  bool get supportsTelephoto => _supportsTelephoto;
-  bool get configuringCapture => _configuringCapture;
-
-  Future<void> attach(int viewId) async {
-    if (_channel != null && _viewId == viewId) {
-      return;
-    }
-
-    if (_channel != null) {
-      await _channel!.invokeMethod<void>('dispose');
-      _channel = null;
-      _ready = false;
-    }
-
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      final permission = await Permission.camera.request();
-      if (!permission.isGranted) {
-        _error = '需要相机权限';
-        notifyListeners();
-        return;
-      }
-    }
-
-    _viewId = viewId;
-    _channel = MethodChannel('seichi/native_camera_preview_$viewId');
-    try {
-      final result = await _channel!.invokeMapMethod<String, Object?>(
-        'initialize',
-        {'targetAspectRatio': _captureAspectRatio},
-      );
-      _applyZoomState(result);
-      _ready = true;
-      _error = null;
-      await _runCaptureConfiguration();
-    } on PlatformException catch (error) {
-      _error = error.message ?? '原生相机初始化失败';
-    } catch (error) {
-      _error = '原生相机初始化失败：$error';
-    }
-    notifyListeners();
-  }
-
-  Future<void> setZoomRatio(double ratio) async {
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return;
-    }
-
-    _zoomRatio = ratio.clamp(_minZoomRatio, _maxZoomRatio);
-    notifyListeners();
-    final result = await channel.invokeMapMethod<String, Object?>(
-      'setZoomRatio',
-      {'zoomRatio': _zoomRatio},
-    );
-    _applyZoomState(result);
-    notifyListeners();
-  }
-
-  Future<void> configureCapture({
-    required double captureAspectRatio,
-    required bool cropCaptureToAspectRatio,
-    required double preferredInitialZoomRatio,
-  }) {
-    final safeRatio = captureAspectRatio <= 0 ? 1.0 : captureAspectRatio;
-    final safeZoom = preferredInitialZoomRatio <= 0
-        ? 1.0
-        : preferredInitialZoomRatio;
-    final unchanged =
-        (_captureAspectRatio - safeRatio).abs() < 0.001 &&
-        _cropCaptureToAspectRatio == cropCaptureToAspectRatio &&
-        ((_preferredInitialZoomRatio ?? -1) - safeZoom).abs() < 0.001;
-    if (unchanged) {
-      return _configurationFuture ?? Future<void>.value();
-    }
-
-    _captureAspectRatio = safeRatio;
-    _cropCaptureToAspectRatio = cropCaptureToAspectRatio;
-    _preferredInitialZoomRatio = safeZoom;
-    _configurationGeneration += 1;
-    _configurationFuture ??= _runCaptureConfiguration().whenComplete(() {
-      _configurationFuture = null;
-    });
-    return _configurationFuture!;
-  }
-
-  Future<void> setCaptureAspectRatio(double ratio) async {
-    final safeRatio = ratio <= 0 ? 1.0 : ratio;
-    if ((_captureAspectRatio - safeRatio).abs() < 0.001) {
-      return;
-    }
-
-    _captureAspectRatio = safeRatio;
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return;
-    }
-    await channel.invokeMethod<void>('setTargetAspectRatio', {
-      'targetAspectRatio': _captureAspectRatio,
-    });
-  }
-
-  Future<void> setCropCaptureToAspectRatio(bool enabled) async {
-    _cropCaptureToAspectRatio = enabled;
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return;
-    }
-    await channel.invokeMethod<void>('setCropCaptureToAspectRatio', {
-      'enabled': enabled,
-    });
-  }
-
-  Future<void> cycleFlashMode() async {
-    final nextMode = switch (_flashMode) {
-      'auto' => 'on',
-      'on' => 'torch',
-      'torch' => 'off',
-      _ => 'auto',
-    };
-    await setFlashMode(nextMode);
-  }
-
-  Future<void> setFlashMode(String mode) async {
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return;
-    }
-
-    _flashMode = mode;
-    notifyListeners();
-    await channel.invokeMethod<void>('setFlashMode', {'flashMode': mode});
-  }
-
-  Future<void> switchCamera() async {
-    await switchLens();
-  }
-
-  Future<void> switchLens() async {
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return;
-    }
-
-    try {
-      final result = await channel.invokeMapMethod<String, Object?>(
-        'switchLens',
-      );
-      _applyZoomState(result);
-      _appliedInitialZoomRatio = null;
-      await _runCaptureConfiguration();
-    } on PlatformException {
-      final result = await channel.invokeMapMethod<String, Object?>(
-        'getZoomState',
-      );
-      _applyZoomState(result);
-    }
-    notifyListeners();
-  }
-
-  Future<String?> takePicture({PhotoLocationData? location}) async {
-    final channel = _channel;
-    if (channel == null || !_ready || _busy) {
-      return null;
-    }
-    await (_configurationFuture ?? _runCaptureConfiguration());
-    if (_configuringCapture) {
-      return null;
-    }
-
-    _busy = true;
-    notifyListeners();
-    try {
-      return await channel.invokeMethod<String>('takePicture', {
-        if (location != null) ...location.toPlatformArguments(),
-      });
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> writePhotoLocation(
-    String path,
-    PhotoLocationData location,
-  ) async {
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return false;
-    }
-    try {
-      return await channel.invokeMethod<bool>('writePhotoLocation', {
-            'path': path,
-            ...location.toPlatformArguments(),
-          }) ??
-          false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  void dispose() {
-    _channel?.invokeMethod<void>('dispose');
-    super.dispose();
-  }
-
-  void _applyZoomState(Map<String, Object?>? state) {
-    if (state == null) {
-      return;
-    }
-
-    _minZoomRatio = (state['minZoomRatio'] as num?)?.toDouble() ?? 1;
-    _maxZoomRatio = (state['maxZoomRatio'] as num?)?.toDouble() ?? 1;
-    _zoomRatio = (state['zoomRatio'] as num?)?.toDouble() ?? 1;
-    _lensFacing = state['lensFacing'] as String? ?? _lensFacing;
-    _lensMode = state['lensMode'] as String? ?? _lensMode;
-    _supportsTelephoto =
-        (state['supportsTelephoto'] as bool?) ?? _supportsTelephoto;
-  }
-
-  Future<void> _runCaptureConfiguration() async {
-    final channel = _channel;
-    if (channel == null || !_ready) {
-      return;
-    }
-
-    _configuringCapture = true;
-    notifyListeners();
-    try {
-      var appliedGeneration = -1;
-      while (appliedGeneration != _configurationGeneration) {
-        final generation = _configurationGeneration;
-        final captureAspectRatio = _captureAspectRatio;
-        final cropCaptureToAspectRatio = _cropCaptureToAspectRatio;
-        final preferredZoom = _preferredInitialZoomRatio;
-
-        if (((_appliedCaptureAspectRatio ?? -1) - captureAspectRatio).abs() >=
-            0.001) {
-          await channel.invokeMethod<void>('setTargetAspectRatio', {
-            'targetAspectRatio': captureAspectRatio,
-          });
-          _appliedCaptureAspectRatio = captureAspectRatio;
-        }
-
-        if (_appliedCropCaptureToAspectRatio != cropCaptureToAspectRatio) {
-          await channel.invokeMethod<void>('setCropCaptureToAspectRatio', {
-            'enabled': cropCaptureToAspectRatio,
-          });
-          _appliedCropCaptureToAspectRatio = cropCaptureToAspectRatio;
-        }
-
-        if (preferredZoom != null && _maxZoomRatio > _minZoomRatio) {
-          final clampedZoom = preferredZoom.clamp(_minZoomRatio, _maxZoomRatio);
-          if (((_appliedInitialZoomRatio ?? -1) - clampedZoom).abs() >= 0.001) {
-            final result = await channel.invokeMapMethod<String, Object?>(
-              'setZoomRatio',
-              {'zoomRatio': clampedZoom},
-            );
-            _applyZoomState(result);
-            _appliedInitialZoomRatio = clampedZoom;
-          }
-        }
-
-        appliedGeneration = generation;
-      }
-    } finally {
-      _configuringCapture = false;
-      notifyListeners();
-    }
   }
 }
 
@@ -1012,7 +793,7 @@ class _NativeReferenceCameraBody extends StatelessWidget {
   });
 
   final PilgrimagePoint point;
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final _ReferenceImageSource reference;
   final XFile? galleryImage;
   final AwesomeReferenceMode mode;
@@ -1035,11 +816,16 @@ class _NativeReferenceCameraBody extends StatelessWidget {
       animation: controller,
       builder: (context, child) {
         unawaited(
-          controller.configureCapture(
-            captureAspectRatio: captureAspectRatio,
-            cropCaptureToAspectRatio: cropCaptureToAspectRatio,
-            preferredInitialZoomRatio: settings.cameraMinZoom,
-          ),
+          controller
+              .configureCapture(
+                captureAspectRatio: captureAspectRatio,
+                cropCaptureToAspectRatio: cropCaptureToAspectRatio,
+                preferredInitialZoomRatio: settings.cameraMinZoom,
+              )
+              .catchError((Object error) {
+                // Retried before the next capture; takePicture reports it.
+                debugPrint('Native camera configuration failed: $error');
+              }),
         );
         if (controller.error != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1127,7 +913,7 @@ class _NativeCameraStage extends StatelessWidget {
     this.metrics,
   });
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final _ReferenceImageSource reference;
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
@@ -1188,7 +974,10 @@ class _NativeCameraStage extends StatelessWidget {
                           height: frameHeight,
                           child: _AspectStageFrame(
                             aspectRatio: captureAspectRatio,
-                            child: _NativeCameraPreview(controller: controller),
+                            child: _NativeCameraPreview(
+                              key: controller.previewKey,
+                              controller: controller,
+                            ),
                           ),
                         ),
                       ],
@@ -1209,7 +998,10 @@ class _NativeCameraStage extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _NativeCameraPreview(controller: controller),
+                _NativeCameraPreview(
+                  key: controller.previewKey,
+                  controller: controller,
+                ),
                 if (reference.hasImage)
                   IgnorePointer(
                     child: Opacity(
@@ -1270,10 +1062,13 @@ class _AspectStageFrame extends StatelessWidget {
   }
 }
 
+/// Always built with [NativeCameraController.previewKey], so switching
+/// between portrait/landscape layouts or split/overlay modes reparents the
+/// platform view rather than recreating the native camera.
 class _NativeCameraPreview extends StatelessWidget {
-  const _NativeCameraPreview({required this.controller});
+  const _NativeCameraPreview({required this.controller, super.key});
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -1406,7 +1201,7 @@ class _NativeCameraTopBar extends StatelessWidget {
     required this.onPreferLandscapeUi,
   });
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final bool isLandscapeUi;
   final VoidCallback onPickReference;
   final VoidCallback onPreferLandscapeUi;
@@ -1456,7 +1251,7 @@ class _NativeCameraBottomPanel extends StatelessWidget {
     required this.onPickGallery,
   });
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
   final AppSettings settings;
@@ -1499,7 +1294,7 @@ class _NativeCameraBottomPanel extends StatelessWidget {
               ),
               const Spacer(),
               _NativeCaptureButton(
-                busy: controller.busy || controller.configuringCapture,
+                busy: controller.shutterBusy,
                 onPressed: onCapture,
               ),
               const Spacer(),
@@ -1535,7 +1330,7 @@ class _NativeLandscapeCameraLayout extends StatelessWidget {
     required this.onPreferPortraitUi,
   });
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final _ReferenceImageSource reference;
   final AwesomeReferenceMode mode;
   final ValueListenable<double> overlayOpacity;
@@ -1685,7 +1480,7 @@ class _NativeLandscapeZoomRail extends StatelessWidget {
   });
 
   final _CameraLayoutMetrics metrics;
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final AppSettings settings;
 
   @override
@@ -1741,7 +1536,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
   });
 
   final _CameraLayoutMetrics metrics;
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final ValueListenable<double> overlayOpacity;
   final XFile? galleryImage;
   final ValueChanged<double> onOpacityChanged;
@@ -1825,7 +1620,7 @@ class _NativeLandscapeRightRail extends StatelessWidget {
                     child: _NativeCaptureButton(
                       size: layout.captureButtonSize,
                       innerSize: layout.captureInnerSize,
-                      busy: controller.busy || controller.configuringCapture,
+                      busy: controller.shutterBusy,
                       onPressed: onCapture,
                     ),
                   ),
@@ -1953,7 +1748,7 @@ class _NativeFlashButton extends StatelessWidget {
     this.iconSize,
   });
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final bool showTooltip;
   final double? size;
   final double? iconSize;
@@ -1985,7 +1780,7 @@ class _NativeFlashButton extends StatelessWidget {
   }
 }
 
-IconData _nativeLensIcon(_NativeCameraController controller) {
+IconData _nativeLensIcon(NativeCameraController controller) {
   return switch (controller.lensMode) {
     'backTelephoto' => LucideIcons.focus,
     'front' => LucideIcons.switchCamera,
@@ -1993,7 +1788,7 @@ IconData _nativeLensIcon(_NativeCameraController controller) {
   };
 }
 
-String? _nativeLensText(_NativeCameraController controller) {
+String? _nativeLensText(NativeCameraController controller) {
   return controller.lensMode == 'backTelephoto' ? 'T' : null;
 }
 
@@ -2005,7 +1800,7 @@ class _NativeZoomAndOpacityControls extends StatelessWidget {
     required this.onOpacityChanged,
   });
 
-  final _NativeCameraController controller;
+  final NativeCameraController controller;
   final AppSettings settings;
   final ValueListenable<double> overlayOpacity;
   final ValueChanged<double> onOpacityChanged;
@@ -3879,43 +3674,14 @@ class _ReferenceImageView extends StatelessWidget {
     final bytes = source.bytes;
     final Widget image;
     if (bytes != null) {
-      image = Image.memory(
-        bytes,
-        width: double.infinity,
-        height: double.infinity,
-        fit: fit,
-        gaplessPlayback: true,
-      );
+      image = BoundedImage(bytes: bytes, fit: fit);
     } else if (source.localPath != null) {
-      image = ReferenceThumbnail(
-        localPath: source.localPath,
-        imageUrl: null,
-        placeholder: const _ReferenceError(),
-        width: double.infinity,
-        height: double.infinity,
-        fit: fit,
-      );
+      image = BoundedImage(path: source.localPath, fit: fit);
     } else if (source.url != null) {
-      image = AnitabiNetworkImage(
-        url: cameraReferenceFullResolutionDisplayUrl(source.url!),
-        imageSource: source.imageSource,
-        width: double.infinity,
-        height: double.infinity,
+      image = BoundedImage(
+        path: cameraReferenceFullResolutionDisplayUrl(source.url!),
+        source: source.imageSource,
         fit: fit,
-        loadingBuilder: (_) {
-          return const ColoredBox(
-            color: Colors.black,
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-          );
-        },
-        errorBuilder: (_) {
-          return const _ReferenceError();
-        },
       );
     } else {
       return const SizedBox.shrink();
@@ -3936,18 +3702,4 @@ class _ReferenceImageView extends StatelessWidget {
 @visibleForTesting
 String cameraReferenceFullResolutionDisplayUrl(String url) {
   return anitabiFullResolutionImageUrl(url) ?? url;
-}
-
-class _ReferenceError extends StatelessWidget {
-  const _ReferenceError();
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.surfaceMuted,
-      child: Center(
-        child: Icon(LucideIcons.imageOff, color: AppColors.accentDark),
-      ),
-    );
-  }
 }

@@ -12,12 +12,51 @@ class NavigationRoute {
     required this.maneuvers,
     required this.distanceKm,
     required this.duration,
-  });
+    List<NavigationLeg>? legs,
+  }) : _explicitLegs = legs;
 
   final List<LatLng> shape;
   final List<NavigationManeuver> maneuvers;
   final double distanceKm;
   final Duration duration;
+  final List<NavigationLeg>? _explicitLegs;
+
+  /// Route legs between consecutive stops. Routes built without explicit legs
+  /// are treated as a single leg covering the whole shape.
+  List<NavigationLeg> get legs {
+    final legs = _explicitLegs;
+    if (legs != null && legs.isNotEmpty) return legs;
+    return [
+      NavigationLeg(
+        startShapeIndex: 0,
+        endShapeIndex: shape.isEmpty ? 0 : shape.length - 1,
+        firstManeuverIndex: 0,
+        maneuverCount: maneuvers.length,
+        distanceKm: distanceKm,
+        duration: duration,
+      ),
+    ];
+  }
+}
+
+class NavigationLeg {
+  const NavigationLeg({
+    required this.startShapeIndex,
+    required this.endShapeIndex,
+    required this.firstManeuverIndex,
+    required this.maneuverCount,
+    required this.distanceKm,
+    required this.duration,
+  });
+
+  final int startShapeIndex;
+  final int endShapeIndex;
+  final int firstManeuverIndex;
+  final int maneuverCount;
+  final double distanceKm;
+  final Duration duration;
+
+  int get endManeuverIndex => firstManeuverIndex + maneuverCount;
 }
 
 class NavigationManeuver {
@@ -115,10 +154,12 @@ class ValhallaRouteClient {
       throw const ValhallaRouteException('路径规划服务请求过于频繁，请稍后重试');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final known = valhallaErrorMessage(response.body);
       throw ValhallaRouteException(
-        response.statusCode >= 500
-            ? '路径规划服务暂时不可用（${response.statusCode}）'
-            : '无法规划这条步行路线（${response.statusCode}）',
+        known ??
+            (response.statusCode >= 500
+                ? '路径规划服务暂时不可用（${response.statusCode}）'
+                : '无法规划这条步行路线（${response.statusCode}）'),
       );
     }
 
@@ -162,6 +203,7 @@ class ValhallaRouteClient {
       final legs = (trip['legs'] as List<dynamic>).cast<Map<String, dynamic>>();
       final shape = <LatLng>[];
       final maneuvers = <NavigationManeuver>[];
+      final parsedLegs = <NavigationLeg>[];
 
       for (final leg in legs) {
         final legShape = decodePolyline6(leg['shape'] as String);
@@ -175,6 +217,7 @@ class ValhallaRouteClient {
         } else {
           shape.addAll(legShape);
         }
+        final firstManeuverIndex = maneuvers.length;
         for (final raw in (leg['maneuvers'] as List<dynamic>? ?? const [])) {
           final maneuver = raw as Map<String, dynamic>;
           final type = (maneuver['type'] as num?)?.toInt() ?? 0;
@@ -185,10 +228,14 @@ class ValhallaRouteClient {
               type: type,
               instruction: localizedManeuverInstruction(
                 type,
-                streetNames:
-                    (maneuver['street_names'] as List<dynamic>? ?? const [])
-                        .whereType<String>()
-                        .toList(growable: false),
+                streetNames: [
+                  ?preferredStreetName(
+                    beginStreetNames: _stringList(
+                      maneuver['begin_street_names'],
+                    ),
+                    streetNames: _stringList(maneuver['street_names']),
+                  ),
+                ],
                 fallbackInstruction: maneuver['instruction'] as String?,
               ),
               distanceKm: (maneuver['length'] as num?)?.toDouble() ?? 0,
@@ -197,6 +244,19 @@ class ValhallaRouteClient {
             ),
           );
         }
+        final legSummary = leg['summary'] as Map<String, dynamic>?;
+        parsedLegs.add(
+          NavigationLeg(
+            startShapeIndex: offset.clamp(0, shape.length - 1),
+            endShapeIndex: shape.length - 1,
+            firstManeuverIndex: firstManeuverIndex,
+            maneuverCount: maneuvers.length - firstManeuverIndex,
+            distanceKm: (legSummary?['length'] as num?)?.toDouble() ?? 0,
+            duration: Duration(
+              seconds: (legSummary?['time'] as num?)?.round() ?? 0,
+            ),
+          ),
+        );
       }
       if (shape.length < 2) {
         throw const FormatException('missing route shape');
@@ -206,11 +266,73 @@ class ValhallaRouteClient {
         maneuvers: List.unmodifiable(maneuvers),
         distanceKm: (summary['length'] as num?)?.toDouble() ?? 0,
         duration: Duration(seconds: (summary['time'] as num?)?.round() ?? 0),
+        legs: List.unmodifiable(parsedLegs),
       );
     } on Object {
       throw const ValhallaRouteException('路径规划服务返回了无法识别的数据');
     }
   }
+}
+
+List<String> _stringList(Object? value) => value is List
+    ? value.whereType<String>().toList(growable: false)
+    : const [];
+
+final _cjkPattern = RegExp(
+  r'[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]',
+);
+// Route numbers such as "15", "467", "R1" or "E1-2" rather than street names.
+// Uppercase-only prefixes/suffixes keep "1st Avenue" or "N 1st St".
+final _routeRefPattern = RegExp(
+  r'^(?:[A-Z]{1,3}[\s-]?)?\d+[A-Z]?(?:[-/.]\d+[A-Z]?)*$',
+);
+
+/// Picks the street name to show for a maneuver.
+///
+/// Valhalla lists every name of a way, e.g. `['さんさん通り', 'Sun Sun Street',
+/// '52', '沼津停車場線']` or `['467', '国道467号']`. Names at the turn itself
+/// (`begin_street_names`) are preferred; bare route numbers are skipped; and a
+/// Chinese/Japanese/Korean name wins over a romanised one when both exist.
+String? preferredStreetName({
+  List<String> beginStreetNames = const [],
+  List<String> streetNames = const [],
+}) {
+  for (final names in [beginStreetNames, streetNames]) {
+    final candidates = [
+      for (final name in names)
+        if (name.trim().isNotEmpty && !_routeRefPattern.hasMatch(name.trim()))
+          name.trim(),
+    ];
+    if (candidates.isEmpty) continue;
+    return candidates.firstWhere(
+      _cjkPattern.hasMatch,
+      orElse: () => candidates.first,
+    );
+  }
+  return null;
+}
+
+/// Readable message for a Valhalla error response body, or null when the
+/// body is not a recognised Valhalla error.
+String? valhallaErrorMessage(String body) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(body);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! Map) return null;
+  final code = switch (decoded['error_code']) {
+    final num value => value.toInt(),
+    _ => null,
+  };
+  return switch (code) {
+    170 => '起点和终点之间没有相连的步行道路',
+    171 => '起点或点位附近没有可步行的道路，请换个位置再试',
+    154 => '距离超过路径服务的步行路线上限',
+    442 => '找不到可步行的路线',
+    _ => null,
+  };
 }
 
 String localizedManeuverInstruction(

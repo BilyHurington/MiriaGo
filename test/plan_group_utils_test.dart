@@ -85,6 +85,7 @@ void main() {
     final fixture = _buildGroupedPlanFixture();
     final nextPoint = nextPendingPointAfterCompletion(
       points: fixture.plan.points,
+      groups: fixture.plan.groups,
       completedPoint: fixture.groupAFirst,
       completedPointIds: {fixture.groupAFirst.id},
     );
@@ -96,6 +97,7 @@ void main() {
     final fixture = _buildGroupedPlanFixture();
     final nextPoint = nextPendingPointAfterCompletion(
       points: fixture.plan.points,
+      groups: fixture.plan.groups,
       completedPoint: fixture.groupASecond,
       completedPointIds: {fixture.groupAFirst.id, fixture.groupASecond.id},
     );
@@ -132,6 +134,7 @@ void main() {
     expect(
       nextPendingPointAfterCompletion(
         points: [fixture.groupAFirst, pendingPoint, fixture.groupBFirst],
+        groups: fixture.plan.groups,
         completedPoint: fixture.groupAFirst,
         completedPointIds: {fixture.groupAFirst.id},
       )?.id,
@@ -256,6 +259,130 @@ void main() {
 
     expect(tour.groupName, isNull);
     expect(tour.stops.map((point) => point.id), ['ungrouped-1']);
+  });
+
+  group('group walk after completion', () {
+    final createdAt = DateTime.utc(2026);
+    const work = PilgrimageWork(
+      id: 'work',
+      title: '作品',
+      subtitle: '',
+      city: '',
+      source: WorkSource.manual,
+    );
+    PilgrimagePlanGroup group(String id, int order) => PilgrimagePlanGroup(
+      id: id,
+      name: id,
+      orderIndex: order,
+      createdAt: createdAt,
+    );
+    PilgrimagePoint point(String id, String? groupId, int? order) =>
+        PilgrimagePoint(
+          id: id,
+          work: work,
+          name: id,
+          subtitle: '',
+          position: const LatLng(35, 135),
+          episodeLabel: '',
+          referenceLabel: '',
+          groupId: groupId,
+          groupOrderIndex: order,
+        );
+    final groups = [group('c', 2), group('a', 0), group('b', 1)];
+    final a1 = point('a1', 'a', 0);
+    final b5 = point('b5', 'b', 5);
+    final c0 = point('c0', 'c', 0);
+    final loose = point('loose', null, null);
+    final points = [loose, c0, b5, a1];
+
+    test('continues with the next group, not the lowest group index', () {
+      expect(
+        nextPendingPointAfterCompletion(
+          points: points,
+          groups: groups,
+          completedPoint: a1,
+          completedPointIds: {a1.id},
+        )?.id,
+        b5.id,
+      );
+    });
+
+    test('wraps to earlier groups before the ungrouped points', () {
+      expect(
+        nextPendingPointAfterCompletion(
+          points: points,
+          groups: groups,
+          completedPoint: c0,
+          completedPointIds: {c0.id},
+        )?.id,
+        a1.id,
+      );
+      expect(
+        nextPendingPointAfterCompletion(
+          points: points,
+          groups: groups,
+          completedPoint: c0,
+          completedPointIds: {c0.id, a1.id, b5.id},
+        )?.id,
+        loose.id,
+      );
+    });
+
+    test('ungrouped completion continues with the first group', () {
+      expect(
+        nextPendingPointAfterCompletion(
+          points: points,
+          groups: groups,
+          completedPoint: loose,
+          completedPointIds: {loose.id},
+        )?.id,
+        a1.id,
+      );
+      expect(
+        firstPendingPointInPlanOrder(
+          points: points,
+          groups: groups,
+          completedPointIds: const {},
+        )?.id,
+        a1.id,
+      );
+    });
+  });
+  test('group map center follows the anchor point, not a stale copy', () {
+    const work = PilgrimageWork(
+      id: 'work',
+      title: '作品',
+      subtitle: '',
+      city: '',
+      source: WorkSource.manual,
+    );
+    const moved = PilgrimagePoint(
+      id: 'anchor',
+      work: work,
+      name: '锚点',
+      subtitle: '',
+      position: LatLng(34.9, 135.8),
+      episodeLabel: '',
+      referenceLabel: '',
+      groupId: 'g',
+    );
+    final group = PilgrimagePlanGroup(
+      id: 'g',
+      name: '片区',
+      orderIndex: 0,
+      createdAt: DateTime.utc(2026),
+      anchorPointId: 'anchor',
+      anchorLatitude: 35.0,
+      anchorLongitude: 139.0,
+    );
+    final bucket = PlanGroupBucket(
+      id: 'g',
+      name: '片区',
+      group: group,
+      points: const [moved],
+      completedCount: 0,
+    );
+    expect(groupMapCenter(bucket), moved.position);
   });
 }
 

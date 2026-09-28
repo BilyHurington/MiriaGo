@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import 'app_managed_file_paths_io.dart';
 import 'anitabi_image_url.dart';
+import 'reference_cache_naming.dart';
 
 bool get isReferenceCacheCleanupSupported => true;
 
@@ -19,22 +22,13 @@ bool referenceFullCacheFileIsCurrent({
   final fullUrl = anitabiFullResolutionImageUrl(imageUrl);
   if (fullUrl == null || !referenceCacheFileExists(path)) return false;
   if (_isImportedFullReferencePath(path!)) return true;
-  return path.contains(_stableUrlHash(fullUrl));
+  return referenceCachePathMatchesUrl(path, fullUrl);
 }
 
 bool _isImportedFullReferencePath(String path) {
   final normalized = path.replaceAll(r'\', '/').toLowerCase();
   return normalized.contains('/imported_plan_assets/') &&
       normalized.contains('/assets/full_references/');
-}
-
-String _stableUrlHash(String value) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in value.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
-  }
-  return hash.toRadixString(16).padLeft(8, '0');
 }
 
 Future<int> referenceCacheFileSize(String path) async {
@@ -52,3 +46,8 @@ Future<int> deleteReferenceCacheFile(String path) async {
   await file.delete();
   return size;
 }
+
+/// Stable identity of a stored cache path, so the same file referenced under
+/// an old app-container path and its current path compares equal.
+String referenceCacheIdentity(String path) =>
+    p.normalize(resolveExistingAppManagedFilePathSync(path) ?? path);

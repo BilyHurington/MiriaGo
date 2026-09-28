@@ -8,11 +8,34 @@ plugins {
 }
 
 val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val keystorePropertiesFile = rootProject.file(
+    providers.gradleProperty("releaseSigningPropertiesFile").orElse("key.properties").get()
+)
+if (keystorePropertiesFile.isFile) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
-val hasReleaseKeystore = keystoreProperties["storeFile"] != null
+val releaseKeystoreFile = keystoreProperties.getProperty("storeFile")
+    ?.takeIf { it.isNotBlank() }?.let { file(it) }
+val missingSigningProperties = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .filter { keystoreProperties.getProperty(it).isNullOrBlank() }
+val verifyReleaseSigning = tasks.register("verifyReleaseSigningConfiguration") {
+    group = "verification"
+    description = "Require explicit signing credentials for release builds."
+    doLast {
+        if (!keystorePropertiesFile.isFile) {
+            throw GradleException("Release signing configuration is missing. Provide key.properties; debug signing is never used for release.")
+        }
+        if (missingSigningProperties.isNotEmpty()) {
+            throw GradleException("Release signing configuration is incomplete: ${missingSigningProperties.joinToString()}. No debug signing fallback is allowed.")
+        }
+        if (releaseKeystoreFile?.isFile != true || !releaseKeystoreFile.canRead()) {
+            throw GradleException("Release keystore is missing or unreadable. Restore the existing release keystore; do not replace it with a debug key.")
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" || it.name == "validateSigningRelease" }
+    .configureEach { dependsOn(verifyReleaseSigning) }
 
 android {
     namespace = "app.miriago.miriago"
@@ -33,23 +56,17 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseKeystore) {
-            create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-            }
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = releaseKeystoreFile
+            storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

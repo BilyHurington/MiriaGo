@@ -44,8 +44,25 @@ Uri? _parseUri(String text) {
   if (direct != null && direct.hasScheme) {
     return direct;
   }
+  final queryStart = text.indexOf('?');
+  if (queryStart >= 0) {
+    // A link pasted without its scheme, e.g. `anitabi.cn/map?bangumiId=1`.
+    if (_hostLikePrefix.hasMatch(text.substring(0, queryStart))) {
+      final withScheme = Uri.tryParse('https://$text');
+      if (withScheme != null && withScheme.host.isNotEmpty) {
+        return withScheme;
+      }
+    }
+    // A bare path or query such as `/map?bangumiId=1` or `?bangumiId=1`.
+    return Uri.tryParse('https://anitabi.cn/map${text.substring(queryStart)}');
+  }
   return Uri.tryParse('https://anitabi.cn/map?$text');
 }
+
+final _hostLikePrefix = RegExp(
+  r'^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
+  r'(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+(?::\d+)?(?:/[^?#\s]*)?$',
+);
 
 int? _firstIntQuery(Uri uri, List<String> keys) {
   for (final key in keys) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../widgets/app_motion.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -6,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../map/map_colors.dart';
+import '../data/app_file_reclamation.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_tile_config.dart';
 import '../map/map_marker_scale.dart';
@@ -700,6 +703,9 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       planId: _plan.id,
       pointId: point.id,
     );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
+    );
     if (!mounted) {
       return;
     }
@@ -756,8 +762,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
   static const String _ungroupedGroupMove = '__ungrouped__';
 
   Future<String?> _pickTargetGroup({String? currentGroupId}) async {
-    final groups = _plan.groups.toList(growable: false)
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final groups = sortGroupsByPlanOrder(_plan.groups);
     final selectedGroupId = await showPlanGroupSelectionSheet(
       context: context,
       title: '移动到片区',
@@ -870,9 +875,12 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       return;
     }
     await _savePlanChange(
-      action: () => widget.repository.deletePointFromPlan(
-        planId: _plan.id,
-        pointId: point.id,
+      action: () => _deletePointsReclaimingFiles(
+        [point],
+        () => widget.repository.deletePointFromPlan(
+          planId: _plan.id,
+          pointId: point.id,
+        ),
       ),
       failureMessage: '点位删除失败',
     );
@@ -894,13 +902,31 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
       return;
     }
     final pointIds = {..._selectedPointIds};
+    final points = _plan.points
+        .where((point) => pointIds.contains(point.id))
+        .toList(growable: false);
     await _savePlanChange(
-      action: () => widget.repository.deletePointsFromPlan(
-        planId: _plan.id,
-        pointIds: pointIds,
+      action: () => _deletePointsReclaimingFiles(
+        points,
+        () => widget.repository.deletePointsFromPlan(
+          planId: _plan.id,
+          pointIds: pointIds,
+        ),
       ),
       failureMessage: '批量删除失败',
     );
+  }
+
+  /// Reference files are reclaimed only after the deletion has committed.
+  Future<PilgrimagePlan> _deletePointsReclaimingFiles(
+    List<PilgrimagePoint> points,
+    Future<PilgrimagePlan> Function() delete,
+  ) async {
+    final updatedPlan = await delete();
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: points),
+    );
+    return updatedPlan;
   }
 
   Future<void> _setCurrent(PilgrimagePoint point) async {
@@ -918,6 +944,7 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     final nextCurrentPointId = _plan.currentPointId == point.id
         ? nextPendingPointAfterCompletion(
             points: _plan.points,
+            groups: _plan.groups,
             completedPoint: point,
             completedPointIds: completedPointIds,
           )?.id

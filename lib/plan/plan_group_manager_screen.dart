@@ -10,6 +10,7 @@ import '../widgets/confirm_action_dialog.dart';
 import '../widgets/input_dialog.dart';
 import 'group_anchor_picker_screen.dart';
 import 'pilgrimage_models.dart';
+import 'plan_order.dart';
 
 const Object _unsetGroupField = Object();
 
@@ -52,10 +53,7 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   late PilgrimagePlan _plan = widget.plan;
   var _isSaving = false;
 
-  List<PilgrimagePlanGroup> get _groups {
-    return [..._plan.groups]
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
-  }
+  List<PilgrimagePlanGroup> get _groups => sortGroupsByPlanOrder(_plan.groups);
 
   int get _ungroupedCount {
     return _plan.points.where((point) => point.groupId == null).length;
@@ -156,7 +154,10 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   Future<void> _createGroup() async {
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => const _CreatePlanGroupDialog(),
+      builder: (context) => const _PlanGroupNameDialog(
+        title: '新建片区',
+        confirmLabel: '创建',
+      ),
     );
     final trimmedName = name?.trim();
     if (trimmedName == null || trimmedName.isEmpty || !mounted) {
@@ -185,27 +186,16 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   }
 
   Future<void> _renameGroup(PilgrimagePlanGroup group) async {
-    final controller = TextEditingController(text: group.name);
+    // The dialog owns its controller: disposing it here, while the closing
+    // dialog's TextField is still animating out, trips IME assertions.
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AppInputDialog(
+      builder: (context) => _PlanGroupNameDialog(
         title: '重命名片区',
-        content: AppDialogField(
-          label: '片区名称',
-          child: TextField(
-            onTapOutside: dismissKeyboardOnTapOutside,
-            controller: controller,
-            autofocus: true,
-            decoration: appDialogInputDecoration(),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.of(context).pop(value),
-          ),
-        ),
         confirmLabel: '保存',
-        onConfirm: () => Navigator.of(context).pop(controller.text),
+        initialName: group.name,
       ),
     );
-    controller.dispose();
     final trimmedName = name?.trim();
     if (trimmedName == null ||
         trimmedName.isEmpty ||
@@ -298,31 +288,23 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
 
   Future<void> _reorderGroups(int oldIndex, int newIndex) async {
     final groups = _groups;
-    if (_isSaving || oldIndex >= groups.length) {
+    if (_isSaving ||
+        oldIndex < 0 ||
+        oldIndex >= groups.length ||
+        newIndex < 0 ||
+        newIndex >= groups.length ||
+        oldIndex == newIndex) {
       return;
     }
-    var targetIndex = newIndex;
-    if (targetIndex > oldIndex) {
-      targetIndex -= 1;
-    }
-    if (targetIndex < 0 || targetIndex > groups.length) {
-      return;
-    }
+    // onReorderItem already reports the post-removal destination index.
     final group = groups.removeAt(oldIndex);
-    groups.insert(targetIndex.clamp(0, groups.length), group);
+    groups.insert(newIndex, group);
 
     await _savePlanChange(
-      action: () async {
-        var updatedPlan = _plan;
-        for (var index = 0; index < groups.length; index += 1) {
-          final group = groups[index];
-          updatedPlan = await widget.repository.updatePlanGroup(
-            planId: updatedPlan.id,
-            group: _copyGroup(group, orderIndex: index),
-          );
-        }
-        return updatedPlan;
-      },
+      action: () => widget.repository.reorderGroups(
+        planId: _plan.id,
+        orderedGroupIds: [for (final group in groups) group.id],
+      ),
       failureMessage: '片区顺序保存失败',
     );
   }
@@ -347,10 +329,22 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
         _isSaving = false;
       });
     } catch (_) {
+      // Show what is actually stored, not the optimistic local order.
+      PilgrimagePlan? reloadedPlan;
+      try {
+        reloadedPlan = (await widget.repository.loadPlans())
+            .where((plan) => plan.id == _plan.id)
+            .firstOrNull;
+      } catch (_) {
+        reloadedPlan = null;
+      }
       if (!mounted) {
         return;
       }
       setState(() {
+        if (reloadedPlan != null) {
+          _plan = reloadedPlan;
+        }
         _isSaving = false;
       });
       ScaffoldMessenger.of(
@@ -410,15 +404,23 @@ class _PlanGroupManagerScreenState extends State<PlanGroupManagerScreen> {
   }
 }
 
-class _CreatePlanGroupDialog extends StatefulWidget {
-  const _CreatePlanGroupDialog();
+class _PlanGroupNameDialog extends StatefulWidget {
+  const _PlanGroupNameDialog({
+    required this.title,
+    required this.confirmLabel,
+    this.initialName = '',
+  });
+
+  final String title;
+  final String confirmLabel;
+  final String initialName;
 
   @override
-  State<_CreatePlanGroupDialog> createState() => _CreatePlanGroupDialogState();
+  State<_PlanGroupNameDialog> createState() => _PlanGroupNameDialogState();
 }
 
-class _CreatePlanGroupDialogState extends State<_CreatePlanGroupDialog> {
-  final _controller = TextEditingController();
+class _PlanGroupNameDialogState extends State<_PlanGroupNameDialog> {
+  late final _controller = TextEditingController(text: widget.initialName);
   String? _errorText;
 
   @override
@@ -441,7 +443,7 @@ class _CreatePlanGroupDialogState extends State<_CreatePlanGroupDialog> {
   @override
   Widget build(BuildContext context) {
     return AppInputDialog(
-      title: '新建片区',
+      title: widget.title,
       content: AppDialogField(
         label: '片区名称',
         child: TextField(
@@ -462,7 +464,7 @@ class _CreatePlanGroupDialogState extends State<_CreatePlanGroupDialog> {
           onSubmitted: (_) => _submit(),
         ),
       ),
-      confirmLabel: '创建',
+      confirmLabel: widget.confirmLabel,
       onConfirm: _submit,
     );
   }

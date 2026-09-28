@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -12,6 +13,7 @@ import '../map/map_colors.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/anitabi_link_parser.dart';
 import '../data/pilgrimage_repository.dart';
+import '../desktop/desktop_asset_image.dart';
 import '../data/user_reference_image_stub.dart'
     if (dart.library.io) '../data/user_reference_image_io.dart';
 import '../map/map_tile_config.dart';
@@ -25,6 +27,7 @@ import '../widgets/app_back_button.dart';
 import '../widgets/responsive_button.dart';
 import 'anitabi_map_import_screen.dart';
 import 'coordinate_parser.dart';
+import 'pending_reference_lifecycle.dart';
 import 'pilgrimage_work_dropdown.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_work_cover.dart';
@@ -56,19 +59,20 @@ Future<void> _pasteCoordinateFromClipboardInto({
   required TextEditingController latitudeController,
   required TextEditingController longitudeController,
   required VoidCallback onFilled,
+  bool Function()? canApply,
 }) async {
   LatLng? coordinate;
   try {
     coordinate = await parseClipboardCoordinate();
   } on Object {
-    if (context.mounted) {
+    if (context.mounted && (canApply?.call() ?? true)) {
       ScaffoldMessenger.of(
         context,
       ).showStatusSnack(kind: AppStatusBannerKind.warning, title: '无法读取剪贴板。');
     }
     return;
   }
-  if (!context.mounted) {
+  if (!context.mounted || !(canApply?.call() ?? true)) {
     return;
   }
   if (coordinate == null) {
@@ -2234,15 +2238,15 @@ class _QuickManualPointFormScreenState
   }
 
   LatLng? get _position {
-    final latitude = double.tryParse(_latitudeController.text.trim());
-    final longitude = double.tryParse(_longitudeController.text.trim());
+    final latitude = parseCoordinateComponent(
+      _latitudeController.text,
+      latitude: true,
+    );
+    final longitude = parseCoordinateComponent(
+      _longitudeController.text,
+      latitude: false,
+    );
     if (latitude == null || longitude == null) {
-      return null;
-    }
-    if (latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180) {
       return null;
     }
     return LatLng(latitude, longitude);
@@ -2339,10 +2343,8 @@ class _QuickManualPointFormScreenState
     if (text.isEmpty) {
       return latitude ? '请同时填写纬度' : '请同时填写经度';
     }
-    final coordinate = double.tryParse(text);
-    final min = latitude ? -90 : -180;
-    final max = latitude ? 90 : 180;
-    if (coordinate == null || coordinate < min || coordinate > max) {
+    final coordinate = parseCoordinateComponent(text, latitude: latitude);
+    if (coordinate == null) {
       return latitude ? '纬度格式不正确' : '经度格式不正确';
     }
     return null;
@@ -2724,6 +2726,13 @@ class EditPointScreen {
   }
 }
 
+class _PendingReferenceImage {
+  const _PendingReferenceImage(this.stored, this.thumbnailBytes);
+
+  final StoredUserReferenceImage stored;
+  final Uint8List thumbnailBytes;
+}
+
 class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _imagePicker = ImagePicker();
@@ -2740,9 +2749,18 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   final _longitudeFocusNode = FocusNode();
   final _noteController = TextEditingController();
   PilgrimageWork? _selectedWork;
-  StoredUserReferenceImage? _pendingReferenceImage;
-  bool _isSaving = false;
-  bool _didCommitPendingReference = false;
+  final _pendingReference = PendingReferenceLifecycle<_PendingReferenceImage>(
+    delete: (image) => deleteStoredUserReferenceImage(image.stored),
+    onRetain: (image) => image.stored.retain(),
+  );
+  StoredUserReferenceImage? get _pendingReferenceImage =>
+      _pendingReference.current?.stored;
+  bool get _isSaving => _pendingReference.isSaving;
+  bool get _isBusy => _pendingReference.isBusy || _didSavePoint || _isExiting;
+  bool _didSavePoint = false;
+  bool _isExiting = false;
+  late final _draftPointId = 'manual-${DateTime.now().microsecondsSinceEpoch}';
+  bool _hasUncertainNewPointSave = false;
 
   PilgrimagePoint? get _editingPoint => widget.editingPoint;
 
@@ -2785,9 +2803,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
 
   @override
   void dispose() {
-    if (!_didCommitPendingReference) {
-      unawaited(deleteStoredUserReferenceImage(_pendingReferenceImage));
-    }
+    _pendingReference.dispose();
     _fallbackWorkTitleController.dispose();
     _fallbackWorkSubtitleController.dispose();
     _fallbackWorkCityController.dispose();
@@ -2804,27 +2820,30 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   }
 
   Future<void> _savePoint() async {
+    if (_isBusy || !mounted || _hasUncertainNewPointSave) return;
     final valid = _formKey.currentState?.validate() ?? false;
-    if (!valid || _isSaving) {
+    if (!valid || !_pendingReference.beginSave()) {
       return;
     }
 
-    setState(() {
-      _isSaving = true;
-    });
+    FocusScope.of(context).unfocus();
+    setState(() {});
 
+    var persistenceStarted = false;
     try {
       final now = DateTime.now();
       final editingPoint = _editingPoint;
       final work = _selectedWork ?? _fallbackWork(now);
-      final pointId =
-          editingPoint?.id ?? 'manual-${now.microsecondsSinceEpoch}';
+      final pointId = editingPoint?.id ?? _draftPointId;
       final storedReference = _pendingReferenceImage;
       final latitudeText = _latitudeController.text.trim();
       final longitudeText = _longitudeController.text.trim();
       final position = latitudeText.isEmpty && longitudeText.isEmpty
           ? PilgrimagePoint.pendingPosition
-          : LatLng(double.parse(latitudeText), double.parse(longitudeText));
+          : LatLng(
+              parseCoordinateComponent(latitudeText, latitude: true)!,
+              parseCoordinateComponent(longitudeText, latitude: false)!,
+            );
       final noteText = _noteController.text.trim();
       final point = editingPoint == null
           ? PilgrimagePoint(
@@ -2858,6 +2877,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               note: noteText.isEmpty ? null : noteText,
             );
 
+      _pendingReference.beginPersistence();
+      persistenceStarted = true;
       if (editingPoint == null) {
         await widget.repository.addPointToPlan(
           planId: widget.plan.id,
@@ -2869,26 +2890,32 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
           point: point,
         );
       }
+      _pendingReference.finishPersistence(succeeded: true);
+      _didSavePoint = true;
       if (!mounted) {
         return;
       }
 
-      _didCommitPendingReference = true;
       Navigator.of(context).pop(true);
     } catch (_) {
+      _pendingReference.finishPersistence(succeeded: false);
+      if (persistenceStarted && !_isEditing) {
+        _hasUncertainNewPointSave = true;
+      }
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showStatusSnack(
         kind: AppStatusBannerKind.error,
-        title: '点位保存失败，请稍后重试。',
+        title: _hasUncertainNewPointSave
+            ? '保存结果未确认，请返回并刷新计划，检查点位是否已添加。'
+            : '点位保存失败，请稍后重试。',
       );
     } finally {
+      _pendingReference.endSave();
       if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
+        setState(() {});
       }
     }
   }
@@ -2907,44 +2934,56 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   }
 
   Future<void> _pickReferenceImage() async {
-    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
-    if (picked == null || !mounted) {
-      return;
-    }
-
-    final editingPoint = _editingPoint;
-    final pointId =
-        editingPoint?.id ?? 'manual-${DateTime.now().microsecondsSinceEpoch}';
-    final stored = await storeUserReferenceImage(
-      sourcePath: picked.path,
-      pointId: pointId,
-    );
-    if (stored == null) {
-      if (!mounted) {
-        return;
+    if (_isBusy || !mounted) return;
+    FocusScope.of(context).unfocus();
+    final selection = _pendingReference.select(() async {
+      final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (picked == null || _pendingReference.isDisposed) return null;
+      final pointId = _editingPoint?.id ?? _draftPointId;
+      final stored = await storeUserReferenceImage(
+        sourcePath: picked.path,
+        pointId: pointId,
+      );
+      if (stored == null) throw StateError('Reference image unavailable');
+      try {
+        // Keep the preview independent of draft-file cleanup, including reads
+        // that would otherwise outlive the route's reverse transition.
+        final Uint8List thumbnailBytes;
+        if (isDesktopAssetPath(stored.thumbnailPath)) {
+          final dataUrl = await loadDesktopAssetDataUrl(stored.thumbnailPath);
+          if (dataUrl == null) {
+            throw StateError('Reference thumbnail unavailable');
+          }
+          thumbnailBytes = base64Decode(
+            dataUrl.substring(dataUrl.indexOf(',') + 1),
+          );
+        } else {
+          thumbnailBytes = await XFile(stored.thumbnailPath).readAsBytes();
+        }
+        return _PendingReferenceImage(stored, thumbnailBytes);
+      } catch (_) {
+        await deleteStoredUserReferenceImage(stored);
+        rethrow;
       }
+    });
+    setState(() {});
+    try {
+      await selection;
+    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showStatusSnack(
         kind: AppStatusBannerKind.error,
         title: '参考图读取失败，请重新选择。',
       );
-      return;
+    } finally {
+      if (mounted) setState(() {});
     }
-
-    await deleteStoredUserReferenceImage(_pendingReferenceImage);
-    if (!mounted) {
-      await deleteStoredUserReferenceImage(stored);
-      return;
-    }
-
-    setState(() {
-      _pendingReferenceImage = stored;
-      _didCommitPendingReference = false;
-    });
   }
 
   Future<void> _pickCoordinateFromMap() async {
+    if (_isBusy || !mounted) return;
     final settings = await widget.repository.loadAppSettings();
-    if (!mounted) {
+    if (!mounted || _isBusy) {
       return;
     }
 
@@ -2958,7 +2997,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
         ),
       ),
     );
-    if (picked == null || !mounted) {
+    if (picked == null || !mounted || _isBusy) {
       return;
     }
 
@@ -2974,26 +3013,32 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       latitudeController: _latitudeController,
       longitudeController: _longitudeController,
       onFilled: () => setState(() {}),
+      canApply: () => !_isBusy,
     );
   }
 
   void _removeReferenceImage() {
-    unawaited(deleteStoredUserReferenceImage(_pendingReferenceImage));
-    setState(() {
-      _pendingReferenceImage = null;
-      _didCommitPendingReference = false;
-    });
+    if (_isBusy || !mounted) return;
+    setState(_pendingReference.remove);
+  }
+
+  void _requestExit() {
+    if (!mounted || _isBusy) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    setState(() => _isExiting = true);
+    Navigator.of(context).pop(false);
   }
 
   LatLng? _currentPositionInput() {
-    final latitude = double.tryParse(_latitudeController.text.trim());
-    final longitude = double.tryParse(_longitudeController.text.trim());
-    if (latitude == null ||
-        longitude == null ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180) {
+    final latitude = parseCoordinateComponent(
+      _latitudeController.text,
+      latitude: true,
+    );
+    final longitude = parseCoordinateComponent(
+      _longitudeController.text,
+      latitude: false,
+    );
+    if (latitude == null || longitude == null) {
       return null;
     }
     return LatLng(latitude, longitude);
@@ -3046,29 +3091,22 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
         : null;
 
     return PopScope(
-      canPop: true,
+      canPop: !_isBusy,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop && !_didCommitPendingReference) {
-          unawaited(deleteStoredUserReferenceImage(_pendingReferenceImage));
+        if (didPop) {
+          _isExiting = true;
+          return;
         }
+        _requestExit();
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text(_isEditing ? '编辑点位' : '手动添加点位'),
-          leading: AppBackButton(
-            onPressed: () {
-              if (!_didCommitPendingReference) {
-                unawaited(
-                  deleteStoredUserReferenceImage(_pendingReferenceImage),
-                );
-              }
-              Navigator.of(context).pop(false);
-            },
-          ),
+          leading: AppBackButton(onPressed: _requestExit),
           actions: [
             TextButton(
               key: const ValueKey('manual-point-filling-guide'),
-              onPressed: _showPointFillingGuide,
+              onPressed: _isBusy ? null : _showPointFillingGuide,
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.accentDark,
                 minimumSize: const Size(0, 40),
@@ -3112,11 +3150,13 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                         value: _selectedWork,
                         settings: widget.settings ?? const AppSettings(),
                         omitScrollbarInsetWhenUnscrollable: true,
-                        onChanged: (work) {
-                          setState(() {
-                            _selectedWork = work;
-                          });
-                        },
+                        onChanged: _isBusy
+                            ? null
+                            : (work) {
+                                setState(() {
+                                  _selectedWork = work;
+                                });
+                              },
                         validator: (work) => work == null ? '请选择作品' : null,
                       ),
                     )
@@ -3128,6 +3168,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       child: TextFormField(
                         onTapOutside: dismissKeyboardOnTapOutside,
                         controller: _fallbackWorkTitleController,
+                        enabled: !_isBusy,
                         decoration: _boxedFormDecoration(
                           hintText: '请输入作品的中文名称',
                         ),
@@ -3142,6 +3183,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       child: TextFormField(
                         onTapOutside: dismissKeyboardOnTapOutside,
                         controller: _fallbackWorkSubtitleController,
+                        enabled: !_isBusy,
                         decoration: _boxedFormDecoration(
                           hintText: '请输入作品的原名（如日文/英文）',
                         ),
@@ -3155,6 +3197,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       child: TextFormField(
                         onTapOutside: dismissKeyboardOnTapOutside,
                         controller: _fallbackWorkCityController,
+                        enabled: !_isBusy,
                         decoration: _boxedFormDecoration(
                           hintText: '输入作品主要发生或取景的地区',
                         ),
@@ -3174,6 +3217,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     child: TextFormField(
                       onTapOutside: dismissKeyboardOnTapOutside,
                       key: const ValueKey('point-form-name'),
+                      enabled: !_isBusy,
                       controller: _nameController,
                       decoration: _boxedFormDecoration(hintText: '例如：东京国际会展中心'),
                       textInputAction: TextInputAction.next,
@@ -3188,6 +3232,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     child: TextFormField(
                       onTapOutside: dismissKeyboardOnTapOutside,
                       controller: _subtitleController,
+                      enabled: !_isBusy,
                       decoration: _boxedFormDecoration(hintText: '例如：東京ビッグサイト'),
                       textInputAction: TextInputAction.next,
                       validator: _requiredText,
@@ -3201,6 +3246,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     child: TextFormField(
                       onTapOutside: dismissKeyboardOnTapOutside,
                       controller: _episodeController,
+                      enabled: !_isBusy,
                       decoration: _boxedFormDecoration(
                         hintText: '例如：EP 1 / 12:32',
                       ),
@@ -3216,6 +3262,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     child: TextFormField(
                       onTapOutside: dismissKeyboardOnTapOutside,
                       controller: _referenceController,
+                      enabled: !_isBusy,
                       decoration: _boxedFormDecoration(
                         hintText: '例如：小红书@BilyHurington / Bilibili@麦块晓天',
                       ),
@@ -3230,6 +3277,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     child: TextFormField(
                       onTapOutside: dismissKeyboardOnTapOutside,
                       key: const ValueKey('point-form-note'),
+                      enabled: !_isBusy,
                       controller: _noteController,
                       decoration: _boxedFormDecoration(
                         hintText: '例如：2025年完成翻修；最佳拍摄时间为上午；周末游客较多',
@@ -3269,6 +3317,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                           child: TextFormField(
                             onTapOutside: dismissKeyboardOnTapOutside,
                             key: const ValueKey('point-form-latitude'),
+                            enabled: !_isBusy,
                             controller: _latitudeController,
                             focusNode: _latitudeFocusNode,
                             decoration: _coordinateInputDecoration(
@@ -3298,6 +3347,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                           child: TextFormField(
                             onTapOutside: dismissKeyboardOnTapOutside,
                             key: const ValueKey('point-form-longitude'),
+                            enabled: !_isBusy,
                             controller: _longitudeController,
                             focusNode: _longitudeFocusNode,
                             decoration: _coordinateInputDecoration(
@@ -3327,7 +3377,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                       Expanded(
                         child: OutlinedButton(
                           key: const ValueKey('point-form-map-picker'),
-                          onPressed: _isSaving ? null : _pickCoordinateFromMap,
+                          onPressed: _isBusy ? null : _pickCoordinateFromMap,
                           style: OutlinedButton.styleFrom(
                             fixedSize: const Size.fromHeight(44),
                             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -3358,7 +3408,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                         child: IconButton.outlined(
                           key: const ValueKey('point-form-paste-coordinate'),
                           tooltip: '粘贴剪贴板坐标',
-                          onPressed: _isSaving
+                          onPressed: _isBusy
                               ? null
                               : _pasteCoordinateFromClipboard,
                           style: IconButton.styleFrom(
@@ -3377,6 +3427,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
               ),
               const SizedBox(height: 12),
               _ManualReferenceImagePicker(
+                thumbnailBytes: _pendingReference.current?.thumbnailBytes,
+                previewEnabled: !_isBusy,
                 localPath:
                     _pendingReferenceImage?.thumbnailPath ??
                     editingPoint?.referenceThumbnailPath ??
@@ -3392,15 +3444,17 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
                     editingPoint?.referenceThumbnailPath != null ||
                     editingPoint?.referenceFullImagePath != null ||
                     existingReferenceImageUrl != null,
-                onPick: _isSaving ? null : _pickReferenceImage,
-                onRemove: _isSaving || _pendingReferenceImage == null
+                onPick: _isBusy ? null : _pickReferenceImage,
+                onRemove: _isBusy || _pendingReferenceImage == null
                     ? null
                     : _removeReferenceImage,
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
                 key: const ValueKey('point-form-save'),
-                onPressed: _isSaving ? null : _savePoint,
+                onPressed: _isBusy || _hasUncertainNewPointSave
+                    ? null
+                    : _savePoint,
                 icon: _isSaving
                     ? const SizedBox(
                         width: 18,
@@ -3449,8 +3503,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     return _validateCoordinate(
       value,
       otherValue: _longitudeController.text,
-      min: -90,
-      max: 90,
+      latitude: true,
       emptyMessage: '请填写纬度',
     );
   }
@@ -3459,8 +3512,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
     return _validateCoordinate(
       value,
       otherValue: _latitudeController.text,
-      min: -180,
-      max: 180,
+      latitude: false,
       emptyMessage: '请填写经度',
     );
   }
@@ -3468,8 +3520,7 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
   String? _validateCoordinate(
     String? value, {
     required String otherValue,
-    required double min,
-    required double max,
+    required bool latitude,
     required String emptyMessage,
   }) {
     final text = value?.trim() ?? '';
@@ -3480,8 +3531,8 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       return emptyMessage;
     }
 
-    final coordinate = double.tryParse(text);
-    if (coordinate == null || coordinate < min || coordinate > max) {
+    final coordinate = parseCoordinateComponent(text, latitude: latitude);
+    if (coordinate == null) {
       return '请输入有效坐标';
     }
 
@@ -4106,6 +4157,8 @@ class _WorkCreationAction extends StatelessWidget {
 
 class _ManualReferenceImagePicker extends StatelessWidget {
   const _ManualReferenceImagePicker({
+    required this.thumbnailBytes,
+    required this.previewEnabled,
     required this.localPath,
     required this.fullImagePath,
     required this.imageUrl,
@@ -4115,6 +4168,8 @@ class _ManualReferenceImagePicker extends StatelessWidget {
     required this.onRemove,
   });
 
+  final Uint8List? thumbnailBytes;
+  final bool previewEnabled;
   final String? localPath;
   final String? fullImagePath;
   final String? imageUrl;
@@ -4127,7 +4182,9 @@ class _ManualReferenceImagePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = hasPendingSelection || hasExistingImage;
     final previewPath = fullImagePath ?? (imageUrl == null ? localPath : null);
-    final canPreview = previewPath != null || imageUrl != null;
+    final canPreview =
+        previewEnabled && (previewPath != null || imageUrl != null);
+    final placeholder = Icon(LucideIcons.image, color: AppColors.textSecondary);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -4155,15 +4212,19 @@ class _ManualReferenceImagePicker extends StatelessWidget {
                   child: Container(
                     width: 104,
                     color: AppColors.surfaceMuted,
-                    child: ReferenceThumbnail(
-                      localPath: localPath,
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: Icon(
-                        LucideIcons.image,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    child: thumbnailBytes != null
+                        ? Image.memory(
+                            thumbnailBytes!,
+                            key: const ValueKey('manual-reference-preview'),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => placeholder,
+                          )
+                        : ReferenceThumbnail(
+                            localPath: localPath,
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: placeholder,
+                          ),
                   ),
                 ),
               ),

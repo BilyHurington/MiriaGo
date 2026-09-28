@@ -6,6 +6,25 @@ import '../plan/pilgrimage_models.dart';
 
 enum ComparisonOutputWidth { auto, w1080, w1920, w2560, w3840 }
 
+enum ComparisonImageEncoding { jpegRecommended, jpegHighQuality, png }
+
+extension ComparisonImageEncodingValue on ComparisonImageEncoding {
+  int? get jpegQuality => switch (this) {
+    ComparisonImageEncoding.jpegRecommended => 85,
+    ComparisonImageEncoding.jpegHighQuality => 95,
+    ComparisonImageEncoding.png => null,
+  };
+
+  String get extension => this == ComparisonImageEncoding.png ? 'png' : 'jpg';
+  String get mimeType =>
+      this == ComparisonImageEncoding.png ? 'image/png' : 'image/jpeg';
+  String get label => switch (this) {
+    ComparisonImageEncoding.jpegRecommended => 'JPEG 推荐 (85)',
+    ComparisonImageEncoding.jpegHighQuality => 'JPEG 高画质 (95)',
+    ComparisonImageEncoding.png => 'PNG 无损',
+  };
+}
+
 enum ComparisonMetadataField {
   capturedAt,
   workTitle,
@@ -49,6 +68,7 @@ class ComparisonExportConfig {
     this.borderWidthPercent = 0.5,
     this.borderColor = Colors.white,
     this.outputWidth = ComparisonOutputWidth.auto,
+    this.imageEncoding = ComparisonImageEncoding.jpegRecommended,
     this.showLabels = false,
     this.showPilgrimName = false,
     this.pilgrimName = '',
@@ -63,6 +83,7 @@ class ComparisonExportConfig {
   final double borderWidthPercent;
   final Color borderColor;
   final ComparisonOutputWidth outputWidth;
+  final ComparisonImageEncoding imageEncoding;
   final bool showLabels;
   final bool showPilgrimName;
   final String pilgrimName;
@@ -108,6 +129,7 @@ class ComparisonExportConfig {
       'borderWidthPercent': borderWidthPercent,
       'borderColor': borderColor.toARGB32(),
       'outputWidth': outputWidth.name,
+      'imageEncoding': imageEncoding.name,
       'showLabels': showLabels,
       'showPilgrimName': showPilgrimName,
       'pilgrimName': pilgrimName,
@@ -135,6 +157,11 @@ class ComparisonExportConfig {
         json['outputWidth'],
         ComparisonOutputWidth.auto,
       ),
+      imageEncoding: enumValue(
+        ComparisonImageEncoding.values,
+        json['imageEncoding'],
+        ComparisonImageEncoding.jpegRecommended,
+      ),
       showLabels: json['showLabels'] as bool? ?? false,
       showPilgrimName: json['showPilgrimName'] as bool? ?? false,
       pilgrimName: json['pilgrimName'] as String? ?? '',
@@ -161,6 +188,7 @@ class ComparisonExportConfig {
     double? borderWidthPercent,
     Color? borderColor,
     ComparisonOutputWidth? outputWidth,
+    ComparisonImageEncoding? imageEncoding,
     bool? showLabels,
     bool? showPilgrimName,
     String? pilgrimName,
@@ -171,6 +199,7 @@ class ComparisonExportConfig {
       borderWidthPercent: borderWidthPercent ?? this.borderWidthPercent,
       borderColor: borderColor ?? this.borderColor,
       outputWidth: outputWidth ?? this.outputWidth,
+      imageEncoding: imageEncoding ?? this.imageEncoding,
       showLabels: showLabels ?? this.showLabels,
       showPilgrimName: showPilgrimName ?? this.showPilgrimName,
       pilgrimName: pilgrimName ?? this.pilgrimName,

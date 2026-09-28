@@ -7,12 +7,25 @@ bool isSafeRelativeAssetPath(String? path) {
     return false;
   }
   final normalized = normalizeAssetPathSeparators(path);
-  if (!normalized.startsWith('assets/') || normalized.endsWith('/')) {
+  if (!normalized.startsWith('assets/') ||
+      normalized.endsWith('/') ||
+      RegExp(r'[\x00-\x1f\x7f:<>"|?*]').hasMatch(normalized)) {
     return false;
   }
   return !normalized
       .split('/')
-      .any((segment) => segment.isEmpty || segment == '.' || segment == '..');
+      .any(
+        (segment) =>
+            segment.isEmpty ||
+            segment == '.' ||
+            segment == '..' ||
+            segment.endsWith('.') ||
+            segment.endsWith(' ') ||
+            RegExp(
+              r'^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)',
+              caseSensitive: false,
+            ).hasMatch(segment),
+      );
 }
 
 bool isRuntimeManagedAssetPath(String path) {

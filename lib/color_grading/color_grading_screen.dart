@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:http/http.dart' as http;
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
@@ -17,6 +19,7 @@ import '../widgets/confirm_action_dialog.dart';
 import 'color_adjustment.dart';
 import 'color_grading_parameter_summary.dart';
 import 'color_grading_params.dart';
+import 'graded_photo_reclamation.dart';
 import 'graded_photo_storage_stub.dart'
     if (dart.library.io) 'graded_photo_storage_io.dart';
 
@@ -51,6 +54,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   int? _beforeScore;
   int? _afterScore;
   Object? _loadError;
+  Object? _referenceError;
   var _resetPending = false;
 
   PilgrimageVisitRecord get _record => widget.record;
@@ -106,10 +110,20 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     try {
       final sourcePhotoPath = resolveVisitRecordSourcePhotoPath(_record);
       if (sourcePhotoPath == null) {
-        throw const FileSystemException('Visit record photo is unavailable');
+        throw StateError('Visit record photo is unavailable');
       }
-      final capturedBytes = await File(sourcePhotoPath).readAsBytes();
-      final referenceBytes = await _loadReferenceBytes();
+      final capturedBytes = await readBoundedImageSource(sourcePhotoPath);
+      await probeBoundedImage(capturedBytes);
+      Uint8List? referenceBytes;
+      Object? referenceError;
+      try {
+        referenceBytes = await _loadReferenceBytes();
+        if (referenceBytes != null) await probeBoundedImage(referenceBytes);
+      } catch (error) {
+        // A missing reference disables matching, not edits to saved grading.
+        referenceBytes = null;
+        referenceError = error;
+      }
       if (!mounted) {
         return;
       }
@@ -117,6 +131,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       setState(() {
         _capturedBytes = capturedBytes;
         _referenceBytes = referenceBytes;
+        _referenceError = referenceError;
         _loading = false;
       });
     } catch (error) {
@@ -136,9 +151,12 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       _record.referenceImagePath,
       widget.fallbackReferenceImagePath,
     ].whereType<String>()) {
-      final file = File(path);
-      if (file.existsSync()) {
-        return file.readAsBytes();
+      try {
+        return await readBoundedImageSource(path);
+      } on ImageBudgetException {
+        rethrow;
+      } catch (_) {
+        // Missing local references may still have their original remote source.
       }
     }
 
@@ -147,14 +165,26 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       return null;
     }
 
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return response.bodyBytes;
-    }
-    return null;
+    return readBoundedImageSource(url);
   }
 
   Future<void> _runAutoMatch() async {
+    if (!mounted || _matching || _saving) return;
+    try {
+      await _runAutoMatchUnchecked();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: error is ImageBudgetException ? error.message : '自动调色失败',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _matching = false);
+    }
+  }
+
+  Future<void> _runAutoMatchUnchecked() async {
     final captured = _capturedBytes;
     final reference = _referenceBytes;
     final messenger = ScaffoldMessenger.of(context);
@@ -166,9 +196,14 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       return;
     }
     if (reference == null) {
+      final error = _referenceError;
       messenger.showStatusSnack(
         kind: AppStatusBannerKind.warning,
-        title: '没有可用于自动调色的参考图',
+        title: error is ImageBudgetException
+            ? error.message
+            : error == null
+            ? '没有可用于自动调色的参考图'
+            : '参考图暂不可用，无法自动匹配色调',
       );
       return;
     }
@@ -207,6 +242,22 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
   }
 
   Future<void> _save() async {
+    if (!mounted || _saving || _matching) return;
+    try {
+      await _saveUnchecked();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: error is ImageBudgetException ? error.message : '保存失败，原件未更改',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _saveUnchecked() async {
     final captured = _capturedBytes;
     final targetParams = _targetParams;
     final messenger = ScaffoldMessenger.of(context);
@@ -215,8 +266,11 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     }
     if (_resetPending) {
       setState(() => _saving = true);
-      final updated = await widget.controller.clearVisitRecordColorGrading(
-        record: _record,
+      final updated = await clearGradedPhoto(
+        repository: widget.controller.repository,
+        previousGradedPath: _record.gradedPhotoPath,
+        clear: () =>
+            widget.controller.clearVisitRecordColorGrading(record: _record),
       );
       if (!mounted) {
         return;
@@ -253,14 +307,20 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       return;
     }
 
-    final updated = await widget.controller.updateVisitRecordColorGrading(
-      record: _record,
-      originalPhotoPath:
-          resolveVisitRecordSourcePhotoPath(_record) ?? _record.sourcePhotoPath,
-      gradedPhotoPath: path,
-      colorGradingMode: _selectedMode.name,
-      colorGradingParamsJson: jsonEncode(targetParams.toJson()),
-      colorGradingIntensity: _intensity,
+    final updated = await commitGradedPhoto(
+      repository: widget.controller.repository,
+      newGradedPath: path,
+      previousGradedPath: _record.gradedPhotoPath,
+      update: () => widget.controller.updateVisitRecordColorGrading(
+        record: _record,
+        originalPhotoPath:
+            resolveVisitRecordSourcePhotoPath(_record) ??
+            _record.sourcePhotoPath,
+        gradedPhotoPath: path,
+        colorGradingMode: _selectedMode.name,
+        colorGradingParamsJson: jsonEncode(targetParams.toJson()),
+        colorGradingIntensity: _intensity,
+      ),
     );
     if (!mounted) {
       return;
@@ -322,7 +382,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
     }
 
     if (_loadError != null || _capturedBytes == null) {
-      return const Center(child: Text('照片读取失败'));
+      return BoundedImageError(error: _loadError ?? StateError('照片读取失败'));
     }
 
     return ListView(
@@ -330,6 +390,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
       children: [
         _StackedPreview(
           referenceBytes: _referenceBytes,
+          referenceError: _referenceError,
           capturedBytes: _capturedBytes!,
           activeParams: _activeParams,
           showOriginal: _showOriginal || _targetParams == null,
@@ -397,12 +458,14 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
 class _StackedPreview extends StatelessWidget {
   const _StackedPreview({
     required this.referenceBytes,
+    required this.referenceError,
     required this.capturedBytes,
     required this.activeParams,
     required this.showOriginal,
   });
 
   final Uint8List? referenceBytes;
+  final Object? referenceError;
   final Uint8List capturedBytes;
   final ColorGradingParams activeParams;
   final bool showOriginal;
@@ -421,23 +484,130 @@ class _StackedPreview extends StatelessWidget {
           _PreviewPane(
             label: '参考图',
             child: referenceBytes == null
-                ? const Center(child: Text('没有参考图'))
-                : Image.memory(referenceBytes!, fit: BoxFit.contain),
+                ? referenceError == null
+                      ? const Center(child: Text('没有参考图'))
+                      : BoundedImageError(error: referenceError!)
+                : BoundedImage(bytes: referenceBytes!),
           ),
           const SizedBox(height: 8),
           _PreviewPane(
             label: showOriginal ? '原图' : '调色后',
             child: showOriginal
-                ? Image.memory(capturedBytes, fit: BoxFit.contain)
-                : ColorFiltered(
-                    colorFilter: ColorFilter.matrix(
-                      activeParams.toColorMatrix(),
-                    ),
-                    child: Image.memory(capturedBytes, fit: BoxFit.contain),
+                ? BoundedImage(bytes: capturedBytes)
+                : _GradedPhotoPreview(
+                    capturedBytes: capturedBytes,
+                    params: activeParams,
                   ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shows the color-matrix preview immediately (exact for the linear
+/// adjustments) and, when tone zones or RGB curves are active, swaps in a
+/// debounced low-resolution render of the same path used when saving.
+class _GradedPhotoPreview extends StatefulWidget {
+  const _GradedPhotoPreview({
+    required this.capturedBytes,
+    required this.params,
+  });
+
+  final Uint8List capturedBytes;
+  final ColorGradingParams params;
+
+  @override
+  State<_GradedPhotoPreview> createState() => _GradedPhotoPreviewState();
+}
+
+class _GradedPhotoPreviewState extends State<_GradedPhotoPreview> {
+  static const _renderDelay = Duration(milliseconds: 250);
+
+  Future<GradingPreviewSource>? _source;
+  Timer? _debounce;
+  ui.Image? _rendered;
+  ColorGradingParams? _renderedParams;
+  var _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleRender();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GradedPhotoPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.capturedBytes, widget.capturedBytes)) {
+      _source = null;
+      _clearRendered();
+      _scheduleRender();
+    } else if (oldWidget.params != widget.params) {
+      _scheduleRender();
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _generation += 1;
+    _clearRendered();
+    super.dispose();
+  }
+
+  void _clearRendered() {
+    _rendered?.dispose();
+    _rendered = null;
+    _renderedParams = null;
+  }
+
+  void _scheduleRender() {
+    _debounce?.cancel();
+    _generation += 1;
+    if (!widget.params.hasNonLinearAdjustments) {
+      // The matrix is exact here; drop the stale render to free its memory.
+      _clearRendered();
+      return;
+    }
+    final params = widget.params;
+    final generation = _generation;
+    _debounce = Timer(_renderDelay, () => _render(params, generation));
+  }
+
+  Future<void> _render(ColorGradingParams params, int generation) async {
+    ui.Image? image;
+    try {
+      final source = await (_source ??= prepareGradingPreviewSource(
+        widget.capturedBytes,
+      ));
+      if (!mounted || generation != _generation) return;
+      image = await renderGradedPreviewImage(source: source, params: params);
+    } catch (error) {
+      // Keep the matrix approximation if the low-resolution render fails.
+      debugPrint('Color grading preview render failed: $error');
+      return;
+    }
+    if (!mounted || generation != _generation) {
+      image.dispose();
+      return;
+    }
+    setState(() {
+      _rendered?.dispose();
+      _rendered = image;
+      _renderedParams = params;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rendered = _rendered;
+    if (rendered != null && _renderedParams == widget.params) {
+      return RawImage(image: rendered, fit: BoxFit.contain);
+    }
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix(widget.params.toColorMatrix()),
+      child: BoundedImage(bytes: widget.capturedBytes),
     );
   }
 }

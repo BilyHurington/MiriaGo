@@ -1,19 +1,67 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../desktop/tauri_bridge.dart' as tauri;
+import 'bounded_image_decoder.dart';
+import 'image_bytes.dart';
 
 class StoredUserReferenceImage {
   const StoredUserReferenceImage({
+    required this.thumbnailPath,
+    required this.fullImagePath,
+  }) : _ownership = null;
+
+  const StoredUserReferenceImage._owned(
+    this._ownership, {
     required this.thumbnailPath,
     required this.fullImagePath,
   });
 
   final String thumbnailPath;
   final String fullImagePath;
+  final _ReferenceOwnership? _ownership;
+
+  Future<void> retain() async => _ownership?.retain();
+}
+
+class _ReferenceOwnership {
+  _ReferenceOwnership(this.token);
+  String? token;
+  Future<void>? pending;
+  bool retained = false;
+  Future<void> retain() {
+    retained = true;
+    return pending ??= _finalize();
+  }
+
+  Future<void> _finalize() async {
+    try {
+      final value = token;
+      if (value != null) {
+        await tauri.finalizeDesktopImportAssets(restoreToken: value);
+      }
+      token = null;
+    } finally {
+      pending = null;
+    }
+  }
+
+  Future<void> discard() => retained ? Future.value() : pending ??= _discard();
+  Future<void> _discard() async {
+    try {
+      final value = token;
+      if (value != null) {
+        await tauri.cleanupDesktopImportAssets(restoreToken: value);
+      }
+      token = null;
+    } finally {
+      pending = null;
+    }
+  }
 }
 
 Future<StoredUserReferenceImage?> storeUserReferenceImage({
@@ -24,58 +72,103 @@ Future<StoredUserReferenceImage?> storeUserReferenceImage({
     return null;
   }
 
-  final bytes = await XFile(sourcePath).readAsBytes();
+  final source = XFile(sourcePath);
+  final length = await source.length();
+  checkImageEncodedLength(length);
+  // Web XFile.openRead converts one Blob slice, not streaming chunks. Check
+  // length first and cap the slice itself before allocating Dart bytes.
+  final bytes = await readImageStreamBounded(
+    source.openRead(0, maxImageEncodedBytes + 1),
+    declaredLength: length,
+  );
   if (bytes.isEmpty) {
     return null;
   }
 
-  final safePointId = _safeFileName(pointId);
-  final stamp = DateTime.now().microsecondsSinceEpoch;
   final extension = _extensionForImage(sourcePath, bytes);
-  final fullPath =
-      'assets/user_reference_images/full/$safePointId-$stamp$extension';
-  final thumbPath =
-      'assets/user_reference_images/thumb/$safePointId-$stamp.jpg';
-  final thumbnailBytes = _buildThumbnail(bytes);
-
-  await tauri.writeDesktopAsset(
-    path: fullPath,
-    dataBase64: base64Encode(bytes),
+  final fullKey = 'assets/user_reference_images/full$extension';
+  const thumbKey = 'assets/user_reference_images/thumb.jpg';
+  final thumbnailBytes = await _buildThumbnail(bytes);
+  // Existing Rust restore owns an exclusive directory and rolls back partial
+  // writes. Neither pointId nor a caller-supplied path authorizes deletion.
+  final restored = await tauri.restoreDesktopImportAssets(
+    packageId: null,
+    sourceName: pointId,
+    assetsBase64: {
+      fullKey: base64Encode(bytes),
+      thumbKey: base64Encode(thumbnailBytes),
+    },
   );
-  await tauri.writeDesktopAsset(
-    path: thumbPath,
-    dataBase64: base64Encode(thumbnailBytes),
-  );
-
-  return StoredUserReferenceImage(
-    thumbnailPath: thumbPath,
-    fullImagePath: fullPath,
-  );
+  final token = restored.restoreToken;
+  final ownership = token == null ? null : _ReferenceOwnership(token);
+  try {
+    final fullPath = restored.restoredPaths[fullKey];
+    final thumbPath = restored.restoredPaths[thumbKey];
+    if (ownership == null || fullPath == null || thumbPath == null) {
+      throw StateError(
+        'Reference restore returned incomplete ownership or paths',
+      );
+    }
+    return StoredUserReferenceImage._owned(
+      ownership,
+      thumbnailPath: thumbPath,
+      fullImagePath: fullPath,
+    );
+  } catch (_) {
+    await ownership?.discard();
+    rethrow;
+  }
 }
 
 Future<void> deleteStoredUserReferenceImage(
   StoredUserReferenceImage? image,
 ) async {
-  // The web/desktop bridge currently only exposes asset writes. Uncommitted
-  // references are still kept out of the database, so this is best-effort.
+  await image?._ownership?.discard();
 }
 
-List<int> _buildThumbnail(Uint8List bytes) {
-  final decoded = img.decodeImage(bytes);
-  if (decoded == null) {
-    return bytes;
-  }
-
-  final thumbnail = img.copyResize(
-    decoded,
-    width: decoded.width >= decoded.height ? 360 : null,
-    height: decoded.height > decoded.width ? 360 : null,
-    interpolation: img.Interpolation.average,
+Future<Uint8List> _buildThumbnail(Uint8List bytes) async {
+  final image = await decodeBoundedImage(
+    bytes,
+    target: const ImageDecodeTarget(maxEdge: 360, maxPixels: 360 * 360),
   );
-  return img.encodeJpg(thumbnail, quality: 82);
+  try {
+    final data = await image.toByteData(
+      format: ui.ImageByteFormat.rawStraightRgba,
+    );
+    if (data == null) {
+      throw StateError('Cannot read reference thumbnail pixels');
+    }
+    return await compute(_encodeThumbnail, {
+      'width': image.width,
+      'height': image.height,
+      'bytes': data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    });
+  } finally {
+    image.dispose();
+  }
+}
+
+Uint8List _encodeThumbnail(Map<String, Object> input) {
+  final bytes = input['bytes']! as Uint8List;
+  final image = img.Image.fromBytes(
+    width: input['width']! as int,
+    height: input['height']! as int,
+    bytes: bytes.buffer,
+    bytesOffset: bytes.offsetInBytes,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  );
+  return Uint8List.fromList(img.encodeJpg(image, quality: 82));
 }
 
 String _extensionForImage(String sourcePath, List<int> bytes) {
+  if (isJpegBytes(bytes)) return '.jpg';
+  if (isPngBytes(bytes)) return '.png';
+  if (isWebpBytes(bytes)) return '.webp';
+  if (bytes.length >= 6 &&
+      String.fromCharCodes(bytes.take(6)).startsWith('GIF8')) {
+    return '.gif';
+  }
   final path = Uri.tryParse(sourcePath)?.path ?? sourcePath;
   final dotIndex = path.lastIndexOf('.');
   if (dotIndex >= 0 && dotIndex < path.length - 1) {
@@ -104,8 +197,4 @@ String _extensionForImage(String sourcePath, List<int> bytes) {
     return '.png';
   }
   return '.jpg';
-}
-
-String _safeFileName(String value) {
-  return value.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
 }

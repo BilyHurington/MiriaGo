@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'dart:convert';
 import 'package:latlong2/latlong.dart';
 
 import '../../plan/pilgrimage_models.dart';
+import '../../plan/plan_order.dart';
 import '../anitabi_image_url.dart';
 import '../anitabi_service_config.dart';
 import '../app_managed_file_paths_stub.dart'
@@ -15,11 +17,20 @@ import 'database_connection/stub_connection.dart'
     if (dart.library.io) 'database_connection/native_connection.dart';
 
 class SqlitePilgrimageRepository implements PilgrimageRepository {
-  SqlitePilgrimageRepository({AppDatabase? database})
-    : _database = database ?? AppDatabase(openConnection());
+  SqlitePilgrimageRepository({
+    AppDatabase? database,
+    this.managedPathRepairForTesting,
+  }) : _database = database ?? AppDatabase(openConnection());
 
   final AppDatabase _database;
-  bool _managedPathRepairAttempted = false;
+
+  /// Replaces the managed-path repair run in tests.
+  @visibleForTesting
+  final Future<void> Function()? managedPathRepairForTesting;
+
+  /// Shared managed-path repair run. Concurrent callers await the same run;
+  /// it is cleared on failure so a later call retries the repair.
+  Future<void>? _managedPathRepair;
 
   @override
   Future<List<PilgrimagePlan>> loadPlans() async {
@@ -45,9 +56,31 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               ..where((table) => table.active.equals(true))
               ..limit(1))
             .getSingleOrNull();
-    final fallbackPlan =
-        activePlan ?? await _database.select(_database.plans).getSingle();
+    if (activePlan != null) {
+      return _loadPlanWithCurrentTargetRepair(activePlan);
+    }
+    var fallbackPlan = await _firstPlanRowInOrder();
+    if (fallbackPlan == null) {
+      // Every plan was removed after the initial seed check; reseed the same
+      // way a fresh database is seeded so there is always a plan to show.
+      await _seedIfNeeded();
+      fallbackPlan = await _firstPlanRowInOrder();
+    }
+    if (fallbackPlan == null) {
+      throw StateError('No pilgrimage plan is available.');
+    }
     return _loadPlanWithCurrentTargetRepair(fallbackPlan);
+  }
+
+  Future<Plan?> _firstPlanRowInOrder() {
+    return (_database.select(_database.plans)
+          ..orderBy([
+            (table) => OrderingTerm.asc(table.orderIndex),
+            (table) => OrderingTerm.asc(table.createdAt),
+            (table) => OrderingTerm.asc(table.id),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   @override
@@ -155,7 +188,11 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     final rows =
         await (_database.select(_database.visitRecords)
               ..where((table) => table.planId.equals(planId))
-              ..orderBy([(table) => OrderingTerm.desc(table.capturedAt)]))
+              // Stable tie-break shared with compareVisitRecordsNewestFirst.
+              ..orderBy([
+                (table) => OrderingTerm.desc(table.capturedAt),
+                (table) => OrderingTerm.desc(table.id),
+              ]))
             .get();
     return rows.map(_visitRecordFromRow).toList(growable: false);
   }
@@ -163,6 +200,14 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   @override
   Future<void> setActivePlan(String id) async {
     await _database.transaction(() async {
+      final exists =
+          await (_database.select(_database.plans)
+                ..where((table) => table.id.equals(id))
+                ..limit(1))
+              .getSingleOrNull();
+      if (exists == null) {
+        throw ArgumentError.value(id, 'id', 'Plan does not exist.');
+      }
       await _database
           .update(_database.plans)
           .write(const PlansCompanion(active: Value(false)));
@@ -470,6 +515,20 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               note: Value(point.note),
             ),
           );
+      if (point.hasCoordinate) {
+        // Keep the stored copy of a linked group key point in sync.
+        await (_database.update(_database.planGroups)..where(
+              (table) =>
+                  table.planId.equals(planId) &
+                  table.anchorPointId.equals(storagePointId),
+            ))
+            .write(
+              PlanGroupsCompanion(
+                anchorLatitude: Value(point.position.latitude),
+                anchorLongitude: Value(point.position.longitude),
+              ),
+            );
+      }
       await _touchPlan(planId);
     });
     return _planFromRow(await _planRowById(planId));
@@ -517,9 +576,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ))
             .write(
               PointsCompanion(
-                referenceThumbnailPath: Value(
-                  entry.value.referenceThumbnailPath,
-                ),
+                referenceThumbnailPath: entry.value.preserveThumbnailPath
+                    ? const Value.absent()
+                    : Value(entry.value.referenceThumbnailPath),
                 referenceFullImagePath: entry.value.preserveFullImagePath
                     ? const Value.absent()
                     : Value(entry.value.referenceFullImagePath),
@@ -635,54 +694,139 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       return _planFromRow(await _planRowById(planId));
     }
 
-    final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
-      final movingPoints =
-          await (_database.select(_database.points)
-                ..where(
-                  (table) =>
-                      table.planId.equals(planId) &
-                      table.id.isIn(storagePointIds),
-                )
-                ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)]))
-              .get();
-      var nextGroupOrderIndex = 0;
-      if (groupId != null) {
-        final targetGroupPoints =
-            await (_database.select(_database.points)..where(
-                  (table) =>
-                      table.planId.equals(planId) &
-                      table.groupId.equals(groupId),
-                ))
-                .get();
-        nextGroupOrderIndex =
-            targetGroupPoints
-                .where((point) => !storagePointIds.contains(point.id))
-                .fold<int>(
-                  -1,
-                  (maxOrder, point) => (point.groupOrderIndex ?? -1) > maxOrder
-                      ? point.groupOrderIndex!
-                      : maxOrder,
-                ) +
-            1;
+      await _movePointsToGroupInTransaction(
+        planId: planId,
+        pointIds: pointIds,
+        groupId: groupId,
+      );
+      await _touchPlan(planId);
+    });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> reorderGroups({
+    required String planId,
+    required List<String> orderedGroupIds,
+  }) async {
+    await _database.transaction(() async {
+      final groupIds =
+          (await (_database.select(
+                _database.planGroups,
+              )..where((table) => table.planId.equals(planId))).get())
+              .map((group) => group.id)
+              .toSet();
+      final orderedIds = orderedGroupIds.toSet();
+      if (orderedGroupIds.length != groupIds.length ||
+          orderedIds.length != orderedGroupIds.length ||
+          !orderedIds.containsAll(groupIds)) {
+        throw ArgumentError.value(
+          orderedGroupIds,
+          'orderedGroupIds',
+          'Group order must contain every group of the plan exactly once.',
+        );
       }
-      for (final point in movingPoints) {
-        await (_database.update(_database.points)..where(
+      for (var index = 0; index < orderedGroupIds.length; index += 1) {
+        await (_database.update(_database.planGroups)..where(
               (table) =>
-                  table.planId.equals(planId) & table.id.equals(point.id),
+                  table.planId.equals(planId) &
+                  table.id.equals(orderedGroupIds[index]),
             ))
-            .write(
-              PointsCompanion(
-                groupId: Value(groupId),
-                groupOrderIndex: Value(
-                  groupId == null ? null : nextGroupOrderIndex++,
-                ),
-              ),
-            );
+            .write(PlanGroupsCompanion(orderIndex: Value(index)));
       }
       await _touchPlan(planId);
     });
     return _planFromRow(await _planRowById(planId));
+  }
+
+  @override
+  Future<PilgrimagePlan> assignPointsToGroups({
+    required String planId,
+    required Map<String, String?> groupIdsByPointId,
+  }) async {
+    if (groupIdsByPointId.isEmpty) {
+      return _planFromRow(await _planRowById(planId));
+    }
+
+    await _database.transaction(() async {
+      final groupIds =
+          (await (_database.select(
+                _database.planGroups,
+              )..where((table) => table.planId.equals(planId))).get())
+              .map((group) => group.id)
+              .toSet();
+      for (final groupId in groupIdsByPointId.values) {
+        if (groupId != null && !groupIds.contains(groupId)) {
+          throw ArgumentError.value(
+            groupId,
+            'groupId',
+            'Group does not exist.',
+          );
+        }
+      }
+      for (final entry in pointIdsByTargetGroup(groupIdsByPointId).entries) {
+        await _movePointsToGroupInTransaction(
+          planId: planId,
+          pointIds: entry.value,
+          groupId: entry.key,
+        );
+      }
+      await _touchPlan(planId);
+    });
+    return _planFromRow(await _planRowById(planId));
+  }
+
+  /// Appends [pointIds] (in plan order) to [groupId]; callers own the
+  /// transaction.
+  Future<void> _movePointsToGroupInTransaction({
+    required String planId,
+    required Set<String> pointIds,
+    required String? groupId,
+  }) async {
+    final storagePointIds = _storageIds(planId, pointIds);
+    final movingPoints =
+        await (_database.select(_database.points)
+              ..where(
+                (table) =>
+                    table.planId.equals(planId) &
+                    table.id.isIn(storagePointIds),
+              )
+              ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)]))
+            .get();
+    var nextGroupOrderIndex = 0;
+    if (groupId != null) {
+      final targetGroupPoints =
+          await (_database.select(_database.points)..where(
+                (table) =>
+                    table.planId.equals(planId) &
+                    table.groupId.equals(groupId),
+              ))
+              .get();
+      nextGroupOrderIndex =
+          targetGroupPoints
+              .where((point) => !storagePointIds.contains(point.id))
+              .fold<int>(
+                -1,
+                (maxOrder, point) => (point.groupOrderIndex ?? -1) > maxOrder
+                    ? point.groupOrderIndex!
+                    : maxOrder,
+              ) +
+          1;
+    }
+    for (final point in movingPoints) {
+      await (_database.update(_database.points)..where(
+            (table) => table.planId.equals(planId) & table.id.equals(point.id),
+          ))
+          .write(
+            PointsCompanion(
+              groupId: Value(groupId),
+              groupOrderIndex: Value(
+                groupId == null ? null : nextGroupOrderIndex++,
+              ),
+            ),
+          );
+    }
   }
 
   @override
@@ -692,6 +836,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
   }) async {
     final storageWorkId = _storageId(planId, workId);
     await _database.transaction(() async {
+      final previousCurrentPoint = await _currentPointModel(planId);
       final pointRows =
           await (_database.select(_database.points)..where(
                 (table) =>
@@ -718,7 +863,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           .go();
 
       if (deletedCurrentPoint) {
-        await _setFirstPendingPointCurrent(planId);
+        await _setFirstPendingPointCurrent(
+          planId,
+          after: previousCurrentPoint,
+        );
       }
       await _touchPlan(planId);
     });
@@ -825,6 +973,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
+      final previousCurrentPoint = await _currentPointModel(planId);
       final completedCurrentPoint =
           await (_database.select(_database.points)
                 ..where(
@@ -849,7 +998,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           );
 
       if (completedCurrentPoint) {
-        await _setFirstPendingPointCurrent(planId);
+        await _setFirstPendingPointCurrent(
+          planId,
+          after: previousCurrentPoint,
+        );
       }
 
       await _touchPlan(planId);
@@ -974,33 +1126,53 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       referenceMode: referenceMode,
       capturedAt: recordCapturedAt,
     );
-    await _database
-        .into(_database.visitRecords)
-        .insert(
-          VisitRecordsCompanion.insert(
-            id: record.id,
-            planId: record.planId,
-            pointId: record.pointId,
-            workId: record.workId,
-            workTitle: Value(record.workTitle),
-            workSubtitle: Value(record.workSubtitle),
-            pointName: Value(record.pointName),
-            pointSubtitle: Value(record.pointSubtitle),
-            photoPath: record.photoPath,
-            originalPhotoPath: Value(record.originalPhotoPath),
-            gradedPhotoPath: Value(record.gradedPhotoPath),
-            colorGradingMode: Value(record.colorGradingMode),
-            colorGradingParamsJson: Value(record.colorGradingParamsJson),
-            colorGradingIntensity: Value(record.colorGradingIntensity),
-            referenceImagePath: Value(record.referenceImagePath),
-            referenceImageUrl: Value(
-              _canonicalReferenceUrl(record.referenceImageUrl),
-            ),
-            referenceMode: record.referenceMode,
-            capturedAt: record.capturedAt,
-          ),
+    Object? writeFailure;
+    try {
+      await _database.transaction(() async {
+        try {
+          await _database
+              .into(_database.visitRecords)
+              .insert(
+                VisitRecordsCompanion.insert(
+                  id: record.id,
+                  planId: record.planId,
+                  pointId: record.pointId,
+                  workId: record.workId,
+                  workTitle: Value(record.workTitle),
+                  workSubtitle: Value(record.workSubtitle),
+                  pointName: Value(record.pointName),
+                  pointSubtitle: Value(record.pointSubtitle),
+                  photoPath: record.photoPath,
+                  originalPhotoPath: Value(record.originalPhotoPath),
+                  gradedPhotoPath: Value(record.gradedPhotoPath),
+                  colorGradingMode: Value(record.colorGradingMode),
+                  colorGradingParamsJson: Value(record.colorGradingParamsJson),
+                  colorGradingIntensity: Value(record.colorGradingIntensity),
+                  referenceImagePath: Value(record.referenceImagePath),
+                  referenceImageUrl: Value(
+                    _canonicalReferenceUrl(record.referenceImageUrl),
+                  ),
+                  referenceMode: record.referenceMode,
+                  capturedAt: record.capturedAt,
+                ),
+              );
+          await _touchPlan(planId);
+        } catch (error) {
+          writeFailure = error;
+          rethrow;
+        }
+      }, requireNew: true);
+    } catch (error, stack) {
+      // Drift rethrows the action error only after rollback succeeds. Rollback
+      // failure is a distinct CouldNotRollBackException; keep that uncertain.
+      if (identical(error, writeFailure)) {
+        Error.throwWithStackTrace(
+          VisitRecordNotCommittedException(error),
+          stack,
         );
-    await _touchPlan(planId);
+      }
+      rethrow;
+    }
     return record;
   }
 
@@ -1014,19 +1186,44 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     required String colorGradingParamsJson,
     required double colorGradingIntensity,
   }) async {
-    await (_database.update(_database.visitRecords)..where(
-          (table) => table.planId.equals(planId) & table.id.equals(recordId),
-        ))
-        .write(
-          VisitRecordsCompanion(
-            originalPhotoPath: Value(originalPhotoPath),
-            gradedPhotoPath: Value(gradedPhotoPath),
-            colorGradingMode: Value(colorGradingMode),
-            colorGradingParamsJson: Value(colorGradingParamsJson),
-            colorGradingIntensity: Value(colorGradingIntensity),
-          ),
+    Object? writeFailure;
+    try {
+      await _database.transaction(() async {
+        try {
+          final updated =
+              await (_database.update(_database.visitRecords)..where(
+                    (table) =>
+                        table.planId.equals(planId) & table.id.equals(recordId),
+                  ))
+                  .write(
+                    VisitRecordsCompanion(
+                      originalPhotoPath: Value(originalPhotoPath),
+                      gradedPhotoPath: Value(gradedPhotoPath),
+                      colorGradingMode: Value(colorGradingMode),
+                      colorGradingParamsJson: Value(colorGradingParamsJson),
+                      colorGradingIntensity: Value(colorGradingIntensity),
+                    ),
+                  );
+          if (updated == 0) {
+            throw StateError('Visit record $recordId does not exist.');
+          }
+          await _touchPlan(planId);
+        } catch (error) {
+          writeFailure = error;
+          rethrow;
+        }
+      }, requireNew: true);
+    } catch (error, stack) {
+      // As in createVisitRecord: only an action error rethrown after a
+      // successful rollback proves the new graded photo was not stored.
+      if (identical(error, writeFailure)) {
+        Error.throwWithStackTrace(
+          VisitRecordNotCommittedException(error),
+          stack,
         );
-    await _touchPlan(planId);
+      }
+      rethrow;
+    }
     return _visitRecordFromRow(await _visitRecordRowById(planId, recordId));
   }
 
@@ -1238,12 +1435,26 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     );
   }
 
-  Future<void> _repairManagedFilePathsIfNeeded() async {
-    if (_managedPathRepairAttempted) {
-      return;
+  Future<void> _repairManagedFilePathsIfNeeded() {
+    final existing = _managedPathRepair;
+    if (existing != null) {
+      return existing;
     }
-    _managedPathRepairAttempted = true;
+    // Path repair is best-effort housekeeping: a failure must not stop plans
+    // from loading. It is cleared so a later load can try again.
+    late final Future<void> repair;
+    repair = (managedPathRepairForTesting ?? _repairManagedFilePaths)()
+        .catchError((Object error) {
+          debugPrint('Managed file path repair failed: $error');
+          if (identical(_managedPathRepair, repair)) {
+            _managedPathRepair = null;
+          }
+        });
+    _managedPathRepair = repair;
+    return repair;
+  }
 
+  Future<void> _repairManagedFilePaths() async {
     final pointRows = await _database.select(_database.points).get();
     final pointCandidates = pointRows
         .where(_pointNeedsManagedPathRepair)
@@ -1360,6 +1571,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
     final storagePointIds = _storageIds(planId, pointIds);
     await _database.transaction(() async {
+      final previousCurrentPoint = await _currentPointModel(planId);
       final deletedCurrentPoint =
           await (_database.select(_database.points)
                 ..where(
@@ -1379,7 +1591,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
           .go();
 
       if (deletedCurrentPoint) {
-        await _setFirstPendingPointCurrent(planId);
+        await _setFirstPendingPointCurrent(
+          planId,
+          after: previousCurrentPoint,
+        );
       }
 
       await _touchPlan(planId);
@@ -1504,25 +1719,60 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return result.read<int>('next_order_index');
   }
 
+  /// Inserts [work], or only fills columns missing from the stored row: an
+  /// embedded (possibly stale) work copy on a point must never overwrite or
+  /// clear the plan's shared work. Same rule as the sample repository.
   Future<void> _upsertWork({
     required String planId,
     required PilgrimageWork work,
   }) async {
-    await _database
-        .into(_database.works)
-        .insertOnConflictUpdate(
-          WorksCompanion.insert(
-            id: _storageId(planId, work.id),
-            planId: planId,
-            bangumiId: Value(work.bangumiId),
-            bangumiSubjectType: Value(work.bangumiSubjectType?.name),
-            coverImageUrl: Value(work.coverImageUrl),
-            title: work.title,
-            subtitle: work.subtitle,
-            city: work.city,
-            source: work.source.name,
-          ),
-        );
+    final storageId = _storageId(planId, work.id);
+    final existing = await (_database.select(
+      _database.works,
+    )..where((table) => table.id.equals(storageId))).getSingleOrNull();
+    if (existing == null) {
+      await _database
+          .into(_database.works)
+          .insert(
+            WorksCompanion.insert(
+              id: storageId,
+              planId: planId,
+              bangumiId: Value(work.bangumiId),
+              bangumiSubjectType: Value(work.bangumiSubjectType?.name),
+              coverImageUrl: Value(work.coverImageUrl),
+              title: work.title,
+              subtitle: work.subtitle,
+              city: work.city,
+              source: work.source.name,
+            ),
+          );
+      return;
+    }
+
+    final stored = _workFromRow(existing, planId);
+    final merged = fillMissingWorkFields(stored, work);
+    Value<T> changed<T>(T storedValue, T mergedValue) =>
+        storedValue == mergedValue ? const Value.absent() : Value(mergedValue);
+    final update = WorksCompanion(
+      bangumiId: changed(stored.bangumiId, merged.bangumiId),
+      bangumiSubjectType: stored.bangumiSubjectType == merged.bangumiSubjectType
+          ? const Value.absent()
+          : Value(merged.bangumiSubjectType?.name),
+      coverImageUrl: changed(stored.coverImageUrl, merged.coverImageUrl),
+      title: changed(stored.title, merged.title),
+      subtitle: changed(stored.subtitle, merged.subtitle),
+      city: changed(stored.city, merged.city),
+    );
+    if (update.bangumiId.present ||
+        update.bangumiSubjectType.present ||
+        update.coverImageUrl.present ||
+        update.title.present ||
+        update.subtitle.present ||
+        update.city.present) {
+      await (_database.update(
+        _database.works,
+      )..where((table) => table.id.equals(storageId))).write(update);
+    }
   }
 
   Future<void> _insertPilgrimagePlanGroup({
@@ -2001,28 +2251,45 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
     return currentPoint != null;
   }
 
-  Future<void> _setFirstPendingPointCurrent(String planId) async {
+  /// The plan's current point as a model, read before a bulk change removes
+  /// or completes it so the next target can continue from its group.
+  Future<PilgrimagePoint?> _currentPointModel(String planId) async {
+    final plan = await _planFromRow(await _planRowById(planId));
+    return plan.points
+        .where((point) => point.id == plan.currentPointId)
+        .firstOrNull;
+  }
+
+  /// Picks the next target with the same group walk as the UI and the sample
+  /// repository: continue after [after]'s group when given, otherwise start
+  /// with the first group; ungrouped points come last.
+  Future<void> _setFirstPendingPointCurrent(
+    String planId, {
+    PilgrimagePoint? after,
+  }) async {
     await _clearCurrentPoint(planId);
-    final nextPoint =
-        await (_database.select(_database.points)
-              ..where(
-                (table) =>
-                    table.planId.equals(planId) &
-                    table.completedAt.isNull() &
-                    (table.latitude.equals(-90) & table.longitude.equals(0))
-                        .not(),
-              )
-              ..orderBy([(table) => OrderingTerm.asc(table.sortOrder)])
-              ..limit(1))
-            .getSingleOrNull();
+    final plan = await _planFromRow(await _planRowById(planId));
+    final nextPoint = after == null
+        ? firstPendingPointInPlanOrder(
+            points: plan.points,
+            groups: plan.groups,
+            completedPointIds: plan.completedPointIds,
+          )
+        : nextPendingPointAfterCompletion(
+            points: plan.points,
+            groups: plan.groups,
+            completedPoint: after,
+            completedPointIds: plan.completedPointIds,
+          );
 
     if (nextPoint == null) {
       return;
     }
 
+    final storagePointId = _storageId(planId, nextPoint.id);
     await (_database.update(_database.points)..where(
           (table) =>
-              table.planId.equals(planId) & table.id.equals(nextPoint.id),
+              table.planId.equals(planId) & table.id.equals(storagePointId),
         ))
         .write(const PointsCompanion(isCurrent: Value(true)));
   }

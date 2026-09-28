@@ -1,6 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 
 import '../map/current_location_resolver.dart';
+import 'visit_record_save_assets.dart';
 
 class PhotoLocationData {
   const PhotoLocationData({
@@ -41,6 +42,23 @@ typedef CurrentPositionResolver = Future<Position> Function();
 typedef PhotoLocationPermissionReader = Future<LocationPermission> Function();
 typedef PhotoLocationWriter =
     Future<bool> Function(String path, PhotoLocationData location);
+
+class PreparedPhotoLocation extends PreparedRecordImage {
+  const PreparedPhotoLocation({
+    required super.path,
+    required this.written,
+    super.discard,
+  });
+
+  final bool written;
+}
+
+typedef PhotoLocationPreparer =
+    Future<PreparedPhotoLocation> Function({
+      required String sourcePath,
+      required PhotoLocationData location,
+      required PhotoLocationWriter writer,
+    });
 
 Future<PhotoLocationData> resolveRecentPhotoLocation({
   LastKnownPositionReader? getLastKnownPosition,

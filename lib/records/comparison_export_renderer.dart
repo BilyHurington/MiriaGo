@@ -6,9 +6,25 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'comparison_export_config.dart';
+import 'comparison_export_budget.dart';
+import 'comparison_export_encoding.dart';
+import '../data/bounded_image_decoder.dart';
+
+class ComparisonRenderInputs {
+  const ComparisonRenderInputs({
+    required this.referenceBytes,
+    required this.capturedBytes,
+  });
+  final Uint8List? referenceBytes;
+  final Uint8List capturedBytes;
+}
 
 class ComparisonExportRenderer {
-  const ComparisonExportRenderer();
+  const ComparisonExportRenderer({
+    this.budget = const ComparisonRenderBudget(),
+  });
+  final ComparisonRenderBudget budget;
+  static Future<void> _tail = Future.value();
 
   static const double inset = 18.0;
   static const double imageGap = 14.0;
@@ -21,130 +37,238 @@ class ComparisonExportRenderer {
     required Map<ComparisonMetadataField, String> metadata,
     required String? colorGradingSummary,
   }) async {
-    final refImg = referenceBytes != null
-        ? await _decodeImage(referenceBytes)
-        : null;
-    final capImg = await _decodeImage(capturedBytes);
-    if (capImg == null) return null;
-
-    final fixedWidth = config.outputWidth.px;
-    final borderPct = config.borderWidthPercent;
-    final hasBorder = borderPct > 0;
-    final effectiveInset = hasBorder ? inset : 0.0;
-    final effectiveImageGap = hasBorder ? imageGap : 0.0;
-
-    final double outputWidth;
-    if (fixedWidth != null) {
-      outputWidth = fixedWidth.toDouble();
-    } else {
-      var maxImgW = capImg.width.toDouble();
-      if (refImg != null && refImg.width > maxImgW) {
-        maxImgW = refImg.width.toDouble();
+    try {
+      return (await renderEncoded(
+        referenceBytes: referenceBytes,
+        capturedBytes: capturedBytes,
+        config: config,
+        metadata: metadata,
+        colorGradingSummary: colorGradingSummary,
+      )).bytes;
+    } on ImageBudgetException catch (error) {
+      if (error.kind == ImageBudgetFailure.invalidData ||
+          error.kind == ImageBudgetFailure.unsupported) {
+        return null;
       }
-      outputWidth = ((maxImgW + 2 * effectiveInset) / (1 - 2 * borderPct / 100))
-          .roundToDouble();
+      rethrow;
     }
+  }
 
-    final borderPx = (outputWidth * borderPct / 100).roundToDouble();
-    final contentWidth = outputWidth - 2 * borderPx - 2 * effectiveInset;
+  Future<EncodedComparisonImage> renderEncoded({
+    required Uint8List? referenceBytes,
+    required Uint8List capturedBytes,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
+  }) => renderLoaded(
+    loadSources: () async => ComparisonRenderInputs(
+      referenceBytes: referenceBytes,
+      capturedBytes: capturedBytes,
+    ),
+    config: config,
+    metadata: metadata,
+    colorGradingSummary: colorGradingSummary,
+  );
 
-    var refHeight = 0.0;
-    if (refImg != null) {
-      refHeight = refImg.height / refImg.width * contentWidth;
-    }
-    final capHeight = capImg.height / capImg.width * contentWidth;
-
-    final metaLayout = _ComparisonMetaLayout.from(
-      width: contentWidth,
-      config: config,
-      metadata: metadata,
-      colorGradingSummary: colorGradingSummary,
-    );
-
-    final imgAreaHeight =
-        (refImg != null ? refHeight + effectiveImageGap : 0) + capHeight;
-    final metaGap = metaLayout.hasContent ? effectiveInset : 0.0;
-    final totalHeight =
-        borderPx * 2 +
-        effectiveInset * 2 +
-        imgAreaHeight +
-        metaGap +
-        metaLayout.height;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(
-      recorder,
-      Rect.fromLTWH(0, 0, outputWidth, totalHeight),
-    );
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, outputWidth, totalHeight),
-        Radius.circular(hasBorder ? 16.0 : 0),
-      ),
-      Paint()..color = Colors.white,
-    );
-
-    var y = borderPx + effectiveInset;
-    if (refImg != null) {
-      _drawLabeledImage(
-        canvas,
-        refImg,
-        borderPx + effectiveInset,
-        y,
-        contentWidth,
-        refHeight,
-        config.showLabels ? '参考' : '',
+  // Load encoded files inside the same gate: queued exports must not accumulate
+  // full source buffers while another job is decoding, drawing or encoding.
+  Future<EncodedComparisonImage> renderLoaded({
+    required Future<ComparisonRenderInputs> Function() loadSources,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
+  }) async {
+    final previous = _tail;
+    final done = Completer<void>();
+    _tail = done.future;
+    await previous;
+    try {
+      final inputs = await loadSources();
+      return await _render(
+        inputs: inputs,
+        config: config,
+        metadata: metadata,
+        colorGradingSummary: colorGradingSummary,
       );
-      y += refHeight + effectiveImageGap;
+    } finally {
+      done.complete();
     }
+  }
 
-    _drawLabeledImage(
-      canvas,
-      capImg,
-      borderPx + effectiveInset,
-      y,
-      contentWidth,
-      capHeight,
-      config.showLabels ? '巡礼' : '',
-    );
-    y += capHeight + metaGap;
+  Future<EncodedComparisonImage> _render({
+    required ComparisonRenderInputs inputs,
+    required ComparisonExportConfig config,
+    required Map<ComparisonMetadataField, String> metadata,
+    required String? colorGradingSummary,
+  }) async {
+    ui.Image? refImg;
+    ui.Image? capImg;
+    ui.Picture? picture;
+    ui.Image? output;
+    ui.PictureRecorder? activeRecorder;
+    try {
+      final referenceBytes = inputs.referenceBytes;
+      final refInfo = referenceBytes == null
+          ? null
+          : await probeBoundedImage(referenceBytes);
+      final capInfo = await probeBoundedImage(inputs.capturedBytes);
 
-    if (metaLayout.hasContent) {
-      _drawMetadata(
-        canvas,
-        borderPx + effectiveInset,
-        y,
-        contentWidth,
-        metaLayout,
+      final fixedWidth = config.outputWidth.px;
+      final borderPct = config.borderWidthPercent;
+      final hasBorder = borderPct > 0;
+      final effectiveInset = hasBorder ? inset : 0.0;
+      final effectiveImageGap = hasBorder ? imageGap : 0.0;
+
+      final double outputWidth;
+      if (fixedWidth != null) {
+        outputWidth = fixedWidth.toDouble();
+      } else {
+        var maxImgW = capInfo.width.toDouble();
+        if (refInfo != null && refInfo.width > maxImgW) {
+          maxImgW = refInfo.width.toDouble();
+        }
+        outputWidth =
+            ((maxImgW + 2 * effectiveInset) / (1 - 2 * borderPct / 100))
+                .roundToDouble();
+      }
+
+      final borderPx = (outputWidth * borderPct / 100).roundToDouble();
+      final contentWidth = outputWidth - 2 * borderPx - 2 * effectiveInset;
+
+      var refHeight = 0.0;
+      if (refInfo != null) {
+        refHeight = refInfo.height / refInfo.width * contentWidth;
+      }
+      final capHeight = capInfo.height / capInfo.width * contentWidth;
+
+      final metaLayout = _ComparisonMetaLayout.from(
+        width: contentWidth,
+        config: config,
+        metadata: metadata,
+        colorGradingSummary: colorGradingSummary,
       );
-    }
 
-    if (hasBorder) {
+      final imgAreaHeight =
+          (refInfo != null ? refHeight + effectiveImageGap : 0) + capHeight;
+      final metaGap = metaLayout.hasContent ? effectiveInset : 0.0;
+      final totalHeight =
+          borderPx * 2 +
+          effectiveInset * 2 +
+          imgAreaHeight +
+          metaGap +
+          metaLayout.height;
+
+      final size = budget.fit(outputWidth, totalHeight);
+      ImageDecodeTarget targetFor(double height) => ImageDecodeTarget(
+        maxEdge: max(1, (max(contentWidth, height) * size.scale).ceil()),
+        maxPixels: max(
+          1,
+          (contentWidth * height * size.scale * size.scale).floor(),
+        ),
+      );
+      if (referenceBytes != null) {
+        refImg = await decodeBoundedImage(
+          referenceBytes,
+          target: targetFor(refHeight),
+        );
+      }
+      capImg = await decodeBoundedImage(
+        inputs.capturedBytes,
+        target: targetFor(capHeight),
+      );
+
+      final recorder = ui.PictureRecorder();
+      activeRecorder = recorder;
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, size.width.toDouble(), size.height.toDouble()),
+      );
+      canvas.scale(size.scale);
+
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            borderPx / 2,
-            borderPx / 2,
-            outputWidth - borderPx,
-            totalHeight - borderPx,
-          ),
-          const Radius.circular(16),
+          Rect.fromLTWH(0, 0, outputWidth, totalHeight),
+          Radius.circular(hasBorder ? 16.0 : 0),
         ),
-        Paint()
-          ..color = config.borderColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = borderPx,
+        Paint()..color = Colors.white,
       );
+
+      var y = borderPx + effectiveInset;
+      if (refImg != null) {
+        _drawLabeledImage(
+          canvas,
+          refImg,
+          borderPx + effectiveInset,
+          y,
+          contentWidth,
+          refHeight,
+          config.showLabels ? '参考' : '',
+        );
+        y += refHeight + effectiveImageGap;
+      }
+
+      _drawLabeledImage(
+        canvas,
+        capImg,
+        borderPx + effectiveInset,
+        y,
+        contentWidth,
+        capHeight,
+        config.showLabels ? '巡礼' : '',
+      );
+      y += capHeight + metaGap;
+
+      if (metaLayout.hasContent) {
+        _drawMetadata(
+          canvas,
+          borderPx + effectiveInset,
+          y,
+          contentWidth,
+          metaLayout,
+        );
+      }
+
+      if (hasBorder) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              borderPx / 2,
+              borderPx / 2,
+              outputWidth - borderPx,
+              totalHeight - borderPx,
+            ),
+            const Radius.circular(16),
+          ),
+          Paint()
+            ..color = config.borderColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = borderPx,
+        );
+      }
+
+      picture = recorder.endRecording();
+      output = await picture.toImage(size.width, size.height);
+      picture.dispose();
+      picture = null;
+      capImg.dispose();
+      capImg = null;
+      refImg?.dispose();
+      refImg = null;
+      final raster = output;
+      output = null;
+      return await encodeAndDisposeComparisonImage(
+        raster,
+        config.imageEncoding,
+      );
+    } finally {
+      if (activeRecorder?.isRecording ?? false) {
+        activeRecorder!.endRecording().dispose();
+      }
+      output?.dispose();
+      picture?.dispose();
+      capImg?.dispose();
+      refImg?.dispose();
     }
-
-    final picture = recorder.endRecording();
-    final img = await picture.toImage(outputWidth.toInt(), totalHeight.toInt());
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    refImg?.dispose();
-    capImg.dispose();
-
-    return byteData?.buffer.asUint8List();
   }
 
   void _drawLabeledImage(
@@ -198,6 +322,7 @@ class ComparisonExportRenderer {
       );
 
       labelPainter.paint(canvas, Offset(x + 10 + hPad, y + 8 + vPad));
+      labelPainter.dispose();
     }
   }
 
@@ -235,6 +360,7 @@ class ComparisonExportRenderer {
       )..layout(maxWidth: layout.mainWidth);
       titlePainter.paint(canvas, Offset(x + layout.paddingH, currentY));
       currentY += titlePainter.height + layout.titleSubtitleGap;
+      titlePainter.dispose();
     }
 
     if (layout.subtitle.isNotEmpty) {
@@ -255,6 +381,7 @@ class ComparisonExportRenderer {
       )..layout(maxWidth: layout.mainWidth);
       subtitlePainter.paint(canvas, Offset(x + layout.paddingH, currentY));
       currentY += subtitlePainter.height;
+      subtitlePainter.dispose();
     }
 
     if (layout.tags.isNotEmpty) {
@@ -298,6 +425,7 @@ class ComparisonExportRenderer {
           ),
         );
         tagX += tagWidth + layout.tagGap;
+        tagPainter.dispose();
       }
     }
 
@@ -348,6 +476,8 @@ class ComparisonExportRenderer {
           signatureY + labelPainter.height + layout.pilgrimGap,
         ),
       );
+      labelPainter.dispose();
+      namePainter.dispose();
     }
 
     if (layout.colorGradingSummary.isNotEmpty) {
@@ -373,14 +503,17 @@ class ComparisonExportRenderer {
           y + layout.height - layout.paddingV - summaryPainter.height,
         ),
       );
+      summaryPainter.dispose();
     }
   }
+}
 
-  Future<ui.Image?> _decodeImage(Uint8List bytes) {
-    final completer = Completer<ui.Image?>();
-    ui.decodeImageFromList(bytes, (img) => completer.complete(img));
-    return completer.future;
-  }
+// maxLines bounds visible output, not shaping work. Bound the input before
+// trimming, concatenating or handing it to any measuring/drawing TextPainter.
+String _boundedLayoutText(String value, {int maxRunes = 512}) {
+  final prefix = value.runes.take(maxRunes + 1).toList(growable: false);
+  final text = String.fromCharCodes(prefix.take(maxRunes)).trim();
+  return prefix.length > maxRunes ? '$text...' : text;
 }
 
 class _ComparisonMetaLayout {
@@ -462,7 +595,9 @@ class _ComparisonMetaLayout {
     final tagPadV = 8.0 * scale;
     final radius = 12.0 * scale;
     final tagRadius = 6.0 * scale;
-    final pilgrimName = config.showPilgrimName ? config.pilgrimName.trim() : '';
+    final pilgrimName = config.showPilgrimName
+        ? _boundedLayoutText(config.pilgrimName)
+        : '';
     final signatureWidth = pilgrimName.isEmpty
         ? 0.0
         : min(width * 0.28, 300.0 * scale);
@@ -476,12 +611,12 @@ class _ComparisonMetaLayout {
     final pilgrimGap = 8.0 * scale;
     final gradingFontSize = 17.0 * scale;
     final gradingSummary = config.showColorGradingParams
-        ? (colorGradingSummary?.trim() ?? '')
+        ? _boundedLayoutText(colorGradingSummary ?? '', maxRunes: 1024)
         : '';
 
     String value(ComparisonMetadataField field) {
       if (!config.metadataFields.contains(field)) return '';
-      return metadata[field]?.trim() ?? '';
+      return _boundedLayoutText(metadata[field] ?? '');
     }
 
     final point = value(ComparisonMetadataField.pointName);
@@ -528,7 +663,9 @@ class _ComparisonMetaLayout {
         maxLines: maxLines,
         ellipsis: '...',
       )..layout(maxWidth: mainWidth);
-      return painter.height;
+      final height = painter.height;
+      painter.dispose();
+      return height;
     }
 
     final titleHeight = textHeight(title, titleFontSize, FontWeight.w800, 1.12);
@@ -557,6 +694,7 @@ class _ComparisonMetaLayout {
           ellipsis: '...',
         )..layout(maxWidth: maxTagAreaWidth);
         final itemWidth = painter.width + tagPadH * 2;
+        painter.dispose();
         final needed = rowWidth == 0
             ? itemWidth
             : rowWidth + tagGap + itemWidth;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../map/map_colors.dart';
 import '../widgets/responsive_button.dart';
 import '../data/anitabi_image_source_scope.dart';
 import '../widgets/auto_caching_reference_thumbnail.dart';
+import '../data/app_file_reclamation.dart';
 import '../data/pilgrimage_repository.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_tile_config.dart';
@@ -55,11 +57,34 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       .where((point) => point.groupId == null && point.hasCoordinate)
       .toList(growable: false);
 
-  List<PilgrimagePlanGroup> get _targetGroups => sortGroupsByPlanOrder(
-    _plan.groups.where(
-      (group) => group.anchorLatitude != null && group.anchorLongitude != null,
-    ),
-  );
+  // Anchors and the sorted group list only change with the plan; building
+  // them once per plan keeps the distance slider responsive for large
+  // imports (they were recomputed for every point on every frame).
+  PilgrimagePlan? _anchorsPlan;
+  Map<String, LatLng> _anchorsByGroupId = const {};
+  List<PilgrimagePlanGroup> _sortedTargetGroups = const [];
+
+  void _refreshAnchors() {
+    if (identical(_anchorsPlan, _plan)) return;
+    _anchorsPlan = _plan;
+    _anchorsByGroupId = {
+      for (final group in _plan.groups)
+        group.id: ?resolvedGroupAnchorPosition(group, _plan.points),
+    };
+    _sortedTargetGroups = sortGroupsByPlanOrder(
+      _plan.groups.where((group) => _anchorsByGroupId.containsKey(group.id)),
+    );
+  }
+
+  List<PilgrimagePlanGroup> get _targetGroups {
+    _refreshAnchors();
+    return _sortedTargetGroups;
+  }
+
+  LatLng? _anchorOf(PilgrimagePlanGroup group) {
+    _refreshAnchors();
+    return _anchorsByGroupId[group.id];
+  }
 
   Map<String, Set<String>> get _assignments {
     final assignments = <String, Set<String>>{};
@@ -68,10 +93,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       if (nearest == null) {
         continue;
       }
-      final meters = _distance(
-        point.position,
-        LatLng(nearest.anchorLatitude!, nearest.anchorLongitude!),
-      );
+      final meters = _distance(point.position, _anchorOf(nearest)!);
       if (meters <= _distanceMeters) {
         assignments.putIfAbsent(nearest.id, () => {}).add(point.id);
       }
@@ -123,10 +145,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                   circles: [
                     for (final group in _targetGroups)
                       CircleMarker(
-                        point: LatLng(
-                          group.anchorLatitude!,
-                          group.anchorLongitude!,
-                        ),
+                        point: _anchorOf(group)!,
                         radius: _distanceMeters,
                         useRadiusInMeter: true,
                         color: AppColors.accent.withValues(alpha: 0.12),
@@ -141,10 +160,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
                   markers: [
                     for (final group in _targetGroups)
                       Marker(
-                        point: LatLng(
-                          group.anchorLatitude!,
-                          group.anchorLongitude!,
-                        ),
+                        point: _anchorOf(group)!,
                         width: scaledMapMarkerDimension(
                           38,
                           widget.settings.mapMarkerScale,
@@ -238,8 +254,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
   LatLng get _mapCenter {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
-      for (final group in _targetGroups)
-        LatLng(group.anchorLatitude!, group.anchorLongitude!),
+      for (final group in _targetGroups) _anchorOf(group)!,
     ];
     if (positions.isEmpty) {
       return previewCurrentLocation;
@@ -256,11 +271,9 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
   PilgrimagePlanGroup? _nearestGroupFor(PilgrimagePoint point) {
     PilgrimagePlanGroup? nearestGroup;
     var nearestMeters = double.infinity;
-    for (final group in _targetGroups) {
-      final meters = _distance(
-        point.position,
-        LatLng(group.anchorLatitude!, group.anchorLongitude!),
-      );
+    final groups = _targetGroups;
+    for (final group in groups) {
+      final meters = _distance(point.position, _anchorsByGroupId[group.id]!);
       if (meters < nearestMeters) {
         nearestMeters = meters;
         nearestGroup = group;
@@ -274,10 +287,7 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     if (group == null) {
       return null;
     }
-    return _distance(
-      point.position,
-      LatLng(group.anchorLatitude!, group.anchorLongitude!),
-    );
+    return _distance(point.position, _anchorOf(group)!);
   }
 
   bool _isAssignable(PilgrimagePoint point) {
@@ -322,41 +332,67 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     setState(() {
       _isSaving = true;
     });
+    final PilgrimagePlan updatedPlan;
     try {
-      await widget.repository.saveAppSettings(
-        widget.settings.copyWith(nearestAssignDistanceMeters: _distanceMeters),
-      );
-      var updatedPlan = _plan;
-      for (final entry in assignments.entries) {
-        updatedPlan = await widget.repository.movePointsToGroup(
-          planId: updatedPlan.id,
-          pointIds: entry.value,
-          groupId: entry.key,
-        );
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _plan = updatedPlan;
-        _selectedPoint = null;
-        _didUpdate = true;
-        _isSaving = false;
-      });
-      ScaffoldMessenger.of(context).showStatusSnack(
-        kind: AppStatusBannerKind.success,
-        title: '已分配 $count 个点位',
+      // One atomic write: either every point moves or none does.
+      updatedPlan = await widget.repository.assignPointsToGroups(
+        planId: _plan.id,
+        groupIdsByPointId: {
+          for (final entry in assignments.entries)
+            for (final pointId in entry.value) pointId: entry.key,
+        },
       );
     } catch (_) {
+      final reloadedPlan = await _reloadPlan();
       if (!mounted) {
         return;
       }
       setState(() {
+        if (reloadedPlan != null) {
+          _plan = reloadedPlan;
+        }
+        _selectedPoint = null;
         _isSaving = false;
       });
       ScaffoldMessenger.of(
         context,
       ).showStatusSnack(kind: AppStatusBannerKind.error, title: '最近分配失败');
+      return;
+    }
+
+    // The distance is remembered only after the assignment was stored.
+    var settingsSaved = true;
+    try {
+      final settings = await widget.repository.loadAppSettings();
+      await widget.repository.saveAppSettings(
+        settings.copyWith(nearestAssignDistanceMeters: _distanceMeters),
+      );
+    } catch (_) {
+      settingsSaved = false;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _plan = updatedPlan;
+      _selectedPoint = null;
+      _didUpdate = true;
+      _isSaving = false;
+    });
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: settingsSaved
+          ? AppStatusBannerKind.success
+          : AppStatusBannerKind.warning,
+      title: settingsSaved ? '已分配 $count 个点位' : '已分配 $count 个点位，距离设置未保存',
+    );
+  }
+
+  Future<PilgrimagePlan?> _reloadPlan() async {
+    try {
+      final plans = await widget.repository.loadPlans();
+      return plans.where((plan) => plan.id == _plan.id).firstOrNull;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -426,6 +462,9 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
       planId: _plan.id,
       pointId: point.id,
     );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
+    );
     if (!mounted) {
       return;
     }
@@ -469,6 +508,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
       .toList(growable: false);
 
   List<PilgrimagePlanGroup> get _groups => sortGroupsByPlanOrder(_plan.groups);
+
+  LatLng? _anchorOf(PilgrimagePlanGroup group) =>
+      resolvedGroupAnchorPosition(group, _plan.points);
 
   PilgrimagePlanGroup? get _targetGroup {
     final groupId = _targetGroupId;
@@ -558,13 +600,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
                 MarkerLayer(
                   markers: [
                     for (final group in _groups)
-                      if (group.anchorLatitude != null &&
-                          group.anchorLongitude != null)
+                      if (_anchorOf(group) case final anchor?)
                         Marker(
-                          point: LatLng(
-                            group.anchorLatitude!,
-                            group.anchorLongitude!,
-                          ),
+                          point: anchor,
                           width: scaledMapMarkerDimension(
                             38,
                             widget.settings.mapMarkerScale,
@@ -693,9 +731,7 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
   LatLng get _mapCenter {
     final positions = [
       for (final point in _ungroupedPoints) point.position,
-      for (final group in _groups)
-        if (group.anchorLatitude != null && group.anchorLongitude != null)
-          LatLng(group.anchorLatitude!, group.anchorLongitude!),
+      for (final group in _groups) ?_anchorOf(group),
     ];
     if (positions.isEmpty) {
       return previewCurrentLocation;
@@ -903,6 +939,9 @@ class _BoxGroupAssignScreenState extends State<BoxGroupAssignScreen> {
     final updatedPlan = await widget.repository.deletePointFromPlan(
       planId: _plan.id,
       pointId: point.id,
+    );
+    unawaited(
+      reclaimDeletedPointFiles(repository: widget.repository, points: [point]),
     );
     if (!mounted) {
       return;

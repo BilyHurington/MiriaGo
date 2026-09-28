@@ -30,13 +30,7 @@ pub fn ensure_data_dirs() -> Result<DataDirs, String> {
             env::var_os("APPIMAGE").is_some() || env::var_os("APPDIR").is_some(),
         );
     }
-    match create_data_dirs(portable_dir.clone(), true, false) {
-        Ok(dirs) => Ok(dirs),
-        Err(_) => {
-            let fallback_dir = system_data_dir()?;
-            create_data_dirs(fallback_dir, false, true)
-        }
-    }
+    windows_data_dirs(&portable_dir, &system_data_dir()?)
 }
 
 fn has_user_data(dir: &Path) -> Result<bool, String> {
@@ -83,10 +77,32 @@ fn linux_data_dirs(
         return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
     }
 
+    // A shipped MiriaGoData directory opts the ZIP into portable mode.
+    if !portable_dir.is_dir() {
+        return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
+    }
+    portable_or_fallback_data_dirs(portable_dir, system_dir)
+}
+
+// Windows is portable-only (README): MiriaGoData beside the exe is used, and
+// created when missing, but it must actually be writable. An existing
+// MiriaGoData directory left read-only (e.g. extracted under Program Files)
+// previously passed create_dir_all and then failed when opening the database.
+fn windows_data_dirs(portable_dir: &Path, system_dir: &Path) -> Result<DataDirs, String> {
+    portable_or_fallback_data_dirs(portable_dir, system_dir)
+}
+
+// Shared Linux-ZIP/Windows policy: prefer writable portable storage; when it
+// has no data yet and is not writable, fall back to the system directory;
+// existing portable data that is not writable is an error rather than a
+// silent switch to an empty database. An empty portable directory reuses an
+// existing system database (e.g. after moving a ZIP that previously fell back).
+fn portable_or_fallback_data_dirs(
+    portable_dir: &Path,
+    system_dir: &Path,
+) -> Result<DataDirs, String> {
     let existing_portable = has_user_data(portable_dir)?;
-    // A shipped MiriaGoData directory opts the ZIP into portable mode. Retain
-    // an existing system database when a previously unwritable ZIP is moved.
-    if !portable_dir.is_dir() || (!existing_portable && has_user_data(system_dir)?) {
+    if !existing_portable && has_user_data(system_dir)? {
         return create_writable_data_dirs(system_dir.to_path_buf(), false, false);
     }
     match create_writable_data_dirs(portable_dir.to_path_buf(), true, false) {
@@ -143,6 +159,18 @@ fn create_writable_data_dirs(
 }
 
 fn verify_writable(dir: &Path) -> Result<(), String> {
+    verify_writable_with(dir, |path| fs::remove_file(path))
+}
+
+// A directory counts as writable once the probe file was created and written.
+// Deleting the probe can fail transiently on Windows (antivirus or the search
+// indexer briefly holding the new file); that says nothing about whether the
+// app can write its data, so it is retried and then only reported. Treating it
+// as "not writable" made the app refuse to open existing portable data.
+fn verify_writable_with(
+    dir: &Path,
+    remove: impl Fn(&Path) -> std::io::Result<()>,
+) -> Result<(), String> {
     static NEXT_PROBE: AtomicU64 = AtomicU64::new(0);
     let path = dir.join(format!(
         ".miriago-write-probe-{}-{}",
@@ -154,12 +182,29 @@ fn verify_writable(dir: &Path) -> Result<(), String> {
         .create_new(true)
         .open(&path)
         .map_err(|error| format!("cannot write to {}: {error}", dir.display()))?;
-    let result = file.write_all(b"miriago");
+    let result = file.write_all(b"miriago").and_then(|()| file.flush());
     drop(file);
-    let cleanup = fs::remove_file(&path);
-    result
-        .and(cleanup)
-        .map_err(|error| format!("cannot write to {}: {error}", dir.display()))
+    remove_write_probe(&path, remove);
+    result.map_err(|error| format!("cannot write to {}: {error}", dir.display()))
+}
+
+fn remove_write_probe(path: &Path, remove: impl Fn(&Path) -> std::io::Result<()>) {
+    const ATTEMPTS: u32 = 3;
+    for attempt in 1..=ATTEMPTS {
+        match remove(path) {
+            Ok(()) => return,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(error) if attempt == ATTEMPTS => {
+                // startup_log writes through ensure_data_dirs, so it cannot be
+                // used here without recursing.
+                eprintln!(
+                    "MiriaGo: could not remove write probe {}: {error}",
+                    path.display()
+                );
+            }
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    }
 }
 
 fn portable_data_dir() -> PathBuf {
@@ -188,7 +233,7 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
     };
 
-    use super::{linux_data_dirs, portable_data_dir_for_exe};
+    use super::{linux_data_dirs, portable_data_dir_for_exe, windows_data_dirs};
 
     struct TestDirs(PathBuf);
 
@@ -341,6 +386,131 @@ mod tests {
         fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o755)).unwrap();
         assert!(result.is_err(), "Run storage tests as a non-root user");
         assert!(!root.system().exists());
+    }
+
+    #[test]
+    fn windows_creates_missing_portable_directory() {
+        let root = TestDirs::new();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert!(dirs.portable);
+        assert!(!dirs.fallback_used);
+        assert_eq!(dirs.data_dir, root.portable());
+        assert!(root.portable().join("assets").is_dir());
+        assert!(!root.system().exists());
+    }
+
+    #[test]
+    fn windows_portable_preserves_data_across_reopen() {
+        let root = TestDirs::new();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        fs::write(dirs.data_dir.join("miriago.sqlite"), b"existing").unwrap();
+        let reopened = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert!(reopened.portable);
+        assert_eq!(
+            fs::read(reopened.data_dir.join("miriago.sqlite")).unwrap(),
+            b"existing"
+        );
+    }
+
+    #[test]
+    fn windows_new_portable_failure_falls_back_but_existing_data_does_not() {
+        let root = TestDirs::new();
+        fs::create_dir_all(root.portable()).unwrap();
+        fs::write(root.portable().join("assets"), b"not a directory").unwrap();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert!(dirs.fallback_used);
+        assert!(!dirs.portable);
+        assert_eq!(dirs.data_dir, root.system());
+        fs::remove_dir_all(root.system()).unwrap();
+        fs::write(root.portable().join("miriago.sqlite"), b"legacy").unwrap();
+        assert!(windows_data_dirs(&root.portable(), &root.system()).is_err());
+        assert_eq!(
+            fs::read(root.portable().join("miriago.sqlite")).unwrap(),
+            b"legacy"
+        );
+    }
+
+    #[test]
+    fn windows_empty_portable_retains_previous_system_database() {
+        let root = TestDirs::new();
+        fs::create_dir_all(root.portable()).unwrap();
+        fs::create_dir_all(root.system()).unwrap();
+        fs::write(root.system().join("miriago.sqlite"), b"existing").unwrap();
+        let dirs = windows_data_dirs(&root.portable(), &root.system()).unwrap();
+        assert_eq!(dirs.data_dir, root.system());
+        assert!(!dirs.portable);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn windows_read_only_existing_portable_directory_is_verified() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = TestDirs::new();
+        // An existing, empty but read-only MiriaGoData (e.g. under Program
+        // Files) used to be accepted because create_dir_all succeeds.
+        super::create_data_dirs(root.portable(), true, false).unwrap();
+        for dir in ["", "assets", "exports", "logs", "temp"] {
+            fs::set_permissions(root.portable().join(dir), fs::Permissions::from_mode(0o555))
+                .unwrap();
+        }
+        let fallback = windows_data_dirs(&root.portable(), &root.system());
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(root.portable().join("miriago.sqlite"), b"legacy").unwrap();
+        fs::set_permissions(root.portable(), fs::Permissions::from_mode(0o555)).unwrap();
+        fs::remove_dir_all(root.system()).ok();
+        let existing = windows_data_dirs(&root.portable(), &root.system());
+        for dir in ["", "assets", "exports", "logs", "temp"] {
+            fs::set_permissions(root.portable().join(dir), fs::Permissions::from_mode(0o755))
+                .unwrap();
+        }
+        let fallback = fallback.expect("Run storage tests as a non-root user");
+        assert!(fallback.fallback_used);
+        assert_eq!(fallback.data_dir, root.system());
+        assert!(existing.is_err(), "Run storage tests as a non-root user");
+    }
+
+    #[test]
+    fn write_probe_cleanup_failure_still_counts_as_writable() {
+        use std::cell::Cell;
+        let root = TestDirs::new();
+        let attempts = Cell::new(0);
+        let result = super::verify_writable_with(&root.0, |_| {
+            attempts.set(attempts.get() + 1);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "locked by another process",
+            ))
+        });
+        assert!(result.is_ok());
+        assert_eq!(attempts.get(), 3);
+
+        // A transient lock that clears on retry removes the probe.
+        let attempts = Cell::new(0);
+        let result = super::verify_writable_with(&root.0, |path| {
+            attempts.set(attempts.get() + 1);
+            if attempts.get() == 1 {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "locked by another process",
+                ))
+            } else {
+                fs::remove_file(path)
+            }
+        });
+        assert!(result.is_ok());
+        assert_eq!(attempts.get(), 2);
+        let probes = fs::read_dir(&root.0)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".miriago-write-probe-")
+            })
+            .count();
+        // Only the probe whose removal always failed is left behind.
+        assert_eq!(probes, 1);
     }
 
     #[test]

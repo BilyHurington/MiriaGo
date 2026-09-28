@@ -64,7 +64,14 @@ MyMapsCsvExportResult buildMyMapsCsvExport({
     ]);
   }
 
-  final csv = rows.map((row) => row.map(_csvCell).join(',')).join('\r\n');
+  final csv = rows
+      .map(
+        (row) => [
+          for (var column = 0; column < row.length; column++)
+            _csvCell(row[column], numeric: _numericColumns.contains(column)),
+        ].join(','),
+      )
+      .join('\r\n');
   return MyMapsCsvExportResult(
     bytes: utf8.encode(csv),
     fileName: suggestMyMapsCsvFileName(plan: plan, exportedAt: exportTime),
@@ -80,8 +87,14 @@ String suggestMyMapsCsvFileName({
   return '${_safeFileName(plan.name, fallback: 'miriago_plan')}_mymaps_${_timestamp(exportedAt)}.$myMapsCsvExtension';
 }
 
-String _csvCell(String value) {
-  final escaped = _singleLine(value).replaceAll('"', '""');
+// Lat/Long must stay raw numbers so My Maps can place the points; every other
+// column is user text and gets formula-injection protection.
+const _numericColumns = {1, 2};
+
+String _csvCell(String value, {required bool numeric}) {
+  final line = _singleLine(value);
+  final text = numeric ? line : _neutralizeSpreadsheetFormula(line);
+  final escaped = text.replaceAll('"', '""');
   if (escaped.contains(',') ||
       escaped.contains('"') ||
       escaped.contains('\n') ||
@@ -90,6 +103,27 @@ String _csvCell(String value) {
   }
   return escaped;
 }
+
+// This file is meant for Google My Maps, which shows cell text verbatim, so a
+// leading apostrophe would appear in names like "+81 Cafe" or "-Tokyo-". Only
+// escape the characters that start a formula on their own when the file is
+// opened in a spreadsheet instead ('=' and '@', plus tab/CR). A leading '+' or
+// '-' is only escaped when the rest looks like a formula (a function call,
+// sheet reference, DDE pipe or arithmetic), so plain names stay verbatim.
+// Package-internal CSVs keep the stricter escaping.
+String _neutralizeSpreadsheetFormula(String value) {
+  if (value.isEmpty) {
+    return value;
+  }
+  if (const {'=', '@', '\t', '\r'}.contains(value[0])) return "'$value";
+  if ((value[0] == '+' || value[0] == '-') &&
+      _formulaLikePattern.hasMatch(value.substring(1))) {
+    return "'$value";
+  }
+  return value;
+}
+
+final _formulaLikePattern = RegExp(r'[(!|=]|^\s*[\d.]+\s*[-+*/^]');
 
 String _singleLine(String value) {
   return value.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();

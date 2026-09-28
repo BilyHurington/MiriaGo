@@ -34,10 +34,11 @@ class BangumiApiClient {
       body: jsonEncode({
         'keyword': query,
         'sort': 'match',
-        if (types.isNotEmpty)
-          'filter': {
+        'filter': {
+          'nsfw': false,
+          if (types.isNotEmpty)
             'type': types.map((type) => type.code).toList(growable: false),
-          },
+        },
       }),
     );
 
@@ -53,6 +54,12 @@ class BangumiApiClient {
 
     return data
         .whereType<Map<String, Object?>>()
+        // Treat missing/malformed safety flags as unknown, not as safe.
+        .where(
+          (subject) =>
+              subject['nsfw'] == false &&
+              (!subject.containsKey('adult') || subject['adult'] == false),
+        )
         .map(_workFromSubject)
         .toList(growable: false);
   }

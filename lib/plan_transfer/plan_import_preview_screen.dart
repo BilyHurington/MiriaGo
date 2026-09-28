@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../data/reference_asset_paths.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/snackbar_helper.dart';
 import 'plan_import_asset_restore.dart';
@@ -129,43 +130,104 @@ class _PlanImportPreviewScreenState extends State<PlanImportPreviewScreen> {
 
   Future<void> _importSelected() async {
     setState(() => _importing = true);
+    Map<String, String> restoredPaths = const {};
+    var repositoryAttempted = false;
+    var committed = false;
     try {
-      final restoredPaths = _includeAssets
-          ? await restorePlanImportAssets(_package)
+      restoredPaths = _includeAssets
+          ? await restorePlanImportAssets(
+              _package,
+              includeRecords: _includeRecords,
+            )
           : const <String, String>{};
       final restored = applyRestoredAssetPaths(
         importPackage: _package,
         restoredPaths: restoredPaths,
         includeRecords: _includeRecords,
       );
+      repositoryAttempted = true;
       final importedPlan = await widget.repository.importPlanPackage(
         plan: restored.plan,
         visitRecords: restored.visitRecords,
       );
+      committed = true;
+      var finalizationFailed = false;
+      if (restoredPaths is RestoredPlanImportAssets) {
+        try {
+          await restoredPaths.finalize();
+        } catch (_) {
+          finalizationFailed = true;
+        }
+      }
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showStatusSnack(
-        kind: restored.warnings.isEmpty
+        kind: restored.warnings.isEmpty && !finalizationFailed
             ? AppStatusBannerKind.success
             : AppStatusBannerKind.warning,
-        title: restored.warnings.isEmpty
+        title: finalizationFailed
+            ? '已导入计划「${importedPlan.name}」，资源确认未完成'
+            : restored.warnings.isEmpty
             ? '已导入计划「${importedPlan.name}」'
             : '已导入计划「${importedPlan.name}」，部分资源未恢复',
       );
       Navigator.of(context).pop(true);
     } catch (_) {
+      var cleanupIncomplete = false;
+      if (!committed && restoredPaths.isNotEmpty) {
+        try {
+          if (restoredPaths is RestoredPlanImportAssets &&
+              (!repositoryAttempted ||
+                  (restoredPaths.canDiscardAfterRepositoryRead &&
+                      await _assetsAreUnreferenced(restoredPaths)))) {
+            await restoredPaths.discard();
+          } else {
+            cleanupIncomplete = true;
+          }
+        } catch (_) {
+          cleanupIncomplete = true;
+        }
+      }
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '导入失败');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: cleanupIncomplete ? '导入未确认完成，已保留资源以避免误删' : '导入失败',
+      );
     } finally {
       if (mounted) {
         setState(() => _importing = false);
       }
     }
+  }
+
+  Future<bool> _assetsAreUnreferenced(Map<String, String> restoredPaths) async {
+    final paths = restoredPaths.values
+        .map(normalizeAssetPathSeparators)
+        .toSet();
+    bool referenced(String? path) =>
+        path != null && paths.contains(normalizeAssetPathSeparators(path));
+    // An import may commit and then fail while reading its result. Only remove
+    // assets if a successful repository read proves they are not referenced.
+    for (final plan in await widget.repository.loadPlans()) {
+      for (final point in plan.points) {
+        if (referenced(point.referenceThumbnailPath) ||
+            referenced(point.referenceFullImagePath)) {
+          return false;
+        }
+      }
+      for (final record in await widget.repository.loadVisitRecords(plan.id)) {
+        if (referenced(record.photoPath) ||
+            referenced(record.originalPhotoPath) ||
+            referenced(record.gradedPhotoPath) ||
+            referenced(record.referenceImagePath)) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   String get _assetImportSubtitle {

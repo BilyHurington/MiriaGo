@@ -118,7 +118,7 @@ async function fetchAnitabiStatic(fileName, version, upstreamValue) {
 async function serveAnitabiStatic(url, response) {
   const fileName = decodeURIComponent(url.pathname.split('/').pop() ?? '');
   const version = safeAnitabiVersion(url.searchParams.get('v') ?? '');
-  const upstream = url.searchParams.get('upstream') ?? 'https://ww.anitabi.cn/d';
+  const upstream = url.searchParams.get('upstream') ?? 'https://www.anitabi.cn/d';
   if (!anitabiFilePattern.test(fileName)) {
     text(response, 400, 'Invalid Anitabi static file name.');
     return;

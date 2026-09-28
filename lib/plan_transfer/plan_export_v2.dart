@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
@@ -9,7 +10,9 @@ import '../plan/pilgrimage_models.dart';
 import '../plan/reference_image_status.dart';
 import 'plan_export_asset_stub.dart'
     if (dart.library.io) 'plan_export_asset_io.dart';
+import 'plan_export_zip_source.dart';
 import 'plan_package.dart';
+import 'plan_transfer_background.dart';
 
 enum PlanExportV2Mode { planOnly, planWithRecords }
 
@@ -69,9 +72,40 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   required PlanExportV2Options options,
   DateTime? exportedAt,
   ExportNetworkBytesReader? networkBytesReader,
+  PlanTransferCancellation? cancellation,
+}) async {
+  final spool = PlanExportAssetSpool();
+  try {
+    return await _buildPlanExportV2Package(
+      plan: plan,
+      visitRecords: visitRecords,
+      options: options,
+      exportedAt: exportedAt,
+      networkBytesReader: networkBytesReader,
+      cancellation: cancellation,
+      spool: spool,
+    );
+  } finally {
+    // The worker has read every spooled file once encoding finished or was
+    // cancelled.
+    await spool.dispose();
+  }
+}
+
+Future<PlanExportV2Result> _buildPlanExportV2Package({
+  required PilgrimagePlan plan,
+  required List<PilgrimageVisitRecord> visitRecords,
+  required PlanExportV2Options options,
+  required DateTime? exportedAt,
+  required ExportNetworkBytesReader? networkBytesReader,
+  required PlanTransferCancellation? cancellation,
+  required PlanExportAssetSpool spool,
 }) async {
   final exportTime = exportedAt ?? DateTime.now();
-  final archive = Archive();
+  // Only file paths and small generated files live here on native platforms,
+  // so keeping the list alive while the worker zips costs no photo memory.
+  final entries = <_PlanExportZipEntry>[];
+  final assetNames = _PlanExportAssetNames();
   final readNetworkBytes = networkBytesReader ?? readExportNetworkBytes;
   final records = options.includeRecords
       ? visitRecords
@@ -89,7 +123,12 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   final recordAssetRefsById = <String, _RecordAssetRefs>{};
 
   void addString(String name, String content) {
-    archive.addFile(ArchiveFile.string(name, content));
+    entries.add(
+      _PlanExportZipEntry(
+        name,
+        PlanExportZipSource.bytes(utf8.encode(content)),
+      ),
+    );
   }
 
   void addWarning(PlanExportWarningType type, String message) {
@@ -97,12 +136,16 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     warningCounts[type.key] = (warningCounts[type.key] ?? 0) + 1;
   }
 
-  void addBytesAsset({
-    required List<int> bytes,
+  Future<void> addSourceAsset({
+    required PlanExportZipSource source,
     required String targetPath,
     required String countKey,
-  }) {
-    archive.addFile(ArchiveFile.bytes(targetPath, bytes));
+  }) async {
+    final bytes = source.bytes;
+    // On native, in-memory images are spooled to disk so that no image bytes
+    // are copied into the ZIP worker isolate.
+    final held = bytes == null ? source : await spool.hold(bytes);
+    entries.add(_PlanExportZipEntry(targetPath, held));
     assetCounts[countKey] = (assetCounts[countKey] ?? 0) + 1;
   }
 
@@ -125,12 +168,16 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       }
       return null;
     }
-    final bytes = await readExportAssetBytes(normalizedPath);
-    if (bytes == null) {
+    final source = await readExportAssetSource(normalizedPath);
+    if (source == null) {
       addWarning(warningType, '$warningLabel missing: $normalizedPath');
       return null;
     }
-    addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+    await addSourceAsset(
+      source: source,
+      targetPath: targetPath,
+      countKey: countKey,
+    );
     return targetPath;
   }
 
@@ -153,12 +200,16 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       }
       return null;
     }
-    final bytes = await readExportAssetBytes(normalizedPath);
-    if (bytes == null) {
+    final source = await readExportAssetSource(normalizedPath);
+    if (source == null) {
       addWarning(warningType, '$warningLabel missing: $normalizedPath');
       return null;
     }
-    addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+    await addSourceAsset(
+      source: source,
+      targetPath: targetPath,
+      countKey: countKey,
+    );
     return targetPath;
   }
 
@@ -174,10 +225,10 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
   }) async {
     final normalizedPath = sourcePath?.trim();
     if (normalizedPath != null && normalizedPath.isNotEmpty) {
-      final localBytes = await readExportAssetBytes(normalizedPath);
-      if (localBytes != null) {
-        addBytesAsset(
-          bytes: localBytes,
+      final localSource = await readExportAssetSource(normalizedPath);
+      if (localSource != null) {
+        await addSourceAsset(
+          source: localSource,
           targetPath: targetPath,
           countKey: countKey,
         );
@@ -195,7 +246,11 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
         );
         return null;
       }
-      addBytesAsset(bytes: bytes, targetPath: targetPath, countKey: countKey);
+      await addSourceAsset(
+        source: PlanExportZipSource.bytes(_asUint8List(bytes)),
+        targetPath: targetPath,
+        countKey: countKey,
+      );
       return targetPath;
     }
 
@@ -221,7 +276,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     final pointAssetRefs = _PointAssetRefs();
     pointAssetRefs.referenceThumbnailAsset = await addLocalAsset(
       sourcePath: point.referenceThumbnailPath,
-      targetPath: 'assets/thumbnails/${_assetName(point.id, 'thumbnail.jpg')}',
+      targetPath: assetNames.path('thumbnails', point.id, 'thumbnail.jpg'),
       warningLabel: 'thumbnail',
       warningType: PlanExportWarningType.thumbnailMissing,
       countKey: 'thumbnails',
@@ -230,8 +285,11 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     if (isLocalUpload) {
       pointAssetRefs.userReferenceAsset = await addFileAsset(
         sourcePath: point.referenceFullImagePath,
-        targetPath:
-            'assets/user_references/${_assetName(point.id, 'reference.jpg')}',
+        targetPath: assetNames.path(
+          'user_references',
+          point.id,
+          'reference.jpg',
+        ),
         warningLabel: 'user reference',
         warningType: PlanExportWarningType.userReferenceMissing,
         countKey: 'userReferenceImages',
@@ -242,8 +300,11 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       pointAssetRefs.referenceFullReferenceAsset = await addLocalOrNetworkAsset(
         sourcePath: point.referenceFullImagePath,
         sourceUrl: anitabiFullResolutionImageUrl(point.referenceImageUrl),
-        targetPath:
-            'assets/full_references/${_assetName(point.id, 'reference.jpg')}',
+        targetPath: assetNames.path(
+          'full_references',
+          point.id,
+          'reference.jpg',
+        ),
         warningLabel: 'full reference',
         missingWarningType: PlanExportWarningType.fullReferenceMissing,
         downloadFailedWarningType:
@@ -261,15 +322,14 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
       final recordAssetRefs = _RecordAssetRefs();
       recordAssetRefs.visitPhotoAsset = await addFileAsset(
         sourcePath: record.photoPath,
-        targetPath: 'assets/visit_photos/${_assetName(record.id, 'photo.jpg')}',
+        targetPath: assetNames.path('visit_photos', record.id, 'photo.jpg'),
         warningLabel: 'visit photo',
         warningType: PlanExportWarningType.visitPhotoMissing,
         countKey: 'visitPhotos',
       );
       recordAssetRefs.gradedPhotoAsset = await addFileAsset(
         sourcePath: record.gradedPhotoPath,
-        targetPath:
-            'assets/graded_photos/${_assetName(record.id, 'graded.jpg')}',
+        targetPath: assetNames.path('graded_photos', record.id, 'graded.jpg'),
         warningLabel: 'graded photo',
         warningType: PlanExportWarningType.gradedPhotoMissing,
         countKey: 'gradedPhotos',
@@ -311,7 +371,7 @@ Future<PlanExportV2Result> buildPlanExportV2Package({
     addString('records.csv', _recordsCsv(plan, records));
   }
 
-  final bytes = ZipEncoder().encode(archive);
+  final bytes = await _encodePlanExportZip(entries, cancellation);
 
   return PlanExportV2Result(
     bytes: bytes,
@@ -510,6 +570,52 @@ Map<String, Object?> _visitRecordJson(
   };
 }
 
+class _PlanExportZipEntry {
+  const _PlanExportZipEntry(this.name, this.source);
+
+  final String name;
+  final PlanExportZipSource source;
+}
+
+Uint8List _asUint8List(List<int> bytes) =>
+    bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+
+// Deflating hundreds of MiB of photos must not block the UI isolate. On
+// native the entries only name files, so the spawn message stays small and
+// the worker reads each photo from disk while it zips.
+Future<List<int>> _encodePlanExportZip(
+  List<_PlanExportZipEntry> entries,
+  PlanTransferCancellation? cancellation,
+) {
+  return runPlanTransferTask(
+    () => _encodeZipEntries(entries),
+    cancellation: cancellation,
+  );
+}
+
+List<int> _encodeZipEntries(List<_PlanExportZipEntry> entries) {
+  // Size the output once: growing by doubling would briefly hold the ZIP two
+  // or three times over. Deflate barely shrinks photos and can grow
+  // incompressible data slightly, hence the per-entry slack.
+  var capacity = 64 * 1024;
+  for (final entry in entries) {
+    final size =
+        entry.source.bytes?.length ??
+        exportZipSourceFileLength(entry.source.filePath!);
+    capacity += size + (size >> 10) + 256 + 2 * utf8.encode(entry.name).length;
+  }
+  final output = OutputMemoryStream(size: capacity);
+  final encoder = ZipEncoder()..startEncode(output);
+  for (final entry in entries) {
+    // Read one file at a time; its bytes are released after it is written.
+    final bytes =
+        entry.source.bytes ?? readExportZipSourceFile(entry.source.filePath!);
+    encoder.add(ArchiveFile.bytes(entry.name, bytes));
+  }
+  encoder.endEncode(comment: null);
+  return output.getBytes();
+}
+
 class _PointAssetRefs {
   String? referenceThumbnailAsset;
   String? referenceFullReferenceAsset;
@@ -605,12 +711,17 @@ String _prettyJson(Object? value) {
   return const JsonEncoder.withIndent('  ').convert(value);
 }
 
+// The BOM lets Excel detect UTF-8 so CJK titles are not garbled.
 String _csv(List<List<Object?>> rows) {
-  return rows.map((row) => row.map(_csvCell).join(',')).join('\n');
+  return '\uFEFF${rows.map((row) => row.map(_csvCell).join(',')).join('\n')}';
 }
 
 String _csvCell(Object? value) {
-  final text = (value ?? '').toString();
+  // Numbers (latitude/longitude, counts) are written raw; only text can carry
+  // a spreadsheet formula, so neutralize it with a leading apostrophe.
+  final text = value is String
+      ? _neutralizeSpreadsheetFormula(value)
+      : (value ?? '').toString();
   if (!text.contains(',') &&
       !text.contains('"') &&
       !text.contains('\n') &&
@@ -620,15 +731,60 @@ String _csvCell(Object? value) {
   return '"${text.replaceAll('"', '""')}"';
 }
 
+String _neutralizeSpreadsheetFormula(String value) {
+  if (value.isEmpty) {
+    return value;
+  }
+  return const {'=', '+', '-', '@', '\t', '\r'}.contains(value[0])
+      ? "'$value"
+      : value;
+}
+
 String _fileName(String path) {
   return path.split(RegExp(r'[\\/]')).last;
 }
 
-String _assetName(String id, String fallback) {
-  final safeId = _safeFileName(id, fallback: 'asset');
-  final extension = fallback.contains('.') ? fallback.split('.').last : 'bin';
-  return '$safeId.$extension';
+const _maxAssetStemLength = 80;
+
+/// Allocates archive asset paths. Ids are sanitized for file systems, so
+/// distinct ids like `a b`/`a_b` or `A`/`a` could otherwise map to the same
+/// entry, which the importer rejects (names are unique case-insensitively).
+/// A lossy sanitization appends a stable hash of the raw id, and any
+/// remaining case-insensitive clash is disambiguated.
+class _PlanExportAssetNames {
+  final _used = <String>{};
+
+  String path(String directory, String id, String fallback) {
+    final extension = fallback.contains('.') ? fallback.split('.').last : 'bin';
+    final stem = planExportAssetStem(id);
+    var candidate = 'assets/$directory/$stem.$extension';
+    if (!_used.add(candidate.toLowerCase())) {
+      final hashed = '${stem}_${_idHash(id)}';
+      candidate = 'assets/$directory/$hashed.$extension';
+      for (var index = 2; !_used.add(candidate.toLowerCase()); index++) {
+        candidate = 'assets/$directory/${hashed}_$index.$extension';
+      }
+    }
+    return candidate;
+  }
 }
+
+/// File-name stem used for an asset of [id]. Ids that are already safe keep
+/// their name; anything altered by sanitization or truncation gets a hash of
+/// the raw id so different ids stay distinct.
+String planExportAssetStem(String id) {
+  final safeId = _safeFileName(id, fallback: 'asset');
+  if (safeId == id && safeId.length <= _maxAssetStemLength) {
+    return safeId;
+  }
+  final truncated = safeId.length > _maxAssetStemLength
+      ? safeId.substring(0, _maxAssetStemLength)
+      : safeId;
+  return '${truncated}_${_idHash(id)}';
+}
+
+String _idHash(String id) =>
+    getCrc32(utf8.encode(id)).toRadixString(16).padLeft(8, '0');
 
 String _safeFileName(String value, {required String fallback}) {
   final safe = value

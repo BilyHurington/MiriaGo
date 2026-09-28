@@ -11,7 +11,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # build by specifying --build-name and --build-number, respectively.
 # In Android, build-name is used as versionName while build-number used as versionCode.
 # Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-version: 1.1.6+23
+version: 2.0.0+24
 
 environment:
   sdk: ^3.12.0
@@ -45,10 +45,11 @@ dependencies:
   image: ^4.8.0
   file_selector: ^1.1.0
   web: ^1.1.1
-  flutter_map_maplibre: ^0.0.5
   maplibre: ^0.3.5
   flutter_markdown_plus: ^1.0.7
+  markdown: ^7.3.1
   lucide_icons_flutter: ^3.1.18
+  crypto: ^3.0.7
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -77,6 +78,7 @@ flutter:
   assets:
     - assets/maps/
     - icon.jpg
+    - docs/privacy.md
     - docs/sample_images/
     - docs/sample_images/sample_visit_records/
 

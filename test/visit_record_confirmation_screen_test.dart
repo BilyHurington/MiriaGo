@@ -58,7 +58,7 @@ void main() {
     });
   }
 
-  testWidgets('waits for location and writes it before enabling save', (
+  testWidgets('stages location without writing before enabling save', (
     tester,
   ) async {
     final fixture = await _fixture();
@@ -90,12 +90,75 @@ void main() {
     completer.complete(location);
     await tester.pumpAndSettle();
 
-    expect(writtenLocation, same(location));
-    expect(find.text('已写入照片定位信息'), findsOneWidget);
+    expect(writtenLocation, isNull);
+    expect(find.text('已获取拍摄位置，保存时写入照片。'), findsOneWidget);
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNotNull,
     );
+  });
+
+  testWidgets('recent-location strategy resolves after capture', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.controller.dispose);
+    final completer = Completer<PhotoLocationData>();
+    var resolves = 0;
+    await _pumpConfirmation(
+      tester,
+      fixture,
+      photoLocationStrategy: PhotoLocationStrategy.useRecentLocation,
+      resolvePhotoLocation: () {
+        resolves += 1;
+        return completer.future;
+      },
+      writePhotoLocation: (_, _) async => true,
+      settle: false,
+    );
+
+    expect(resolves, 1);
+    expect(find.text('正在获取拍摄位置...'), findsOneWidget);
+    expect(find.text('跳过'), findsOneWidget);
+
+    completer.complete(
+      PhotoLocationData(
+        latitude: 35,
+        longitude: 139,
+        accuracy: 5,
+        timestamp: DateTime(2026, 8, 13),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('已获取拍摄位置，保存时写入照片。'), findsOneWidget);
+  });
+
+  testWidgets('recent-location strategy reuses a location staged earlier', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.controller.dispose);
+    var resolves = 0;
+    await _pumpConfirmation(
+      tester,
+      fixture,
+      photoLocationStrategy: PhotoLocationStrategy.useRecentLocation,
+      pendingPhotoLocation: PhotoLocationData(
+        latitude: 35,
+        longitude: 139,
+        accuracy: 5,
+        timestamp: DateTime(2026, 8, 13),
+      ),
+      resolvePhotoLocation: () {
+        resolves += 1;
+        return Completer<PhotoLocationData>().future;
+      },
+      writePhotoLocation: (_, _) async => true,
+    );
+
+    expect(resolves, 0);
+    expect(find.text('已获取拍摄位置，保存时写入照片。'), findsOneWidget);
   });
 
   testWidgets('skip location waits no longer and keeps save enabled', (
@@ -126,7 +189,7 @@ void main() {
     await tester.tap(find.text('跳过'));
     await tester.pump();
 
-    expect(find.text('已跳过定位，本次照片不会写入位置。'), findsOneWidget);
+    expect(find.text('已跳过定位，本次不添加位置，保留照片原有信息。'), findsOneWidget);
     expect(find.text('跳过'), findsNothing);
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
@@ -158,6 +221,7 @@ Future<Route<dynamic>> _pumpConfirmation(
   PhotoLocationStrategy photoLocationStrategy = PhotoLocationStrategy.disabled,
   Future<PhotoLocationData> Function()? resolvePhotoLocation,
   PhotoLocationWriter? writePhotoLocation,
+  PhotoLocationData? pendingPhotoLocation,
   bool settle = true,
 }) async {
   tester.view.physicalSize = const Size(800, 2000);
@@ -181,6 +245,7 @@ Future<Route<dynamic>> _pumpConfirmation(
           photoLocationStrategy: photoLocationStrategy,
           resolvePhotoLocation: resolvePhotoLocation,
           writePhotoLocation: writePhotoLocation,
+          pendingPhotoLocation: pendingPhotoLocation,
         ),
       },
     ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/data/app_managed_file_paths_io.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:miriago/data/pilgrimage_repository.dart';
+import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/data/local/app_database.dart';
 import 'package:miriago/data/local/sqlite_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
@@ -26,6 +28,18 @@ class _FakePathProviderPlatform extends PathProviderPlatform {
   @override
   Future<String?> getApplicationSupportPath() async =>
       p.join(p.dirname(documentsPath), 'files');
+}
+
+class _GatedPathProviderPlatform extends _FakePathProviderPlatform {
+  _GatedPathProviderPlatform(super.documentsPath, this.gate);
+
+  final Future<void> gate;
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async {
+    await gate;
+    return documentsPath;
+  }
 }
 
 void main() {
@@ -657,8 +671,8 @@ void main() {
     final settings = await repository.loadAppSettings();
     expect(migratedPlan.name, plan.name);
     expect(settings.customXyzTileUrl, 'https://example.com/tiles');
-    expect(settings.anitabiSiteBaseUrl, 'https://ww.anitabi.cn');
-    expect(settings.anitabiStaticDataBaseUrl, 'https://ww.anitabi.cn/d');
+    expect(settings.anitabiSiteBaseUrl, 'https://www.anitabi.cn');
+    expect(settings.anitabiStaticDataBaseUrl, 'https://www.anitabi.cn/d');
     expect(settings.anitabiApiBaseUrl, 'https://api.anitabi.cn');
     expect(settings.anitabiOfficialImageBaseUrl, 'https://image.anitabi.cn');
     expect(settings.anitabiMirrorImageBaseUrl, 'https://img-tc.anitabi.cn');
@@ -1272,6 +1286,159 @@ void main() {
     expect(repaired.referenceThumbnailPath, missingThumbnail);
     expect(repaired.referenceFullImagePath, missingFull);
   });
+
+  test('concurrent loads wait for the managed path repair', () async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'miriago_concurrent_repair_',
+    );
+    addTearDown(() async {
+      setAppManagedFileBaseDirectoriesForTesting(null);
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+    final documentsPath = p.join(tempDirectory.path, 'Documents');
+    PathProviderPlatform.instance = _FakePathProviderPlatform(documentsPath);
+    setAppManagedFileBaseDirectoriesForTesting(null);
+
+    final currentThumbnail = File(
+      p.join(documentsPath, 'reference_thumbnails', 'concurrent.jpg'),
+    );
+    await currentThumbnail.parent.create(recursive: true);
+    await currentThumbnail.writeAsBytes(<int>[1, 2, 3], flush: true);
+
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final plan = await repository.loadActivePlan();
+    const oldPrefix = '/var/mobile/Containers/Data/Application/OLD/Documents';
+    await repository.updatePointInPlan(
+      planId: plan.id,
+      point: plan.points.first.copyWith(
+        referenceThumbnailPath:
+            '$oldPrefix/reference_thumbnails/concurrent.jpg',
+      ),
+    );
+
+    // Hold the repair open until every caller has had a chance to run.
+    final gate = Completer<void>();
+    PathProviderPlatform.instance = _GatedPathProviderPlatform(
+      documentsPath,
+      gate.future,
+    );
+    setAppManagedFileBaseDirectoriesForTesting(null);
+    final repairingRepository = SqlitePilgrimageRepository(database: database);
+    var completed = 0;
+    final loads = [
+      repairingRepository.loadActivePlan(),
+      repairingRepository.loadActivePlan(),
+      repairingRepository.loadPlans().then((plans) => plans.first),
+    ].map((future) => future.whenComplete(() => completed++)).toList();
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(completed, 0);
+    gate.complete();
+    final results = await Future.wait(loads);
+
+    for (final loaded in results) {
+      expect(loaded.points.first.referenceThumbnailPath, currentThumbnail.path);
+    }
+  });
+
+  test('a failing managed path repair does not block loading', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final plan = await SqlitePilgrimageRepository(
+      database: database,
+    ).loadActivePlan();
+    var attempts = 0;
+    final repository = SqlitePilgrimageRepository(
+      database: database,
+      managedPathRepairForTesting: () async {
+        attempts++;
+        throw const FileSystemException('permission denied');
+      },
+    );
+    for (var i = 0; i < 2; i++) {
+      final loaded = await repository.loadActivePlan();
+      expect(loaded.id, plan.id);
+    }
+    // Cleared after failing, so each later load retries the repair.
+    expect(attempts, 2);
+  });
+
+  test('saved temporary Anitabi defaults load as the restored hosts', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    await repository.loadActivePlan();
+    await repository.saveAppSettings(
+      const AppSettings(
+        anitabiSiteBaseUrl: 'https://ww.anitabi.cn',
+        anitabiStaticDataBaseUrl: 'https://ww.anitabi.cn/d',
+        anitabiApiBaseUrl: 'https://api.example/anitabi',
+      ),
+    );
+    final settings = await repository.loadAppSettings();
+    expect(settings.anitabiSiteBaseUrl, 'https://www.anitabi.cn');
+    expect(settings.anitabiStaticDataBaseUrl, 'https://www.anitabi.cn/d');
+    expect(settings.anitabiApiBaseUrl, 'https://api.example/anitabi');
+  });
+
+  test('loadActivePlan falls back to the first ordered plan', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    final first = await repository.loadActivePlan();
+    final second = await repository.createPlan(name: '第二计划', area: '京都');
+    final third = await repository.createPlan(name: '第三计划', area: '东京');
+    await repository.reorderPlans(
+      orderedPlanIds: [second.id, third.id, first.id],
+    );
+    await database
+        .update(database.plans)
+        .write(const PlansCompanion(active: Value(false)));
+
+    expect((await repository.loadActivePlan()).id, second.id);
+  });
+
+  test('loadActivePlan reseeds when every plan disappears', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    await repository.loadActivePlan();
+    await database.delete(database.visitRecords).go();
+    await database.delete(database.points).go();
+    await database.delete(database.planGroups).go();
+    await database.delete(database.works).go();
+    await database.delete(database.plans).go();
+
+    final plan = await repository.loadActivePlan();
+    expect(plan.id, samplePilgrimagePlan.id);
+  });
+
+  test(
+    'setActivePlan rejects unknown ids without clearing the active plan',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = SqlitePilgrimageRepository(database: database);
+      await repository.loadActivePlan();
+      final second = await repository.createPlan(name: '第二计划', area: '京都');
+      await repository.setActivePlan(second.id);
+
+      await expectLater(
+        repository.setActivePlan('missing-plan'),
+        throwsArgumentError,
+      );
+
+      expect((await repository.loadActivePlan()).id, second.id);
+      final activeRows = await (database.select(
+        database.plans,
+      )..where((table) => table.active.equals(true))).get();
+      expect(activeRows.map((row) => row.id), [second.id]);
+    },
+  );
 
   test('keeps same Bangumi work independent across plans', () async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -1950,6 +2117,68 @@ void main() {
     expect(updatedPlan.points[1].referenceThumbnailPath, '/tmp/thumb-b.jpg');
     expect(updatedPlan.points[1].referenceFullImagePath, '/tmp/full-b.jpg');
   });
+
+  test(
+    'batch cache update skips replaced references and preserves thumbnails',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final repository = SqlitePilgrimageRepository(database: database);
+      final sourcePlan = await repository.loadActivePlan();
+      final emptyPlan = await repository.createPlan(name: '过期回写测试', area: '京都');
+      var plan = await repository.addPointsToPlan(
+        planId: emptyPlan.id,
+        points: sourcePlan.points.take(2).toList(growable: false),
+      );
+      plan = await repository.updatePointInPlan(
+        planId: plan.id,
+        point: plan.points[0].copyWith(
+          referenceImageUrl: 'https://example.com/new.jpg',
+          referenceThumbnailPath: '/tmp/thumb-new.jpg',
+          referenceFullImagePath: null,
+        ),
+      );
+      plan = await repository.updatePointInPlan(
+        planId: plan.id,
+        point: plan.points[1].copyWith(
+          referenceImageUrl: 'https://example.com/kept.jpg',
+          referenceThumbnailPath: '/tmp/thumb-kept.jpg',
+          referenceFullImagePath: null,
+        ),
+      );
+
+      final updatedPlan = await repository.updatePointImageCaches(
+        planId: plan.id,
+        updatesByPointId: {
+          plan.points[0].id: const PointImageCacheUpdate(
+            referenceFullImagePath: '/tmp/full-old.jpg',
+            expectedReferenceImageUrl: 'https://example.com/old.jpg',
+            preserveThumbnailPath: true,
+          ),
+          plan.points[1].id: const PointImageCacheUpdate(
+            referenceFullImagePath: '/tmp/full-kept.jpg',
+            expectedReferenceImageUrl: 'https://example.com/kept.jpg',
+            preserveThumbnailPath: true,
+          ),
+        },
+      );
+
+      expect(
+        updatedPlan.points[0].referenceThumbnailPath,
+        '/tmp/thumb-new.jpg',
+      );
+      expect(updatedPlan.points[0].referenceFullImagePath, isNull);
+      expect(
+        updatedPlan.points[1].referenceThumbnailPath,
+        '/tmp/thumb-kept.jpg',
+      );
+      expect(
+        updatedPlan.points[1].referenceFullImagePath,
+        '/tmp/full-kept.jpg',
+      );
+    },
+  );
 
   test('renames plans and persists app settings', () async {
     final database = AppDatabase(NativeDatabase.memory());

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
 import '../data/app_managed_file_paths_io.dart';
 import '../plan/pilgrimage_models.dart';
 
@@ -53,10 +55,16 @@ String? _firstDisplayableVisitRecordPath(Iterable<String?> paths) {
 }
 
 class VisitRecordPhoto extends StatelessWidget {
-  const VisitRecordPhoto({this.path, this.fit = BoxFit.cover, super.key});
+  const VisitRecordPhoto({
+    this.path,
+    this.fit = BoxFit.cover,
+    this.target = ImageDecodeTarget.list,
+    super.key,
+  });
 
   final String? path;
   final BoxFit fit;
+  final ImageDecodeTarget target;
 
   @override
   Widget build(BuildContext context) {
@@ -65,22 +73,7 @@ class VisitRecordPhoto extends StatelessWidget {
       return _placeholder();
     }
 
-    if (resolvedPath.startsWith('docs/sample_images/')) {
-      return Image.asset(
-        resolvedPath,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) => _placeholder(),
-      );
-    }
-
-    final resolvedFilePath =
-        resolveExistingAppManagedFilePathSync(resolvedPath) ?? resolvedPath;
-    final file = File(resolvedFilePath);
-    if (!file.existsSync()) {
-      return _placeholder();
-    }
-
-    return Image.file(file, fit: fit);
+    return BoundedImage(path: resolvedPath, fit: fit, target: target);
   }
 
   Widget _placeholder() {

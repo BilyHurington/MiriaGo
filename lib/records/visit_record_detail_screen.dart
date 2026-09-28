@@ -17,7 +17,8 @@ import '../point_detail/point_detail_sheet.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/app_back_button.dart';
-import '../widgets/anitabi_network_image.dart';
+import '../data/bounded_image_decoder.dart';
+import '../widgets/bounded_image.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/reference_image_placeholder.dart';
@@ -54,6 +55,7 @@ class VisitRecordDetailScreen extends StatefulWidget {
 
 class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   late PilgrimageVisitRecord _record = widget.record;
+  bool _deleting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +75,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
         actions: [
           IconButton(
             tooltip: '删除记录',
-            onPressed: () => _confirmDelete(context),
+            onPressed: _deleting ? null : () => _confirmDelete(context),
             icon: const Icon(LucideIcons.trash2),
           ),
         ],
@@ -211,6 +213,7 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    if (_deleting) return;
     var deleteFiles = false;
 
     final shouldDelete = await showDialog<bool>(
@@ -264,21 +267,35 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
       return;
     }
 
-    if (deleteFiles) {
-      for (final path in {
-        _record.photoPath,
-        _record.originalPhotoPath,
-        _record.gradedPhotoPath,
-      }.whereType<String>()) {
-        deleteVisitRecordLocalFile(path);
+    setState(() => _deleting = true);
+    try {
+      await widget.onDelete();
+    } catch (_) {
+      if (context.mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '删除记录失败，照片未删除，请重试',
+        );
       }
-      final refPath = _record.referenceImagePath;
-      if (refPath != null) {
-        deleteVisitRecordLocalFile(refPath);
+      return;
+    }
+    final repository = widget.controller.repository;
+    if (deleteFiles && repository != null) {
+      try {
+        await deleteUnreferencedVisitRecordPhotos(
+          record: _record,
+          repository: repository,
+        );
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showStatusSnack(
+            kind: AppStatusBannerKind.warning,
+            title: '记录已删除，部分照片未清理',
+          );
+        }
       }
     }
-
-    await widget.onDelete();
     if (!context.mounted) {
       return;
     }
@@ -486,7 +503,11 @@ class _RecordComparisonPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _RecordImageTile(
           label: '巡礼图',
-          child: VisitRecordPhoto(path: photoPath, fit: BoxFit.contain),
+          child: VisitRecordPhoto(
+            path: photoPath,
+            fit: BoxFit.contain,
+            target: ImageDecodeTarget.panel,
+          ),
           onTap: () => ImageViewerScreen.show(context, filePath: photoPath),
         ),
       ],
@@ -547,23 +568,18 @@ class _RecordReferencePhoto extends StatelessWidget {
   Widget build(BuildContext context) {
     final localPath = path;
     if (referenceImageLocalPathCanDisplay(localPath)) {
-      return VisitRecordPhoto(path: localPath!, fit: BoxFit.contain);
+      return VisitRecordPhoto(
+        path: localPath!,
+        fit: BoxFit.contain,
+        target: ImageDecodeTarget.panel,
+      );
     }
 
     final imageUrl = url;
     if (imageUrl != null) {
-      return AnitabiNetworkImage(
-        url: imageUrl,
-        imageSource: AnitabiImageSourceScope.of(context),
-        fit: BoxFit.contain,
-        loadingBuilder: (_) {
-          return const _RecordReferencePlaceholder(
-            state: ReferenceImagePlaceholderState.loading,
-          );
-        },
-        errorBuilder: (_) {
-          return const _RecordReferencePlaceholder();
-        },
+      return BoundedImage(
+        path: imageUrl,
+        source: AnitabiImageSourceScope.of(context),
       );
     }
 
@@ -572,15 +588,13 @@ class _RecordReferencePhoto extends StatelessWidget {
 }
 
 class _RecordReferencePlaceholder extends StatelessWidget {
-  const _RecordReferencePlaceholder({
-    this.state = ReferenceImagePlaceholderState.unavailable,
-  });
-
-  final ReferenceImagePlaceholderState state;
+  const _RecordReferencePlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    return ReferenceImagePlaceholder(state: state);
+    return const ReferenceImagePlaceholder(
+      state: ReferenceImagePlaceholderState.unavailable,
+    );
   }
 }
 

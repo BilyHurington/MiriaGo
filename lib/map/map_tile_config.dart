@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_maplibre/flutter_map_maplibre.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../plan/pilgrimage_models.dart';
 import 'map_colors.dart';
+import 'localized_map_style.dart';
+import 'synced_maplibre_layer.dart';
 
 const openFreeMapStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
 const readableDarkMapStyleAsset = 'assets/maps/readable_dark.json';
@@ -183,9 +186,28 @@ Widget configuredMapTileLayer(AppSettings settings, {bool? dark}) {
   final layerKey = ValueKey('${mapTileConfigSignature(settings)}|$style');
   if (mapProviderUsesMapLibre(settings.mapTileProvider) &&
       !_isFlutterWidgetTest) {
-    return MapLibreLayer(key: layerKey, initStyle: style);
+    // OpenFreeMap styles have a known label layout that can be localized; a
+    // user-supplied MapLibre style is used exactly as provided.
+    if (settings.mapTileProvider == MapTileProvider.openFreeMap) {
+      return LocalizedMapLibreLayer(key: layerKey, style: style);
+    }
+    return SyncedMapLibreLayer(key: layerKey, initStyle: style);
   }
   return configuredRasterTileLayer(settings, key: layerKey);
+}
+
+/// Starts loading the localized OpenFreeMap style for [settings] so the first
+/// map does not wait for it.
+void warmConfiguredMapStyle(AppSettings settings, {required bool dark}) {
+  if (_isFlutterWidgetTest ||
+      settings.mapTileProvider != MapTileProvider.openFreeMap) {
+    return;
+  }
+  unawaited(
+    LocalizedMapStyleCache.instance.load(
+      resolvedMapLibreStyle(settings, dark: dark),
+    ),
+  );
 }
 
 TileLayer configuredRasterTileLayer(AppSettings settings, {Key? key}) {

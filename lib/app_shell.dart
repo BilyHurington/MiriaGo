@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,8 +7,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'app_theme.dart';
 import 'data/anitabi_image_source_scope.dart';
 import 'data/anitabi_service_config.dart';
+import 'data/reference_image_cache_stub.dart'
+    if (dart.library.io) 'data/reference_image_cache_io.dart';
 import 'data/pilgrimage_repository.dart';
 import 'data/sample_pilgrimage_repository.dart';
+import 'map/map_tile_config.dart';
 import 'map/pilgrimage_map_screen.dart';
 import 'plan/add_points_screen.dart';
 import 'plan/plan_manager_screen.dart';
@@ -19,7 +24,10 @@ import 'plan_transfer/incoming_plan_file.dart';
 import 'plan_transfer/plan_import_file_stub.dart'
     if (dart.library.io) 'plan_transfer/plan_import_file_io.dart';
 import 'plan_transfer/plan_import_preview_screen.dart';
+import 'plan_transfer/plan_import_package.dart';
 import 'widgets/snackbar_helper.dart';
+import 'records/comparison_export_temp_stub.dart'
+    if (dart.library.io) 'records/comparison_export_temp_io.dart';
 import 'records/records_screen.dart';
 import 'records/comparison_export_config_migration.dart';
 import 'settings/settings_screen.dart';
@@ -49,8 +57,13 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _incomingPlanFiles.listen(_importPlanFromPath);
+    _incomingPlanFiles.listen(
+      _importPlanFromPath,
+      onError: _showIncomingPlanFileError,
+    );
     _initializeApp();
+    unawaited(prepareReferenceCacheStorage());
+    unawaited(sweepStaleComparisonExports(repository: widget.repository));
   }
 
   @override
@@ -77,6 +90,15 @@ class _AppShellState extends State<AppShell> {
 
       _applyAnitabiServiceConfig(settings);
       _publishSettingsAfterLoad(settings);
+      warmConfiguredMapStyle(
+        settings,
+        dark:
+            resolvedAppBrightness(
+              settings,
+              platformBrightness: MediaQuery.platformBrightnessOf(context),
+            ) ==
+            Brightness.dark,
+      );
       _planController?.dispose();
       setState(() {
         _planController = PilgrimagePlanController(
@@ -206,16 +228,39 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _loadInitialIncomingPlanFile() async {
-    final path = await _incomingPlanFiles.getInitialPath();
+    final String? path;
+    try {
+      path = await _incomingPlanFiles.getInitialPath();
+    } on IncomingPlanFileException catch (error) {
+      _showIncomingPlanFileError(error);
+      return;
+    }
     if (path == null || path.isEmpty) {
       return;
     }
     await _importPlanFromPath(path);
   }
 
+  void _showIncomingPlanFileError(IncomingPlanFileException error) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showStatusSnack(
+      kind: AppStatusBannerKind.error,
+      title: error.userMessage,
+    );
+  }
+
   Future<void> _importPlanFromPath(String path) async {
     try {
-      final importPackage = await readPlanImportPackageFromPath(path);
+      final PlanImportPackage importPackage;
+      try {
+        importPackage = await readPlanImportPackageFromPath(path);
+      } finally {
+        // The package is fully in memory now (or failed); drop the native
+        // temporary copy so incoming files do not pile up in the cache.
+        unawaited(_incomingPlanFiles.release(path));
+      }
       if (!mounted) {
         return;
       }
@@ -237,13 +282,14 @@ class _AppShellState extends State<AppShell> {
       setState(() {
         _selectedIndex = 0;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.error, title: '计划文件导入失败');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: error is PlanImportLimitException ? error.message : '计划文件导入失败',
+      );
     }
   }
 

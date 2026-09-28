@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/app_file_reclamation.dart';
 import '../data/pilgrimage_repository.dart';
 import 'pilgrimage_models.dart';
+import 'plan_order.dart';
 import 'plan_group_utils.dart';
 
 class PilgrimagePlanController extends ChangeNotifier {
@@ -26,6 +28,25 @@ class PilgrimagePlanController extends ChangeNotifier {
   String? _currentPointId;
   String? _selectedPointId;
   int _pointStateRevision = 0;
+  bool _disposed = false;
+
+  /// Whether [dispose] has run. Pending repository calls may still complete
+  /// afterwards (e.g. when the app shell reloads and replaces controllers).
+  bool get isDisposed => _disposed;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
 
   PilgrimagePlan get plan => _plan;
 
@@ -121,6 +142,7 @@ class PilgrimagePlanController extends ChangeNotifier {
     if (point.id == _currentPointId) {
       final nextPoint = nextPendingPointAfterCompletion(
         points: points,
+        groups: _plan.groups,
         completedPoint: point,
         completedPointIds: _completedPointIds,
       );
@@ -140,6 +162,38 @@ class PilgrimagePlanController extends ChangeNotifier {
     }
     _selectedPointId = point.id;
     _persistReopen(point);
+    notifyListeners();
+  }
+
+  /// Confirmation saves must not report completion before persistence succeeds.
+  Future<void> completePointAndWait(PilgrimagePoint point) async {
+    final repository = _repository;
+    if (repository == null) {
+      throw StateError('No repository for point completion');
+    }
+    final revision = _pointStateRevision;
+    final completed = {..._completedPointIds, point.id};
+    final nextId = point.id == _currentPointId
+        ? nextPendingPointAfterCompletion(
+            points: points,
+            groups: _plan.groups,
+            completedPoint: point,
+            completedPointIds: completed,
+          )?.id
+        : _currentPointId;
+    await repository.completePoint(
+      planId: _plan.id,
+      pointId: point.id,
+      nextCurrentPointId: nextId,
+    );
+    // A newer navigation/edit action owns the visible point state.
+    if (revision != _pointStateRevision) return;
+    _pointStateRevision++;
+    _completedPointIds = completed;
+    if (point.id == _currentPointId) {
+      _currentPointId = nextId;
+      _selectedPointId = nextId ?? point.id;
+    }
     notifyListeners();
   }
 
@@ -180,7 +234,10 @@ class PilgrimagePlanController extends ChangeNotifier {
       referenceMode: referenceMode,
       capturedAt: capturedAt,
     );
-    _visitRecords = [record, ..._visitRecords];
+    // Same order as the repositories, so a gallery photo with an older
+    // capture time does not jump to the top until the next reload.
+    _visitRecords = [record, ..._visitRecords]
+      ..sort(compareVisitRecordsNewestFirst);
     notifyListeners();
     return record;
   }
@@ -244,6 +301,9 @@ class PilgrimagePlanController extends ChangeNotifier {
       planId: planId,
       pointId: point.id,
     );
+    unawaited(
+      reclaimDeletedPointFiles(repository: repository, points: [point]),
+    );
     if (_plan.id != planId) {
       return;
     }
@@ -268,7 +328,12 @@ class PilgrimagePlanController extends ChangeNotifier {
       currentPointId = updatedPlan.currentPointId;
     }
     if (currentPointId != null && !remainingPointIds.contains(currentPointId)) {
-      currentPointId = pendingPoints.firstOrNull?.id;
+      currentPointId = nextPendingPointAfterCompletion(
+        points: remainingPoints,
+        groups: _plan.groups,
+        completedPoint: point,
+        completedPointIds: completedPointIds,
+      )?.id;
     }
     _replacePlanState(
       _plan.copyWith(
@@ -406,14 +471,16 @@ class PilgrimagePlanController extends ChangeNotifier {
   }
 
   PilgrimagePoint? _pointById(String? id) {
-    if (id == null || points.isEmpty) {
+    if (id == null) {
       return null;
     }
 
-    return points.firstWhere(
-      (point) => point.id == id,
-      orElse: () => points.first,
-    );
+    for (final point in points) {
+      if (point.id == id) {
+        return point;
+      }
+    }
+    return null;
   }
 
   void _replacePlanState(PilgrimagePlan updatedPlan) {

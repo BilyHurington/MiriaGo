@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/anitabi_image_url.dart';
@@ -7,9 +9,15 @@ import 'image_load_limiter.dart';
 typedef AnitabiNetworkImageBuilder =
     Widget Function(
       String url,
+      ImageFrameBuilder frameBuilder,
       ImageLoadingBuilder loadingBuilder,
       ImageErrorWidgetBuilder errorBuilder,
     );
+
+/// How long a granted load permit may stay held without a first frame or a
+/// final error. `Image.network` has no timeout, so a stalled response would
+/// otherwise hold its slot for the widget's whole lifetime.
+const anitabiImagePermitWatchdog = Duration(seconds: 25);
 
 class AnitabiNetworkImage extends StatefulWidget {
   const AnitabiNetworkImage({
@@ -47,6 +55,10 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
   var _isTryingNextCandidate = false;
   ImageLoadPermit? _permit;
   Future<ImageLoadPermit>? _permitRequest;
+  Timer? _permitWatchdog;
+  // Set once a permit was granted for the current url; the load keeps going
+  // even after the watchdog hands the permit back.
+  var _loadGranted = false;
   var _finishedLoading = false;
 
   @override
@@ -74,6 +86,7 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
   void _resetCandidates() {
     _releasePermit();
     _permitRequest = null;
+    _loadGranted = false;
     _finishedLoading = false;
     _candidates = candidateAnitabiImageUrls(
       widget.url,
@@ -90,7 +103,7 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
     }
 
     final limiter = widget.loadLimiter;
-    if (limiter != null && !_finishedLoading && _permit == null) {
+    if (limiter != null && !_finishedLoading && !_loadGranted) {
       _requestPermit(limiter);
       return _loadingPlaceholder();
     }
@@ -111,6 +124,12 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
       }
       setState(() {
         _permit = permit;
+        _loadGranted = true;
+      });
+      _permitWatchdog = Timer(anitabiImagePermitWatchdog, () {
+        // Keep the image loading; only stop it from starving other loads.
+        _permitWatchdog = null;
+        _releasePermit();
       });
     });
   }
@@ -121,14 +140,26 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
     }
 
     final candidate = _candidates[_candidateIndex];
+    // Image reports a null loading progress on its first build, before any
+    // bytes arrive, so only a decoded frame proves that the load finished.
+    Widget frameBuilder(
+      BuildContext context,
+      Widget child,
+      int? frame,
+      bool wasSynchronouslyLoaded,
+    ) {
+      if (frame != null || wasSynchronouslyLoaded) {
+        _finishLoading();
+      }
+      return child;
+    }
+
     Widget loadingBuilder(
       BuildContext context,
       Widget child,
       ImageChunkEvent? loadingProgress,
     ) {
-      if (loadingProgress == null) {
-        _finishedLoading = true;
-        _releasePermit();
+      if (_finishedLoading) {
         return child;
       }
       return widget.loadingBuilder?.call(context) ?? child;
@@ -152,18 +183,23 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
         _isTryingNextCandidate = true;
         return _loadingPlaceholder();
       }
-      _finishedLoading = true;
-      _releasePermit();
+      _finishLoading();
       return widget.errorBuilder(context);
     }
 
-    return widget.imageBuilder?.call(candidate, loadingBuilder, errorBuilder) ??
+    return widget.imageBuilder?.call(
+          candidate,
+          frameBuilder,
+          loadingBuilder,
+          errorBuilder,
+        ) ??
         Image.network(
           candidate,
           width: widget.width,
           height: widget.height,
           fit: widget.fit,
           gaplessPlayback: widget.gaplessPlayback,
+          frameBuilder: frameBuilder,
           loadingBuilder: loadingBuilder,
           errorBuilder: errorBuilder,
         );
@@ -173,7 +209,14 @@ class _AnitabiNetworkImageState extends State<AnitabiNetworkImage> {
     return widget.loadingBuilder?.call(context) ?? const SizedBox.shrink();
   }
 
+  void _finishLoading() {
+    _finishedLoading = true;
+    _releasePermit();
+  }
+
   void _releasePermit() {
+    _permitWatchdog?.cancel();
+    _permitWatchdog = null;
     _permit?.release();
     _permit = null;
   }

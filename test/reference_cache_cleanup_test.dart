@@ -143,4 +143,96 @@ void main() {
       expect(updated.points.single.referenceFullImagePath, isNull);
     },
   );
+
+  test(
+    'keeps shared cache files still used by other plans or records',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'miriago-shared-cache-',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      File cacheFile(String name) => File('${root.path}/reference_full/$name');
+      final sharedWithPlan = cacheFile('shared-plan.jpg');
+      final sharedWithRecord = cacheFile('shared-record.jpg');
+      final exclusive = cacheFile('exclusive.jpg');
+      for (final file in [sharedWithPlan, sharedWithRecord, exclusive]) {
+        await file.create(recursive: true);
+        await file.writeAsBytes(List.filled(10, 1));
+      }
+
+      const work = PilgrimageWork(
+        id: 'work',
+        title: '作品',
+        subtitle: '',
+        city: '',
+        source: WorkSource.manual,
+      );
+      PilgrimagePoint point(String id, String path) => PilgrimagePoint(
+        id: id,
+        work: work,
+        name: id,
+        subtitle: '',
+        position: const LatLng(35, 139),
+        episodeLabel: '',
+        referenceLabel: '',
+        referenceFullImagePath: path,
+      );
+      PilgrimagePlan plan(String id, List<PilgrimagePoint> points) =>
+          PilgrimagePlan(
+            id: id,
+            name: id,
+            area: '',
+            works: const [work],
+            points: points,
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+          );
+      final cleaned = plan('cleaned', [
+        point('a', sharedWithPlan.path),
+        point('b', sharedWithRecord.path),
+        point('c', exclusive.path),
+      ]);
+      final other = plan('other', [point('d', sharedWithPlan.path)]);
+      final repository = SamplePilgrimageRepository(plans: [cleaned, other]);
+      await repository.createVisitRecord(
+        planId: 'other',
+        pointId: 'd',
+        workId: work.id,
+        photoPath: '${root.path}/visit_record_images/photo.jpg',
+        referenceImagePath: sharedWithRecord.path,
+        referenceMode: 'overlay',
+      );
+
+      final retained = await referenceCachePathsInUseElsewhere(
+        repository: repository,
+        planIds: const ['cleaned'],
+      );
+      final scan = await scanDownloadedReferenceCaches([
+        cleaned,
+      ], retainedPaths: retained);
+      expect(scan.fileCount, 1);
+      expect(scan.paths, {exclusive.path});
+
+      final result = await cleanupDownloadedReferenceCaches(
+        repository: repository,
+        plans: [cleaned],
+      );
+      expect(result.deletedFileCount, 1);
+      expect(await exclusive.exists(), isFalse);
+      expect(await sharedWithPlan.exists(), isTrue);
+      expect(await sharedWithRecord.exists(), isTrue);
+
+      final plans = await repository.loadPlans();
+      final cleanedAfter = plans.firstWhere((plan) => plan.id == 'cleaned');
+      expect(
+        cleanedAfter.points.map((point) => point.referenceFullImagePath),
+        everyElement(isNull),
+      );
+      final otherAfter = plans.firstWhere((plan) => plan.id == 'other');
+      expect(
+        otherAfter.points.single.referenceFullImagePath,
+        sharedWithPlan.path,
+      );
+    },
+  );
 }

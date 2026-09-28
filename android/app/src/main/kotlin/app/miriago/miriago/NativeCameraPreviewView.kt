@@ -8,8 +8,13 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.hardware.display.DisplayManager
 import android.location.Location
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
+import android.view.Surface
 import android.view.View
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
@@ -32,11 +37,17 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+
+// How long CameraX may still be writing an aborted capture's output file.
+private const val ORPHANED_CAPTURE_DELETE_RETRY_MS = 3_000L
 
 private enum class NativeLensMode(val value: String) {
     BackAuto("backAuto"),
@@ -56,12 +67,31 @@ class NativeCameraPreviewView(
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
+    private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
+    private var torchEnabled = false
+    private var disposed = false
     private var lensMode = NativeLensMode.BackAuto
     private val telephotoCameraId: String? by lazy { findTelephotoCameraId() }
     private var flashMode = ImageCapture.FLASH_MODE_AUTO
     private var targetAspectRatio = 1.0
     private var cropCaptureToAspectRatio = true
+    // Captures whose MethodChannel reply is still outstanding; dispose()
+    // fails them so the Dart shutter never waits forever.
+    private val pendingCaptures = mutableSetOf<CaptureReply>()
+    private val displayManager =
+        context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+
+    // MainActivity handles orientation config changes itself and the view is
+    // kept across rotations, so CameraX use cases must follow the display
+    // rotation explicitly (their rotation is otherwise fixed at build time).
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            updateTargetRotation()
+        }
+    }
 
     init {
         previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -73,13 +103,36 @@ class NativeCameraPreviewView(
             true
         }
         channel.setMethodCallHandler(this)
+        displayManager?.registerDisplayListener(
+            displayListener,
+            Handler(Looper.getMainLooper()),
+        )
     }
 
     override fun getView(): View = previewView
 
     override fun dispose() {
+        if (disposed) return
+        disposed = true
+        displayManager?.unregisterDisplayListener(displayListener)
         channel.setMethodCallHandler(null)
-        cameraProvider?.unbindAll()
+        // CameraX delivers capture callbacks on `executor`; once it is shut
+        // down they are rejected, so answer every pending capture here.
+        val pending = pendingCaptures.toList()
+        pendingCaptures.clear()
+        val orphanedFiles = pending.filter {
+            it.error("camera_disposed", "Camera preview was disposed.")
+        }.map { it.file }
+        deleteOrphanedCaptureFiles(orphanedFiles)
+        // Release only this view's use cases: a replacement preview view may
+        // already have bound the shared process camera provider.
+        val ownUseCases = listOfNotNull(preview, imageCapture)
+        if (ownUseCases.isNotEmpty()) {
+            cameraProvider?.unbind(*ownUseCases.toTypedArray())
+        }
+        camera = null
+        preview = null
+        imageCapture = null
         executor.shutdown()
     }
 
@@ -115,6 +168,10 @@ class NativeCameraPreviewView(
         val providerFuture = ProcessCameraProvider.getInstance(context)
         providerFuture.addListener(
             {
+                if (disposed) {
+                    result.error("camera_disposed", "Camera preview was disposed.", null)
+                    return@addListener
+                }
                 try {
                     cameraProvider = providerFuture.get()
                     bindCamera()
@@ -129,27 +186,37 @@ class NativeCameraPreviewView(
     }
 
     private fun bindCamera() {
+        if (disposed) return
         val provider = cameraProvider ?: return
         val selector = cameraSelectorForLensMode(lensMode)
-        val preview = Preview.Builder()
+        val rotation = currentDisplayRotation()
+        val nextPreview = Preview.Builder()
             .setTargetAspectRatio(cameraTargetAspectRatio())
+            .setTargetRotation(rotation)
             .build()
             .also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
-        imageCapture = ImageCapture.Builder()
+        val nextCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(cameraTargetAspectRatio())
             .setFlashMode(flashMode)
+            .setTargetRotation(rotation)
             .build()
+        preview = nextPreview
+        imageCapture = nextCapture
 
         provider.unbindAll()
         camera = provider.bindToLifecycle(
             activity as LifecycleOwner,
             selector,
-            preview,
-            imageCapture,
+            nextPreview,
+            nextCapture,
         )
+        // Rebinding (ratio or lens change) resets the torch.
+        if (torchEnabled) {
+            camera?.cameraControl?.enableTorch(true)
+        }
     }
 
     private fun setZoomRatio(call: MethodCall, result: MethodChannel.Result) {
@@ -185,21 +252,22 @@ class NativeCameraPreviewView(
         when (call.argument<String>("flashMode") ?: "auto") {
             "off" -> {
                 flashMode = ImageCapture.FLASH_MODE_OFF
-                camera?.cameraControl?.enableTorch(false)
+                torchEnabled = false
             }
             "on" -> {
                 flashMode = ImageCapture.FLASH_MODE_ON
-                camera?.cameraControl?.enableTorch(false)
+                torchEnabled = false
             }
             "torch" -> {
                 flashMode = ImageCapture.FLASH_MODE_OFF
-                camera?.cameraControl?.enableTorch(true)
+                torchEnabled = true
             }
             else -> {
                 flashMode = ImageCapture.FLASH_MODE_AUTO
-                camera?.cameraControl?.enableTorch(false)
+                torchEnabled = false
             }
         }
+        camera?.cameraControl?.enableTorch(torchEnabled)
         imageCapture?.flashMode = flashMode
         result.success(zoomStateMap())
     }
@@ -231,91 +299,144 @@ class NativeCameraPreviewView(
             result.error("camera_not_ready", "Camera is not ready.", null)
             return
         }
+        // The saved JPEG's EXIF orientation comes from targetRotation, which
+        // normalizeAndCropImage then applies before cropping.
+        updateTargetRotation()
 
-        val directory = File(context.filesDir, "visit_record_images")
-        if (!directory.exists()) {
-            directory.mkdirs()
+        val file: File
+        val location: Location?
+        val outputOptions: ImageCapture.OutputFileOptions
+        try {
+            val directory = File(context.filesDir, "visit_record_images")
+            if (!directory.exists()) {
+                directory.mkdirs()
+            }
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+            file = File(directory, "native_camera_$timestamp.jpg")
+            location = locationFromCall(call)
+            val metadata = ImageCapture.Metadata().apply {
+                this.location = location
+            }
+            outputOptions = ImageCapture.OutputFileOptions.Builder(file)
+                .setMetadata(metadata)
+                .build()
+        } catch (error: Exception) {
+            // Not registered as pending yet, so this is the only reply.
+            result.error("capture_failed", error.message, null)
+            return
         }
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
-        val file = File(directory, "native_camera_$timestamp.jpg")
-        val location = locationFromCall(call)
-        val metadata = ImageCapture.Metadata().apply {
-            this.location = location
-        }
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(file)
-            .setMetadata(metadata)
-            .build()
-        capture.takePicture(
-            outputOptions,
-            executor,
-            object : ImageCapture.OnImageSavedCallback {
-                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    try {
-                        normalizeAndCropImage(file, location)
-                        activity.runOnUiThread { result.success(file.absolutePath) }
-                    } catch (error: Exception) {
-                        activity.runOnUiThread {
-                            result.error("capture_crop_failed", error.message, null)
+        // Registered only once setup succeeded; from here every reply goes
+        // through the exactly-once CaptureReply.
+        val reply = CaptureReply(result, file)
+        pendingCaptures.add(reply)
+        try {
+            capture.takePicture(
+                outputOptions,
+                executor,
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                        try {
+                            normalizeAndCropImage(file, location)
+                            if (!reply.success(file.absolutePath)) {
+                                // Already failed as camera_disposed; nobody
+                                // will pick this photo up.
+                                file.delete()
+                            }
+                        } catch (error: Exception) {
+                            reply.error("capture_crop_failed", error.message)
                         }
                     }
-                }
 
-                override fun onError(exception: ImageCaptureException) {
-                    activity.runOnUiThread {
-                        result.error("capture_failed", exception.message, null)
+                    override fun onError(exception: ImageCaptureException) {
+                        reply.error("capture_failed", exception.message)
                     }
-                }
-            },
-        )
+                },
+            )
+        } catch (error: Exception) {
+            reply.error("capture_failed", error.message)
+        }
+    }
+
+    private fun updateTargetRotation() {
+        if (disposed) return
+        val rotation = currentDisplayRotation()
+        imageCapture?.targetRotation = rotation
+        preview?.targetRotation = rotation
+    }
+
+    @Suppress("DEPRECATION")
+    private fun currentDisplayRotation(): Int {
+        previewView.display?.rotation?.let { return it }
+        return try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                activity.display
+            } else {
+                activity.windowManager.defaultDisplay
+            }
+            display?.rotation ?: Surface.ROTATION_0
+        } catch (_: Exception) {
+            Surface.ROTATION_0
+        }
+    }
+
+    /**
+     * CameraX drops the saved callback of requests aborted by unbinding, yet
+     * may still finish writing their output file. Delete files of captures
+     * failed by [dispose] now and once more after CameraX had time to finish.
+     */
+    private fun deleteOrphanedCaptureFiles(files: List<File>) {
+        if (files.isEmpty()) return
+        Thread {
+            files.forEach { it.delete() }
+            try {
+                Thread.sleep(ORPHANED_CAPTURE_DELETE_RETRY_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            files.forEach { it.delete() }
+        }.apply {
+            name = "miriago-camera-orphan-cleanup"
+            isDaemon = true
+        }.start()
+    }
+
+    /**
+     * Replies to a capture call exactly once, always on the main thread, and
+     * drops it from [pendingCaptures] when it completes. [file] is the capture
+     * output, deleted by [dispose] when the reply was failed there.
+     */
+    private inner class CaptureReply(
+        private val result: MethodChannel.Result,
+        val file: File,
+    ) {
+        private val replied = AtomicBoolean(false)
+
+        /** Returns false when the call was already answered. */
+        fun success(path: String): Boolean {
+            if (!replied.compareAndSet(false, true)) return false
+            activity.runOnUiThread {
+                pendingCaptures.remove(this)
+                result.success(path)
+            }
+            return true
+        }
+
+        /** Returns false when the call was already answered. */
+        fun error(code: String, message: String?): Boolean {
+            if (!replied.compareAndSet(false, true)) return false
+            activity.runOnUiThread {
+                pendingCaptures.remove(this)
+                result.error(code, message, null)
+            }
+            return true
+        }
     }
 
     private fun writePhotoLocation(call: MethodCall, result: MethodChannel.Result) {
-        val path = call.argument<String>("path")
-        val location = locationFromCall(call)
-        if (path.isNullOrBlank() || location == null) {
-            result.error("invalid_photo_location", "Photo path or location is invalid.", null)
-            return
-        }
-        executor.execute {
-            try {
-                val file = File(path)
-                if (!file.isFile) {
-                    throw IllegalArgumentException("Photo file does not exist.")
-                }
-                ExifInterface(file.absolutePath).apply {
-                    setGpsInfo(location)
-                    saveAttributes()
-                }
-                activity.runOnUiThread { result.success(true) }
-            } catch (error: Exception) {
-                activity.runOnUiThread {
-                    result.error("photo_location_write_failed", error.message, null)
-                }
-            }
-        }
+        writePhotoLocationCall(call, result, activity, executor)
     }
 
-    private fun locationFromCall(call: MethodCall): Location? {
-        val latitude = (call.argument<Number>("latitude") ?: return null).toDouble()
-        val longitude = (call.argument<Number>("longitude") ?: return null).toDouble()
-        if (!latitude.isFinite() || !longitude.isFinite() ||
-            latitude !in -90.0..90.0 || longitude !in -180.0..180.0
-        ) {
-            return null
-        }
-        return Location("MiriaGo").apply {
-            this.latitude = latitude
-            this.longitude = longitude
-            (call.argument<Number>("accuracy")?.toFloat())?.let {
-                if (it.isFinite() && it >= 0f) accuracy = it
-            }
-            (call.argument<Number>("altitude")?.toDouble())?.let {
-                if (it.isFinite()) altitude = it
-            }
-            time = call.argument<Number>("locationTimestampMillis")?.toLong()
-                ?: System.currentTimeMillis()
-        }
-    }
+    private fun locationFromCall(call: MethodCall): Location? = photoLocationFromCall(call)
 
     private fun focusAt(x: Float, y: Float) {
         val currentCamera = camera ?: return
@@ -552,4 +673,63 @@ class NativeCameraPreviewView(
         val focalLength: Float,
         val physicalIds: Set<String>,
     )
+}
+
+internal fun photoLocationFromCall(call: MethodCall): Location? {
+    val latitude = (call.argument<Number>("latitude") ?: return null).toDouble()
+    val longitude = (call.argument<Number>("longitude") ?: return null).toDouble()
+    if (!latitude.isFinite() || !longitude.isFinite() ||
+        latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+    ) {
+        return null
+    }
+    return Location("MiriaGo").apply {
+        this.latitude = latitude
+        this.longitude = longitude
+        (call.argument<Number>("accuracy")?.toFloat())?.let {
+            if (it.isFinite() && it >= 0f) accuracy = it
+        }
+        (call.argument<Number>("altitude")?.toDouble())?.let {
+            if (it.isFinite()) altitude = it
+        }
+        time = call.argument<Number>("locationTimestampMillis")?.toLong()
+            ?: System.currentTimeMillis()
+    }
+}
+
+// Writes GPS EXIF for `writePhotoLocation` calls on a background executor.
+// Shared by the preview view channel and the app-level fallback channel.
+internal fun writePhotoLocationCall(
+    call: MethodCall,
+    result: MethodChannel.Result,
+    activity: MainActivity,
+    executor: Executor,
+) {
+    val path = call.argument<String>("path")
+    val location = photoLocationFromCall(call)
+    if (path.isNullOrBlank() || location == null) {
+        result.error("invalid_photo_location", "Photo path or location is invalid.", null)
+        return
+    }
+    try {
+        executor.execute {
+            try {
+                val file = File(path)
+                if (!file.isFile) {
+                    throw IllegalArgumentException("Photo file does not exist.")
+                }
+                ExifInterface(file.absolutePath).apply {
+                    setGpsInfo(location)
+                    saveAttributes()
+                }
+                activity.runOnUiThread { result.success(true) }
+            } catch (error: Exception) {
+                activity.runOnUiThread {
+                    result.error("photo_location_write_failed", error.message, null)
+                }
+            }
+        }
+    } catch (error: RejectedExecutionException) {
+        result.error("photo_location_write_failed", error.message, null)
+    }
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:miriago/data/pilgrimage_repository.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/plan/reference_full_cache_runner.dart';
@@ -104,4 +105,86 @@ void main() {
       },
     );
   }
+
+  test(
+    'full cache skips write-back when the reference is replaced mid-run',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'miriago_full_replace_',
+      );
+      final previous = PathProviderPlatform.instance;
+      PathProviderPlatform.instance = _Paths(directory.path);
+      final hold = Completer<void>();
+      addTearDown(() async {
+        if (!hold.isCompleted) hold.complete();
+        PathProviderPlatform.instance = previous;
+        await directory.delete(recursive: true);
+      });
+      final template = samplePilgrimagePlan.points.first.copyWith(
+        source: PointSource.anitabi,
+        referenceFullImagePath: null,
+      );
+      final plan = samplePilgrimagePlan.copyWith(
+        points: [
+          template.copyWith(
+            id: 'replaced',
+            referenceImageUrl: 'https://example.com/old.jpg',
+            referenceThumbnailPath: '/thumbs/old.jpg',
+          ),
+          template.copyWith(
+            id: 'kept',
+            referenceImageUrl: 'https://example.com/kept.jpg',
+            referenceThumbnailPath: '/thumbs/kept-old.jpg',
+          ),
+        ],
+      );
+      final repository = SamplePilgrimageRepository(plans: [plan]);
+      var active = 0;
+      final started = Completer<void>();
+      final run = http.runWithClient(
+        () => cacheFullReferenceImages(
+          plan: plan,
+          repository: repository,
+          onPlanUpdated: (_) {},
+          onProgress: (_) {},
+        ),
+        () => MockClient((request) async {
+          active++;
+          if (active == 2 && !started.isCompleted) started.complete();
+          await hold.future;
+          return http.Response.bytes([0xFF, 0xD8, 0xFF, 0xD9], 200);
+        }),
+      );
+
+      await started.future.timeout(const Duration(seconds: 5));
+      final replacedPoint = plan.points.first.copyWith(
+        referenceImageUrl: 'https://example.com/new.jpg',
+        referenceThumbnailPath: '/thumbs/new.jpg',
+        referenceFullImagePath: '/full/new.jpg',
+      );
+      await repository.updatePointInPlan(planId: plan.id, point: replacedPoint);
+      await repository.updatePointImageCaches(
+        planId: plan.id,
+        updatesByPointId: const {
+          'kept': PointImageCacheUpdate(
+            referenceThumbnailPath: '/thumbs/kept-new.jpg',
+            expectedReferenceImageUrl: 'https://example.com/kept.jpg',
+            preserveFullImagePath: true,
+          ),
+        },
+      );
+      hold.complete();
+      final result = await run;
+
+      final replaced = result.points.firstWhere((p) => p.id == 'replaced');
+      expect(replaced.referenceImageUrl, 'https://example.com/new.jpg');
+      expect(replaced.referenceThumbnailPath, '/thumbs/new.jpg');
+      expect(replaced.referenceFullImagePath, '/full/new.jpg');
+
+      final kept = result.points.firstWhere((p) => p.id == 'kept');
+      expect(kept.referenceThumbnailPath, '/thumbs/kept-new.jpg');
+      expect(kept.referenceFullImagePath, isNotNull);
+      expect(await File(kept.referenceFullImagePath!).exists(), isTrue);
+    },
+  );
 }

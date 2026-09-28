@@ -15,9 +15,13 @@ import 'plan_export_delivery.dart';
 import 'plan_export_delivery_result.dart';
 import 'plan_export_size_estimator.dart';
 import 'plan_export_v2.dart';
+import 'plan_import_file_stub.dart'
+    if (dart.library.io) 'plan_import_file_io.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
+import 'plan_import_stream.dart';
 import 'plan_package.dart' show seichiPlanFileExtension, seichiPlanMimeType;
+import 'plan_transfer_background.dart';
 
 class ImportExportScreen extends StatefulWidget {
   const ImportExportScreen({
@@ -42,6 +46,8 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   var _estimateGeneration = 0;
   PlanExportSizeEstimate? _sizeEstimate;
   var _estimatingSize = false;
+  PlanTransferCancellation? _importCancellation;
+  PlanTransferCancellation? _exportCancellation;
 
   bool get _usesExternalIosImport => isIosPlatform;
 
@@ -55,6 +61,8 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   void dispose() {
     _exportGeneration++;
     _estimateGeneration++;
+    _importCancellation?.cancel();
+    _exportCancellation?.cancel();
     super.dispose();
   }
 
@@ -152,6 +160,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     if (_exporting) {
       _exportGeneration++;
+      _exportCancellation?.cancel();
       setState(() => _exporting = false);
       messenger.showReplacingSnackBar(
         appStatusSnackBar(
@@ -171,6 +180,8 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     }
 
     final messenger = ScaffoldMessenger.of(context);
+    final cancellation = PlanTransferCancellation();
+    _importCancellation = cancellation;
     setState(() => _importing = true);
     try {
       final file = await file_selector.openFile(
@@ -194,10 +205,36 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (file == null) {
         return;
       }
-      final importPackage = readPlanImportPackageFromBytes(
-        await file.readAsBytes(),
-        sourceName: file.name,
-      );
+      final PlanImportPackage importPackage;
+      if (canReadPlanImportFromPath(file.path)) {
+        // Native pickers hand over a local file: the worker isolate reads it
+        // (with the same size limit) instead of receiving a copy of up to
+        // 128 MiB from the UI isolate.
+        importPackage = await readPlanImportPackageFromPath(
+          file.path,
+          sourceName: file.name,
+          cancellation: cancellation,
+        );
+      } else {
+        const limits = PlanImportLimits();
+        final size = await file.length();
+        if (size > limits.maxCompressedBytes) {
+          throw PlanImportLimitException(
+            '压缩包字节数',
+            size,
+            limits.maxCompressedBytes,
+          );
+        }
+        final bytes = await readBoundedPlanImportStream(file.openRead());
+        if (!mounted || cancellation.isCancelled) {
+          return;
+        }
+        importPackage = await readPlanImportPackageInBackground(
+          bytes,
+          sourceName: file.name,
+          cancellation: cancellation,
+        );
+      }
       if (!mounted) {
         return;
       }
@@ -212,15 +249,20 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (imported == true && mounted) {
         Navigator.of(context).pop(true);
       }
-    } catch (_) {
+    } on PlanTransferCancelledException {
+      return;
+    } catch (error) {
       if (!mounted) {
         return;
       }
       messenger.showStatusSnack(
         kind: AppStatusBannerKind.error,
-        title: '导入文件读取失败',
+        title: error is PlanImportLimitException ? error.message : '导入文件读取失败',
       );
     } finally {
+      if (identical(_importCancellation, cancellation)) {
+        _importCancellation = null;
+      }
       if (mounted) {
         setState(() => _importing = false);
       }
@@ -270,12 +312,25 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (!_isCurrentExport(generation)) {
         throw const _ExportAbortedException();
       }
-      final package = await buildPlanExportV2Package(
-        plan: widget.plan,
-        visitRecords: records,
-        options: options,
-        exportedAt: exportedAt,
-      );
+      final cancellation = PlanTransferCancellation();
+      _exportCancellation?.cancel();
+      _exportCancellation = cancellation;
+      final PlanExportV2Result package;
+      try {
+        package = await buildPlanExportV2Package(
+          plan: widget.plan,
+          visitRecords: records,
+          options: options,
+          exportedAt: exportedAt,
+          cancellation: cancellation,
+        );
+      } on PlanTransferCancelledException {
+        throw const _ExportAbortedException();
+      } finally {
+        if (identical(_exportCancellation, cancellation)) {
+          _exportCancellation = null;
+        }
+      }
       if (!_isCurrentExport(generation)) {
         throw const _ExportAbortedException();
       }

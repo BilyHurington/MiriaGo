@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
+
 class ImageLoadPermit {
   ImageLoadPermit._(this._limiter);
 
@@ -26,6 +28,9 @@ class ImageLoadLimiter {
       Queue<Completer<ImageLoadPermit>>();
 
   int get maxConcurrent => _maxConcurrent;
+
+  @visibleForTesting
+  int get activeCount => _active;
 
   set maxConcurrent(int value) {
     _maxConcurrent = value.clamp(1, 30);

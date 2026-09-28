@@ -9,6 +9,7 @@ import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 import '../widgets/app_back_button.dart';
 import 'pilgrimage_plan_controller.dart';
+import 'plan_memo_markdown.dart';
 
 class PlanMemoScreen extends StatefulWidget {
   const PlanMemoScreen({required this.controller, super.key});
@@ -84,6 +85,13 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
   }
 
   Future<void> _handleBack() async {
+    if (_isSaving || _isTogglingTask) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.running,
+        title: '正在保存备忘录，请稍候',
+      );
+      return;
+    }
     if (!await _confirmDiscardChanges()) {
       return;
     }
@@ -93,6 +101,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
   }
 
   void _startEditing() {
+    if (_isTogglingTask) return;
     setState(() {
       _isEditing = true;
     });
@@ -102,20 +111,22 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
     if (_isSaving) {
       return;
     }
+    final savedText = _memoController.text;
     setState(() {
       _isSaving = true;
     });
     try {
-      await widget.controller.updatePlanMemo(_memoController.text);
+      await widget.controller.updatePlanMemo(savedText);
       if (!mounted) {
         return;
       }
       setState(() {
-        _isEditing = false;
+        _isEditing = _memoController.text != savedText;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showStatusSnack(kind: AppStatusBannerKind.success, title: '计划备忘录已保存');
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.success,
+        title: _isEditing ? '已保存，后续输入仍待保存' : '计划备忘录已保存',
+      );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -132,11 +143,11 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
   }
 
   Future<void> _toggleTaskItem(int taskIndex) async {
-    if (_isTogglingTask) {
+    if (_isTogglingTask || _isEditing) {
       return;
     }
     final currentMemo = _savedMemo;
-    final toggledMemo = _toggleMarkdownTask(currentMemo, taskIndex);
+    final toggledMemo = toggleMemoMarkdownTask(currentMemo, taskIndex);
     if (toggledMemo == currentMemo) {
       return;
     }
@@ -163,32 +174,6 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
         });
       }
     }
-  }
-
-  String _toggleMarkdownTask(String source, int targetTaskIndex) {
-    var currentTaskIndex = 0;
-    final lines = source.split('\n');
-    for (var index = 0; index < lines.length; index++) {
-      final match = _taskLinePattern.firstMatch(lines[index]);
-      if (match == null) {
-        continue;
-      }
-      if (currentTaskIndex != targetTaskIndex) {
-        currentTaskIndex++;
-        continue;
-      }
-      final marker = match.namedGroup('mark') ?? ' ';
-      final nextMarker = marker.trim().isEmpty ? 'x' : ' ';
-      final markerOffset =
-          match.start + (match.namedGroup('prefix') ?? '').length;
-      lines[index] = lines[index].replaceRange(
-        markerOffset,
-        markerOffset + 1,
-        nextMarker,
-      );
-      return lines.join('\n');
-    }
-    return source;
   }
 
   void _applyMarkdownAction(_MarkdownAction action) {
@@ -359,7 +344,10 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
   Widget build(BuildContext context) {
     final memo = _memoController.text.trim();
     return PopScope(
-      canPop: !_isEditing || !_hasUnsavedChanges,
+      canPop:
+          !_isSaving &&
+          !_isTogglingTask &&
+          (!_isEditing || !_hasUnsavedChanges),
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           return;
@@ -392,7 +380,7 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
                     )
                   : IconButton(
                       tooltip: '编辑',
-                      onPressed: _startEditing,
+                      onPressed: _isTogglingTask ? null : _startEditing,
                       icon: const Icon(LucideIcons.edit),
                     ),
             ),
@@ -496,10 +484,6 @@ class _PlanMemoScreenState extends State<PlanMemoScreen> {
     );
   }
 }
-
-final _taskLinePattern = RegExp(
-  r'^(?<prefix>\s*(?:[-*+]|\d+[.)])\s+\[)(?<mark>[ xX])(?<suffix>\]\s+.*)$',
-);
 
 enum _MarkdownAction { heading, bold, list, task, quote, divider, link, code }
 
@@ -614,40 +598,25 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final markdown = prepareMemoMarkdown(data);
     return SingleChildScrollView(
       child: MarkdownBody(
-        data: _escapeHtmlBlocks(data),
+        data: markdown,
         selectable: true,
         softLineBreak: true,
         listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.start,
         styleSheet: _markdownStyleSheet(context),
         onTapLink: (_, href, _) => onTapLink(href),
-        checkboxBuilder: _TaskCheckboxBuilder(onToggleTask: onToggleTask).build,
+        checkboxBuilder: _TaskCheckboxBuilder(
+          onToggleTask: onToggleTask,
+          taskCount: countRenderedMemoTaskCheckboxes(markdown),
+        ).build,
         bulletBuilder: _buildMarkdownBullet,
         imageBuilder: (uri, title, alt) => _UnsupportedMarkdownImage(
           label: alt?.trim().isNotEmpty == true ? alt!.trim() : uri.toString(),
         ),
       ),
     );
-  }
-
-  static String _escapeHtmlBlocks(String source) {
-    return source
-        .split('\n')
-        .map((line) {
-          final quoteMatch = RegExp(
-            r'^(?<marker>\s*>+\s?)(?<content>.*)$',
-          ).firstMatch(line);
-          if (quoteMatch != null) {
-            return '${quoteMatch.namedGroup('marker') ?? ''}${_escapeHtml(quoteMatch.namedGroup('content') ?? '')}';
-          }
-          return _escapeHtml(line);
-        })
-        .join('\n');
-  }
-
-  static String _escapeHtml(String source) {
-    return source.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   }
 
   static MarkdownStyleSheet _markdownStyleSheet(BuildContext context) {
@@ -726,14 +695,19 @@ class _PlanMemoMarkdownPreview extends StatelessWidget {
   }
 }
 
+/// The markdown widget may parse the same data more than once with one builder
+/// (e.g. didUpdateWidget and didChangeDependencies in the same frame), so the
+/// callback counter wraps per parse instead of growing past the task count.
 class _TaskCheckboxBuilder {
-  _TaskCheckboxBuilder({required this.onToggleTask});
+  _TaskCheckboxBuilder({required this.onToggleTask, required this.taskCount});
 
   final ValueChanged<int> onToggleTask;
-  var _taskIndex = 0;
+  final int taskCount;
+  var _buildCount = 0;
 
   Widget build(bool value) {
-    final taskIndex = _taskIndex++;
+    final built = _buildCount++;
+    final taskIndex = taskCount > 0 ? built % taskCount : built;
     return Transform.translate(
       offset: Offset.zero,
       child: Tooltip(

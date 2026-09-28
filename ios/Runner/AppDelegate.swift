@@ -44,6 +44,9 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var planFileChannel: FlutterMethodChannel?
   private var pendingPlanPath: String?
+  // Until Dart asks for the initial path, incoming files are only queued so a
+  // file is never delivered twice (once via openPath, once via getInitialPath).
+  private var initialPlanPathDelivered = false
 
   static weak var shared: AppDelegate?
 
@@ -76,13 +79,23 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       binaryMessenger: messenger
     )
     planFileChannel?.setMethodCallHandler { [weak self] call, result in
-      guard call.method == "getInitialPath" else {
+      switch call.method {
+      case "getInitialPath":
+        let path = self?.pendingPlanPath
+        self?.pendingPlanPath = nil
+        self?.initialPlanPathDelivered = true
+        // Every file opened before this point has already been copied out,
+        // so whatever remains in Inbox or our tmp directory is stale.
+        self?.removeStaleIncomingPlanFiles(keeping: path)
+        result(path)
+      case "releasePath":
+        if let path = call.arguments as? String {
+          self?.removeIncomingPlanCopy(atPath: path)
+        }
+        result(nil)
+      default:
         result(FlutterMethodNotImplemented)
-        return
       }
-
-      result(self?.pendingPlanPath)
-      self?.pendingPlanPath = nil
     }
 
     let galleryChannel = FlutterMethodChannel(
@@ -123,6 +136,37 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
 
       self.getBackCameraZoomRange(result: result)
     }
+
+    // Re-downloadable caches (reference images) should not take up the
+    // user's iCloud backup. Excluding a directory also excludes its contents.
+    FlutterMethodChannel(
+      name: "miriago/backup_exclusion",
+      binaryMessenger: messenger
+    ).setMethodCallHandler { call, result in
+      guard
+        call.method == "excludeFromBackup",
+        let arguments = call.arguments as? [String: Any],
+        let path = arguments["path"] as? String
+      else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      var url = URL(fileURLWithPath: path, isDirectory: true)
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      do {
+        try url.setResourceValues(values)
+        result(true)
+      } catch {
+        result(
+          FlutterError(
+            code: "EXCLUDE_FAILED",
+            message: error.localizedDescription,
+            details: nil
+          )
+        )
+      }
+    }
   }
 
   private func registerNativeCameraPreview(
@@ -161,8 +205,14 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       return false
     }
 
-    pendingPlanPath = copiedPath
-    planFileChannel?.invokeMethod("openPath", arguments: copiedPath)
+    if initialPlanPathDelivered, let channel = planFileChannel {
+      channel.invokeMethod("openPath", arguments: copiedPath)
+    } else {
+      if let stale = pendingPlanPath {
+        removeIncomingPlanCopy(atPath: stale)
+      }
+      pendingPlanPath = copiedPath
+    }
     return true
   }
 
@@ -263,9 +313,102 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
         try FileManager.default.removeItem(at: destination)
       }
       try FileManager.default.copyItem(at: url, to: destination)
+      // With LSSupportsOpeningDocumentsInPlace=false iOS hands us a copy in
+      // Documents/Inbox; drop it once we have our own temporary copy.
+      removeIfInInbox(url)
       return destination.path
     } catch {
       return nil
+    }
+  }
+
+  private var incomingPlanDirectory: URL {
+    FileManager.default.temporaryDirectory
+      .appendingPathComponent("incoming_plans", isDirectory: true)
+  }
+
+  private var documentsInboxDirectory: URL? {
+    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+      .appendingPathComponent("Inbox", isDirectory: true)
+  }
+
+  private func isDirectChild(_ url: URL, of directory: URL) -> Bool {
+    let parent = url.resolvingSymlinksInPath().deletingLastPathComponent()
+      .standardizedFileURL.path
+    return parent == directory.resolvingSymlinksInPath().standardizedFileURL.path
+  }
+
+  private func canonicalPath(_ url: URL) -> String {
+    url.resolvingSymlinksInPath().standardizedFileURL.path
+  }
+
+  // Scene-based apps can receive "Open in"/AirDrop copies in
+  // tmp/<bundle-id>-Inbox instead of Documents/Inbox. Only direct children of
+  // NSTemporaryDirectory whose name ends in "-Inbox" qualify.
+  private func isTemporaryInboxDirectory(_ directory: URL) -> Bool {
+    let resolved = directory.resolvingSymlinksInPath().standardizedFileURL
+    let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    return resolved.lastPathComponent.hasSuffix("-Inbox")
+      && canonicalPath(resolved.deletingLastPathComponent()) == canonicalPath(temporary)
+  }
+
+  private var temporaryInboxDirectories: [URL] {
+    let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    guard
+      let children = try? FileManager.default.contentsOfDirectory(
+        at: temporary,
+        includingPropertiesForKeys: [.isDirectoryKey]
+      )
+    else {
+      return []
+    }
+    return children.filter { child in
+      (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        && isTemporaryInboxDirectory(child)
+    }
+  }
+
+  private func removeIfInInbox(_ url: URL) {
+    guard url.isFileURL else {
+      return
+    }
+    let parent = url.resolvingSymlinksInPath().deletingLastPathComponent()
+    let inDocumentsInbox = documentsInboxDirectory.map { isDirectChild(url, of: $0) } ?? false
+    guard inDocumentsInbox || isTemporaryInboxDirectory(parent) else {
+      return
+    }
+    try? FileManager.default.removeItem(at: url)
+  }
+
+  private func removeIncomingPlanCopy(atPath path: String) {
+    let url = URL(fileURLWithPath: path)
+    guard isDirectChild(url, of: incomingPlanDirectory) else {
+      return
+    }
+    try? FileManager.default.removeItem(at: url)
+  }
+
+  private func removeStaleIncomingPlanFiles(keeping keptPath: String?) {
+    let fileManager = FileManager.default
+    let kept = keptPath.map {
+      URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path
+    }
+    let directories =
+      [incomingPlanDirectory, documentsInboxDirectory].compactMap({ $0 })
+      + temporaryInboxDirectories
+    for directory in directories {
+      guard
+        let files = try? fileManager.contentsOfDirectory(
+          at: directory,
+          includingPropertiesForKeys: nil
+        )
+      else {
+        continue
+      }
+      for file in files
+      where file.resolvingSymlinksInPath().standardizedFileURL.path != kept {
+        try? fileManager.removeItem(at: file)
+      }
     }
   }
 }
@@ -357,7 +500,14 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   private var torchEnabled = false
   private var targetAspectRatio = 1.0
   private var cropCaptureToAspectRatio = true
-  private var captureDelegate: NativePhotoCaptureDelegate?
+  // Session queue only. AVCapturePhotoOutput does not keep its delegates
+  // alive, so each in-flight capture's delegate is held here.
+  private var captureDelegates: [UUID: NativePhotoCaptureDelegate] = [:]
+  // Main thread only. Captures whose Flutter reply is still outstanding;
+  // dispose fails them so the Dart shutter never waits forever.
+  private var pendingCaptures: [UUID: NativeCaptureReply] = [:]
+  private var isDisposed = false
+  private var orientationObserver: NSObjectProtocol?
 
   init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
     previewView = NativeCameraPreviewUIView(frame: frame)
@@ -369,6 +519,36 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
     previewView.previewLayer.session = session
     previewView.previewLayer.videoGravity = .resizeAspectFill
     channel.setMethodCallHandler(handle)
+    // The platform view survives rotations, so the preview connection must
+    // follow the interface orientation. A 90 degree turn resizes (and lays
+    // out) the view; a 180 degree flip keeps the size, so also listen for
+    // device orientation changes.
+    previewView.onLayout = { [weak self] in
+      self?.applyPreviewOrientation()
+    }
+    UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+    orientationObserver = NotificationCenter.default.addObserver(
+      forName: UIDevice.orientationDidChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.applyPreviewOrientation()
+      // The interface orientation updates during the rotation animation.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        self?.applyPreviewOrientation()
+      }
+    }
+  }
+
+  deinit {
+    stopObservingOrientation()
+    // Freed without an explicit dispose: still answer every capture.
+    let pending = Array(pendingCaptures.values)
+    if !pending.isEmpty {
+      DispatchQueue.main.async {
+        pending.forEach { $0.finish(nativeCameraDisposedError()) }
+      }
+    }
   }
 
   func view() -> UIView {
@@ -586,9 +766,25 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   }
 
   private func takePicture(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard !isDisposed else {
+      result(nativeCameraDisposedError())
+      return
+    }
+    // The reply is owned independently of self, so the Dart future completes
+    // even if this view is disposed or freed mid-capture.
+    let captureId = UUID()
+    let reply = NativeCaptureReply(result)
+    pendingCaptures[captureId] = reply
+    // UIKit state: read on the main thread, then hand to the session queue.
+    let videoOrientation = currentVideoOrientation()
+    let location = photoLocation(from: call)
+
     sessionQueue.async { [weak self] in
-      guard let self else { return }
-      self.updatePhotoOrientation()
+      guard let self else {
+        DispatchQueue.main.async { reply.finish(nativeCameraDisposedError()) }
+        return
+      }
+      self.updatePhotoOrientation(videoOrientation)
 
       let settings = AVCapturePhotoSettings()
       if self.photoOutput.supportedFlashModes.contains(self.flashMode) {
@@ -598,15 +794,18 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
       let delegate = NativePhotoCaptureDelegate(
         targetAspectRatio: self.targetAspectRatio,
         cropCaptureToAspectRatio: self.cropCaptureToAspectRatio,
-        location: photoLocation(from: call)
+        location: location
       ) { [weak self] path, error in
-        guard let self else { return }
-        self.captureDelegate = nil
-        DispatchQueue.main.async {
+        self?.sessionQueue.async { [weak self] in
+          self?.captureDelegates[captureId] = nil
+        }
+        DispatchQueue.main.async { [weak self] in
+          self?.pendingCaptures[captureId] = nil
+          let delivered: Bool
           if let path {
-            result(path)
+            delivered = reply.finish(path)
           } else {
-            result(
+            delivered = reply.finish(
               FlutterError(
                 code: "capture_failed",
                 message: error ?? "Failed to capture photo.",
@@ -614,9 +813,13 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
               )
             )
           }
+          if !delivered, let path {
+            // Already failed as camera_disposed; nobody will pick it up.
+            try? FileManager.default.removeItem(atPath: path)
+          }
         }
       }
-      self.captureDelegate = delegate
+      self.captureDelegates[captureId] = delegate
       self.photoOutput.capturePhoto(with: settings, delegate: delegate)
     }
   }
@@ -672,24 +875,42 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
 
   private func updatePreviewOrientation() {
     DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      let orientation = self.currentVideoOrientation()
-      if self.previewView.previewLayer.connection?.isVideoOrientationSupported == true {
-        self.previewView.previewLayer.connection?.videoOrientation = orientation
-      }
+      self?.applyPreviewOrientation()
     }
   }
 
-  private func updatePhotoOrientation() {
+  /// Main thread only. Cheap enough for every layout pass: it only touches
+  /// the connection when the orientation actually changed.
+  private func applyPreviewOrientation() {
+    guard
+      let connection = previewView.previewLayer.connection,
+      connection.isVideoOrientationSupported
+    else { return }
+    let orientation = currentVideoOrientation()
+    if connection.videoOrientation != orientation {
+      connection.videoOrientation = orientation
+    }
+  }
+
+  private func stopObservingOrientation() {
+    guard let observer = orientationObserver else { return }
+    orientationObserver = nil
+    NotificationCenter.default.removeObserver(observer)
+    UIDevice.current.endGeneratingDeviceOrientationNotifications()
+  }
+
+  /// Session queue. `orientation` is read on the main thread by the caller.
+  private func updatePhotoOrientation(_ orientation: AVCaptureVideoOrientation) {
     guard let connection = photoOutput.connection(with: .video) else { return }
     if connection.isVideoOrientationSupported {
-      connection.videoOrientation = currentVideoOrientation()
+      connection.videoOrientation = orientation
     }
     if connection.isVideoMirroringSupported {
       connection.isVideoMirrored = lensFacing == "front"
     }
   }
 
+  /// Main thread only: reads UIKit scene state.
   private func currentVideoOrientation() -> AVCaptureVideoOrientation {
     let orientation = UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
@@ -734,7 +955,14 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   }
 
   private func dispose() {
+    guard !isDisposed else { return }
+    isDisposed = true
+    let pending = Array(pendingCaptures.values)
+    pendingCaptures.removeAll()
+    pending.forEach { $0.finish(nativeCameraDisposedError()) }
     channel.setMethodCallHandler(nil)
+    previewView.onLayout = nil
+    stopObservingOrientation()
     sessionQueue.async { [weak self] in
       self?.session.stopRunning()
       self?.session.inputs.forEach { self?.session.removeInput($0) }
@@ -788,6 +1016,32 @@ private final class NativeCameraPreviewView: NSObject, FlutterPlatformView {
   private func stringArgument(_ call: FlutterMethodCall, _ key: String) -> String? {
     guard let arguments = call.arguments as? [String: Any] else { return nil }
     return arguments[key] as? String
+  }
+}
+
+private func nativeCameraDisposedError() -> FlutterError {
+  FlutterError(
+    code: "camera_disposed",
+    message: "Camera preview was disposed.",
+    details: nil
+  )
+}
+
+/// Answers a takePicture call exactly once. Main thread only.
+private final class NativeCaptureReply {
+  private var result: FlutterResult?
+
+  init(_ result: @escaping FlutterResult) {
+    self.result = result
+  }
+
+  /// Returns false when the call was already answered.
+  @discardableResult
+  func finish(_ value: Any?) -> Bool {
+    guard let result else { return false }
+    self.result = nil
+    result(value)
+    return true
   }
 }
 
@@ -896,6 +1150,15 @@ private final class NativeCameraPreviewUIView: UIView {
 
   var previewLayer: AVCaptureVideoPreviewLayer {
     layer as! AVCaptureVideoPreviewLayer
+  }
+
+  /// Called after every layout pass (for example when a rotation resizes the
+  /// persistent platform view).
+  var onLayout: (() -> Void)?
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    onLayout?()
   }
 }
 

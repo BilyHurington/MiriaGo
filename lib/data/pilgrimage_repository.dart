@@ -1,5 +1,15 @@
 import '../plan/pilgrimage_models.dart';
 
+/// A repository may emit this only after proving the record was not committed.
+/// Other failures, including transport errors, have an unknown commit outcome.
+class VisitRecordNotCommittedException implements Exception {
+  const VisitRecordNotCommittedException(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'Visit record was not committed: $cause';
+}
+
 abstract interface class PilgrimageRepository {
   Future<List<PilgrimagePlan>> loadPlans();
 
@@ -96,6 +106,21 @@ abstract interface class PilgrimageRepository {
     required String planId,
     required Set<String> pointIds,
     required String? groupId,
+  });
+
+  /// Sets every group's `orderIndex` to its position in [orderedGroupIds] in
+  /// one atomic write. The list must contain each group of the plan once.
+  Future<PilgrimagePlan> reorderGroups({
+    required String planId,
+    required List<String> orderedGroupIds,
+  });
+
+  /// Moves several points to their target groups (`null` = ungrouped) in one
+  /// atomic write; either every move is stored or none is. Each target group
+  /// receives its points like [movePointsToGroup].
+  Future<PilgrimagePlan> assignPointsToGroups({
+    required String planId,
+    required Map<String, String?> groupIdsByPointId,
   });
 
   Future<PilgrimagePlan> deleteWorkFromPlan({
@@ -198,10 +223,19 @@ class PointImageCacheUpdate {
     this.referenceFullImagePath,
     this.expectedReferenceImageUrl,
     this.preserveFullImagePath = false,
+    this.preserveThumbnailPath = false,
   });
 
   final String? referenceThumbnailPath;
   final String? referenceFullImagePath;
+
+  /// When set, the update is skipped unless the stored point still has this
+  /// reference image URL, so a stale background write-back cannot overwrite a
+  /// reference image the user replaced in the meantime.
   final String? expectedReferenceImageUrl;
   final bool preserveFullImagePath;
+
+  /// Keeps the stored thumbnail path instead of writing
+  /// [referenceThumbnailPath].
+  final bool preserveThumbnailPath;
 }

@@ -10,6 +10,7 @@ import '../data/image_bytes.dart';
 import '../data/reference_asset_paths.dart';
 import '../desktop/desktop_asset_image.dart';
 import '../desktop/tauri_bridge.dart' as tauri;
+import 'plan_export_zip_source.dart';
 
 const _exportNetworkTimeout = Duration(seconds: 8);
 
@@ -41,6 +42,31 @@ Future<List<int>?> readExportAssetBytes(String path) async {
     return null;
   }
 }
+
+/// Web/desktop-web export assets are read into memory; the ZIP is encoded
+/// inline because there is no worker isolate to hand file paths to.
+Future<PlanExportZipSource?> readExportAssetSource(String path) async {
+  final bytes = await readExportAssetBytes(path);
+  if (bytes == null) {
+    return null;
+  }
+  return PlanExportZipSource.bytes(
+    bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+  );
+}
+
+class PlanExportAssetSpool {
+  Future<PlanExportZipSource> hold(Uint8List bytes) async =>
+      PlanExportZipSource.bytes(bytes);
+
+  Future<void> dispose() async {}
+}
+
+Uint8List readExportZipSourceFile(String path) {
+  throw UnsupportedError('File-backed export assets need dart:io.');
+}
+
+int exportZipSourceFileLength(String path) => 0;
 
 Future<List<int>?> readExportNetworkBytes(String url) async {
   final normalizedUrl = url.trim();

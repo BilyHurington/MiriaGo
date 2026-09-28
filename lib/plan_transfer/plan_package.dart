@@ -174,10 +174,9 @@ PilgrimagePoint _pointFromJson(
     work: work,
     name: _stringValue(json['name'], fallback: '未命名点位'),
     subtitle: _stringValue(json['subtitle'], fallback: ''),
-    position: LatLng(
-      _doubleValue(json['latitude']),
-      _doubleValue(json['longitude']),
-    ),
+    position:
+        importedCoordinate(json['latitude'], json['longitude']) ??
+        PilgrimagePoint.pendingPosition,
     episodeLabel: _stringValue(json['episodeLabel'], fallback: ''),
     referenceLabel: _stringValue(json['referenceLabel'], fallback: ''),
     source: PointSource.values.firstWhere(
@@ -260,11 +259,19 @@ String? _optionalStringValue(Object? value) {
   return value;
 }
 
-double _doubleValue(Object? value) {
-  if (value is num) {
-    return value.toDouble();
+/// Parses an imported coordinate pair. Returns null when either value is
+/// missing, non-finite or outside WGS84 range so callers can fall back to the
+/// "coordinate pending" state instead of persisting e.g. latitude 1000.
+LatLng? importedCoordinate(Object? latitude, Object? longitude) {
+  if (latitude is! num || longitude is! num) {
+    return null;
   }
-  return 0;
+  final lat = latitude.toDouble();
+  final lng = longitude.toDouble();
+  if (!lat.isFinite || !lng.isFinite || lat.abs() > 90 || lng.abs() > 180) {
+    return null;
+  }
+  return LatLng(lat, lng);
 }
 
 DateTime _dateValue(Object? value) {

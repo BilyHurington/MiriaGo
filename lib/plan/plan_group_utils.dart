@@ -5,8 +5,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'pilgrimage_models.dart';
+import 'plan_order.dart';
 import '../app_theme.dart';
 import '../map/map_colors.dart';
+
+export 'plan_order.dart';
 
 enum PointSortMode { plan, distance }
 
@@ -125,59 +128,6 @@ List<PlanGroupBucket> planGroupBuckets(
   return buckets;
 }
 
-List<PilgrimagePlanGroup> sortGroupsByPlanOrder(
-  Iterable<PilgrimagePlanGroup> groups,
-) {
-  final sorted = groups.toList();
-  sorted.sort((a, b) {
-    final orderCompare = a.orderIndex.compareTo(b.orderIndex);
-    if (orderCompare != 0) {
-      return orderCompare;
-    }
-    return a.name.compareTo(b.name);
-  });
-  return sorted;
-}
-
-List<PilgrimagePoint> sortPointsByPlanOrder(Iterable<PilgrimagePoint> points) {
-  final sorted = points.toList().indexed.toList();
-  sorted.sort((a, b) {
-    final orderA = a.$2.groupOrderIndex ?? 1 << 30;
-    final orderB = b.$2.groupOrderIndex ?? 1 << 30;
-    final orderCompare = orderA.compareTo(orderB);
-    if (orderCompare != 0) {
-      return orderCompare;
-    }
-    return a.$1.compareTo(b.$1);
-  });
-  return sorted.map((entry) => entry.$2).toList(growable: false);
-}
-
-PilgrimagePoint? nextPendingPointAfterCompletion({
-  required Iterable<PilgrimagePoint> points,
-  required PilgrimagePoint completedPoint,
-  required Set<String> completedPointIds,
-}) {
-  final sortedPoints = sortPointsByPlanOrder(points);
-  final sameGroupNext = sortedPoints
-      .where(
-        (point) =>
-            point.groupId == completedPoint.groupId &&
-            point.hasCoordinate &&
-            !completedPointIds.contains(point.id),
-      )
-      .firstOrNull;
-  if (sameGroupNext != null) {
-    return sameGroupNext;
-  }
-
-  return sortedPoints
-      .where(
-        (point) => point.hasCoordinate && !completedPointIds.contains(point.id),
-      )
-      .firstOrNull;
-}
-
 List<PilgrimagePoint> displayPointsForGroup(
   PlanGroupBucket group, {
   required PointSortMode sortMode,
@@ -214,10 +164,37 @@ List<PilgrimagePoint> displayPointsForGroup(
   return points;
 }
 
+/// A group's key-point position. A linked anchor point wins over the stored
+/// copy, which may be stale if the point moved; stored coordinates are the
+/// fallback for manual anchors or when the linked point is gone.
+LatLng? resolvedGroupAnchorPosition(
+  PilgrimagePlanGroup group,
+  Iterable<PilgrimagePoint> points,
+) {
+  final anchorPointId = group.anchorPointId;
+  if (anchorPointId != null) {
+    for (final point in points) {
+      if (point.id == anchorPointId && point.hasCoordinate) {
+        return point.position;
+      }
+    }
+  }
+  final latitude = group.anchorLatitude;
+  final longitude = group.anchorLongitude;
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+  return LatLng(latitude, longitude);
+}
+
 LatLng groupMapCenter(PlanGroupBucket group) {
-  if (group.group?.anchorLatitude != null &&
-      group.group?.anchorLongitude != null) {
-    return LatLng(group.group!.anchorLatitude!, group.group!.anchorLongitude!);
+  // Prefer the anchor point's current position over a stored copy that may
+  // predate edits to that point.
+  if (group.group case final planGroup?) {
+    if (resolvedGroupAnchorPosition(planGroup, group.points)
+        case final anchor?) {
+      return anchor;
+    }
   }
   final positionedPoints = group.points
       .where((point) => point.hasCoordinate)

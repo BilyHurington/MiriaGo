@@ -49,6 +49,22 @@ void main() {
 
     expect(works.single.coverImageUrl, isNull);
   });
+
+  test(
+    'skips malformed cover candidates and preserves fallback order',
+    () async {
+      final client = _clientWithImages({
+        'small': 12,
+        'common': '/relative-only.jpg',
+        'medium': 'https://lain.bgm.tv/pic/cover/medium.jpg',
+        'large': 'https://lain.bgm.tv/pic/cover/large.jpg',
+      });
+      expect(
+        (await client.searchAnime('test')).single.coverImageUrl,
+        'https://lain.bgm.tv/pic/cover/medium.jpg',
+      );
+    },
+  );
 }
 
 BangumiApiClient _clientWithImages(Object? images) {
@@ -60,6 +76,7 @@ BangumiApiClient _clientWithImages(Object? images) {
           'data': [
             {
               'id': 326,
+              'nsfw': false,
               'type': BangumiSubjectType.anime.code,
               'name': 'Test Work',
               'name_cn': '测试作品',

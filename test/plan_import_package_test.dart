@@ -453,7 +453,9 @@ List<int> _zipPackageBytes({
   return ZipEncoder().encode(archive);
 }
 
-const _jpegBytes = <int>[0xFF, 0xD8, 0xFF, 0xD9];
+final _jpegBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+);
 final _htmlBytes = utf8.encode(
   '<!DOCTYPE html><html><body>MiriaGo</body></html>',
 );

@@ -25,6 +25,11 @@ void main() {
     expect(find.text('图片暂不可用'), findsNothing);
 
     completer.complete(Uint8List.fromList(_transparentPngBytes));
+    await tester.pump();
+    final image = tester.widget<Image>(find.byType(Image));
+    await tester.runAsync(
+      () => precacheImage(image.image, tester.element(find.byType(Image))),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(Image), findsOneWidget);

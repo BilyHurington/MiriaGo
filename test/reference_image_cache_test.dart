@@ -44,6 +44,9 @@ void main() {
         0xFF,
         0xD8,
         0xFF,
+        0xDA,
+        0x00,
+        0xFF,
         0xD9,
       ], flush: true);
       const work = PilgrimageWork(
@@ -154,6 +157,69 @@ void main() {
 
     expect(await ensureReferenceThumbnailCached(point), file.path);
   });
+
+  test(
+    'ignores a legacy cache file cut short by an interrupted write',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'miriago_truncated_reference_cache_',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      PathProviderPlatform.instance = _FakePathProviderPlatform(
+        tempDirectory.path,
+      );
+      const imageUrl = 'https://image.anitabi.cn/points/truncated.jpg';
+      final truncated = File(
+        p.join(
+          tempDirectory.path,
+          'reference_full',
+          '${_stableUrlHash(imageUrl)}.jpg',
+        ),
+      );
+      await truncated.parent.create(recursive: true);
+      // Valid JPEG header, but no end-of-image marker.
+      await truncated.writeAsBytes(const <int>[
+        0xFF,
+        0xD8,
+        0xFF,
+        0xE0,
+        1,
+        2,
+        3,
+      ]);
+      const work = PilgrimageWork(
+        id: 'work',
+        title: 'Work',
+        subtitle: '',
+        city: '',
+        source: WorkSource.bangumi,
+      );
+      const point = PilgrimagePoint(
+        id: 'point',
+        work: work,
+        name: 'Point',
+        subtitle: '',
+        position: LatLng(35, 139),
+        episodeLabel: '',
+        referenceLabel: '',
+        source: PointSource.anitabi,
+        referenceImageUrl: imageUrl,
+      );
+
+      // The download fails in tests; the truncated file must not be returned.
+      expect(await cacheReferenceFullImage(point), isNot(truncated.path));
+      expect(
+        Directory(
+          p.join(tempDirectory.path, 'reference_full'),
+        ).listSync().where((entry) => entry.path.endsWith('.part')),
+        isEmpty,
+      );
+    },
+  );
 }
 
 String _stableUrlHash(String value) {

@@ -193,15 +193,37 @@ class ColorGradingParams {
     ).clamped();
   }
 
+  /// Tone zones and RGB curves are luminance-weighted in the saved render, so
+  /// a linear color matrix can only approximate them.
+  bool get hasNonLinearAdjustments {
+    const epsilon = 0.0005;
+    return [
+      highlights,
+      shadows,
+      redShadowCurve,
+      redMidCurve,
+      redHighlightCurve,
+      greenShadowCurve,
+      greenMidCurve,
+      greenHighlightCurve,
+      blueShadowCurve,
+      blueMidCurve,
+      blueHighlightCurve,
+    ].any((value) => value.abs() > epsilon);
+  }
+
+  /// Preview matrix in the same order as the saved render: exposure, contrast
+  /// around mid grey, then the brightness offset. Exact for the linear
+  /// adjustments; tone zones and curves are approximated.
   List<double> toColorMatrix() {
     final p = clamped();
     var matrix = _identityMatrix();
-    matrix = _multiplyMatrix(_brightnessMatrix(p.brightness), matrix);
     matrix = _multiplyMatrix(
       _exposureMatrix(pow(2.0, p.exposure).toDouble()),
       matrix,
     );
     matrix = _multiplyMatrix(_contrastMatrix(p.contrast), matrix);
+    matrix = _multiplyMatrix(_brightnessMatrix(p.brightness), matrix);
     matrix = _multiplyMatrix(_saturationMatrix(p.saturation), matrix);
     matrix = _multiplyMatrix(
       _channelBalanceMatrix(p.temperature, p.tint),
@@ -221,6 +243,49 @@ class ColorGradingParams {
     );
     return matrix;
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ColorGradingParams &&
+        other.brightness == brightness &&
+        other.exposure == exposure &&
+        other.contrast == contrast &&
+        other.saturation == saturation &&
+        other.temperature == temperature &&
+        other.tint == tint &&
+        other.highlights == highlights &&
+        other.shadows == shadows &&
+        other.redShadowCurve == redShadowCurve &&
+        other.redMidCurve == redMidCurve &&
+        other.redHighlightCurve == redHighlightCurve &&
+        other.greenShadowCurve == greenShadowCurve &&
+        other.greenMidCurve == greenMidCurve &&
+        other.greenHighlightCurve == greenHighlightCurve &&
+        other.blueShadowCurve == blueShadowCurve &&
+        other.blueMidCurve == blueMidCurve &&
+        other.blueHighlightCurve == blueHighlightCurve;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    brightness,
+    exposure,
+    contrast,
+    saturation,
+    temperature,
+    tint,
+    highlights,
+    shadows,
+    redShadowCurve,
+    redMidCurve,
+    redHighlightCurve,
+    greenShadowCurve,
+    greenMidCurve,
+    greenHighlightCurve,
+    blueShadowCurve,
+    blueMidCurve,
+    blueHighlightCurve,
+  ]);
 
   double get redCurvePreview =>
       redShadowCurve * 0.25 + redMidCurve * 0.50 + redHighlightCurve * 0.25;

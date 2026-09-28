@@ -39,6 +39,7 @@ import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_work_dropdown.dart';
 import 'plan_group_picker_sheet.dart';
+import 'plan_order.dart';
 import 'work_manager_screen.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
@@ -918,6 +919,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               planId: widget.plan.id,
               points: pilgrimagePoints,
             );
+      _didUpdatePlan = true;
       if (!mounted) {
         return;
       }
@@ -1014,6 +1016,8 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
           updatesByPointId: imageCacheUpdates,
         );
       }
+
+      if (!mounted) return;
 
       setState(() {
         _replaceImportedPlan(importedPlan);
@@ -1115,8 +1119,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
 
   Future<void> _assignImportedPointsToGroup(Set<String> pointIds) async {
     const ungroupedOptionId = '__ungrouped__';
-    final groups = _importedPlan.groups.toList(growable: false)
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final groups = sortGroupsByPlanOrder(_importedPlan.groups);
     final selectedGroupId = await showPlanGroupSelectionSheet(
       context: context,
       title: '分配到片区',
@@ -1435,7 +1438,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     return PopScope(
       canPop: !_isImporting,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
+        if (didPop || _isImporting) {
           return;
         }
 
@@ -1443,7 +1446,15 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: appBackButtonIfCanPop(context),
+          leading: ModalRoute.of(context)?.canPop == true
+              ? AppBackButton(
+                  onPressed: () {
+                    if (!_isImporting) {
+                      Navigator.of(context).pop(_didUpdatePlan);
+                    }
+                  },
+                )
+              : null,
           title: const Text('从作品地图导入'),
           actions: [
             Tooltip(

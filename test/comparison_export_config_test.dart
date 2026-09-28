@@ -108,7 +108,10 @@ void main() {
       showLabels: true,
     );
 
-    expect(comparisonExportConfigSummary(config), '宽度 1920px / 边框 1.0% / 显示标签');
+    expect(
+      comparisonExportConfigSummary(config),
+      '宽度 1920px / JPEG 推荐 (85) / 边框 1.0% / 显示标签',
+    );
   });
 
   testWidgets('comparison editor exposes the redesigned interactions', (
@@ -160,6 +163,17 @@ void main() {
     expect(find.text('显示内容'), findsOneWidget);
     expect(find.text('巡礼者信息'), findsNothing);
     expect(find.text('调色参数'), findsNothing);
+
+    final encoding = find.byType(
+      DropdownButtonFormField<ComparisonImageEncoding>,
+    );
+    await tester.ensureVisible(encoding);
+    await tester.tap(encoding);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PNG 无损').last);
+    await tester.pumpAndSettle();
+    expect(config.imageEncoding, ComparisonImageEncoding.png);
+    expect(config.outputWidth, ComparisonOutputWidth.w1920);
 
     final pilgrimSwitch = find.byKey(
       const ValueKey('comparison-show-pilgrim-name'),

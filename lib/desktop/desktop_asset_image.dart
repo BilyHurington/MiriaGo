@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../data/reference_asset_paths.dart';
+import 'desktop_asset_data_url_cache.dart';
 import 'tauri_bridge.dart' as tauri;
 
-final Map<String, Future<String?>> _assetDataUrlCache = {};
+export 'desktop_asset_data_url_cache.dart'
+    show invalidateDesktopAssetDataUrl, clearDesktopAssetDataUrlCache;
 
 String normalizeDesktopAssetPath(String path) {
   return normalizeAssetPathSeparators(path.trim());
@@ -15,11 +17,10 @@ bool isDesktopAssetPath(String? path) {
 
 Future<String?> loadDesktopAssetDataUrl(String path) {
   final normalizedPath = normalizeDesktopAssetPath(path);
-  return _assetDataUrlCache.putIfAbsent(normalizedPath, () async {
-    if (!tauri.isTauriLauncherAvailable ||
-        !isDesktopAssetPath(normalizedPath)) {
-      return null;
-    }
+  if (!tauri.isTauriLauncherAvailable || !isDesktopAssetPath(normalizedPath)) {
+    return Future.value();
+  }
+  return desktopAssetDataUrlCache.load(normalizedPath, () async {
     final asset = await tauri.readDesktopAsset(path: normalizedPath);
     if (asset.dataBase64.isEmpty) {
       return null;
@@ -28,7 +29,7 @@ Future<String?> loadDesktopAssetDataUrl(String path) {
   });
 }
 
-class DesktopAssetImage extends StatelessWidget {
+class DesktopAssetImage extends StatefulWidget {
   const DesktopAssetImage({
     required this.path,
     required this.placeholder,
@@ -45,20 +46,43 @@ class DesktopAssetImage extends StatelessWidget {
   final double? height;
 
   @override
+  State<DesktopAssetImage> createState() => _DesktopAssetImageState();
+}
+
+class _DesktopAssetImageState extends State<DesktopAssetImage> {
+  // Held per widget: failures are not cached globally, so requesting a new
+  // future on every build would retry in a loop.
+  late Future<String?> _dataUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _dataUrl = loadDesktopAssetDataUrl(widget.path);
+  }
+
+  @override
+  void didUpdateWidget(DesktopAssetImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _dataUrl = loadDesktopAssetDataUrl(widget.path);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<String?>(
-      future: loadDesktopAssetDataUrl(path),
+      future: _dataUrl,
       builder: (context, snapshot) {
         final dataUrl = snapshot.data;
         if (dataUrl == null || dataUrl.isEmpty) {
-          return placeholder;
+          return widget.placeholder;
         }
         return Image.network(
           dataUrl,
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (context, error, stackTrace) => placeholder,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          errorBuilder: (context, error, stackTrace) => widget.placeholder,
         );
       },
     );
