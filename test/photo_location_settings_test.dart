@@ -28,10 +28,19 @@ void main() {
 
     expect(find.text('照片定位信息'), findsOneWidget);
     expect(find.text('首次拍摄时询问'), findsOneWidget);
-    expect(find.text('询问'), findsOneWidget);
+    final selector = find.byKey(
+      const ValueKey('photo-location-strategy-selector'),
+    );
+    expect(find.byType(DropdownButtonFormField), findsNothing);
 
-    await tester.tap(find.text('首次拍摄时询问'));
+    await tester.tap(selector);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('constrained-menu-panel')))
+          .width,
+      tester.getSize(selector).width,
+    );
 
     expect(find.text('不记录定位'), findsOneWidget);
     expect(find.text('使用最近一次定位'), findsOneWidget);
