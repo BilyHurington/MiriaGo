@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../plan/pilgrimage_models.dart';
@@ -15,7 +17,10 @@ enum AppOwnedDirectory {
   importedPlanAssets('imported_plan_assets'),
   referenceFull('reference_full'),
   referenceThumbnails('reference_thumbnails'),
-  userReferenceImages('user_reference_images');
+  userReferenceImages('user_reference_images'),
+
+  /// Where uploads were stored before `user_reference_images`.
+  legacyUserReferences('user_references');
 
   const AppOwnedDirectory(this.directoryName);
   final String directoryName;
@@ -28,6 +33,7 @@ const pointOwnedDirectories = {
   AppOwnedDirectory.referenceFull,
   AppOwnedDirectory.referenceThumbnails,
   AppOwnedDirectory.userReferenceImages,
+  AppOwnedDirectory.legacyUserReferences,
 };
 
 class AppFileReclamationResult {
@@ -45,11 +51,12 @@ class AppFileReclamationResult {
   final int failedFileCount;
 }
 
-/// Local file paths a point stores (the reference URL can be a local path for
-/// older user uploads, so it is always treated as a reference).
+/// Local file paths a point stores. The reference URL is a local path for
+/// older user uploads; remote URLs never resolve to a file and are skipped.
 Iterable<String?> pointFilePaths(PilgrimagePoint point) => [
   point.referenceThumbnailPath,
   point.referenceFullImagePath,
+  point.referenceImageUrl,
 ];
 
 Iterable<String?> visitRecordFilePaths(PilgrimageVisitRecord record) => [
@@ -150,6 +157,52 @@ Future<void> reclaimDeletedPointFiles({
     candidatePaths: [for (final point in points) ...pointFilePaths(point)],
     ownedDirectories: pointOwnedDirectories,
   );
+}
+
+/// Updates [point] in its plan, then reclaims files [previous] used that the
+/// updated point no longer does (e.g. after its reference image was
+/// replaced) and nothing else references. Reclamation runs in the
+/// background and never throws.
+Future<PilgrimagePlan> updatePointReclaimingFiles({
+  required PilgrimageRepository repository,
+  required String planId,
+  required PilgrimagePoint point,
+  required PilgrimagePoint? previous,
+  bool awaitReclamation = false,
+}) async {
+  final updatedPlan = await repository.updatePointInPlan(
+    planId: planId,
+    point: point,
+  );
+  final released = releasedPointFilePaths(previous: previous, current: point);
+  if (released.isNotEmpty) {
+    final reclamation = _reclaimQuietly(
+      repository: repository,
+      candidatePaths: released,
+      ownedDirectories: pointOwnedDirectories,
+    );
+    if (awaitReclamation) {
+      await reclamation;
+    } else {
+      unawaited(reclamation);
+    }
+  }
+  return updatedPlan;
+}
+
+/// Paths [previous] stored that [current] no longer does.
+List<String> releasedPointFilePaths({
+  required PilgrimagePoint? previous,
+  required PilgrimagePoint current,
+}) {
+  if (previous == null) {
+    return const [];
+  }
+  final kept = pointFilePaths(current).toSet();
+  return [
+    for (final path in pointFilePaths(previous))
+      if (path != null && path.trim().isNotEmpty && !kept.contains(path)) path,
+  ];
 }
 
 Future<void> _reclaimQuietly({

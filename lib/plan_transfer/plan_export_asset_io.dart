@@ -10,6 +10,7 @@ import '../data/app_managed_file_paths_io.dart';
 import '../data/image_bytes.dart';
 import '../data/public_http.dart';
 import '../data/reference_asset_paths.dart';
+import 'plan_export_spool_sweep_io.dart';
 import 'plan_export_zip_source.dart';
 
 const _exportNetworkTimeout = Duration(seconds: 8);
@@ -87,7 +88,7 @@ class PlanExportAssetSpool {
 
   Future<PlanExportZipSource> hold(Uint8List bytes) async {
     final directory = _directory ??= await Directory.systemTemp.createTemp(
-      'miriago_export_',
+      planExportSpoolPrefix,
     );
     final file = File(
       '${directory.path}${Platform.pathSeparator}${_nextIndex++}.bin',

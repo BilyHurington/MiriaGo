@@ -301,9 +301,11 @@ class PilgrimagePlanController extends ChangeNotifier {
       return;
     }
 
-    final updatedPlan = await repository.updatePointInPlan(
+    final updatedPlan = await updatePointReclaimingFiles(
+      repository: repository,
       planId: _plan.id,
       point: point,
+      previous: _pointById(point.id),
     );
     _replacePlanState(updatedPlan);
   }

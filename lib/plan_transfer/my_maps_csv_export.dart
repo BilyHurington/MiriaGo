@@ -109,7 +109,8 @@ String _csvCell(String value, {required bool numeric}) {
 // escape the characters that start a formula on their own when the file is
 // opened in a spreadsheet instead ('=' and '@', plus tab/CR). A leading '+' or
 // '-' is only escaped when the rest looks like a formula (a function call,
-// sheet reference, DDE pipe or arithmetic), so plain names stay verbatim.
+// sheet or cell reference such as A1 or $B$2, DDE pipe or arithmetic), so
+// plain names stay verbatim.
 // Package-internal CSVs keep the stricter escaping.
 String _neutralizeSpreadsheetFormula(String value) {
   if (value.isEmpty) {
@@ -123,7 +124,9 @@ String _neutralizeSpreadsheetFormula(String value) {
   return value;
 }
 
-final _formulaLikePattern = RegExp(r'[(!|=]|^\s*[\d.]+\s*[-+*/^]');
+final _formulaLikePattern = RegExp(
+  r'[(!|=]|^\s*[\d.]+\s*[-+*/^]|^\s*\$?[A-Za-z]{1,3}\$?\d+(?![A-Za-z])',
+);
 
 String _singleLine(String value) {
   return value.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();

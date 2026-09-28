@@ -27,4 +27,38 @@ void main() {
     expect(csv, isNot(contains(',-90.0000000,0.0000000,')));
     expect(result.skippedPointCount, 1);
   });
+
+  test('escapes formulas and cell references but keeps plain names', () async {
+    final plan = await SamplePilgrimageRepository().loadActivePlan();
+    final base = plan.points.first;
+    const names = {
+      '=HYPERLINK("x")': "'=HYPERLINK(\"\"x\"\")",
+      '+A1': "'+A1",
+      r'-$B$2+1': r"'-$B$2+1",
+      '-A1+B1': "'-A1+B1",
+      '+1+2': "'+1+2",
+      '+81 Cafe': '+81 Cafe',
+      '-Tokyo-': '-Tokyo-',
+      '+Anime': '+Anime',
+      '-ABCD1 Exit': '-ABCD1 Exit',
+    };
+    final result = buildMyMapsCsvExport(
+      plan: plan.copyWith(
+        points: [
+          for (final (index, name) in names.keys.indexed)
+            base.copyWith(id: 'p$index', name: name),
+        ],
+      ),
+      exportedAt: DateTime.utc(2026, 9, 28),
+    );
+    final lines = const LineSplitter().convert(utf8.decode(result.bytes));
+    for (final MapEntry(key: name, value: cell) in names.entries) {
+      final escaped = cell.contains('"') ? '"$cell"' : cell;
+      expect(
+        lines.any((line) => line.startsWith('$escaped,')),
+        isTrue,
+        reason: name,
+      );
+    }
+  });
 }

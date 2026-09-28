@@ -44,10 +44,16 @@ void main() {
     await temporary.delete(recursive: true);
   });
 
-  Future<File> file(String relative) async {
+  Future<File> file(String relative, {bool recentlyUsed = false}) async {
     final result = File(p.join(documents.path, relative));
     await result.parent.create(recursive: true);
     await result.writeAsBytes([1, 2, 3]);
+    if (!recentlyUsed) {
+      // Older than the grace period for freshly used cache files.
+      await result.setLastModified(
+        DateTime.now().subtract(const Duration(hours: 1)),
+      );
+    }
     return result;
   }
 
@@ -207,6 +213,63 @@ void main() {
       );
       expect(photo.existsSync(), isTrue);
     });
+  });
+
+  test('recently used cache files are kept, others are reclaimed', () async {
+    final fresh = await file('reference_full/fresh.jpg', recentlyUsed: true);
+    final stale = await file('reference_full/stale.jpg');
+    final upload = await file(
+      'user_reference_images/p/a.jpg',
+      recentlyUsed: true,
+    );
+    final legacy = await file('user_references/old.jpg');
+    final repository = SamplePilgrimageRepository(visitRecords: []);
+
+    final result = await reclaimUnreferencedAppFiles(
+      repository: repository,
+      candidatePaths: [fresh.path, stale.path, upload.path, legacy.path],
+      ownedDirectories: pointOwnedDirectories,
+    );
+
+    expect(fresh.existsSync(), isTrue);
+    expect(stale.existsSync(), isFalse);
+    // The grace period is only for shared caches.
+    expect(upload.existsSync(), isFalse);
+    expect(legacy.existsSync(), isFalse);
+    expect(result.deletedFileCount, 3);
+  });
+
+  test('replacing a reference reclaims only the released files', () async {
+    final oldThumb = await file('reference_thumbnails/old.jpg');
+    final kept = await file('reference_full/kept.jpg');
+    final newUpload = await file('user_reference_images/p/new.jpg');
+    final previous = point(
+      'replaced',
+      thumbnail: oldThumb.path,
+      full: kept.path,
+    );
+    final repository = SamplePilgrimageRepository(
+      plans: [
+        samplePilgrimagePlan.copyWith(points: [previous]),
+      ],
+      visitRecords: [],
+    );
+    final updated = previous.copyWith(referenceThumbnailPath: newUpload.path);
+
+    expect(releasedPointFilePaths(previous: previous, current: updated), [
+      oldThumb.path,
+    ]);
+    await updatePointReclaimingFiles(
+      repository: repository,
+      planId: samplePilgrimagePlan.id,
+      point: updated,
+      previous: previous,
+      awaitReclamation: true,
+    );
+
+    expect(oldThumb.existsSync(), isFalse);
+    expect(kept.existsSync(), isTrue);
+    expect(newUpload.existsSync(), isTrue);
   });
 
   test(

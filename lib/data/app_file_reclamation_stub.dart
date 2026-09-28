@@ -1,11 +1,10 @@
 import 'app_file_reclamation.dart';
 import 'reference_cache_file_stub.dart' as cache;
 
-/// Web and the Tauri desktop build. The desktop bridge only exposes a safe
-/// delete for downloaded reference caches (`assets/reference_full/`,
-/// `assets/reference_thumbnails/`), validated again by the Rust command.
-/// Imported package assets, user reference images and visit photos have no
-/// delete command there, so those files are intentionally kept.
+/// Web and the Tauri desktop build. On desktop the app-created asset folders
+/// (downloaded caches, imported package assets, uploaded reference images)
+/// can be reclaimed through a delete command that checks the folder again in
+/// Rust. Visit photos are only ever inside imported package assets there.
 Future<AppFileReclamationResult> deleteUnreferencedOwnedFiles({
   required Set<String> candidates,
   required Iterable<String?> references,
@@ -15,7 +14,7 @@ Future<AppFileReclamationResult> deleteUnreferencedOwnedFiles({
     return AppFileReclamationResult.none;
   }
   final prefixes = [
-    for (final name in const ['reference_full', 'reference_thumbnails'])
+    for (final name in _desktopReclaimableDirectories)
       if (directoryNames.contains(name)) 'assets/$name/',
   ];
   if (prefixes.isEmpty) return AppFileReclamationResult.none;
@@ -44,3 +43,12 @@ Future<AppFileReclamationResult> deleteUnreferencedOwnedFiles({
     failedFileCount: failed,
   );
 }
+
+/// Must match `RECLAIMABLE_ASSET_PREFIXES` in src-tauri/src/commands.rs.
+const _desktopReclaimableDirectories = [
+  'reference_full',
+  'reference_thumbnails',
+  'imported_plan_assets',
+  'user_reference_images',
+  'user_references',
+];

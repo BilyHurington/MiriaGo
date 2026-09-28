@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../map/map_colors.dart';
+import '../data/app_file_reclamation.dart';
 import '../data/bangumi_api_client.dart';
 import '../data/anitabi_link_parser.dart';
 import '../data/pilgrimage_repository.dart';
@@ -2924,9 +2925,11 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
           point: point,
         );
       } else {
-        await widget.repository.updatePointInPlan(
+        await updatePointReclaimingFiles(
+          repository: widget.repository,
           planId: widget.plan.id,
           point: point,
+          previous: editingPoint,
         );
       }
       _pendingReference.finishPersistence(succeeded: true);

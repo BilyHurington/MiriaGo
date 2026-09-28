@@ -30,14 +30,22 @@ Future<AppFileReclamationResult> deleteUnreferencedOwnedFiles({
   if (owned.isEmpty) return AppFileReclamationResult.none;
 
   final roots = await _ownedRoots(directoryNames);
+  final now = DateTime.now();
   var deleted = 0;
   var failed = 0;
   for (final path in owned) {
     final root = _rootContaining(roots, path);
     if (root == null) continue;
     try {
+      final stat = await FileStat.stat(path);
       if (await FileSystemEntity.type(path, followLinks: false) !=
           FileSystemEntityType.file) {
+        continue;
+      }
+      // A shared cache file reused moments ago may be about to be referenced
+      // by a point that is still being saved.
+      if (_sharedCacheRoots.contains(p.basename(root)) &&
+          now.difference(stat.modified) < recentlyUsedCacheGrace) {
         continue;
       }
       await File(path).delete();
@@ -53,6 +61,11 @@ Future<AppFileReclamationResult> deleteUnreferencedOwnedFiles({
     failedFileCount: failed,
   );
 }
+
+/// Cache files used more recently than this are never reclaimed.
+const recentlyUsedCacheGrace = Duration(minutes: 10);
+
+const _sharedCacheRoots = {'reference_full', 'reference_thumbnails'};
 
 /// The existing file [path] points to, rebased into the current app container
 /// and with symlinks resolved, or null for remote/missing paths.

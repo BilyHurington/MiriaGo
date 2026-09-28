@@ -25,6 +25,8 @@ import 'plan_transfer/import_export_screen.dart';
 import 'plan_transfer/incoming_plan_file.dart';
 import 'plan_transfer/plan_import_file_stub.dart'
     if (dart.library.io) 'plan_transfer/plan_import_file_io.dart';
+import 'plan_transfer/plan_export_spool_sweep_stub.dart'
+    if (dart.library.io) 'plan_transfer/plan_export_spool_sweep_io.dart';
 import 'plan_transfer/plan_import_preview_screen.dart';
 import 'plan_transfer/plan_import_package.dart';
 import 'widgets/snackbar_helper.dart';
@@ -75,6 +77,7 @@ class _AppShellState extends State<AppShell> {
     _initializeApp();
     unawaited(prepareReferenceCacheStorage());
     unawaited(sweepStaleComparisonExports(repository: widget.repository));
+    unawaited(sweepStaleExportSpools());
   }
 
   @override

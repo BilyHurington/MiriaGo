@@ -728,8 +728,10 @@ class _PointManagerScreenState extends State<PointManagerScreen> {
     StoredUserReferenceImage image,
   ) {
     return _savePlanChange(
-      action: () => widget.repository.updatePointInPlan(
+      action: () => updatePointReclaimingFiles(
+        repository: widget.repository,
         planId: _plan.id,
+        previous: point,
         point: point.copyWith(
           referenceImageUrl: null,
           referenceThumbnailPath: image.thumbnailPath,

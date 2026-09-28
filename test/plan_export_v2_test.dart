@@ -640,6 +640,47 @@ void main() {
       1,
     );
   });
+  test('a file deleted during the export is skipped with a warning', () async {
+    final directory = await Directory.systemTemp.createTemp('export-race-');
+    addTearDown(() => directory.delete(recursive: true));
+    final thumbnail = File('${directory.path}/thumb.jpg');
+    await thumbnail.writeAsBytes(_jpegBytes);
+    final plan = await SamplePilgrimageRepository().loadActivePlan();
+    final point = plan.points.first.copyWith(
+      referenceImageUrl:
+          'https://image.anitabi.cn/user/1/bangumi/1/points/id.jpg?plan=w300',
+      referenceThumbnailPath: thumbnail.path,
+      referenceFullImagePath: null,
+    );
+
+    final package = await buildPlanExportV2Package(
+      plan: plan.copyWith(points: [point]),
+      visitRecords: const [],
+      options: const PlanExportV2Options(
+        mode: PlanExportV2Mode.planOnly,
+        includeFullReferenceCache: true,
+      ),
+      networkBytesReader: (_) async {
+        // The thumbnail was already collected; it disappears before zipping.
+        await thumbnail.delete();
+        return _jpegBytes;
+      },
+    );
+
+    final archive = ZipDecoder().decodeBytes(package.bytes);
+    expect(archive.findFile('manifest.json'), isNotNull);
+    expect(
+      archive.files.where((file) => file.name.startsWith('assets/thumbnails')),
+      isEmpty,
+    );
+    expect(
+      archive.files.where(
+        (file) => file.name.startsWith('assets/full_references'),
+      ),
+      hasLength(1),
+    );
+    expect(package.warnings, contains('1 个文件在导出过程中被删除，未包含在数据包中'));
+  });
 }
 
 const _jpegBytes = <int>[0xFF, 0xD8, 0xFF, 0xD9];

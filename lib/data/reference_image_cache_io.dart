@@ -121,13 +121,15 @@ Future<String?> _cacheImageInto({
   required String path,
   required int maxBytes,
 }) async {
-  if (await _isCompleteCachedImage(File(path))) return path;
+  if (await _isCompleteCachedImage(File(path))) {
+    return _markReused(File(path));
+  }
   // Files cached by earlier versions keep working under their old names.
   final legacyNames = _legacyCacheNames(cacheDirectory);
   for (final name in legacyNames) {
     if (!isLegacyReferenceCacheName(name, url)) continue;
     final candidate = File(p.join(cacheDirectory.path, name));
-    if (await _isCompleteCachedImage(candidate)) return candidate.path;
+    if (await _isCompleteCachedImage(candidate)) return _markReused(candidate);
   }
 
   final bytes = await fetchAnitabiImageBytes(
@@ -159,6 +161,18 @@ Future<String?> _cacheImageInto({
 }
 
 final _random = Random();
+
+/// Marks a shared cache file as just used, so reclamation (which skips
+/// recently used cache files) leaves it alone until the point that is about
+/// to reference it has been saved.
+Future<String> _markReused(File file) async {
+  try {
+    await file.setLastModified(DateTime.now());
+  } on Object {
+    // Best effort: at worst the file is downloaded again later.
+  }
+  return file.path;
+}
 
 /// File names written before the current naming scheme, listed once per
 /// cache directory per session (instead of on every cache miss). New files

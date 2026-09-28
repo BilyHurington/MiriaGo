@@ -371,10 +371,17 @@ Future<PlanExportV2Result> _buildPlanExportV2Package({
     addString('records.csv', _recordsCsv(plan, records));
   }
 
-  final bytes = await _encodePlanExportZip(entries, cancellation);
+  final encoded = await _encodePlanExportZip(entries, cancellation);
+  if (encoded.skipped.isNotEmpty) {
+    // Deleted between collecting assets and zipping them; the package is
+    // still usable, the importer treats them as missing.
+    warnings.add(
+      '${encoded.skipped.length} 个文件在导出过程中被删除，未包含在数据包中',
+    );
+  }
 
   return PlanExportV2Result(
-    bytes: bytes,
+    bytes: encoded.bytes,
     fileName: suggestPlanExportV2FileName(plan: plan, exportedAt: exportTime),
     warnings: List.unmodifiable(warnings),
     warningCounts: Map.unmodifiable(warningCounts),
@@ -583,7 +590,7 @@ Uint8List _asUint8List(List<int> bytes) =>
 // Deflating hundreds of MiB of photos must not block the UI isolate. On
 // native the entries only name files, so the spawn message stays small and
 // the worker reads each photo from disk while it zips.
-Future<List<int>> _encodePlanExportZip(
+Future<({List<int> bytes, List<String> skipped})> _encodePlanExportZip(
   List<_PlanExportZipEntry> entries,
   PlanTransferCancellation? cancellation,
 ) {
@@ -593,7 +600,9 @@ Future<List<int>> _encodePlanExportZip(
   );
 }
 
-List<int> _encodeZipEntries(List<_PlanExportZipEntry> entries) {
+({List<int> bytes, List<String> skipped}) _encodeZipEntries(
+  List<_PlanExportZipEntry> entries,
+) {
   // Size the output once: growing by doubling would briefly hold the ZIP two
   // or three times over. Deflate barely shrinks photos and can grow
   // incompressible data slightly, hence the per-entry slack.
@@ -606,14 +615,23 @@ List<int> _encodeZipEntries(List<_PlanExportZipEntry> entries) {
   }
   final output = OutputMemoryStream(size: capacity);
   final encoder = ZipEncoder()..startEncode(output);
+  final skipped = <String>[];
   for (final entry in entries) {
     // Read one file at a time; its bytes are released after it is written.
-    final bytes =
-        entry.source.bytes ?? readExportZipSourceFile(entry.source.filePath!);
+    final List<int> bytes;
+    try {
+      bytes =
+          entry.source.bytes ??
+          readExportZipSourceFile(entry.source.filePath!);
+    } on Object {
+      // The file was deleted (or became unreadable) after it was collected.
+      skipped.add(entry.name);
+      continue;
+    }
     encoder.add(ArchiveFile.bytes(entry.name, bytes));
   }
   encoder.endEncode(comment: null);
-  return output.getBytes();
+  return (bytes: output.getBytes(), skipped: skipped);
 }
 
 class _PointAssetRefs {

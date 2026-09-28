@@ -619,11 +619,11 @@ fn delete_reference_cache_asset_blocking(
     request: ReadAssetRequest,
 ) -> Result<AssetFileResult, String> {
     let dirs = storage::ensure_data_dirs()?;
-    let relative_path = safe_reference_cache_path(&request.path)?;
+    let relative_path = safe_reclaimable_asset_path(&request.path)?;
     let full_path = file_io::resolve_asset_path(&dirs.data_dir, &relative_path, false)?;
     let byte_length = match fs::metadata(&full_path) {
         Ok(metadata) if metadata.is_file() => metadata.len(),
-        Ok(_) => return Err("reference cache path is not a file".to_string()),
+        Ok(_) => return Err("reclaimable asset path is not a file".to_string()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(AssetFileResult {
                 existed: false,
@@ -768,6 +768,29 @@ fn safe_reference_cache_path(path: &str) -> Result<PathBuf, String> {
     }
 }
 
+/// Folders of files the app creates and may reclaim once nothing references
+/// them: downloaded caches, imported package assets and uploaded reference
+/// images. The Flutter side checks references before asking.
+const RECLAIMABLE_ASSET_PREFIXES: [&str; 5] = [
+    "assets/reference_full/",
+    "assets/reference_thumbnails/",
+    "assets/imported_plan_assets/",
+    "assets/user_reference_images/",
+    "assets/user_references/",
+];
+
+fn safe_reclaimable_asset_path(path: &str) -> Result<PathBuf, String> {
+    let relative = safe_local_asset_path(path)?;
+    if RECLAIMABLE_ASSET_PREFIXES
+        .iter()
+        .any(|prefix| path.starts_with(prefix))
+    {
+        Ok(relative)
+    } else {
+        Err(format!("path is not a reclaimable app asset: {path}"))
+    }
+}
+
 fn safe_anitabi_static_file_name(file_name: &str) -> Result<String, String> {
     let Some(stem) = file_name
         .strip_prefix('g')
@@ -862,8 +885,31 @@ fn mime_type_for_path(path: &std::path::Path) -> String {
 mod tests {
     use super::{
         safe_asset_path, safe_local_asset_path, safe_public_https_base_url,
-        safe_reference_cache_path,
+        safe_reclaimable_asset_path, safe_reference_cache_path,
     };
+
+    #[test]
+    fn reclaimable_assets_are_limited_to_app_created_folders() {
+        for allowed in [
+            "assets/reference_full/a.jpg",
+            "assets/reference_thumbnails/a.jpg",
+            "assets/imported_plan_assets/package/a.jpg",
+            "assets/user_reference_images/p-1/a.jpg",
+            "assets/user_references/a.jpg",
+        ] {
+            assert!(safe_reclaimable_asset_path(allowed).is_ok(), "{allowed}");
+        }
+        for refused in [
+            "assets/maps/a.json",
+            "assets/visit_photos/a.jpg",
+            "assets/reference_full/../maps/a.json",
+            "../assets/reference_full/a.jpg",
+            "/etc/passwd",
+            "miriago.sqlite",
+        ] {
+            assert!(safe_reclaimable_asset_path(refused).is_err(), "{refused}");
+        }
+    }
 
     #[test]
     fn asset_read_optional_budget_preserves_default_and_rejects_expansion() {
