@@ -222,8 +222,8 @@ impl DesktopDatabase {
                   map_tile_provider TEXT NOT NULL DEFAULT 'openFreeMap',
                   open_free_map_style TEXT NOT NULL DEFAULT 'liberty',
                   anitabi_image_source TEXT NOT NULL DEFAULT 'auto',
-                  anitabi_site_base_url TEXT NOT NULL DEFAULT 'https://ww.anitabi.cn',
-                  anitabi_static_data_base_url TEXT NOT NULL DEFAULT 'https://ww.anitabi.cn/d',
+                  anitabi_site_base_url TEXT NOT NULL DEFAULT 'https://www.anitabi.cn',
+                  anitabi_static_data_base_url TEXT NOT NULL DEFAULT 'https://www.anitabi.cn/d',
                   anitabi_api_base_url TEXT NOT NULL DEFAULT 'https://api.anitabi.cn',
                   anitabi_official_image_base_url TEXT NOT NULL DEFAULT 'https://image.anitabi.cn',
                   anitabi_mirror_image_base_url TEXT NOT NULL DEFAULT 'https://img-tc.anitabi.cn',
@@ -392,11 +392,11 @@ impl DesktopDatabase {
             ("anitabi_image_source", "TEXT NOT NULL DEFAULT 'auto'"),
             (
                 "anitabi_site_base_url",
-                "TEXT NOT NULL DEFAULT 'https://ww.anitabi.cn'",
+                "TEXT NOT NULL DEFAULT 'https://www.anitabi.cn'",
             ),
             (
                 "anitabi_static_data_base_url",
-                "TEXT NOT NULL DEFAULT 'https://ww.anitabi.cn/d'",
+                "TEXT NOT NULL DEFAULT 'https://www.anitabi.cn/d'",
             ),
             (
                 "anitabi_api_base_url",
@@ -1058,11 +1058,11 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             string_value(settings, "mapTileProvider", "openFreeMap"),
             string_value(settings, "openFreeMapStyle", "liberty"),
             string_value(settings, "anitabiImageSource", "auto"),
-            string_value(settings, "anitabiSiteBaseUrl", "https://ww.anitabi.cn"),
+            string_value(settings, "anitabiSiteBaseUrl", "https://www.anitabi.cn"),
             string_value(
                 settings,
                 "anitabiStaticDataBaseUrl",
-                "https://ww.anitabi.cn/d",
+                "https://www.anitabi.cn/d",
             ),
             string_value(settings, "anitabiApiBaseUrl", "https://api.anitabi.cn"),
             string_value(
@@ -1316,8 +1316,8 @@ fn default_settings_json() -> Value {
         "mapTileProvider": "openFreeMap",
         "openFreeMapStyle": "liberty",
         "anitabiImageSource": "auto",
-        "anitabiSiteBaseUrl": "https://ww.anitabi.cn",
-        "anitabiStaticDataBaseUrl": "https://ww.anitabi.cn/d",
+        "anitabiSiteBaseUrl": "https://www.anitabi.cn",
+        "anitabiStaticDataBaseUrl": "https://www.anitabi.cn/d",
         "anitabiApiBaseUrl": "https://api.anitabi.cn",
         "anitabiOfficialImageBaseUrl": "https://image.anitabi.cn",
         "anitabiMirrorImageBaseUrl": "https://img-tc.anitabi.cn",
@@ -2167,10 +2167,10 @@ mod tests {
             settings["valhallaBaseUrl"],
             "https://valhalla1.openstreetmap.de"
         );
-        assert_eq!(settings["anitabiSiteBaseUrl"], "https://ww.anitabi.cn");
+        assert_eq!(settings["anitabiSiteBaseUrl"], "https://www.anitabi.cn");
         assert_eq!(
             settings["anitabiStaticDataBaseUrl"],
-            "https://ww.anitabi.cn/d"
+            "https://www.anitabi.cn/d"
         );
         assert_eq!(settings["anitabiApiBaseUrl"], "https://api.anitabi.cn");
         assert_eq!(

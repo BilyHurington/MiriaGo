@@ -1,5 +1,13 @@
-const defaultAnitabiSiteBaseUrl = 'https://ww.anitabi.cn';
-const defaultAnitabiStaticDataBaseUrl = 'https://ww.anitabi.cn/d';
+const defaultAnitabiSiteBaseUrl = 'https://www.anitabi.cn';
+const defaultAnitabiStaticDataBaseUrl = 'https://www.anitabi.cn/d';
+
+/// Defaults used while www.anitabi.cn was unavailable. Settings saved with
+/// them (i.e. never customised) move back to the restored defaults; the
+/// temporary host serves identical data, so a deliberate choice loses nothing.
+const legacyTemporaryAnitabiDefaults = {
+  'https://ww.anitabi.cn': defaultAnitabiSiteBaseUrl,
+  'https://ww.anitabi.cn/d': defaultAnitabiStaticDataBaseUrl,
+};
 const defaultAnitabiApiBaseUrl = 'https://api.anitabi.cn';
 const defaultAnitabiOfficialImageBaseUrl = 'https://image.anitabi.cn';
 const defaultAnitabiMirrorImageBaseUrl = 'https://img-tc.anitabi.cn';
@@ -55,7 +63,8 @@ String normalizeAnitabiBaseUrl(String value, {required String fallback}) {
   final normalizedPath = uri.path == '/'
       ? ''
       : uri.path.replaceFirst(RegExp(r'/+$'), '');
-  return uri.replace(path: normalizedPath).toString();
+  final normalized = uri.replace(path: normalizedPath).toString();
+  return legacyTemporaryAnitabiDefaults[normalized] ?? normalized;
 }
 
 String? validateAnitabiBaseUrl(String value) {

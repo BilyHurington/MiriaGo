@@ -719,8 +719,8 @@ mod tests {
     #[test]
     fn anitabi_static_base_url_rejects_unsafe_hosts() {
         assert_eq!(
-            safe_public_https_base_url("https://ww.anitabi.cn/d").unwrap(),
-            "https://ww.anitabi.cn/d"
+            safe_public_https_base_url("https://www.anitabi.cn/d").unwrap(),
+            "https://www.anitabi.cn/d"
         );
         assert!(safe_public_https_base_url("http://ww.anitabi.cn/d").is_err());
         assert!(safe_public_https_base_url("https://localhost:8080/d").is_err());

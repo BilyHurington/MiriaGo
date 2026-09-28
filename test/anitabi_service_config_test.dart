@@ -44,6 +44,13 @@ void main() {
       ),
       defaultAnitabiStaticDataBaseUrl,
     );
+    expect(
+      normalizeAnitabiBaseUrl(
+        ' https://mirror.example/anitabi/d/// ',
+        fallback: defaultAnitabiStaticDataBaseUrl,
+      ),
+      'https://mirror.example/anitabi/d',
+    );
     expect(validateAnitabiBaseUrl('http://ww.anitabi.cn'), isNotNull);
     expect(validateAnitabiBaseUrl('https://localhost:8080'), isNotNull);
     expect(validateAnitabiBaseUrl('https://192.168.1.2/data'), isNotNull);
@@ -52,5 +59,32 @@ void main() {
       isNotNull,
     );
     expect(validateAnitabiBaseUrl('https://static.example/data'), isNull);
+  });
+
+  test('restores the original hosts for saved temporary defaults', () {
+    expect(defaultAnitabiSiteBaseUrl, 'https://www.anitabi.cn');
+    expect(defaultAnitabiStaticDataBaseUrl, 'https://www.anitabi.cn/d');
+    expect(
+      normalizeAnitabiBaseUrl(
+        'https://ww.anitabi.cn/',
+        fallback: defaultAnitabiSiteBaseUrl,
+      ),
+      'https://www.anitabi.cn',
+    );
+    expect(
+      normalizeAnitabiBaseUrl(
+        'https://ww.anitabi.cn/d',
+        fallback: defaultAnitabiStaticDataBaseUrl,
+      ),
+      'https://www.anitabi.cn/d',
+    );
+    // Other customised addresses are kept as entered.
+    expect(
+      normalizeAnitabiBaseUrl(
+        'https://ww.anitabi.cn/data',
+        fallback: defaultAnitabiStaticDataBaseUrl,
+      ),
+      'https://ww.anitabi.cn/data',
+    );
   });
 }

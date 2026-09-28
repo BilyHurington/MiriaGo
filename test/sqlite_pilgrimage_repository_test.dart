@@ -671,8 +671,8 @@ void main() {
     final settings = await repository.loadAppSettings();
     expect(migratedPlan.name, plan.name);
     expect(settings.customXyzTileUrl, 'https://example.com/tiles');
-    expect(settings.anitabiSiteBaseUrl, 'https://ww.anitabi.cn');
-    expect(settings.anitabiStaticDataBaseUrl, 'https://ww.anitabi.cn/d');
+    expect(settings.anitabiSiteBaseUrl, 'https://www.anitabi.cn');
+    expect(settings.anitabiStaticDataBaseUrl, 'https://www.anitabi.cn/d');
     expect(settings.anitabiApiBaseUrl, 'https://api.anitabi.cn');
     expect(settings.anitabiOfficialImageBaseUrl, 'https://image.anitabi.cn');
     expect(settings.anitabiMirrorImageBaseUrl, 'https://img-tc.anitabi.cn');
@@ -1365,6 +1365,24 @@ void main() {
     }
     // Cleared after failing, so each later load retries the repair.
     expect(attempts, 2);
+  });
+
+  test('saved temporary Anitabi defaults load as the restored hosts', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = SqlitePilgrimageRepository(database: database);
+    await repository.loadActivePlan();
+    await repository.saveAppSettings(
+      const AppSettings(
+        anitabiSiteBaseUrl: 'https://ww.anitabi.cn',
+        anitabiStaticDataBaseUrl: 'https://ww.anitabi.cn/d',
+        anitabiApiBaseUrl: 'https://api.example/anitabi',
+      ),
+    );
+    final settings = await repository.loadAppSettings();
+    expect(settings.anitabiSiteBaseUrl, 'https://www.anitabi.cn');
+    expect(settings.anitabiStaticDataBaseUrl, 'https://www.anitabi.cn/d');
+    expect(settings.anitabiApiBaseUrl, 'https://api.example/anitabi');
   });
 
   test('loadActivePlan falls back to the first ordered plan', () async {
