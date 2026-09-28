@@ -1560,8 +1560,6 @@ class _AnitabiServiceSettingsPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('失效时自动获取新地址', style: _cardTitleTextStyle),
-                      const SizedBox(height: 3),
                       Text(
                         '连接 Anitabi 失败时，从 MiriaGo 仓库读取最新服务地址，验证可用后再替换。自定义的地址不会被改动。',
                         style: _secondaryTextStyle,

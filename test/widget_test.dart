@@ -3662,6 +3662,14 @@ void main() {
       find.byKey(const ValueKey('route-planner-skill-link')),
       findsOneWidget,
     );
+    await tester.tap(
+      find.byKey(const ValueKey('route-planner-skill-link-dismiss')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('route-planner-skill-link')),
+      findsNothing,
+    );
     Navigator.of(tester.element(find.byType(AddPointsScreen))).pop();
     await tester.pumpAndSettle();
 
@@ -3684,6 +3692,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(routePlannerSkillTitle), findsOneWidget);
+    expect(find.text('点击查看使用说明'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(home: PlanManagerScreen(repository: repository)),
