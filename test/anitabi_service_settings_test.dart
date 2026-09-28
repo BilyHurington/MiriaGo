@@ -33,7 +33,10 @@ void main() {
         home: SettingsScreen(
           repository: SamplePilgrimageRepository(),
           settings: settings,
-          onChanged: (value) => settings = value,
+          onChanged: (value) async {
+            settings = value;
+            return true;
+          },
         ),
       ),
     );
@@ -70,5 +73,38 @@ void main() {
     expect(settings.anitabiRemoteState.autoUpdate, isFalse);
     expect(settings.anitabiRemoteState.lastGood!.version, 2);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a settings page shows stored values again when saving fails', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: SettingsScreen(
+          repository: SamplePilgrimageRepository(),
+          settings: const AppSettings(),
+          onChanged: (_) async => false,
+        ),
+      ),
+    );
+    await tester.tap(find.text('数据源设置'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('anitabi-service-settings-entry')),
+      280,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('anitabi-service-settings-entry')),
+    );
+    await tester.pumpAndSettle();
+
+    final toggle = find.byKey(const ValueKey('anitabi-service-auto-update'));
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(toggle).value, isTrue);
   });
 }

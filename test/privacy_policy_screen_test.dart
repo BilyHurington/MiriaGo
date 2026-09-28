@@ -175,7 +175,7 @@ void main() {
         home: SettingsScreen(
           settings: const AppSettings(),
           repository: SamplePilgrimageRepository(),
-          onChanged: (_) {},
+          onChanged: (_) async => true,
         ),
       ),
     );

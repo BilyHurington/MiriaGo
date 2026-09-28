@@ -26,7 +26,7 @@ class PointVisitRecordsScreen extends StatelessWidget {
     return MediaQuery(
       data: MediaQuery.of(
         context,
-      ).copyWith(textScaler: appTextScaler(settings.fontScale)),
+      ).copyWith(textScaler: appTextScalerFor(context, settings.fontScale)),
       child: AppUiScaleView(
         scale: settings.uiScale,
         child: AnimatedBuilder(

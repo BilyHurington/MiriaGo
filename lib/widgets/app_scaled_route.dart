@@ -36,7 +36,7 @@ class AppScaledOverlayContent extends StatelessWidget {
     return MediaQuery(
       data: MediaQuery.of(
         context,
-      ).copyWith(textScaler: appTextScaler(settings.fontScale)),
+      ).copyWith(textScaler: appTextScalerFor(context, settings.fontScale)),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final expandedWidth = constraints.hasBoundedWidth
@@ -83,7 +83,7 @@ class _AppScaledRouteView extends StatelessWidget {
     return MediaQuery(
       data: MediaQuery.of(
         context,
-      ).copyWith(textScaler: appTextScaler(settings.fontScale)),
+      ).copyWith(textScaler: appTextScalerFor(context, settings.fontScale)),
       child: AnitabiImageSourceScope(
         source: settings.anitabiImageSource,
         child: AppUiScaleView(

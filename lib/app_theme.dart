@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -394,10 +396,58 @@ class AppTheme {
   }
 }
 
-TextScaler appTextScaler(double fontScale) {
+/// The app's font-size preference applied on top of [base], the system text
+/// size (Dynamic Type, Android font scale), so accessibility sizes keep
+/// working. Growth from the app preference stops at twice the font size;
+/// a larger system size is always honoured.
+TextScaler appTextScaler(
+  double fontScale, {
+  TextScaler base = TextScaler.noScaling,
+}) {
   final clampedScale = fontScale.clamp(0.7, 1.4);
-  final easedScale = 1 + (clampedScale - 1) * 0.58;
-  return TextScaler.linear(easedScale.clamp(0.7, 1.6));
+  final easedScale = (1 + (clampedScale - 1) * 0.58).clamp(0.7, 1.6);
+  return AppTextScaler(base: base, factor: easedScale.toDouble());
+}
+
+/// [appTextScaler] on top of the system text size. Always starts from the
+/// platform value rather than the inherited one, so nested scaled subtrees
+/// (routes, overlays) never scale twice.
+TextScaler appTextScalerFor(BuildContext context, double fontScale) {
+  return appTextScaler(
+    fontScale,
+    base: MediaQueryData.fromView(View.of(context)).textScaler,
+  );
+}
+
+class AppTextScaler extends TextScaler {
+  const AppTextScaler({required this.base, required this.factor});
+
+  static const maxAppGrowth = 2.0;
+
+  final TextScaler base;
+  final double factor;
+
+  @override
+  double scale(double fontSize) {
+    final system = base.scale(fontSize);
+    final scaled = system * factor;
+    if (factor <= 1) {
+      return scaled;
+    }
+    final limit = math.max(system, fontSize * maxAppGrowth);
+    return math.min(scaled, limit);
+  }
+
+  @override
+  // ignore: deprecated_member_use
+  double get textScaleFactor => scale(14) / 14;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AppTextScaler && other.base == base && other.factor == factor;
+
+  @override
+  int get hashCode => Object.hash(base, factor);
 }
 
 double appUiScaler(double uiScale) {

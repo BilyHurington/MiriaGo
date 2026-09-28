@@ -46,6 +46,10 @@ bool get _shouldShowPhotoLocationSettings =>
     _showDebugPhotoLocationSettings ||
     _shouldShowMobileGallerySettings;
 
+/// Saves changed settings; resolves to false when they could not be stored
+/// (the caller then shows the previous values again).
+typedef SettingsChanged = Future<bool> Function(AppSettings settings);
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.settings,
@@ -56,7 +60,7 @@ class SettingsScreen extends StatefulWidget {
 
   final AppSettings settings;
   final PilgrimageRepository repository;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -369,9 +373,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     const settings = AppSettings();
+    if (!await widget.onChanged(settings)) {
+      return;
+    }
     ComparisonExportConfig.lastUsed = const ComparisonExportConfig();
-    await widget.repository.saveAppSettings(settings);
-    widget.onChanged(settings);
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -453,7 +458,7 @@ class _AppearanceSettingsPage extends StatefulWidget {
   });
 
   final AppSettings settings;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
 
   @override
   State<_AppearanceSettingsPage> createState() =>
@@ -475,7 +480,8 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
     _settings = widget.settings;
   }
 
-  void _update(AppSettings settings) {
+  Future<bool> _update(AppSettings settings) async {
+    final previous = _settings;
     applyAppColorsFromSettings(
       settings,
       platformBrightness: MediaQuery.platformBrightnessOf(context),
@@ -483,7 +489,12 @@ class _AppearanceSettingsPageState extends State<_AppearanceSettingsPage> {
     setState(() {
       _settings = settings;
     });
-    widget.onChanged(settings);
+    final saved = await widget.onChanged(settings);
+    // Saving failed: show what is actually stored again.
+    if (!saved && mounted && identical(_settings, settings)) {
+      setState(() => _settings = previous);
+    }
+    return saved;
   }
 
   Future<void> _showCustomThemeColorDialog() async {
@@ -804,7 +815,7 @@ class _CameraSettingsPage extends StatefulWidget {
   });
 
   final AppSettings settings;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
   final CameraZoomCapabilities zoomCapabilities;
 
   @override
@@ -820,11 +831,17 @@ class _CameraSettingsPageState extends State<_CameraSettingsPage> {
     _settings = widget.settings;
   }
 
-  void _update(AppSettings settings) {
+  Future<bool> _update(AppSettings settings) async {
+    final previous = _settings;
     setState(() {
       _settings = settings;
     });
-    widget.onChanged(settings);
+    final saved = await widget.onChanged(settings);
+    // Saving failed: show what is actually stored again.
+    if (!saved && mounted && identical(_settings, settings)) {
+      setState(() => _settings = previous);
+    }
+    return saved;
   }
 
   Future<void> _showCustomAspectRatioDialog({
@@ -1336,7 +1353,7 @@ class _AnitabiServiceSettingsPage extends StatefulWidget {
   });
 
   final AppSettings settings;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
   final Future<void> Function({
     required String title,
     required String initialValue,
@@ -1362,12 +1379,18 @@ class _AnitabiServiceSettingsPageState
   /// the built-in defaults.
   AnitabiServiceConfig get _config => _settings.anitabiServiceConfig;
 
-  void _update(AppSettings settings) {
+  Future<bool> _update(AppSettings settings) async {
+    final previous = _settings;
     setState(() {
       _settings = settings;
       _testResults = const {};
     });
-    widget.onChanged(settings);
+    final saved = await widget.onChanged(settings);
+    // Saving failed: show what is actually stored again.
+    if (!saved && mounted && identical(_settings, settings)) {
+      setState(() => _settings = previous);
+    }
+    return saved;
   }
 
   Future<void> _edit({
@@ -1735,7 +1758,7 @@ class _ComparisonStyleSettingsPage extends StatefulWidget {
 
   final PilgrimageRepository repository;
   final AppSettings settings;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
 
   @override
   State<_ComparisonStyleSettingsPage> createState() =>
@@ -1781,14 +1804,24 @@ class _ComparisonStyleSettingsPageState
   }
 
   Future<void> _updateConfig(ComparisonExportConfig config) async {
+    final previousConfig = _config;
+    final previousSettings = _settings;
     final settings = config.applyToSettings(_settings);
     setState(() {
       _config = config;
       _settings = settings;
     });
     ComparisonExportConfig.lastUsed = config;
-    widget.onChanged(settings);
-    await widget.repository.saveAppSettings(settings);
+    if (await widget.onChanged(settings) ||
+        !mounted ||
+        !identical(_settings, settings)) {
+      return;
+    }
+    setState(() {
+      _config = previousConfig;
+      _settings = previousSettings;
+    });
+    ComparisonExportConfig.lastUsed = previousConfig;
   }
 
   @override
@@ -1826,7 +1859,7 @@ class _DataSourceSettingsPage extends StatefulWidget {
   });
 
   final AppSettings settings;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
   final Future<void> Function({
     required String title,
     required String initialValue,
@@ -1851,11 +1884,17 @@ class _DataSourceSettingsPageState extends State<_DataSourceSettingsPage> {
     _settings = widget.settings;
   }
 
-  void _update(AppSettings settings) {
+  Future<bool> _update(AppSettings settings) async {
+    final previous = _settings;
     setState(() {
       _settings = settings;
     });
-    widget.onChanged(settings);
+    final saved = await widget.onChanged(settings);
+    // Saving failed: show what is actually stored again.
+    if (!saved && mounted && identical(_settings, settings)) {
+      setState(() => _settings = previous);
+    }
+    return saved;
   }
 
   Future<void> _testValhalla() async {
@@ -2130,7 +2169,7 @@ class _MapDisplaySettingsPage extends StatefulWidget {
   });
 
   final AppSettings settings;
-  final ValueChanged<AppSettings> onChanged;
+  final SettingsChanged onChanged;
 
   @override
   State<_MapDisplaySettingsPage> createState() =>
@@ -2146,11 +2185,17 @@ class _MapDisplaySettingsPageState extends State<_MapDisplaySettingsPage> {
     _settings = widget.settings;
   }
 
-  void _update(AppSettings settings) {
+  Future<bool> _update(AppSettings settings) async {
+    final previous = _settings;
     setState(() {
       _settings = settings;
     });
-    widget.onChanged(settings);
+    final saved = await widget.onChanged(settings);
+    // Saving failed: show what is actually stored again.
+    if (!saved && mounted && identical(_settings, settings)) {
+      setState(() => _settings = previous);
+    }
+    return saved;
   }
 
   @override
@@ -2919,7 +2964,7 @@ class _ScaledDetailScaffold extends StatelessWidget {
     return MediaQuery(
       data: MediaQuery.of(
         context,
-      ).copyWith(textScaler: appTextScaler(fontScale)),
+      ).copyWith(textScaler: appTextScalerFor(context, fontScale)),
       child: AppUiScaleView(
         scale: uiScale,
         child: _DetailScaffold(title: title, children: children),

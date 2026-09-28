@@ -38,7 +38,10 @@ void main() {
           home: SettingsScreen(
             repository: SamplePilgrimageRepository(),
             settings: settings,
-            onChanged: (value) => settings = value,
+            onChanged: (value) async {
+              settings = value;
+              return true;
+            },
           ),
         ),
       );

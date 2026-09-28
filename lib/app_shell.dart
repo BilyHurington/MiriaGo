@@ -245,16 +245,54 @@ class _AppShellState extends State<AppShell> {
 
   /// Settings edited in the UI. The address sync state is owned by
   /// [AnitabiEndpointSync], so a page holding an older copy of the settings
-  /// never rolls it back.
-  Future<void> _saveSettings(AppSettings settings) => _storeSettings(
-    settings.copyWith(anitabiRemoteStateJson: _settings.anitabiRemoteStateJson),
-  );
+  /// never rolls it back. Resolves to false when saving failed; the previous
+  /// settings are then shown again and the user is told.
+  Future<bool> _saveSettings(AppSettings settings) async {
+    try {
+      await _storeSettings(
+        settings.copyWith(
+          anitabiRemoteStateJson: _settings.anitabiRemoteStateJson,
+        ),
+      );
+      return true;
+    } on Object catch (error) {
+      debugPrint('Failed to save settings: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '设置保存失败',
+          subtitle: '已恢复为保存前的设置，请稍后重试',
+        );
+      }
+      return false;
+    }
+  }
 
+  var _settingsRevision = 0;
+
+  /// Applies [settings] right away and stores them. If storing fails the
+  /// previous settings are applied again, unless a newer change has been
+  /// made since (its own save decides what is stored), and the error is
+  /// rethrown.
   Future<void> _storeSettings(AppSettings settings) async {
     if (!mounted) {
       await widget.repository.saveAppSettings(settings);
       return;
     }
+    final previous = _settings;
+    final revision = ++_settingsRevision;
+    _applySettings(settings);
+    try {
+      await widget.repository.saveAppSettings(settings);
+    } on Object {
+      if (mounted && revision == _settingsRevision) {
+        _applySettings(previous);
+      }
+      rethrow;
+    }
+  }
+
+  void _applySettings(AppSettings settings) {
     _applyAnitabiServiceConfig(settings);
     applyAppColorsFromSettings(
       settings,
@@ -264,7 +302,6 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       _settings = settings;
     });
-    await widget.repository.saveAppSettings(settings);
   }
 
   void _publishSettingsAfterLoad(AppSettings settings) {
@@ -378,9 +415,9 @@ class _AppShellState extends State<AppShell> {
       listenable: controller,
       builder: (context, _) {
         return MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: appTextScaler(_settings.fontScale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: appTextScalerFor(context, _settings.fontScale),
+          ),
           child: AnitabiImageSourceScope(
             source: _settings.anitabiImageSource,
             child: AppUiScaleView(
