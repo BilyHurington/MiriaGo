@@ -4501,6 +4501,21 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _routePlannerSkillPromotionDismissedMeta =
+      const VerificationMeta('routePlannerSkillPromotionDismissed');
+  @override
+  late final GeneratedColumn<bool> routePlannerSkillPromotionDismissed =
+      GeneratedColumn<bool>(
+        'route_planner_skill_promotion_dismissed',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("route_planner_skill_promotion_dismissed" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _comparisonExportConfigMigratedMeta =
       const VerificationMeta('comparisonExportConfigMigrated');
   @override
@@ -4778,6 +4793,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     comparisonExportConfigJson,
     anitabiRemoteStateJson,
     routePlannerSkillTipShown,
+    routePlannerSkillPromotionDismissed,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -5073,6 +5089,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         routePlannerSkillTipShown.isAcceptableOrUnknown(
           data['route_planner_skill_tip_shown']!,
           _routePlannerSkillTipShownMeta,
+        ),
+      );
+    }
+    if (data.containsKey('route_planner_skill_promotion_dismissed')) {
+      context.handle(
+        _routePlannerSkillPromotionDismissedMeta,
+        routePlannerSkillPromotionDismissed.isAcceptableOrUnknown(
+          data['route_planner_skill_promotion_dismissed']!,
+          _routePlannerSkillPromotionDismissedMeta,
         ),
       );
     }
@@ -5380,6 +5405,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}route_planner_skill_tip_shown'],
       )!,
+      routePlannerSkillPromotionDismissed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}route_planner_skill_promotion_dismissed'],
+      )!,
       comparisonExportConfigMigrated: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}comparison_export_config_migrated'],
@@ -5498,6 +5527,7 @@ class AppSettingsEntry extends DataClass
   final String comparisonExportConfigJson;
   final String anitabiRemoteStateJson;
   final bool routePlannerSkillTipShown;
+  final bool routePlannerSkillPromotionDismissed;
   final bool comparisonExportConfigMigrated;
   final String customThemeColorName;
   final int customThemeColorValue;
@@ -5549,6 +5579,7 @@ class AppSettingsEntry extends DataClass
     required this.comparisonExportConfigJson,
     required this.anitabiRemoteStateJson,
     required this.routePlannerSkillTipShown,
+    required this.routePlannerSkillPromotionDismissed,
     required this.comparisonExportConfigMigrated,
     required this.customThemeColorName,
     required this.customThemeColorValue,
@@ -5625,6 +5656,9 @@ class AppSettingsEntry extends DataClass
     map['route_planner_skill_tip_shown'] = Variable<bool>(
       routePlannerSkillTipShown,
     );
+    map['route_planner_skill_promotion_dismissed'] = Variable<bool>(
+      routePlannerSkillPromotionDismissed,
+    );
     map['comparison_export_config_migrated'] = Variable<bool>(
       comparisonExportConfigMigrated,
     );
@@ -5698,6 +5732,9 @@ class AppSettingsEntry extends DataClass
       comparisonExportConfigJson: Value(comparisonExportConfigJson),
       anitabiRemoteStateJson: Value(anitabiRemoteStateJson),
       routePlannerSkillTipShown: Value(routePlannerSkillTipShown),
+      routePlannerSkillPromotionDismissed: Value(
+        routePlannerSkillPromotionDismissed,
+      ),
       comparisonExportConfigMigrated: Value(comparisonExportConfigMigrated),
       customThemeColorName: Value(customThemeColorName),
       customThemeColorValue: Value(customThemeColorValue),
@@ -5790,6 +5827,9 @@ class AppSettingsEntry extends DataClass
       ),
       routePlannerSkillTipShown: serializer.fromJson<bool>(
         json['routePlannerSkillTipShown'],
+      ),
+      routePlannerSkillPromotionDismissed: serializer.fromJson<bool>(
+        json['routePlannerSkillPromotionDismissed'],
       ),
       comparisonExportConfigMigrated: serializer.fromJson<bool>(
         json['comparisonExportConfigMigrated'],
@@ -5903,6 +5943,9 @@ class AppSettingsEntry extends DataClass
       'routePlannerSkillTipShown': serializer.toJson<bool>(
         routePlannerSkillTipShown,
       ),
+      'routePlannerSkillPromotionDismissed': serializer.toJson<bool>(
+        routePlannerSkillPromotionDismissed,
+      ),
       'comparisonExportConfigMigrated': serializer.toJson<bool>(
         comparisonExportConfigMigrated,
       ),
@@ -5977,6 +6020,7 @@ class AppSettingsEntry extends DataClass
     String? comparisonExportConfigJson,
     String? anitabiRemoteStateJson,
     bool? routePlannerSkillTipShown,
+    bool? routePlannerSkillPromotionDismissed,
     bool? comparisonExportConfigMigrated,
     String? customThemeColorName,
     int? customThemeColorValue,
@@ -6040,6 +6084,9 @@ class AppSettingsEntry extends DataClass
         anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
     routePlannerSkillTipShown:
         routePlannerSkillTipShown ?? this.routePlannerSkillTipShown,
+    routePlannerSkillPromotionDismissed:
+        routePlannerSkillPromotionDismissed ??
+        this.routePlannerSkillPromotionDismissed,
     comparisonExportConfigMigrated:
         comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
     customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6158,6 +6205,10 @@ class AppSettingsEntry extends DataClass
       routePlannerSkillTipShown: data.routePlannerSkillTipShown.present
           ? data.routePlannerSkillTipShown.value
           : this.routePlannerSkillTipShown,
+      routePlannerSkillPromotionDismissed:
+          data.routePlannerSkillPromotionDismissed.present
+          ? data.routePlannerSkillPromotionDismissed.value
+          : this.routePlannerSkillPromotionDismissed,
       comparisonExportConfigMigrated:
           data.comparisonExportConfigMigrated.present
           ? data.comparisonExportConfigMigrated.value
@@ -6255,6 +6306,9 @@ class AppSettingsEntry extends DataClass
           ..write('anitabiRemoteStateJson: $anitabiRemoteStateJson, ')
           ..write('routePlannerSkillTipShown: $routePlannerSkillTipShown, ')
           ..write(
+            'routePlannerSkillPromotionDismissed: $routePlannerSkillPromotionDismissed, ',
+          )
+          ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
           ..write('customThemeColorName: $customThemeColorName, ')
@@ -6320,6 +6374,7 @@ class AppSettingsEntry extends DataClass
     comparisonExportConfigJson,
     anitabiRemoteStateJson,
     routePlannerSkillTipShown,
+    routePlannerSkillPromotionDismissed,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -6378,6 +6433,8 @@ class AppSettingsEntry extends DataClass
           other.comparisonExportConfigJson == this.comparisonExportConfigJson &&
           other.anitabiRemoteStateJson == this.anitabiRemoteStateJson &&
           other.routePlannerSkillTipShown == this.routePlannerSkillTipShown &&
+          other.routePlannerSkillPromotionDismissed ==
+              this.routePlannerSkillPromotionDismissed &&
           other.comparisonExportConfigMigrated ==
               this.comparisonExportConfigMigrated &&
           other.customThemeColorName == this.customThemeColorName &&
@@ -6437,6 +6494,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> comparisonExportConfigJson;
   final Value<String> anitabiRemoteStateJson;
   final Value<bool> routePlannerSkillTipShown;
+  final Value<bool> routePlannerSkillPromotionDismissed;
   final Value<bool> comparisonExportConfigMigrated;
   final Value<String> customThemeColorName;
   final Value<int> customThemeColorValue;
@@ -6489,6 +6547,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.comparisonExportConfigJson = const Value.absent(),
     this.anitabiRemoteStateJson = const Value.absent(),
     this.routePlannerSkillTipShown = const Value.absent(),
+    this.routePlannerSkillPromotionDismissed = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6542,6 +6601,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.comparisonExportConfigJson = const Value.absent(),
     this.anitabiRemoteStateJson = const Value.absent(),
     this.routePlannerSkillTipShown = const Value.absent(),
+    this.routePlannerSkillPromotionDismissed = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6595,6 +6655,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? comparisonExportConfigJson,
     Expression<String>? anitabiRemoteStateJson,
     Expression<bool>? routePlannerSkillTipShown,
+    Expression<bool>? routePlannerSkillPromotionDismissed,
     Expression<bool>? comparisonExportConfigMigrated,
     Expression<String>? customThemeColorName,
     Expression<int>? customThemeColorValue,
@@ -6665,6 +6726,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'anitabi_remote_state_json': anitabiRemoteStateJson,
       if (routePlannerSkillTipShown != null)
         'route_planner_skill_tip_shown': routePlannerSkillTipShown,
+      if (routePlannerSkillPromotionDismissed != null)
+        'route_planner_skill_promotion_dismissed':
+            routePlannerSkillPromotionDismissed,
       if (comparisonExportConfigMigrated != null)
         'comparison_export_config_migrated': comparisonExportConfigMigrated,
       if (customThemeColorName != null)
@@ -6736,6 +6800,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? comparisonExportConfigJson,
     Value<String>? anitabiRemoteStateJson,
     Value<bool>? routePlannerSkillTipShown,
+    Value<bool>? routePlannerSkillPromotionDismissed,
     Value<bool>? comparisonExportConfigMigrated,
     Value<String>? customThemeColorName,
     Value<int>? customThemeColorValue,
@@ -6803,6 +6868,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           anitabiRemoteStateJson ?? this.anitabiRemoteStateJson,
       routePlannerSkillTipShown:
           routePlannerSkillTipShown ?? this.routePlannerSkillTipShown,
+      routePlannerSkillPromotionDismissed:
+          routePlannerSkillPromotionDismissed ??
+          this.routePlannerSkillPromotionDismissed,
       comparisonExportConfigMigrated:
           comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
       customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6967,6 +7035,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         routePlannerSkillTipShown.value,
       );
     }
+    if (routePlannerSkillPromotionDismissed.present) {
+      map['route_planner_skill_promotion_dismissed'] = Variable<bool>(
+        routePlannerSkillPromotionDismissed.value,
+      );
+    }
     if (comparisonExportConfigMigrated.present) {
       map['comparison_export_config_migrated'] = Variable<bool>(
         comparisonExportConfigMigrated.value,
@@ -7096,6 +7169,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('comparisonExportConfigJson: $comparisonExportConfigJson, ')
           ..write('anitabiRemoteStateJson: $anitabiRemoteStateJson, ')
           ..write('routePlannerSkillTipShown: $routePlannerSkillTipShown, ')
+          ..write(
+            'routePlannerSkillPromotionDismissed: $routePlannerSkillPromotionDismissed, ',
+          )
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -10023,6 +10099,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> comparisonExportConfigJson,
       Value<String> anitabiRemoteStateJson,
       Value<bool> routePlannerSkillTipShown,
+      Value<bool> routePlannerSkillPromotionDismissed,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10077,6 +10154,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> comparisonExportConfigJson,
       Value<String> anitabiRemoteStateJson,
       Value<bool> routePlannerSkillTipShown,
+      Value<bool> routePlannerSkillPromotionDismissed,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10262,6 +10340,12 @@ class $$AppSettingsEntriesTableFilterComposer
     column: $table.routePlannerSkillTipShown,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get routePlannerSkillPromotionDismissed =>
+      $composableBuilder(
+        column: $table.routePlannerSkillPromotionDismissed,
+        builder: (column) => ColumnFilters(column),
+      );
 
   ColumnFilters<bool> get comparisonExportConfigMigrated => $composableBuilder(
     column: $table.comparisonExportConfigMigrated,
@@ -10523,6 +10607,12 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get routePlannerSkillPromotionDismissed =>
+      $composableBuilder(
+        column: $table.routePlannerSkillPromotionDismissed,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -10779,6 +10869,12 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get routePlannerSkillPromotionDismissed =>
+      $composableBuilder(
+        column: $table.routePlannerSkillPromotionDismissed,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -10952,6 +11048,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> comparisonExportConfigJson = const Value.absent(),
                 Value<String> anitabiRemoteStateJson = const Value.absent(),
                 Value<bool> routePlannerSkillTipShown = const Value.absent(),
+                Value<bool> routePlannerSkillPromotionDismissed =
+                    const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11008,6 +11106,8 @@ class $$AppSettingsEntriesTableTableManager
                 comparisonExportConfigJson: comparisonExportConfigJson,
                 anitabiRemoteStateJson: anitabiRemoteStateJson,
                 routePlannerSkillTipShown: routePlannerSkillTipShown,
+                routePlannerSkillPromotionDismissed:
+                    routePlannerSkillPromotionDismissed,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,
@@ -11064,6 +11164,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> comparisonExportConfigJson = const Value.absent(),
                 Value<String> anitabiRemoteStateJson = const Value.absent(),
                 Value<bool> routePlannerSkillTipShown = const Value.absent(),
+                Value<bool> routePlannerSkillPromotionDismissed =
+                    const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11120,6 +11222,8 @@ class $$AppSettingsEntriesTableTableManager
                 comparisonExportConfigJson: comparisonExportConfigJson,
                 anitabiRemoteStateJson: anitabiRemoteStateJson,
                 routePlannerSkillTipShown: routePlannerSkillTipShown,
+                routePlannerSkillPromotionDismissed:
+                    routePlannerSkillPromotionDismissed,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,

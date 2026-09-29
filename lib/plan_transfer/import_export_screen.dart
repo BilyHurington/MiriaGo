@@ -115,7 +115,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
                   : _importFromFile,
             ),
             const SizedBox(height: 10),
-            const RoutePlannerSkillCard(),
+            RoutePlannerSkillCard(repository: widget.repository),
             const SizedBox(height: 20),
             _SectionTitle(
               icon: LucideIcons.package,

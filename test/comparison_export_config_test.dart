@@ -164,12 +164,20 @@ void main() {
     expect(find.text('巡礼者信息'), findsNothing);
     expect(find.text('调色参数'), findsNothing);
 
-    final encoding = find.byType(
-      DropdownButtonFormField<ComparisonImageEncoding>,
+    final encoding = find.byKey(const ValueKey('comparison-encoding-selector'));
+    expect(
+      find.byType(DropdownButtonFormField<ComparisonImageEncoding>),
+      findsNothing,
     );
     await tester.ensureVisible(encoding);
     await tester.tap(encoding);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('constrained-menu-panel')))
+          .width,
+      tester.getSize(encoding).width,
+    );
     await tester.tap(find.text('PNG 无损').last);
     await tester.pumpAndSettle();
     expect(config.imageEncoding, ComparisonImageEncoding.png);

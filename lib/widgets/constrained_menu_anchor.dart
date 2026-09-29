@@ -51,9 +51,15 @@ class ConstrainedMenuAnchor extends StatelessWidget {
 
         return MenuAnchor(
           alignmentOffset: Offset((anchorWidth - menuWidth) / 2, 0),
+          style: MenuStyle(
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+            minimumSize: WidgetStatePropertyAll(Size(menuWidth, 0)),
+            maximumSize: WidgetStatePropertyAll(Size(menuWidth, menuHeight)),
+          ),
           builder: builder,
           menuChildren: [
             SizedBox(
+              key: const ValueKey('constrained-menu-panel'),
               width: menuWidth,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: menuHeight),

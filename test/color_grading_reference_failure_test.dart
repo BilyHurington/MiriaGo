@@ -15,6 +15,53 @@ import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_plan_controller.dart';
 
 void main() {
+  testWidgets('save panel stays hidden before automatic matching', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    late Directory root;
+    await tester.runAsync(() async {
+      root = await Directory.systemTemp.createTemp('grading-before-match-');
+      await File(
+        '${root.path}/photo.png',
+      ).writeAsBytes(img.encodePng(img.Image(width: 40, height: 30)));
+    });
+    addTearDown(() => root.delete(recursive: true));
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    final point = plan.points.first;
+    final record = await repository.createVisitRecord(
+      planId: plan.id,
+      pointId: point.id,
+      workId: point.work.id,
+      photoPath: '${root.path}/photo.png',
+      referenceMode: 'overlay',
+    );
+    final controller = PilgrimagePlanController(
+      plan: plan,
+      visitRepository: repository,
+    );
+    addTearDown(controller.dispose);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ColorGradingScreen(record: record, controller: controller),
+        ),
+      );
+      for (var i = 0; i < 100; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+        if (find.byType(CircularProgressIndicator).evaluate().isEmpty) break;
+      }
+    });
+    await tester.pump();
+    expect(find.text('自动匹配后可保存调色结果'), findsOneWidget);
+    expect(find.text('保存结果'), findsNothing);
+    expect(find.text('保存调色结果'), findsNothing);
+    expect(find.byType(Slider), findsNothing);
+  });
+
   for (final source in [
     'absent',
     '404',

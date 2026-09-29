@@ -406,6 +406,7 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
         const SizedBox(height: 12),
         _ModeSelector(
           selectedMode: _selectedMode,
+          hasSavedParams: _targetParams != null,
           onChanged: (mode) {
             setState(() {
               _selectedMode = mode;
@@ -417,13 +418,14 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
             });
           },
         ),
-        const SizedBox(height: 12),
-        _ScorePanel(
-          hasSavedParams: _targetParams != null,
-          beforeScore: _beforeScore,
-          currentToneScore: _currentToneScore,
-          afterScore: _afterScore,
-        ),
+        if (_beforeScore != null && _afterScore != null) ...[
+          const SizedBox(height: 12),
+          _ScorePanel(
+            beforeScore: _beforeScore!,
+            currentToneScore: _currentToneScore ?? 0,
+            afterScore: _afterScore!,
+          ),
+        ],
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: _matching ? null : _runAutoMatch,
@@ -441,15 +443,16 @@ class _ColorGradingScreenState extends State<ColorGradingScreen> {
         ),
         if (_targetParams != null) ...[
           const SizedBox(height: 12),
-          _IntensityControl(
-            value: _intensity,
-            onChanged: (value) => setState(() => _intensity = value),
+          ColorGradingParameterSummary(
+            activeParams: _activeParams,
+            intensity: _intensity,
+            onIntensityChanged: (value) => setState(() => _intensity = value),
           ),
-          const SizedBox(height: 12),
-          ColorGradingParameterSummary(activeParams: _activeParams),
         ],
-        const SizedBox(height: 12),
-        _SavePanel(saving: _saving, onSave: _save),
+        if (_targetParams != null || _resetPending) ...[
+          const SizedBox(height: 12),
+          _SavePanel(saving: _saving, onSave: _save),
+        ],
       ],
     );
   }
@@ -690,9 +693,14 @@ class _OriginalHoldButton extends StatelessWidget {
 }
 
 class _ModeSelector extends StatelessWidget {
-  const _ModeSelector({required this.selectedMode, required this.onChanged});
+  const _ModeSelector({
+    required this.selectedMode,
+    required this.hasSavedParams,
+    required this.onChanged,
+  });
 
   final ColorMatchMode selectedMode;
+  final bool hasSavedParams;
   final ValueChanged<ColorMatchMode> onChanged;
 
   @override
@@ -747,6 +755,22 @@ class _ModeSelector extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(LucideIcons.info, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  hasSavedParams ? '已恢复或生成调色参数，可保存结果' : '自动匹配后可保存调色结果',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -755,16 +779,14 @@ class _ModeSelector extends StatelessWidget {
 
 class _ScorePanel extends StatelessWidget {
   const _ScorePanel({
-    required this.hasSavedParams,
     required this.beforeScore,
     required this.currentToneScore,
     required this.afterScore,
   });
 
-  final bool hasSavedParams;
-  final int? beforeScore;
-  final int? currentToneScore;
-  final int? afterScore;
+  final int beforeScore;
+  final int currentToneScore;
+  final int afterScore;
 
   @override
   Widget build(BuildContext context) {
@@ -775,55 +797,37 @@ class _ScorePanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: beforeScore == null || afterScore == null
-          ? Row(
-              children: [
-                Icon(LucideIcons.wandSparkles, color: AppColors.accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    hasSavedParams ? '已恢复上次调色参数' : '自动匹配后可保存调色结果',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '色调匹配',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _ScoreValue(label: '原图', score: beforeScore!),
-                    Icon(
-                      LucideIcons.arrowRight,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                    _ScoreValue(label: '当前', score: currentToneScore ?? 0),
-                    Icon(
-                      LucideIcons.arrowRight,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                    _ScoreValue(label: '100%', score: afterScore!),
-                  ],
-                ),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '色调匹配',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _ScoreValue(label: '原图', score: beforeScore),
+              Icon(
+                LucideIcons.arrowRight,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              _ScoreValue(label: '当前', score: currentToneScore),
+              Icon(
+                LucideIcons.arrowRight,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              _ScoreValue(label: '100%', score: afterScore),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -856,60 +860,6 @@ class _ScoreValue extends StatelessWidget {
               fontWeight: FontWeight.w700,
               letterSpacing: 0,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _IntensityControl extends StatelessWidget {
-  const _IntensityControl({required this.value, required this.onChanged});
-
-  final double value;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = (value * 100).round();
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Text(
-                '调色强度',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$percent%',
-                style: TextStyle(
-                  color: AppColors.accentDark,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-          Slider(
-            value: value,
-            min: 0,
-            max: 1,
-            divisions: 100,
-            onChanged: onChanged,
           ),
         ],
       ),

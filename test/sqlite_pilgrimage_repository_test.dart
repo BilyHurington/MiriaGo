@@ -92,7 +92,7 @@ void main() {
   });
 
   test(
-    'schema 44 and 45 add Anitabi remote state and skill tip flag',
+    'schema 44 to 46 add remote and skill promotion settings',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'miriago-anitabi-remote-',
@@ -110,6 +110,10 @@ void main() {
         'ALTER TABLE app_settings_entries '
         'DROP COLUMN route_planner_skill_tip_shown',
       );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN route_planner_skill_promotion_dismissed',
+      );
       await oldDatabase.customStatement('PRAGMA user_version = 43');
       await oldDatabase.close();
 
@@ -119,10 +123,19 @@ void main() {
       expect(settings.mapMaxZoom, 21);
       expect(settings.anitabiRemoteStateJson, isEmpty);
       expect(settings.routePlannerSkillTipShown, isFalse);
+      expect(settings.routePlannerSkillPromotionDismissed, isFalse);
       await repository.saveAppSettings(
         settings.copyWith(
           anitabiRemoteStateJson: '{"autoUpdate":false}',
           routePlannerSkillTipShown: true,
+          routePlannerSkillPromotionDismissed: true,
+        ),
+      );
+      final stalePromotionState = await repository.loadAppSettings();
+      await repository.saveAppSettings(
+        stalePromotionState.copyWith(
+          mapMaxZoom: 22,
+          routePlannerSkillPromotionDismissed: false,
         ),
       );
       await database.close();
@@ -135,6 +148,7 @@ void main() {
       expect(reopenedSettings.anitabiRemoteStateJson, '{"autoUpdate":false}');
       expect(reopenedSettings.anitabiRemoteState.autoUpdate, isFalse);
       expect(reopenedSettings.routePlannerSkillTipShown, isTrue);
+      expect(reopenedSettings.routePlannerSkillPromotionDismissed, isTrue);
     },
   );
 

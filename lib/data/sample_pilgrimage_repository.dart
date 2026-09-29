@@ -918,6 +918,9 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       anitabiMirrorImageBaseUrl: settings.anitabiMirrorImageBaseUrl.trim(),
       anitabiRemoteStateJson: settings.anitabiRemoteStateJson,
       routePlannerSkillTipShown: settings.routePlannerSkillTipShown,
+      routePlannerSkillPromotionDismissed:
+          settings.routePlannerSkillPromotionDismissed ||
+          _settings.routePlannerSkillPromotionDismissed,
       navigationApp: settings.navigationApp,
       customXyzTileUrl: settings.customXyzTileUrl.trim(),
       customMapLibreStyleUrl: settings.customMapLibreStyleUrl.trim(),

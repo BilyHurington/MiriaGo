@@ -26,6 +26,7 @@ import '../records/comparison_export_config_storage_stub.dart'
 import '../widgets/app_back_button.dart';
 import '../widgets/app_scaled_route.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/constrained_menu_anchor.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/input_dialog.dart';
 import '../widgets/responsive_button.dart';
@@ -33,7 +34,7 @@ import '../widgets/snackbar_helper.dart';
 import 'privacy_policy_screen.dart';
 
 bool get _showCacheCleanupSettings => isReferenceCacheCleanupSupported;
-bool get _showDebugPhotoLocationSettings => false;
+bool get _showDebugPhotoLocationSettings => kIsWeb;
 bool get _shouldShowMobileGallerySettings {
   if (kIsWeb) {
     return false;
@@ -1133,223 +1134,58 @@ class _PhotoLocationStrategyDropdown extends StatelessWidget {
   final ValueChanged<PhotoLocationStrategy?> onChanged;
 
   static const _strategies = PhotoLocationStrategy.values;
-  static const _maxItemsWithoutScrollbar = 7;
 
   @override
   Widget build(BuildContext context) {
-    final omitScrollbarInset = _strategies.length <= _maxItemsWithoutScrollbar;
-
-    return Theme(
-      data: Theme.of(context).copyWith(
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        highlightColor: AppColors.accent.withValues(alpha: 0.075),
-        splashColor: Colors.transparent,
-      ),
-      child: DropdownButtonFormField<PhotoLocationStrategy>(
-        key: ValueKey(value),
-        initialValue: value,
-        decoration: _decoration(),
-        isExpanded: true,
-        elevation: 2,
-        borderRadius: BorderRadius.circular(8),
-        dropdownColor: AppColors.surface,
-        itemHeight: null,
-        menuMaxHeight: appScaledOverlayExtent(settings, 360),
-        icon: const Padding(
-          padding: EdgeInsets.only(right: 8),
-          child: Icon(LucideIcons.chevronDown, size: 20),
+    return ConstrainedMenuAnchor(
+      maxMenuWidth: double.infinity,
+      screenPadding: EdgeInsets.zero,
+      maxMenuHeight: appScaledOverlayExtent(settings, 360),
+      builder: (context, controller, child) => Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: AppColors.border),
         ),
-        selectedItemBuilder: (context) => [
-          for (final strategy in _strategies)
-            _PhotoLocationStrategyDropdownItem(strategy: strategy),
-        ],
-        items: [
-          for (final strategy in _strategies)
-            DropdownMenuItem<PhotoLocationStrategy>(
-              value: strategy,
-              child: SizedBox(
-                height: appScaledOverlayExtent(settings, 48),
-                child: AppScaledOverlayContent(
-                  settings: settings,
-                  child: _PhotoLocationStrategyDropdownItem(
-                    strategy: strategy,
-                    selected: strategy == value,
-                    menuItem: true,
-                    omitScrollbarInset: omitScrollbarInset,
-                  ),
-                ),
-              ),
-            ),
-        ],
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  InputDecoration _decoration() {
-    return InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: AppColors.surface,
-      hoverColor: AppColors.accent.withValues(alpha: 0.035),
-      contentPadding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.border, width: 1.4),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.accentForeground, width: 1.4),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
-      ),
-    );
-  }
-}
-
-class _PhotoLocationStrategyDropdownItem extends StatefulWidget {
-  const _PhotoLocationStrategyDropdownItem({
-    required this.strategy,
-    this.selected = false,
-    this.menuItem = false,
-    this.omitScrollbarInset = false,
-  });
-
-  final PhotoLocationStrategy strategy;
-  final bool selected;
-  final bool menuItem;
-  final bool omitScrollbarInset;
-
-  @override
-  State<_PhotoLocationStrategyDropdownItem> createState() =>
-      _PhotoLocationStrategyDropdownItemState();
-}
-
-class _PhotoLocationStrategyDropdownItemState
-    extends State<_PhotoLocationStrategyDropdownItem> {
-  static const _hoverOffset = 12.0;
-  static const _menuTrailingInset = 10.0;
-  static const _menuBackgroundTrailingInset = 6.0;
-
-  var _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final strategy = widget.strategy;
-    final selected = widget.selected;
-    final reserveScrollbarSpace = widget.menuItem && !widget.omitScrollbarInset;
-
-    final item = SizedBox(
-      width: double.infinity,
-      height: widget.menuItem ? double.infinity : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.centerLeft,
-        transform: Matrix4.translationValues(
-          _hovered && !selected ? _hoverOffset : 0,
-          0,
-          0,
-        ),
-        transformAlignment: Alignment.centerLeft,
-        padding: EdgeInsets.only(
-          right: reserveScrollbarSpace ? _menuTrailingInset : 0,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.08),
-                border: Border.all(
-                  color: AppColors.accent.withValues(alpha: 0.42),
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                _photoLocationStrategyBadge(strategy),
-                style: TextStyle(
-                  color: AppColors.accentForeground,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  letterSpacing: 0,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Transform.translate(
-                offset: Offset(0, widget.menuItem ? 0 : -1),
-                child: Text(
-                  _photoLocationStrategyMenuLabel(strategy),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            ),
-            if (selected) ...[
-              const SizedBox(width: 8),
-              Icon(
-                LucideIcons.checkCircle,
-                color: AppColors.accentForeground,
-                size: 18,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-
-    final content = SizedBox(
-      width: double.infinity,
-      height: widget.menuItem ? double.infinity : null,
-      child: Stack(
-        clipBehavior: Clip.none,
-        fit: widget.menuItem ? StackFit.expand : StackFit.loose,
-        children: [
-          Positioned(
-            left: -8,
-            top: 6,
-            right: reserveScrollbarSpace ? _menuBackgroundTrailingInset : -8,
-            bottom: 6,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(
-                  alpha: selected ? 0.1 : (_hovered ? 0.05 : 0),
-                ),
-                borderRadius: BorderRadius.circular(6),
-              ),
+        child: InkWell(
+          key: const ValueKey('photo-location-strategy-selector'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: Text(_photoLocationStrategyMenuLabel(value))),
+                const Icon(LucideIcons.chevronDown, size: 18),
+              ],
             ),
           ),
-          item,
-        ],
+        ),
       ),
-    );
-
-    return MouseRegion(
-      onEnter: widget.menuItem && !selected
-          ? (_) => setState(() => _hovered = true)
-          : null,
-      onExit: widget.menuItem && !selected
-          ? (_) => setState(() => _hovered = false)
-          : null,
-      child: content,
+      menuChildrenBuilder: (context, width) => [
+        for (final strategy in _strategies)
+          MenuItemButton(
+            onPressed: () => onChanged(strategy),
+            leadingIcon: strategy == value
+                ? const Icon(LucideIcons.check, size: 18)
+                : const SizedBox(width: 18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(_photoLocationStrategyMenuLabel(strategy)),
+                ),
+                Text(
+                  _photoLocationStrategyBadge(strategy),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1724,8 +1560,6 @@ class _AnitabiServiceSettingsPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('失效时自动获取新地址', style: _cardTitleTextStyle),
-                      const SizedBox(height: 3),
                       Text(
                         '连接 Anitabi 失败时，从 MiriaGo 仓库读取最新服务地址，验证可用后再替换。自定义的地址不会被改动。',
                         style: _secondaryTextStyle,
@@ -2934,11 +2768,10 @@ class _AboutSettingsPage extends StatelessWidget {
               label: '开源许可',
               value: 'MIT License',
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(LucideIcons.shieldCheck),
-              title: const Text('隐私政策'),
-              trailing: const Icon(LucideIcons.chevronRight),
+            _AboutInfoTile(
+              icon: LucideIcons.shieldCheck,
+              label: '隐私政策',
+              value: '查看隐私政策',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const PrivacyPolicyScreen(),
@@ -5334,35 +5167,53 @@ class _AboutInfoTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.textSecondary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: _captionTextStyle),
-                const SizedBox(height: 2),
-                CopyableText(
-                  text: value,
-                  copyLabel: value,
-                  style: const TextStyle(fontSize: 14, letterSpacing: 0),
-                ),
-              ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.textSecondary, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: _captionTextStyle),
+                  const SizedBox(height: 2),
+                  if (onTap == null)
+                    CopyableText(
+                      text: value,
+                      copyLabel: value,
+                      style: const TextStyle(fontSize: 14, letterSpacing: 0),
+                    )
+                  else
+                    Text(
+                      value,
+                      style: const TextStyle(fontSize: 14, letterSpacing: 0),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              Icon(
+                LucideIcons.chevronRight,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+          ],
+        ),
       ),
     );
   }

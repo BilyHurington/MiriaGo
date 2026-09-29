@@ -159,6 +159,8 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant(''))();
   BoolColumn get routePlannerSkillTipShown =>
       boolean().withDefault(const Constant(false))();
+  BoolColumn get routePlannerSkillPromotionDismissed =>
+      boolean().withDefault(const Constant(false))();
   BoolColumn get comparisonExportConfigMigrated =>
       boolean().withDefault(const Constant(true))();
   TextColumn get customThemeColorName =>
@@ -207,7 +209,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 45;
+  int get schemaVersion => 46;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -716,6 +718,12 @@ class AppDatabase extends _$AppDatabase {
           'route_planner_skill_tip_shown',
           appSettingsEntries,
           appSettingsEntries.routePlannerSkillTipShown,
+        );
+      }
+      if (from < 46) {
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.routePlannerSkillPromotionDismissed,
         );
       }
     }),

@@ -92,6 +92,21 @@ void expectReady(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('show closes from top blank area while idle', (tester) async {
+    await _open(tester, _Repository(), _Export());
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(find.byType(ComparisonExportSheet), findsNothing);
+  });
+
+  testWidgets('show closes from header padding while idle', (tester) async {
+    await _open(tester, _Repository(), _Export());
+    final title = tester.getCenter(find.text('导出对比图').first);
+    await tester.tapAt(Offset(8, title.dy));
+    await tester.pumpAndSettle();
+    expect(find.byType(ComparisonExportSheet), findsNothing);
+  });
+
   for (final phase in ['settings', 'export']) {
     for (final exit in ['drag', 'barrier', 'system back']) {
       testWidgets(

@@ -398,7 +398,7 @@ void main() {
     expect(find.text('备份迁移计划'), findsNothing);
   });
 
-  testWidgets('plan action subtitles stay visible on a wider screen', (
+  testWidgets('plan actions keep one row on a wider screen', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 800));
@@ -410,17 +410,17 @@ void main() {
 
     expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
     expect(find.text('添加点位'), findsOneWidget);
-    expect(find.text('加入巡礼场景'), findsOneWidget);
+    expect(find.text('加入巡礼场景'), findsNothing);
     expect(find.text('计划备忘录'), findsOneWidget);
-    expect(find.text('记录行程要点'), findsOneWidget);
+    expect(find.text('记录行程要点'), findsNothing);
     final addPointsRect = tester.getRect(
       find.byKey(const ValueKey('plan-action-add-points')),
     );
     final cacheReferencesRect = tester.getRect(
       find.byKey(const ValueKey('plan-action-cache-references')),
     );
-    expect(cacheReferencesRect.top, greaterThan(addPointsRect.bottom));
-    expect(cacheReferencesRect.left, closeTo(addPointsRect.left, 0.1));
+    expect(cacheReferencesRect.top, closeTo(addPointsRect.top, 0.1));
+    expect(cacheReferencesRect.left, greaterThan(addPointsRect.right));
   });
 
   testWidgets(
@@ -3662,6 +3662,18 @@ void main() {
       find.byKey(const ValueKey('route-planner-skill-link')),
       findsOneWidget,
     );
+    await tester.tap(
+      find.byKey(const ValueKey('route-planner-skill-link-dismiss')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('route-planner-skill-link')),
+      findsNothing,
+    );
+    expect(
+      (await repository.loadAppSettings()).routePlannerSkillPromotionDismissed,
+      isTrue,
+    );
     Navigator.of(tester.element(find.byType(AddPointsScreen))).pop();
     await tester.pumpAndSettle();
 
@@ -3681,9 +3693,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('route-planner-skill-card')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text(routePlannerSkillTitle), findsOneWidget);
+    expect(find.text(routePlannerSkillTitle), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(home: PlanManagerScreen(repository: repository)),
@@ -3691,7 +3703,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('route-planner-skill-link')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('route planner skill card dismissal survives reopening', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository();
+    final plan = await repository.loadActivePlan();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ImportExportScreen(plan: plan, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('route-planner-skill-card')),
       findsOneWidget,
+    );
+    expect(find.text('点击查看使用说明'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('route-planner-skill-dismiss')));
+    await tester.pumpAndSettle();
+    expect(
+      (await repository.loadAppSettings()).routePlannerSkillPromotionDismissed,
+      isTrue,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ImportExportScreen(plan: plan, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('route-planner-skill-card')),
+      findsNothing,
     );
   });
 

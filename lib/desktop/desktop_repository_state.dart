@@ -97,6 +97,8 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'comparisonExportConfigJson': settings.comparisonExportConfigJson,
     'anitabiRemoteStateJson': settings.anitabiRemoteStateJson,
     'routePlannerSkillTipShown': settings.routePlannerSkillTipShown,
+    'routePlannerSkillPromotionDismissed':
+        settings.routePlannerSkillPromotionDismissed,
     'comparisonExportConfigMigrated': settings.comparisonExportConfigMigrated,
     'customThemeColorName': settings.customThemeColorName,
     'customThemeColorValue': settings.customThemeColorValue,
@@ -214,6 +216,8 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     ),
     routePlannerSkillTipShown:
         _boolValue(json['routePlannerSkillTipShown']) ?? false,
+    routePlannerSkillPromotionDismissed:
+        _boolValue(json['routePlannerSkillPromotionDismissed']) ?? false,
     comparisonExportConfigMigrated:
         _boolValue(json['comparisonExportConfigMigrated']) ?? false,
     customThemeColorName: _stringValue(

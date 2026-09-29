@@ -149,6 +149,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       comparisonExportConfigJson: row.comparisonExportConfigJson,
       anitabiRemoteStateJson: row.anitabiRemoteStateJson,
       routePlannerSkillTipShown: row.routePlannerSkillTipShown,
+      routePlannerSkillPromotionDismissed:
+          row.routePlannerSkillPromotionDismissed,
       comparisonExportConfigMigrated: row.comparisonExportConfigMigrated,
       customThemeColorName: row.customThemeColorName,
       customThemeColorValue: row.customThemeColorValue,
@@ -1323,6 +1325,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
 
   @override
   Future<void> saveAppSettings(AppSettings settings) async {
+    final existing = await (_database.select(
+      _database.appSettingsEntries,
+    )..where((row) => row.id.equals('default'))).getSingleOrNull();
     await _database
         .into(_database.appSettingsEntries)
         .insertOnConflictUpdate(
@@ -1381,6 +1386,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             anitabiRemoteStateJson: Value(settings.anitabiRemoteStateJson),
             routePlannerSkillTipShown: Value(
               settings.routePlannerSkillTipShown,
+            ),
+            routePlannerSkillPromotionDismissed: Value(
+              settings.routePlannerSkillPromotionDismissed ||
+                  (existing?.routePlannerSkillPromotionDismissed ?? false),
             ),
             comparisonExportConfigMigrated: Value(
               settings.comparisonExportConfigMigrated,

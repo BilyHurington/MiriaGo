@@ -29,8 +29,6 @@ import 'reference_cache_progress_dialog.dart';
 import 'reference_full_cache_runner.dart';
 import 'reference_image_status.dart';
 
-const _planActionSubtitleMinPanelWidth = 380.0;
-
 class PlanScreen extends StatefulWidget {
   const PlanScreen({
     required this.controller,
@@ -816,76 +814,52 @@ class _PlanActionsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < _planActionSubtitleMinPanelWidth;
-        final items = [
-          _PlanActionItem(
-            key: const ValueKey('plan-action-add-points'),
-            icon: const Icon(LucideIcons.mapPinPlus, size: 20),
-            title: '添加点位',
-            subtitle: '加入巡礼场景',
-            compact: compact,
-            onTap: onAddPoints,
-          ),
-          _PlanActionItem(
-            key: const ValueKey('plan-action-manage-points'),
-            icon: const Icon(LucideIcons.slidersHorizontal, size: 20),
-            title: '管理计划',
-            subtitle: '整理片区点位',
-            compact: compact,
-            onTap: onManagePoints,
-          ),
-          _PlanActionItem(
-            key: const ValueKey('plan-action-cache-references'),
-            icon: isCachingReferences
-                ? const SizedBox.square(
-                    dimension: 19,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(LucideIcons.cloudDownload, size: 20),
-            title: '缓存参考图',
-            subtitle: isCachingReferences ? '查看当前进度' : '保存完整图片',
-            compact: compact,
-            onTap: onCacheReferences,
-          ),
-          _PlanActionItem(
-            key: const ValueKey('plan-action-memo'),
-            icon: const Icon(LucideIcons.stickyNote, size: 20),
-            title: '计划备忘录',
-            subtitle: '记录行程要点',
-            compact: compact,
-            onTap: onOpenMemo,
-          ),
-          _PlanActionItem(
-            key: const ValueKey('plan-action-import-export'),
-            icon: const Icon(LucideIcons.import, size: 20),
-            title: '导入导出',
-            subtitle: '备份迁移计划',
-            compact: compact,
-            onTap: onImportExport,
-          ),
-        ];
-        return Container(
-          key: const ValueKey('plan-actions-panel'),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: compact
-              ? _planActionRow(items)
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _planActionRow(items.sublist(0, 2)),
-                    const AppHairline(),
-                    _planActionRow(items.sublist(2)),
-                  ],
-                ),
-        );
-      },
+    final items = [
+      _PlanActionItem(
+        key: const ValueKey('plan-action-add-points'),
+        icon: const Icon(LucideIcons.mapPinPlus, size: 20),
+        title: '添加点位',
+        onTap: onAddPoints,
+      ),
+      _PlanActionItem(
+        key: const ValueKey('plan-action-manage-points'),
+        icon: const Icon(LucideIcons.slidersHorizontal, size: 20),
+        title: '管理计划',
+        onTap: onManagePoints,
+      ),
+      _PlanActionItem(
+        key: const ValueKey('plan-action-cache-references'),
+        icon: isCachingReferences
+            ? const SizedBox.square(
+                dimension: 19,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(LucideIcons.cloudDownload, size: 20),
+        title: '缓存参考图',
+        onTap: onCacheReferences,
+      ),
+      _PlanActionItem(
+        key: const ValueKey('plan-action-memo'),
+        icon: const Icon(LucideIcons.stickyNote, size: 20),
+        title: '计划备忘录',
+        onTap: onOpenMemo,
+      ),
+      _PlanActionItem(
+        key: const ValueKey('plan-action-import-export'),
+        icon: const Icon(LucideIcons.import, size: 20),
+        title: '导入导出',
+        onTap: onImportExport,
+      ),
+    ];
+    return Container(
+      key: const ValueKey('plan-actions-panel'),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: _planActionRow(items),
     );
   }
 }
@@ -908,16 +882,12 @@ class _PlanActionItem extends StatelessWidget {
   const _PlanActionItem({
     required this.icon,
     required this.title,
-    required this.subtitle,
-    required this.compact,
     required this.onTap,
     super.key,
   });
 
   final Widget icon;
   final String title;
-  final String subtitle;
-  final bool compact;
   final VoidCallback onTap;
 
   @override
@@ -930,82 +900,32 @@ class _PlanActionItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: compact
-            ? Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 10,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    themedIcon,
-                    const SizedBox(height: 6),
-                    Tooltip(
-                      message: title,
-                      excludeFromSemantics: true,
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 64),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 9,
-                  ),
-                  child: Row(
-                    children: [
-                      themedIcon,
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              themedIcon,
+              const SizedBox(height: 6),
+              Tooltip(
+                message: title,
+                excludeFromSemantics: true,
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
                 ),
               ),
+            ],
+          ),
+        ),
       ),
     );
   }
