@@ -47,6 +47,14 @@ Future<void> _pumpAppWithEmptyPlan(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Plan management opens from the plan actions panel ("切换计划").
+Future<void> _openPlanManagerFromPlan(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('plan-action-switch-plan')));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _openPlanMenu(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
   await tester.pumpAndSettle();
@@ -233,20 +241,22 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpApp(tester);
 
-    final switchButton = find.byKey(const ValueKey('plan-switch-button'));
+    final addPointsButton = find.byKey(
+      const ValueKey('plan-add-points-button'),
+    );
     final toggleButton = find.byKey(const ValueKey('plan-actions-toggle'));
     final collapsedAppBarRect = tester.getRect(find.byType(AppBar));
     final collapsedToggleRect = tester.getRect(toggleButton);
-    expect(switchButton, findsOneWidget);
+    expect(addPointsButton, findsOneWidget);
     expect(toggleButton, findsOneWidget);
-    expect(tester.getSize(switchButton), tester.getSize(toggleButton));
+    expect(tester.getSize(addPointsButton), tester.getSize(toggleButton));
     expect(find.byKey(const ValueKey('plan-actions-panel')), findsNothing);
     expect(find.byKey(const ValueKey('plan-group-summary')), findsNothing);
     expect(find.byKey(const ValueKey('plan-meta-strip')), findsNothing);
     expect(
       find.descendant(
-        of: switchButton,
-        matching: find.byIcon(LucideIcons.arrowLeftRight),
+        of: addPointsButton,
+        matching: find.byIcon(LucideIcons.mapPinPlus),
       ),
       findsOneWidget,
     );
@@ -280,7 +290,7 @@ void main() {
     );
     for (final key in const [
       'plan-action-cache-references',
-      'plan-action-add-points',
+      'plan-action-switch-plan',
       'plan-action-manage-points',
       'plan-action-memo',
       'plan-action-import-export',
@@ -301,8 +311,15 @@ void main() {
       findsOneWidget,
     );
 
-    final addPointsRect = tester.getRect(
-      find.byKey(const ValueKey('plan-action-add-points')),
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('plan-action-switch-plan')),
+        matching: find.byIcon(LucideIcons.arrowLeftRight),
+      ),
+      findsOneWidget,
+    );
+    final switchPlanRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-switch-plan')),
     );
     final managePointsRect = tester.getRect(
       find.byKey(const ValueKey('plan-action-manage-points')),
@@ -310,13 +327,14 @@ void main() {
     final cacheReferencesRect = tester.getRect(
       find.byKey(const ValueKey('plan-action-cache-references')),
     );
-    expect(addPointsRect.top, closeTo(managePointsRect.top, 0.1));
-    expect(addPointsRect.bottom, closeTo(managePointsRect.bottom, 0.1));
-    expect(cacheReferencesRect.top, closeTo(addPointsRect.top, 0.1));
-    expect(cacheReferencesRect.bottom, closeTo(addPointsRect.bottom, 0.1));
+    expect(switchPlanRect.top, closeTo(managePointsRect.top, 0.1));
+    expect(switchPlanRect.bottom, closeTo(managePointsRect.bottom, 0.1));
+    expect(cacheReferencesRect.top, closeTo(switchPlanRect.top, 0.1));
+    expect(cacheReferencesRect.bottom, closeTo(switchPlanRect.bottom, 0.1));
     expect(cacheReferencesRect.left, greaterThan(managePointsRect.right));
 
-    await tester.tap(find.byKey(const ValueKey('plan-action-add-points')));
+    // Adding points is the app bar button now; it also folds the panel.
+    await tester.tap(addPointsButton);
     await tester.pumpAndSettle();
     expect(find.byType(AddPointsScreen), findsOneWidget);
     // First visit introduces the route planner skill once.
@@ -389,7 +407,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
-    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('切换计划'), findsOneWidget);
     expect(find.text('计划备忘录'), findsOneWidget);
     expect(find.text('加入巡礼场景'), findsNothing);
     expect(find.text('整理片区点位'), findsNothing);
@@ -409,18 +427,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('plan-actions-panel')), findsOneWidget);
-    expect(find.text('添加点位'), findsOneWidget);
+    expect(find.text('切换计划'), findsOneWidget);
     expect(find.text('加入巡礼场景'), findsNothing);
     expect(find.text('计划备忘录'), findsOneWidget);
     expect(find.text('记录行程要点'), findsNothing);
-    final addPointsRect = tester.getRect(
-      find.byKey(const ValueKey('plan-action-add-points')),
+    final switchPlanRect = tester.getRect(
+      find.byKey(const ValueKey('plan-action-switch-plan')),
     );
     final cacheReferencesRect = tester.getRect(
       find.byKey(const ValueKey('plan-action-cache-references')),
     );
-    expect(cacheReferencesRect.top, closeTo(addPointsRect.top, 0.1));
-    expect(cacheReferencesRect.left, greaterThan(addPointsRect.right));
+    expect(cacheReferencesRect.top, closeTo(switchPlanRect.top, 0.1));
+    expect(cacheReferencesRect.left, greaterThan(switchPlanRect.right));
+
+    await tester.tap(find.byKey(const ValueKey('plan-action-switch-plan')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PlanManagerScreen), findsOneWidget);
   });
 
   testWidgets(
@@ -2953,8 +2975,7 @@ void main() {
     await tester.pumpWidget(MiriaGoApp(repository: repository));
     await tester.pumpAndSettle();
 
-    await _openPlanMenu(tester);
-    await tester.tap(find.text('添加点位').last);
+    await tester.tap(find.byKey(const ValueKey('plan-add-points-button')));
     await tester.pumpAndSettle();
     _invokeKeyedAction(tester, 'add-points-quick-manual-point');
     await tester.pumpAndSettle();
@@ -3018,8 +3039,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openPlanMenu(tester);
-    await tester.tap(find.text('添加点位').last);
+    await tester.tap(find.byKey(const ValueKey('plan-add-points-button')));
     await tester.pumpAndSettle();
     _invokeKeyedAction(tester, 'add-points-quick-manual-point');
     await tester.pumpAndSettle();
@@ -3058,8 +3078,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openPlanMenu(tester);
-    await tester.tap(find.text('添加点位').last);
+    await tester.tap(find.byKey(const ValueKey('plan-add-points-button')));
     await tester.pumpAndSettle();
     _invokeKeyedAction(tester, 'add-points-quick-manual-point');
     await tester.pumpAndSettle();
@@ -3077,8 +3096,7 @@ void main() {
     await tester.pumpWidget(MiriaGoApp(repository: repository));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('plan-switch-button')));
-    await tester.pumpAndSettle();
+    await _openPlanManagerFromPlan(tester);
     expect(find.byKey(const ValueKey('current-plan-section')), findsNothing);
     expect(find.byKey(const ValueKey('all-plans-section')), findsOneWidget);
     final createButton = tester.widget<OutlinedButton>(
@@ -3328,8 +3346,7 @@ void main() {
       MiriaGoApp(repository: SamplePilgrimageRepository()),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('plan-switch-button')));
-    await tester.pumpAndSettle();
+    await _openPlanManagerFromPlan(tester);
 
     final planCard = find
         .byWidgetPredicate(
@@ -3435,8 +3452,7 @@ void main() {
     await tester.pumpWidget(MiriaGoApp(repository: repository));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('plan-switch-button')));
-    await tester.pumpAndSettle();
+    await _openPlanManagerFromPlan(tester);
     await tester.tap(
       find.byKey(const ValueKey('plan-card-title-sample-uji-hibike')),
     );

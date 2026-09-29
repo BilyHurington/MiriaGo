@@ -366,10 +366,10 @@ class _PlanScreenState extends State<PlanScreen>
         ),
         actions: [
           IconButton(
-            key: const ValueKey('plan-switch-button'),
-            tooltip: '切换计划',
-            onPressed: widget.onOpenPlanManager,
-            icon: const Icon(LucideIcons.arrowLeftRight),
+            key: const ValueKey('plan-add-points-button'),
+            tooltip: '添加点位',
+            onPressed: () => _openPlanAction(widget.onOpenAddPoints),
+            icon: const Icon(LucideIcons.mapPinPlus),
           ),
           IconButton(
             key: const ValueKey('plan-actions-toggle'),
@@ -401,8 +401,8 @@ class _PlanScreenState extends State<PlanScreen>
                         child: _PlanActionsPanel(
                           isCachingReferences: _isCachingFullReferences,
                           onCacheReferences: _handleReferenceCachePressed,
-                          onAddPoints: () =>
-                              _openPlanAction(widget.onOpenAddPoints),
+                          onSwitchPlan: () =>
+                              _openPlanAction(widget.onOpenPlanManager),
                           onManagePoints: () =>
                               _openPlanAction(widget.onOpenPointManager),
                           onOpenMemo: () => _openPlanAction(_openPlanMemo),
@@ -425,7 +425,8 @@ class _PlanScreenState extends State<PlanScreen>
                   child: _PlanActionsPanel(
                     isCachingReferences: _isCachingFullReferences,
                     onCacheReferences: _handleReferenceCachePressed,
-                    onAddPoints: () => _openPlanAction(widget.onOpenAddPoints),
+                    onSwitchPlan: () =>
+                        _openPlanAction(widget.onOpenPlanManager),
                     onManagePoints: () =>
                         _openPlanAction(widget.onOpenPointManager),
                     onOpenMemo: () => _openPlanAction(_openPlanMemo),
@@ -799,7 +800,7 @@ class _PlanActionsPanel extends StatelessWidget {
   const _PlanActionsPanel({
     required this.isCachingReferences,
     required this.onCacheReferences,
-    required this.onAddPoints,
+    required this.onSwitchPlan,
     required this.onManagePoints,
     required this.onOpenMemo,
     required this.onImportExport,
@@ -807,7 +808,7 @@ class _PlanActionsPanel extends StatelessWidget {
 
   final bool isCachingReferences;
   final VoidCallback onCacheReferences;
-  final VoidCallback onAddPoints;
+  final VoidCallback onSwitchPlan;
   final VoidCallback onManagePoints;
   final VoidCallback onOpenMemo;
   final VoidCallback onImportExport;
@@ -816,10 +817,10 @@ class _PlanActionsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       _PlanActionItem(
-        key: const ValueKey('plan-action-add-points'),
-        icon: const Icon(LucideIcons.mapPinPlus, size: 20),
-        title: '添加点位',
-        onTap: onAddPoints,
+        key: const ValueKey('plan-action-switch-plan'),
+        icon: const Icon(LucideIcons.arrowLeftRight, size: 20),
+        title: '切换计划',
+        onTap: onSwitchPlan,
       ),
       _PlanActionItem(
         key: const ValueKey('plan-action-manage-points'),
