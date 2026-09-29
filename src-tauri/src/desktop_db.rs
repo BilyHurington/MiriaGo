@@ -235,6 +235,7 @@ impl DesktopDatabase {
                   comparison_export_config_migrated INTEGER NOT NULL DEFAULT 1,
                   anitabi_remote_state_json TEXT NOT NULL DEFAULT '',
                   route_planner_skill_tip_shown INTEGER NOT NULL DEFAULT 0,
+                  route_planner_skill_promotion_dismissed INTEGER NOT NULL DEFAULT 0,
                   map_thumbnail_visible_threshold INTEGER NOT NULL DEFAULT 40,
                   map_thumbnail_concurrent_loads INTEGER NOT NULL DEFAULT 10,
                   show_plan_group_progress INTEGER NOT NULL DEFAULT 1,
@@ -423,6 +424,10 @@ impl DesktopDatabase {
             ("anitabi_remote_state_json", "TEXT NOT NULL DEFAULT ''"),
             (
                 "route_planner_skill_tip_shown",
+                "INTEGER NOT NULL DEFAULT 0",
+            ),
+            (
+                "route_planner_skill_promotion_dismissed",
                 "INTEGER NOT NULL DEFAULT 0",
             ),
             (
@@ -638,7 +643,8 @@ impl DesktopDatabase {
                         custom_theme_color_name, custom_theme_color_value, custom_theme_colors,
                         custom_camera_aspect_ratio_width, custom_camera_aspect_ratio_height,
                         dismiss_plan_actions_on_outside_tap, hide_completed_points_on_map,
-                        anitabi_remote_state_json, route_planner_skill_tip_shown
+                        anitabi_remote_state_json, route_planner_skill_tip_shown,
+                        route_planner_skill_promotion_dismissed
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -701,6 +707,8 @@ impl DesktopDatabase {
                     settings["hideCompletedPointsOnMap"] = json!(row.get::<_, bool>(46)?);
                     settings["anitabiRemoteStateJson"] = json!(row.get::<_, String>(47)?);
                     settings["routePlannerSkillTipShown"] = json!(row.get::<_, bool>(48)?);
+                    settings["routePlannerSkillPromotionDismissed"] =
+                        json!(row.get::<_, bool>(49)?);
                     Ok(settings)
                 },
             )
@@ -1055,8 +1063,9 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            custom_theme_color_name, custom_theme_color_value, custom_theme_colors,
            custom_camera_aspect_ratio_width, custom_camera_aspect_ratio_height,
            dismiss_plan_actions_on_outside_tap, hide_completed_points_on_map,
-           anitabi_remote_state_json, route_planner_skill_tip_shown
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49)",
+           anitabi_remote_state_json, route_planner_skill_tip_shown,
+           route_planner_skill_promotion_dismissed
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -1124,6 +1133,7 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             bool_value(settings, "hideCompletedPointsOnMap", true),
             string_value(settings, "anitabiRemoteStateJson", ""),
             bool_value(settings, "routePlannerSkillTipShown", false),
+            bool_value(settings, "routePlannerSkillPromotionDismissed", false),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -1368,6 +1378,7 @@ fn default_settings_json() -> Value {
     settings["hideCompletedPointsOnMap"] = json!(true);
     settings["anitabiRemoteStateJson"] = json!("");
     settings["routePlannerSkillTipShown"] = json!(false);
+    settings["routePlannerSkillPromotionDismissed"] = json!(false);
     settings
 }
 
@@ -1523,6 +1534,7 @@ mod tests {
                     "hideCompletedPointsOnMap": false,
                     "anitabiRemoteStateJson": "{\"autoUpdate\":false}",
                     "routePlannerSkillTipShown": true,
+                    "routePlannerSkillPromotionDismissed": true,
                     "mapMarkerClusteringEnabled": false,
                     "mapMarkerClusterRadius": 56,
                     "mapMarkerClusterMaxZoom": 20,
@@ -1879,6 +1891,10 @@ mod tests {
                 ("hide_completed_points_on_map", "hideCompletedPointsOnMap"),
                 ("anitabi_remote_state_json", "anitabiRemoteStateJson"),
                 ("route_planner_skill_tip_shown", "routePlannerSkillTipShown"),
+                (
+                    "route_planner_skill_promotion_dismissed",
+                    "routePlannerSkillPromotionDismissed",
+                ),
             ] {
                 database
                     .connection
