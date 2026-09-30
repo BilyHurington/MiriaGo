@@ -241,6 +241,7 @@ impl DesktopDatabase {
                   map_show_group_areas INTEGER NOT NULL DEFAULT 1,
                   import_map_show_thumbnail_markers INTEGER NOT NULL DEFAULT 0,
                   import_map_show_group_areas INTEGER NOT NULL DEFAULT 0,
+                  record_compare_mode TEXT NOT NULL DEFAULT 'stacked',
                   map_thumbnail_visible_threshold INTEGER NOT NULL DEFAULT 40,
                   map_thumbnail_concurrent_loads INTEGER NOT NULL DEFAULT 10,
                   show_plan_group_progress INTEGER NOT NULL DEFAULT 1,
@@ -446,6 +447,7 @@ impl DesktopDatabase {
                 "INTEGER NOT NULL DEFAULT 0",
             ),
             ("import_map_show_group_areas", "INTEGER NOT NULL DEFAULT 0"),
+            ("record_compare_mode", "TEXT NOT NULL DEFAULT 'stacked'"),
             (
                 "comparison_export_config_migrated",
                 "INTEGER NOT NULL DEFAULT 1",
@@ -665,7 +667,8 @@ impl DesktopDatabase {
                         map_show_thumbnail_markers,
                         map_show_group_areas,
                         import_map_show_thumbnail_markers,
-                        import_map_show_group_areas
+                        import_map_show_group_areas,
+                        record_compare_mode
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -735,6 +738,7 @@ impl DesktopDatabase {
                     settings["mapShowGroupAreas"] = json!(row.get::<_, bool>(52)?);
                     settings["importMapShowThumbnailMarkers"] = json!(row.get::<_, bool>(53)?);
                     settings["importMapShowGroupAreas"] = json!(row.get::<_, bool>(54)?);
+                    settings["recordCompareMode"] = json!(row.get::<_, String>(55)?);
                     Ok(settings)
                 },
             )
@@ -1095,8 +1099,9 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            map_show_thumbnail_markers,
            map_show_group_areas,
            import_map_show_thumbnail_markers,
-           import_map_show_group_areas
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54, ?55)",
+           import_map_show_group_areas,
+           record_compare_mode
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54, ?55, ?56)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -1170,6 +1175,7 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             bool_value(settings, "mapShowGroupAreas", true),
             bool_value(settings, "importMapShowThumbnailMarkers", false),
             bool_value(settings, "importMapShowGroupAreas", false),
+            string_value(settings, "recordCompareMode", "stacked"),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -1420,6 +1426,7 @@ fn default_settings_json() -> Value {
     settings["mapShowGroupAreas"] = json!(true);
     settings["importMapShowThumbnailMarkers"] = json!(false);
     settings["importMapShowGroupAreas"] = json!(false);
+    settings["recordCompareMode"] = json!("stacked");
     settings
 }
 
@@ -1581,6 +1588,7 @@ mod tests {
                     "mapShowGroupAreas": false,
                     "importMapShowThumbnailMarkers": true,
                     "importMapShowGroupAreas": true,
+                    "recordCompareMode": "slider",
                     "mapMarkerClusteringEnabled": false,
                     "mapMarkerClusterRadius": 56,
                     "mapMarkerClusterMaxZoom": 20,
@@ -1952,6 +1960,7 @@ mod tests {
                     "importMapShowThumbnailMarkers",
                 ),
                 ("import_map_show_group_areas", "importMapShowGroupAreas"),
+                ("record_compare_mode", "recordCompareMode"),
             ] {
                 database
                     .connection

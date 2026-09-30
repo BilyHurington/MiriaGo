@@ -926,6 +926,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       mapShowGroupAreas: settings.mapShowGroupAreas,
       importMapShowThumbnailMarkers: settings.importMapShowThumbnailMarkers,
       importMapShowGroupAreas: settings.importMapShowGroupAreas,
+      recordCompareMode: settings.recordCompareMode,
       navigationApp: settings.navigationApp,
       customXyzTileUrl: settings.customXyzTileUrl.trim(),
       customMapLibreStyleUrl: settings.customMapLibreStyleUrl.trim(),

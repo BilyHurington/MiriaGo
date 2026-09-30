@@ -156,6 +156,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       mapShowGroupAreas: row.mapShowGroupAreas,
       importMapShowThumbnailMarkers: row.importMapShowThumbnailMarkers,
       importMapShowGroupAreas: row.importMapShowGroupAreas,
+      recordCompareMode: RecordCompareMode.values.firstWhere(
+        (value) => value.name == row.recordCompareMode,
+        orElse: () => RecordCompareMode.stacked,
+      ),
       comparisonExportConfigMigrated: row.comparisonExportConfigMigrated,
       customThemeColorName: row.customThemeColorName,
       customThemeColorValue: row.customThemeColorValue,
@@ -1405,6 +1409,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
               settings.importMapShowThumbnailMarkers,
             ),
             importMapShowGroupAreas: Value(settings.importMapShowGroupAreas),
+            recordCompareMode: Value(settings.recordCompareMode.name),
             comparisonExportConfigMigrated: Value(
               settings.comparisonExportConfigMigrated,
             ),

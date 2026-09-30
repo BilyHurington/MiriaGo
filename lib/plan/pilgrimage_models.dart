@@ -142,6 +142,15 @@ enum OpenFreeMapStyle { liberty, bright, positron, dark, fiord }
 
 enum MapAppearance { automatic, light, dark }
 
+/// How the record detail page compares the reference with the photo.
+enum RecordCompareMode {
+  /// Reference above the photo.
+  stacked,
+
+  /// One frame with a draggable divider.
+  slider,
+}
+
 enum AnitabiImageSource { auto, official, mirror }
 
 enum NavigationApp {
@@ -231,6 +240,7 @@ class AppSettings {
     this.mapShowGroupAreas = true,
     this.importMapShowThumbnailMarkers = false,
     this.importMapShowGroupAreas = false,
+    this.recordCompareMode = RecordCompareMode.stacked,
   });
 
   final double uiScale;
@@ -305,6 +315,9 @@ class AppSettings {
   /// 作品地图导入页显示计划已有的片区范围。
   final bool importMapShowGroupAreas;
 
+  /// Last comparison mode chosen on a record detail page.
+  final RecordCompareMode recordCompareMode;
+
   AppSettings copyWith({
     double? uiScale,
     double? fontScale,
@@ -361,6 +374,7 @@ class AppSettings {
     bool? mapShowGroupAreas,
     bool? importMapShowThumbnailMarkers,
     bool? importMapShowGroupAreas,
+    RecordCompareMode? recordCompareMode,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -453,6 +467,7 @@ class AppSettings {
           importMapShowThumbnailMarkers ?? this.importMapShowThumbnailMarkers,
       importMapShowGroupAreas:
           importMapShowGroupAreas ?? this.importMapShowGroupAreas,
+      recordCompareMode: recordCompareMode ?? this.recordCompareMode,
     );
   }
 }

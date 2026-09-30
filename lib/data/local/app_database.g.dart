@@ -4591,6 +4591,19 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _recordCompareModeMeta = const VerificationMeta(
+    'recordCompareMode',
+  );
+  @override
+  late final GeneratedColumn<String> recordCompareMode =
+      GeneratedColumn<String>(
+        'record_compare_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('stacked'),
+      );
   static const VerificationMeta _comparisonExportConfigMigratedMeta =
       const VerificationMeta('comparisonExportConfigMigrated');
   @override
@@ -4874,6 +4887,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     mapShowGroupAreas,
     importMapShowThumbnailMarkers,
     importMapShowGroupAreas,
+    recordCompareMode,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -5226,6 +5240,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('record_compare_mode')) {
+      context.handle(
+        _recordCompareModeMeta,
+        recordCompareMode.isAcceptableOrUnknown(
+          data['record_compare_mode']!,
+          _recordCompareModeMeta,
+        ),
+      );
+    }
     if (data.containsKey('comparison_export_config_migrated')) {
       context.handle(
         _comparisonExportConfigMigratedMeta,
@@ -5554,6 +5577,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}import_map_show_group_areas'],
       )!,
+      recordCompareMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_compare_mode'],
+      )!,
       comparisonExportConfigMigrated: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}comparison_export_config_migrated'],
@@ -5678,6 +5705,7 @@ class AppSettingsEntry extends DataClass
   final bool mapShowGroupAreas;
   final bool importMapShowThumbnailMarkers;
   final bool importMapShowGroupAreas;
+  final String recordCompareMode;
   final bool comparisonExportConfigMigrated;
   final String customThemeColorName;
   final int customThemeColorValue;
@@ -5735,6 +5763,7 @@ class AppSettingsEntry extends DataClass
     required this.mapShowGroupAreas,
     required this.importMapShowThumbnailMarkers,
     required this.importMapShowGroupAreas,
+    required this.recordCompareMode,
     required this.comparisonExportConfigMigrated,
     required this.customThemeColorName,
     required this.customThemeColorValue,
@@ -5825,6 +5854,7 @@ class AppSettingsEntry extends DataClass
     map['import_map_show_group_areas'] = Variable<bool>(
       importMapShowGroupAreas,
     );
+    map['record_compare_mode'] = Variable<String>(recordCompareMode);
     map['comparison_export_config_migrated'] = Variable<bool>(
       comparisonExportConfigMigrated,
     );
@@ -5906,6 +5936,7 @@ class AppSettingsEntry extends DataClass
       mapShowGroupAreas: Value(mapShowGroupAreas),
       importMapShowThumbnailMarkers: Value(importMapShowThumbnailMarkers),
       importMapShowGroupAreas: Value(importMapShowGroupAreas),
+      recordCompareMode: Value(recordCompareMode),
       comparisonExportConfigMigrated: Value(comparisonExportConfigMigrated),
       customThemeColorName: Value(customThemeColorName),
       customThemeColorValue: Value(customThemeColorValue),
@@ -6015,6 +6046,7 @@ class AppSettingsEntry extends DataClass
       importMapShowGroupAreas: serializer.fromJson<bool>(
         json['importMapShowGroupAreas'],
       ),
+      recordCompareMode: serializer.fromJson<String>(json['recordCompareMode']),
       comparisonExportConfigMigrated: serializer.fromJson<bool>(
         json['comparisonExportConfigMigrated'],
       ),
@@ -6143,6 +6175,7 @@ class AppSettingsEntry extends DataClass
       'importMapShowGroupAreas': serializer.toJson<bool>(
         importMapShowGroupAreas,
       ),
+      'recordCompareMode': serializer.toJson<String>(recordCompareMode),
       'comparisonExportConfigMigrated': serializer.toJson<bool>(
         comparisonExportConfigMigrated,
       ),
@@ -6223,6 +6256,7 @@ class AppSettingsEntry extends DataClass
     bool? mapShowGroupAreas,
     bool? importMapShowThumbnailMarkers,
     bool? importMapShowGroupAreas,
+    String? recordCompareMode,
     bool? comparisonExportConfigMigrated,
     String? customThemeColorName,
     int? customThemeColorValue,
@@ -6298,6 +6332,7 @@ class AppSettingsEntry extends DataClass
         importMapShowThumbnailMarkers ?? this.importMapShowThumbnailMarkers,
     importMapShowGroupAreas:
         importMapShowGroupAreas ?? this.importMapShowGroupAreas,
+    recordCompareMode: recordCompareMode ?? this.recordCompareMode,
     comparisonExportConfigMigrated:
         comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
     customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6435,6 +6470,9 @@ class AppSettingsEntry extends DataClass
       importMapShowGroupAreas: data.importMapShowGroupAreas.present
           ? data.importMapShowGroupAreas.value
           : this.importMapShowGroupAreas,
+      recordCompareMode: data.recordCompareMode.present
+          ? data.recordCompareMode.value
+          : this.recordCompareMode,
       comparisonExportConfigMigrated:
           data.comparisonExportConfigMigrated.present
           ? data.comparisonExportConfigMigrated.value
@@ -6543,6 +6581,7 @@ class AppSettingsEntry extends DataClass
             'importMapShowThumbnailMarkers: $importMapShowThumbnailMarkers, ',
           )
           ..write('importMapShowGroupAreas: $importMapShowGroupAreas, ')
+          ..write('recordCompareMode: $recordCompareMode, ')
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -6615,6 +6654,7 @@ class AppSettingsEntry extends DataClass
     mapShowGroupAreas,
     importMapShowThumbnailMarkers,
     importMapShowGroupAreas,
+    recordCompareMode,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -6682,6 +6722,7 @@ class AppSettingsEntry extends DataClass
           other.importMapShowThumbnailMarkers ==
               this.importMapShowThumbnailMarkers &&
           other.importMapShowGroupAreas == this.importMapShowGroupAreas &&
+          other.recordCompareMode == this.recordCompareMode &&
           other.comparisonExportConfigMigrated ==
               this.comparisonExportConfigMigrated &&
           other.customThemeColorName == this.customThemeColorName &&
@@ -6747,6 +6788,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<bool> mapShowGroupAreas;
   final Value<bool> importMapShowThumbnailMarkers;
   final Value<bool> importMapShowGroupAreas;
+  final Value<String> recordCompareMode;
   final Value<bool> comparisonExportConfigMigrated;
   final Value<String> customThemeColorName;
   final Value<int> customThemeColorValue;
@@ -6805,6 +6847,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapShowGroupAreas = const Value.absent(),
     this.importMapShowThumbnailMarkers = const Value.absent(),
     this.importMapShowGroupAreas = const Value.absent(),
+    this.recordCompareMode = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6864,6 +6907,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.mapShowGroupAreas = const Value.absent(),
     this.importMapShowThumbnailMarkers = const Value.absent(),
     this.importMapShowGroupAreas = const Value.absent(),
+    this.recordCompareMode = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6923,6 +6967,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<bool>? mapShowGroupAreas,
     Expression<bool>? importMapShowThumbnailMarkers,
     Expression<bool>? importMapShowGroupAreas,
+    Expression<String>? recordCompareMode,
     Expression<bool>? comparisonExportConfigMigrated,
     Expression<String>? customThemeColorName,
     Expression<int>? customThemeColorValue,
@@ -7005,6 +7050,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'import_map_show_thumbnail_markers': importMapShowThumbnailMarkers,
       if (importMapShowGroupAreas != null)
         'import_map_show_group_areas': importMapShowGroupAreas,
+      if (recordCompareMode != null) 'record_compare_mode': recordCompareMode,
       if (comparisonExportConfigMigrated != null)
         'comparison_export_config_migrated': comparisonExportConfigMigrated,
       if (customThemeColorName != null)
@@ -7082,6 +7128,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<bool>? mapShowGroupAreas,
     Value<bool>? importMapShowThumbnailMarkers,
     Value<bool>? importMapShowGroupAreas,
+    Value<String>? recordCompareMode,
     Value<bool>? comparisonExportConfigMigrated,
     Value<String>? customThemeColorName,
     Value<int>? customThemeColorValue,
@@ -7161,6 +7208,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           importMapShowThumbnailMarkers ?? this.importMapShowThumbnailMarkers,
       importMapShowGroupAreas:
           importMapShowGroupAreas ?? this.importMapShowGroupAreas,
+      recordCompareMode: recordCompareMode ?? this.recordCompareMode,
       comparisonExportConfigMigrated:
           comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
       customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -7353,6 +7401,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         importMapShowGroupAreas.value,
       );
     }
+    if (recordCompareMode.present) {
+      map['record_compare_mode'] = Variable<String>(recordCompareMode.value);
+    }
     if (comparisonExportConfigMigrated.present) {
       map['comparison_export_config_migrated'] = Variable<bool>(
         comparisonExportConfigMigrated.value,
@@ -7494,6 +7545,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
             'importMapShowThumbnailMarkers: $importMapShowThumbnailMarkers, ',
           )
           ..write('importMapShowGroupAreas: $importMapShowGroupAreas, ')
+          ..write('recordCompareMode: $recordCompareMode, ')
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -10427,6 +10479,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<bool> mapShowGroupAreas,
       Value<bool> importMapShowThumbnailMarkers,
       Value<bool> importMapShowGroupAreas,
+      Value<String> recordCompareMode,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10487,6 +10540,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<bool> mapShowGroupAreas,
       Value<bool> importMapShowThumbnailMarkers,
       Value<bool> importMapShowGroupAreas,
+      Value<String> recordCompareMode,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10701,6 +10755,11 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<bool> get importMapShowGroupAreas => $composableBuilder(
     column: $table.importMapShowGroupAreas,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordCompareMode => $composableBuilder(
+    column: $table.recordCompareMode,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10995,6 +11054,11 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get recordCompareMode => $composableBuilder(
+    column: $table.recordCompareMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -11282,6 +11346,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get recordCompareMode => $composableBuilder(
+    column: $table.recordCompareMode,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -11464,6 +11533,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> importMapShowThumbnailMarkers =
                     const Value.absent(),
                 Value<bool> importMapShowGroupAreas = const Value.absent(),
+                Value<String> recordCompareMode = const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11527,6 +11597,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapShowGroupAreas: mapShowGroupAreas,
                 importMapShowThumbnailMarkers: importMapShowThumbnailMarkers,
                 importMapShowGroupAreas: importMapShowGroupAreas,
+                recordCompareMode: recordCompareMode,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,
@@ -11592,6 +11663,7 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> importMapShowThumbnailMarkers =
                     const Value.absent(),
                 Value<bool> importMapShowGroupAreas = const Value.absent(),
+                Value<String> recordCompareMode = const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11655,6 +11727,7 @@ class $$AppSettingsEntriesTableTableManager
                 mapShowGroupAreas: mapShowGroupAreas,
                 importMapShowThumbnailMarkers: importMapShowThumbnailMarkers,
                 importMapShowGroupAreas: importMapShowGroupAreas,
+                recordCompareMode: recordCompareMode,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,

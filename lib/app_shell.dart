@@ -34,6 +34,7 @@ import 'records/comparison_export_temp_stub.dart'
     if (dart.library.io) 'records/comparison_export_temp_io.dart';
 import 'records/records_screen.dart';
 import 'records/comparison_export_config_migration.dart';
+import 'settings/app_settings_updater.dart';
 import 'settings/settings_screen.dart';
 import 'widgets/app_scaled_route.dart';
 
@@ -70,6 +71,7 @@ class _AppShellState extends State<AppShell> {
     );
     AnitabiEndpointSync.active = _anitabiSync;
     AnitabiEndpointRecovery.handler = _anitabiSync.recoverAfterFailure;
+    AppSettingsUpdater.handler = _updateSettings;
     _incomingPlanFiles.listen(
       _importPlanFromPath,
       onError: _showIncomingPlanFileError,
@@ -85,6 +87,9 @@ class _AppShellState extends State<AppShell> {
     if (identical(AnitabiEndpointSync.active, _anitabiSync)) {
       AnitabiEndpointSync.active = null;
       AnitabiEndpointRecovery.handler = null;
+    }
+    if (AppSettingsUpdater.handler == _updateSettings) {
+      AppSettingsUpdater.handler = null;
     }
     _planController?.dispose();
     super.dispose();
@@ -271,6 +276,10 @@ class _AppShellState extends State<AppShell> {
       return false;
     }
   }
+
+  Future<bool> _updateSettings(
+    AppSettings Function(AppSettings current) update,
+  ) => _saveSettings(update(_settings));
 
   var _settingsRevision = 0;
 

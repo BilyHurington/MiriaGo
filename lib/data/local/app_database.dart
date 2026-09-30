@@ -171,6 +171,8 @@ class AppSettingsEntries extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get importMapShowGroupAreas =>
       boolean().withDefault(const Constant(false))();
+  TextColumn get recordCompareMode =>
+      text().withDefault(const Constant('stacked'))();
   BoolColumn get comparisonExportConfigMigrated =>
       boolean().withDefault(const Constant(true))();
   TextColumn get customThemeColorName =>
@@ -219,7 +221,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 48;
+  int get schemaVersion => 49;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -758,6 +760,12 @@ class AppDatabase extends _$AppDatabase {
         await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.importMapShowGroupAreas,
+        );
+      }
+      if (from < 49) {
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.recordCompareMode,
         );
       }
     }),

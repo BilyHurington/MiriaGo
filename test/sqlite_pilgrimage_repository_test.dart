@@ -92,7 +92,7 @@ void main() {
   });
 
   test(
-    'schema 44 to 48 add remote, skill promotion and map display settings',
+    'schema 44 to 49 add remote, skill promotion and display settings',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'miriago-anitabi-remote-',
@@ -134,6 +134,10 @@ void main() {
         'ALTER TABLE app_settings_entries '
         'DROP COLUMN import_map_show_group_areas',
       );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN record_compare_mode',
+      );
       await oldDatabase.customStatement('PRAGMA user_version = 43');
       await oldDatabase.close();
 
@@ -149,6 +153,7 @@ void main() {
       expect(settings.mapShowGroupAreas, isTrue);
       expect(settings.importMapShowThumbnailMarkers, isFalse);
       expect(settings.importMapShowGroupAreas, isFalse);
+      expect(settings.recordCompareMode, RecordCompareMode.stacked);
       await repository.saveAppSettings(
         settings.copyWith(
           anitabiRemoteStateJson: '{"autoUpdate":false}',
@@ -157,6 +162,7 @@ void main() {
           hideImportedPointsOnImportMap: true,
           mapShowThumbnailMarkers: true,
           mapShowGroupAreas: false,
+          recordCompareMode: RecordCompareMode.slider,
         ),
       );
       final stalePromotionState = await repository.loadAppSettings();
@@ -179,6 +185,7 @@ void main() {
       expect(reopenedSettings.hideImportedPointsOnImportMap, isTrue);
       expect(reopenedSettings.mapShowThumbnailMarkers, isTrue);
       expect(reopenedSettings.mapShowGroupAreas, isFalse);
+      expect(reopenedSettings.recordCompareMode, RecordCompareMode.slider);
       expect(reopenedSettings.routePlannerSkillPromotionDismissed, isTrue);
     },
   );

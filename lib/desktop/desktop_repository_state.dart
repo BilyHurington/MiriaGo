@@ -104,6 +104,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'mapShowGroupAreas': settings.mapShowGroupAreas,
     'importMapShowThumbnailMarkers': settings.importMapShowThumbnailMarkers,
     'importMapShowGroupAreas': settings.importMapShowGroupAreas,
+    'recordCompareMode': settings.recordCompareMode.name,
     'comparisonExportConfigMigrated': settings.comparisonExportConfigMigrated,
     'customThemeColorName': settings.customThemeColorName,
     'customThemeColorValue': settings.customThemeColorValue,
@@ -232,6 +233,9 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _boolValue(json['importMapShowThumbnailMarkers']) ?? false,
     importMapShowGroupAreas:
         _boolValue(json['importMapShowGroupAreas']) ?? false,
+    recordCompareMode:
+        _enumByName(RecordCompareMode.values, json['recordCompareMode']) ??
+        RecordCompareMode.stacked,
     comparisonExportConfigMigrated:
         _boolValue(json['comparisonExportConfigMigrated']) ?? false,
     customThemeColorName: _stringValue(

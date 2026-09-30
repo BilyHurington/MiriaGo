@@ -141,6 +141,7 @@ void main() {
         mapShowGroupAreas: false,
         importMapShowThumbnailMarkers: true,
         importMapShowGroupAreas: true,
+        recordCompareMode: RecordCompareMode.slider,
         routePlannerSkillPromotionDismissed: true,
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
@@ -247,6 +248,7 @@ void main() {
     expect(decoded.settings.mapShowGroupAreas, isFalse);
     expect(decoded.settings.importMapShowThumbnailMarkers, isTrue);
     expect(decoded.settings.importMapShowGroupAreas, isTrue);
+    expect(decoded.settings.recordCompareMode, RecordCompareMode.slider);
     expect(decoded.settings.routePlannerSkillPromotionDismissed, isTrue);
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);

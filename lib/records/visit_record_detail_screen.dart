@@ -14,6 +14,7 @@ import '../plan/pilgrimage_plan_controller.dart';
 import '../plan/plan_group_utils.dart';
 import '../plan/reference_image_status.dart';
 import '../point_detail/point_detail_sheet.dart';
+import '../settings/app_settings_updater.dart';
 import '../widgets/copyable_text.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/app_back_button.dart';
@@ -26,6 +27,7 @@ import '../widgets/reference_image_source_stub.dart'
     if (dart.library.io) '../widgets/reference_image_source_io.dart';
 import 'comparison_export_config.dart';
 import 'comparison_export_sheet.dart';
+import 'photo_compare_slider.dart';
 import 'point_visit_records_screen.dart';
 import 'visit_record_file_ops_stub.dart'
     if (dart.library.io) 'visit_record_file_ops_io.dart';
@@ -88,6 +90,8 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
             record: _record,
             referenceImagePath: referenceImagePath,
             referenceImageUrl: referenceImageUrl,
+            settings: widget.settings,
+            controller: widget.controller,
           ),
           const SizedBox(height: 16),
           if (resolvedPoint == null) ...[
@@ -471,44 +475,150 @@ class _VisitRecordDetailScreenState extends State<VisitRecordDetailScreen> {
   }
 }
 
-class _RecordComparisonPanel extends StatelessWidget {
+class _RecordComparisonPanel extends StatefulWidget {
   const _RecordComparisonPanel({
     required this.record,
     required this.referenceImagePath,
     required this.referenceImageUrl,
+    required this.settings,
+    required this.controller,
   });
 
   final PilgrimageVisitRecord record;
   final String? referenceImagePath;
   final String? referenceImageUrl;
+  final AppSettings settings;
+  final PilgrimagePlanController controller;
+
+  @override
+  State<_RecordComparisonPanel> createState() => _RecordComparisonPanelState();
+}
+
+class _RecordComparisonPanelState extends State<_RecordComparisonPanel> {
+  late RecordCompareMode _mode = widget.settings.recordCompareMode;
+
+  bool get _hasReference =>
+      referenceImageLocalPathCanDisplay(widget.referenceImagePath) ||
+      widget.referenceImageUrl != null;
+
+  /// Remembered for every record, like the map display switches.
+  Future<void> _setMode(RecordCompareMode mode) async {
+    final previous = _mode;
+    setState(() => _mode = mode);
+    AppSettings update(AppSettings current) =>
+        current.copyWith(recordCompareMode: mode);
+    var saved = false;
+    final handler = AppSettingsUpdater.handler;
+    if (handler != null) {
+      saved = await handler(update);
+    } else {
+      final repository = widget.controller.repository;
+      try {
+        if (repository != null) {
+          await repository.saveAppSettings(
+            update(await repository.loadAppSettings()),
+          );
+          saved = true;
+        }
+      } on Object catch (error) {
+        debugPrint('Failed to save the record compare mode: $error');
+      }
+    }
+    if (!saved && mounted && _mode == mode) {
+      setState(() => _mode = previous);
+    }
+  }
+
+  void _openReference() => ImageViewerScreen.show(
+    context,
+    filePath: widget.referenceImagePath,
+    imageUrl: widget.referenceImageUrl,
+  );
+
+  void _openPhoto() => ImageViewerScreen.show(
+    context,
+    filePath: resolveVisitRecordDisplayPhotoPath(widget.record),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final photoPath = resolveVisitRecordDisplayPhotoPath(record);
+    final photoPath = resolveVisitRecordDisplayPhotoPath(widget.record);
+    // Without a reference there is nothing to slide against.
+    final mode = _hasReference ? _mode : RecordCompareMode.stacked;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _RecordImageTile(
-          label: '参考图',
-          child: _RecordReferencePhoto(
-            path: referenceImagePath,
-            url: referenceImageUrl,
+        if (_hasReference) ...[
+          SegmentedButton<RecordCompareMode>(
+            key: const ValueKey('record-compare-mode'),
+            showSelectedIcon: false,
+            style: SegmentedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+            segments: const [
+              ButtonSegment(
+                value: RecordCompareMode.stacked,
+                icon: Icon(LucideIcons.rows2, size: 16),
+                label: Text('上下'),
+              ),
+              ButtonSegment(
+                value: RecordCompareMode.slider,
+                icon: Icon(LucideIcons.chevronsLeftRight, size: 16),
+                label: Text('滑动对比'),
+              ),
+            ],
+            selected: {mode},
+            onSelectionChanged: (selection) => _setMode(selection.single),
           ),
-          onTap: () => ImageViewerScreen.show(
-            context,
-            filePath: referenceImagePath,
-            imageUrl: referenceImageUrl,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _RecordImageTile(
-          label: '巡礼图',
-          child: VisitRecordPhoto(
-            path: photoPath,
-            fit: BoxFit.contain,
-            target: ImageDecodeTarget.panel,
-          ),
-          onTap: () => ImageViewerScreen.show(context, filePath: photoPath),
+          const SizedBox(height: 12),
+        ],
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: mode == RecordCompareMode.slider
+              ? PhotoCompareSlider(
+                  key: const ValueKey('record-compare-slider'),
+                  reference: _RecordReferencePhoto(
+                    path: widget.referenceImagePath,
+                    url: widget.referenceImageUrl,
+                    fit: BoxFit.cover,
+                  ),
+                  photo: VisitRecordPhoto(
+                    path: photoPath,
+                    fit: BoxFit.cover,
+                    target: ImageDecodeTarget.panel,
+                  ),
+                  onTapReference: _openReference,
+                  onTapPhoto: _openPhoto,
+                )
+              : Column(
+                  key: const ValueKey('record-compare-stacked'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _RecordImageTile(
+                      label: '参考图',
+                      onTap: _openReference,
+                      child: _RecordReferencePhoto(
+                        path: widget.referenceImagePath,
+                        url: widget.referenceImageUrl,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _RecordImageTile(
+                      label: '巡礼图',
+                      onTap: _openPhoto,
+                      child: VisitRecordPhoto(
+                        path: photoPath,
+                        fit: BoxFit.contain,
+                        target: ImageDecodeTarget.panel,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ],
     );
@@ -559,10 +669,15 @@ class _RecordImageTile extends StatelessWidget {
 }
 
 class _RecordReferencePhoto extends StatelessWidget {
-  const _RecordReferencePhoto({required this.path, required this.url});
+  const _RecordReferencePhoto({
+    required this.path,
+    required this.url,
+    this.fit = BoxFit.contain,
+  });
 
   final String? path;
   final String? url;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -570,7 +685,7 @@ class _RecordReferencePhoto extends StatelessWidget {
     if (referenceImageLocalPathCanDisplay(localPath)) {
       return VisitRecordPhoto(
         path: localPath!,
-        fit: BoxFit.contain,
+        fit: fit,
         target: ImageDecodeTarget.panel,
       );
     }
@@ -579,6 +694,7 @@ class _RecordReferencePhoto extends StatelessWidget {
     if (imageUrl != null) {
       return BoundedImage(
         path: imageUrl,
+        fit: fit,
         source: AnitabiImageSourceScope.of(context),
       );
     }

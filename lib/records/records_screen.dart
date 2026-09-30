@@ -1788,7 +1788,20 @@ class _VisitRecordCard extends StatelessWidget {
                   child: SizedBox(
                     width: 108,
                     height: 96,
-                    child: VisitRecordPhoto(path: photoPath),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        VisitRecordPhoto(path: photoPath),
+                        if (record.hasColorGrading)
+                          Positioned(
+                            left: 6,
+                            top: 6,
+                            child: _GradedBadge(
+                              key: ValueKey('record-graded-badge-${record.id}'),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1975,4 +1988,39 @@ String _formatCapturedAt(DateTime capturedAt) {
   final hour = capturedAt.hour.toString().padLeft(2, '0');
   final minute = capturedAt.minute.toString().padLeft(2, '0');
   return '$month-$day $hour:$minute';
+}
+
+/// Marks a record whose photo has been color graded.
+class _GradedBadge extends StatelessWidget {
+  const _GradedBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '已调色',
+      child: Semantics(
+        label: '已调色',
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: AppColors.surface.withValues(alpha: 0.9),
+            shape: BoxShape.circle,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Icon(
+            LucideIcons.wandSparkles,
+            size: 15,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
 }
