@@ -136,6 +136,7 @@ void main() {
         comparisonExportConfigMigrated: true,
         anitabiRemoteStateJson: '{"autoUpdate":false}',
         routePlannerSkillTipShown: true,
+        hideImportedPointsOnImportMap: true,
         routePlannerSkillPromotionDismissed: true,
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
@@ -237,6 +238,7 @@ void main() {
     expect(decoded.settings.comparisonExportConfigMigrated, isTrue);
     expect(decoded.settings.anitabiRemoteStateJson, '{"autoUpdate":false}');
     expect(decoded.settings.routePlannerSkillTipShown, isTrue);
+    expect(decoded.settings.hideImportedPointsOnImportMap, isTrue);
     expect(decoded.settings.routePlannerSkillPromotionDismissed, isTrue);
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);

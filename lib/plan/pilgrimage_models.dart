@@ -226,6 +226,7 @@ class AppSettings {
     this.anitabiRemoteStateJson = '',
     this.routePlannerSkillTipShown = false,
     this.routePlannerSkillPromotionDismissed = false,
+    this.hideImportedPointsOnImportMap = false,
   });
 
   final double uiScale;
@@ -285,6 +286,9 @@ class AppSettings {
 
   final bool routePlannerSkillPromotionDismissed;
 
+  /// 只看未加入 on the Anitabi map import page.
+  final bool hideImportedPointsOnImportMap;
+
   AppSettings copyWith({
     double? uiScale,
     double? fontScale,
@@ -336,6 +340,7 @@ class AppSettings {
     String? anitabiRemoteStateJson,
     bool? routePlannerSkillTipShown,
     bool? routePlannerSkillPromotionDismissed,
+    bool? hideImportedPointsOnImportMap,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -419,6 +424,8 @@ class AppSettings {
       routePlannerSkillPromotionDismissed:
           routePlannerSkillPromotionDismissed ??
           this.routePlannerSkillPromotionDismissed,
+      hideImportedPointsOnImportMap:
+          hideImportedPointsOnImportMap ?? this.hideImportedPointsOnImportMap,
     );
   }
 }

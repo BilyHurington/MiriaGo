@@ -654,9 +654,12 @@ class AnitabiPoint {
   final String? originUrl;
   final String? note;
 
+  /// The id this point gets in a plan.
+  String get pilgrimagePointId => 'anitabi-$bangumiId-$id';
+
   PilgrimagePoint toPilgrimagePoint(PilgrimageWork work) {
     return PilgrimagePoint(
-      id: 'anitabi-$bangumiId-$id',
+      id: pilgrimagePointId,
       work: work,
       name: name,
       subtitle: subtitle,

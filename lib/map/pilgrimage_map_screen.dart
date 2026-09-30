@@ -655,7 +655,10 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
                     widget.settings.mapMarkerScale,
                   );
                   final clusterRadius = normalClusteringEnabled
-                      ? widget.settings.mapMarkerClusterRadius.toDouble()
+                      ? effectiveClusterRadius(
+                          widget.settings.mapMarkerClusterRadius.toDouble(),
+                          widget.settings.mapMarkerScale,
+                        )
                       : widget.settings.mapMarkerClusterRadius
                             .toDouble()
                             .clamp(1, terminalRadiusLimit)
@@ -706,20 +709,28 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
                             ),
                             point: cluster.position,
                             width: scaledMapMarkerDimension(
-                              50,
+                              mapClusterMarkerExtent,
                               widget.settings.mapMarkerScale,
                             ),
                             height: scaledMapMarkerDimension(
-                              50,
+                              mapClusterMarkerExtent,
                               widget.settings.mapMarkerScale,
                             ),
                             child: ScaledMapMarker(
-                              baseWidth: 50,
-                              baseHeight: 50,
+                              baseWidth: mapClusterMarkerExtent,
+                              baseHeight: mapClusterMarkerExtent,
                               scale: widget.settings.mapMarkerScale,
                               child: Center(
                                 child: MapMarkerClusterBadge(
                                   count: cluster.items.length,
+                                  doneCount: cluster.items
+                                      .where(
+                                        (point) =>
+                                            _controller.statusFor(point) ==
+                                            VisitStatus.completed,
+                                      )
+                                      .length,
+                                  doneLabel: '已打卡',
                                   opensPointBrowser: atMaximumZoom,
                                   onTap: atMaximumZoom
                                       ? () => _openOverlapPointBrowser(

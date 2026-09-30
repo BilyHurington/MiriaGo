@@ -161,6 +161,8 @@ class AppSettingsEntries extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get routePlannerSkillPromotionDismissed =>
       boolean().withDefault(const Constant(false))();
+  BoolColumn get hideImportedPointsOnImportMap =>
+      boolean().withDefault(const Constant(false))();
   BoolColumn get comparisonExportConfigMigrated =>
       boolean().withDefault(const Constant(true))();
   TextColumn get customThemeColorName =>
@@ -209,7 +211,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 46;
+  int get schemaVersion => 47;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -724,6 +726,12 @@ class AppDatabase extends _$AppDatabase {
         await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.routePlannerSkillPromotionDismissed,
+        );
+      }
+      if (from < 47) {
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.hideImportedPointsOnImportMap,
         );
       }
     }),

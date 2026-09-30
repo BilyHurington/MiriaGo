@@ -921,6 +921,7 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
       routePlannerSkillPromotionDismissed:
           settings.routePlannerSkillPromotionDismissed ||
           _settings.routePlannerSkillPromotionDismissed,
+      hideImportedPointsOnImportMap: settings.hideImportedPointsOnImportMap,
       navigationApp: settings.navigationApp,
       customXyzTileUrl: settings.customXyzTileUrl.trim(),
       customMapLibreStyleUrl: settings.customMapLibreStyleUrl.trim(),

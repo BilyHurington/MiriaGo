@@ -4034,6 +4034,82 @@ void main() {
     }
   });
 
+  testWidgets('import map can hide points already in the plan', (
+    tester,
+  ) async {
+    AnitabiPoint point(String id, double lat) => AnitabiPoint(
+      bangumiId: 12345,
+      id: id,
+      name: '点位 $id',
+      subtitle: '',
+      position: LatLng(lat, 135),
+      episodeLabel: 'EP 1',
+      referenceImageUrl: null,
+      origin: 'Anitabi',
+      originUrl: 'https://anitabi.cn/',
+    );
+    final first = point('p1', 35);
+    final second = point('p2', 35.01);
+    final repository = SamplePilgrimageRepository(
+      plans: const [],
+      settings: const AppSettings(mapMarkerClusteringEnabled: false),
+    );
+    var plan = await repository.createPlan(name: '筛选测试', area: '京都');
+    const work = PilgrimageWork(
+      id: 'bangumi-12345',
+      bangumiId: 12345,
+      title: 'PID 作品',
+      subtitle: '',
+      city: '京都',
+      source: WorkSource.bangumi,
+    );
+    plan = await repository.addPointToPlan(
+      planId: plan.id,
+      point: second.toPilgrimagePoint(work),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnitabiMapImportScreen(
+          plan: plan,
+          repository: repository,
+          initialBangumiId: 12345,
+          anitabiClient: _FakeAnitabiClient(
+            pointsByBangumi: {
+              12345: [first, second],
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final secondMarker = find.byKey(
+      const ValueKey('anitabi-import-marker-p2'),
+    );
+    final toggle = find.byKey(const ValueKey('anitabi-hide-imported-toggle'));
+    expect(secondMarker, findsOneWidget);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(secondMarker, findsNothing);
+    expect(
+      find.byKey(const ValueKey('anitabi-import-marker-p1')),
+      findsOneWidget,
+    );
+    expect(
+      (await repository.loadAppSettings()).hideImportedPointsOnImportMap,
+      isTrue,
+    );
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(secondMarker, findsOneWidget);
+    expect(
+      (await repository.loadAppSettings()).hideImportedPointsOnImportMap,
+      isFalse,
+    );
+  });
+
   testWidgets('Anitabi point card shortens import action when narrow', (
     tester,
   ) async {

@@ -174,6 +174,32 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     _thumbnailLoadLimiter.maxConcurrent = settings.mapThumbnailConcurrentLoads;
   }
 
+  /// Remembered across visits, like the other map display settings.
+  Future<void> _setHideImported(bool hide) async {
+    setState(() {
+      _settings = _settings.copyWith(hideImportedPointsOnImportMap: hide);
+    });
+    try {
+      final latest = await widget.repository.loadAppSettings();
+      await widget.repository.saveAppSettings(
+        latest.copyWith(hideImportedPointsOnImportMap: hide),
+      );
+    } on Object catch (error) {
+      debugPrint('Failed to save the import map filter: $error');
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _settings = _settings.copyWith(hideImportedPointsOnImportMap: !hide);
+      });
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '设置保存失败',
+        subtitle: '请稍后重试',
+      );
+    }
+  }
+
   @override
   void dispose() {
     _thumbnailBoundsDebounce?.cancel();
@@ -1440,8 +1466,18 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     final selectedWork = _selectedWork;
     final visiblePoints = _pointsForWork(selectedWork);
     final selectedPoint = _selectedPointForWork(selectedWork);
+    // 只看未加入: imported points leave the map (and its clusters), except
+    // the selected one, so its card and marker do not vanish mid-action.
+    final shownPoints = _settings.hideImportedPointsOnImportMap
+        ? [
+            for (final point in visiblePoints)
+              if (point.id == selectedPoint?.id ||
+                  !_importedPointIds.contains(point.pilgrimagePointId))
+                point,
+          ]
+        : visiblePoints;
     final mapPoints = selectedItemsLast<AnitabiPoint>(
-      visiblePoints,
+      shownPoints,
       isSelected: (point) => point.id == selectedPoint?.id,
     );
     final pointsById = {for (final point in visiblePoints) point.id: point};
@@ -1584,7 +1620,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                             final camera = MapCamera.of(context);
                             final thumbnailPointIds =
                                 _thumbnailPointIdsForCurrentView(
-                                  visiblePoints,
+                                  shownPoints,
                                   visibleBounds,
                                 );
                             final atMaximumZoom = isAtMaximumMapZoom(camera);
@@ -1616,7 +1652,10 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                                   _settings.mapMarkerScale,
                                 );
                             final clusterRadius = normalClusteringEnabled
-                                ? _settings.mapMarkerClusterRadius.toDouble()
+                                ? effectiveClusterRadius(
+                                    _settings.mapMarkerClusterRadius.toDouble(),
+                                    _settings.mapMarkerScale,
+                                  )
                                 : _settings.mapMarkerClusterRadius
                                       .toDouble()
                                       .clamp(1, terminalRadiusLimit)
@@ -1665,20 +1704,29 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                                       ),
                                       point: cluster.position,
                                       width: scaledMapMarkerDimension(
-                                        50,
+                                        mapClusterMarkerExtent,
                                         _settings.mapMarkerScale,
                                       ),
                                       height: scaledMapMarkerDimension(
-                                        50,
+                                        mapClusterMarkerExtent,
                                         _settings.mapMarkerScale,
                                       ),
                                       child: ScaledMapMarker(
-                                        baseWidth: 50,
-                                        baseHeight: 50,
+                                        baseWidth: mapClusterMarkerExtent,
+                                        baseHeight: mapClusterMarkerExtent,
                                         scale: _settings.mapMarkerScale,
                                         child: Center(
                                           child: MapMarkerClusterBadge(
                                             count: cluster.items.length,
+                                            doneCount: cluster.items
+                                                .where(
+                                                  (point) => _importedPointIds
+                                                      .contains(
+                                                        point.pilgrimagePointId,
+                                                      ),
+                                                )
+                                                .length,
+                                            doneLabel: '已加入',
                                             opensPointBrowser: atMaximumZoom,
                                             onTap: atMaximumZoom
                                                 ? () =>
@@ -1750,7 +1798,11 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                               ),
                             )
                             .length,
-                        totalCount: visiblePoints.length,
+                        totalCount: shownPoints.length,
+                        hideImported: _settings.hideImportedPointsOnImportMap,
+                        onToggleHideImported: () => _setHideImported(
+                          !_settings.hideImportedPointsOnImportMap,
+                        ),
                         expectedCount: _lite?.pointsLength,
                         availableCount: _availablePoints.length,
                         boxSelectionEnabled: _isBoxSelecting,
@@ -2110,7 +2162,12 @@ class _ImportSummary extends StatelessWidget {
     required this.onToggleBoxSelection,
     required this.onImportAll,
     required this.onImportSelection,
+    required this.hideImported,
+    required this.onToggleHideImported,
   });
+
+  final bool hideImported;
+  final VoidCallback onToggleHideImported;
 
   final bool isLoading;
   final bool isImporting;
@@ -2196,6 +2253,20 @@ class _ImportSummary extends StatelessWidget {
                     icon: const Icon(LucideIcons.scan, size: 18),
                     selectedIcon: const Icon(LucideIcons.scan, size: 18),
                     style: _summaryIconButtonStyle(boxSelectionEnabled),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 44,
+                  height: 36,
+                  child: IconButton.outlined(
+                    key: const ValueKey('anitabi-hide-imported-toggle'),
+                    tooltip: hideImported ? '显示已加入的点位' : '只看未加入',
+                    isSelected: hideImported,
+                    onPressed: onToggleHideImported,
+                    icon: const Icon(LucideIcons.eye, size: 18),
+                    selectedIcon: const Icon(LucideIcons.eyeOff, size: 18),
+                    style: _summaryIconButtonStyle(hideImported),
                   ),
                 ),
                 const SizedBox(width: 8),

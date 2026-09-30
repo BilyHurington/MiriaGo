@@ -92,7 +92,7 @@ void main() {
   });
 
   test(
-    'schema 44 to 46 add remote and skill promotion settings',
+    'schema 44 to 47 add remote, skill promotion and import filter settings',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'miriago-anitabi-remote-',
@@ -114,6 +114,10 @@ void main() {
         'ALTER TABLE app_settings_entries '
         'DROP COLUMN route_planner_skill_promotion_dismissed',
       );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN hide_imported_points_on_import_map',
+      );
       await oldDatabase.customStatement('PRAGMA user_version = 43');
       await oldDatabase.close();
 
@@ -124,11 +128,13 @@ void main() {
       expect(settings.anitabiRemoteStateJson, isEmpty);
       expect(settings.routePlannerSkillTipShown, isFalse);
       expect(settings.routePlannerSkillPromotionDismissed, isFalse);
+      expect(settings.hideImportedPointsOnImportMap, isFalse);
       await repository.saveAppSettings(
         settings.copyWith(
           anitabiRemoteStateJson: '{"autoUpdate":false}',
           routePlannerSkillTipShown: true,
           routePlannerSkillPromotionDismissed: true,
+          hideImportedPointsOnImportMap: true,
         ),
       );
       final stalePromotionState = await repository.loadAppSettings();
@@ -148,6 +154,7 @@ void main() {
       expect(reopenedSettings.anitabiRemoteStateJson, '{"autoUpdate":false}');
       expect(reopenedSettings.anitabiRemoteState.autoUpdate, isFalse);
       expect(reopenedSettings.routePlannerSkillTipShown, isTrue);
+      expect(reopenedSettings.hideImportedPointsOnImportMap, isTrue);
       expect(reopenedSettings.routePlannerSkillPromotionDismissed, isTrue);
     },
   );

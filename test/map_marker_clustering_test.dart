@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:miriago/map/map_colors.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:miriago/app_theme.dart';
 import 'package:miriago/map/map_marker_clustering.dart';
@@ -71,7 +72,7 @@ void main() {
     expect(find.text('27'), findsOneWidget);
     expect(
       tester.getSize(find.byType(MapMarkerClusterBadge)),
-      const Size(42, 42),
+      const Size.square(mapClusterBadgeDiameter),
     );
     expect(tester.widget<Text>(find.text('27')).style?.fontSize, 15);
     expect(
@@ -456,6 +457,89 @@ void main() {
     expect(
       find.byKey(const ValueKey('plan-map-marker-point-completed')),
       findsOneWidget,
+    );
+  });
+
+  group('cluster status ring', () {
+    Future<void> pumpBadge(WidgetTester tester, int done) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: MapMarkerClusterBadge(
+                count: 14,
+                doneCount: done,
+                doneLabel: '已加入',
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Color coreColor(WidgetTester tester) {
+      final core = tester.widget<Container>(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-cluster-status-ring')),
+          matching: find.byType(Container),
+        ),
+      );
+      return (core.decoration! as BoxDecoration).color!;
+    }
+
+    Matcher semanticsLabel(String label) => isA<Semantics>().having(
+      (widget) => widget.properties.label,
+      'label',
+      label,
+    );
+
+    testWidgets('no done points keeps the accent badge', (tester) async {
+      await pumpBadge(tester, 0);
+      expect(coreColor(tester), MapColors.accent);
+      expect(
+        tester.widgetList<Semantics>(find.byType(Semantics)),
+        contains(semanticsLabel('14 个聚合点位，点击放大')),
+      );
+    });
+
+    testWidgets('some done points are announced', (tester) async {
+      await pumpBadge(tester, 3);
+      expect(coreColor(tester), MapColors.accent);
+      expect(
+        tester.widgetList<Semantics>(find.byType(Semantics)),
+        contains(semanticsLabel('14 个聚合点位，其中 3 个已加入，点击放大')),
+      );
+      expect(find.byTooltip('14 个点位 · 3 个已加入'), findsOneWidget);
+    });
+
+    testWidgets('a fully done cluster turns grey', (tester) async {
+      await pumpBadge(tester, 14);
+      expect(coreColor(tester), AppColors.textSecondary);
+    });
+
+    testWidgets('a fully done cluster stays readable in dark mode', (
+      tester,
+    ) async {
+      final previous = AppColors.brightness;
+      AppColors.brightness = Brightness.dark;
+      addTearDown(() => AppColors.brightness = previous);
+      await pumpBadge(tester, 14);
+      final text = tester.widget<Text>(find.text('14'));
+      final contrast =
+          (coreColor(tester).computeLuminance() + 0.05) /
+          (text.style!.color!.computeLuminance() + 0.05);
+      expect(contrast, greaterThan(4.5));
+    });
+  });
+
+  test('cluster radius never lets badges overlap', () {
+    expect(effectiveClusterRadius(40, 1), mapClusterBadgeDiameter);
+    expect(effectiveClusterRadius(80, 1), 80);
+    expect(effectiveClusterRadius(40, 0.6), 40);
+    expect(
+      effectiveClusterRadius(40, 1.2),
+      closeTo(mapClusterBadgeDiameter * 1.2, 0.001),
     );
   });
 }

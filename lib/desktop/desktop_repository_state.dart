@@ -99,6 +99,7 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'routePlannerSkillTipShown': settings.routePlannerSkillTipShown,
     'routePlannerSkillPromotionDismissed':
         settings.routePlannerSkillPromotionDismissed,
+    'hideImportedPointsOnImportMap': settings.hideImportedPointsOnImportMap,
     'comparisonExportConfigMigrated': settings.comparisonExportConfigMigrated,
     'customThemeColorName': settings.customThemeColorName,
     'customThemeColorValue': settings.customThemeColorValue,
@@ -218,6 +219,8 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _boolValue(json['routePlannerSkillTipShown']) ?? false,
     routePlannerSkillPromotionDismissed:
         _boolValue(json['routePlannerSkillPromotionDismissed']) ?? false,
+    hideImportedPointsOnImportMap:
+        _boolValue(json['hideImportedPointsOnImportMap']) ?? false,
     comparisonExportConfigMigrated:
         _boolValue(json['comparisonExportConfigMigrated']) ?? false,
     customThemeColorName: _stringValue(

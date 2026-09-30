@@ -4516,6 +4516,21 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _hideImportedPointsOnImportMapMeta =
+      const VerificationMeta('hideImportedPointsOnImportMap');
+  @override
+  late final GeneratedColumn<bool> hideImportedPointsOnImportMap =
+      GeneratedColumn<bool>(
+        'hide_imported_points_on_import_map',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("hide_imported_points_on_import_map" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _comparisonExportConfigMigratedMeta =
       const VerificationMeta('comparisonExportConfigMigrated');
   @override
@@ -4794,6 +4809,7 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     anitabiRemoteStateJson,
     routePlannerSkillTipShown,
     routePlannerSkillPromotionDismissed,
+    hideImportedPointsOnImportMap,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -5098,6 +5114,15 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         routePlannerSkillPromotionDismissed.isAcceptableOrUnknown(
           data['route_planner_skill_promotion_dismissed']!,
           _routePlannerSkillPromotionDismissedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('hide_imported_points_on_import_map')) {
+      context.handle(
+        _hideImportedPointsOnImportMapMeta,
+        hideImportedPointsOnImportMap.isAcceptableOrUnknown(
+          data['hide_imported_points_on_import_map']!,
+          _hideImportedPointsOnImportMapMeta,
         ),
       );
     }
@@ -5409,6 +5434,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}route_planner_skill_promotion_dismissed'],
       )!,
+      hideImportedPointsOnImportMap: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}hide_imported_points_on_import_map'],
+      )!,
       comparisonExportConfigMigrated: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}comparison_export_config_migrated'],
@@ -5528,6 +5557,7 @@ class AppSettingsEntry extends DataClass
   final String anitabiRemoteStateJson;
   final bool routePlannerSkillTipShown;
   final bool routePlannerSkillPromotionDismissed;
+  final bool hideImportedPointsOnImportMap;
   final bool comparisonExportConfigMigrated;
   final String customThemeColorName;
   final int customThemeColorValue;
@@ -5580,6 +5610,7 @@ class AppSettingsEntry extends DataClass
     required this.anitabiRemoteStateJson,
     required this.routePlannerSkillTipShown,
     required this.routePlannerSkillPromotionDismissed,
+    required this.hideImportedPointsOnImportMap,
     required this.comparisonExportConfigMigrated,
     required this.customThemeColorName,
     required this.customThemeColorValue,
@@ -5659,6 +5690,9 @@ class AppSettingsEntry extends DataClass
     map['route_planner_skill_promotion_dismissed'] = Variable<bool>(
       routePlannerSkillPromotionDismissed,
     );
+    map['hide_imported_points_on_import_map'] = Variable<bool>(
+      hideImportedPointsOnImportMap,
+    );
     map['comparison_export_config_migrated'] = Variable<bool>(
       comparisonExportConfigMigrated,
     );
@@ -5735,6 +5769,7 @@ class AppSettingsEntry extends DataClass
       routePlannerSkillPromotionDismissed: Value(
         routePlannerSkillPromotionDismissed,
       ),
+      hideImportedPointsOnImportMap: Value(hideImportedPointsOnImportMap),
       comparisonExportConfigMigrated: Value(comparisonExportConfigMigrated),
       customThemeColorName: Value(customThemeColorName),
       customThemeColorValue: Value(customThemeColorValue),
@@ -5830,6 +5865,9 @@ class AppSettingsEntry extends DataClass
       ),
       routePlannerSkillPromotionDismissed: serializer.fromJson<bool>(
         json['routePlannerSkillPromotionDismissed'],
+      ),
+      hideImportedPointsOnImportMap: serializer.fromJson<bool>(
+        json['hideImportedPointsOnImportMap'],
       ),
       comparisonExportConfigMigrated: serializer.fromJson<bool>(
         json['comparisonExportConfigMigrated'],
@@ -5946,6 +5984,9 @@ class AppSettingsEntry extends DataClass
       'routePlannerSkillPromotionDismissed': serializer.toJson<bool>(
         routePlannerSkillPromotionDismissed,
       ),
+      'hideImportedPointsOnImportMap': serializer.toJson<bool>(
+        hideImportedPointsOnImportMap,
+      ),
       'comparisonExportConfigMigrated': serializer.toJson<bool>(
         comparisonExportConfigMigrated,
       ),
@@ -6021,6 +6062,7 @@ class AppSettingsEntry extends DataClass
     String? anitabiRemoteStateJson,
     bool? routePlannerSkillTipShown,
     bool? routePlannerSkillPromotionDismissed,
+    bool? hideImportedPointsOnImportMap,
     bool? comparisonExportConfigMigrated,
     String? customThemeColorName,
     int? customThemeColorValue,
@@ -6087,6 +6129,8 @@ class AppSettingsEntry extends DataClass
     routePlannerSkillPromotionDismissed:
         routePlannerSkillPromotionDismissed ??
         this.routePlannerSkillPromotionDismissed,
+    hideImportedPointsOnImportMap:
+        hideImportedPointsOnImportMap ?? this.hideImportedPointsOnImportMap,
     comparisonExportConfigMigrated:
         comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
     customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6209,6 +6253,9 @@ class AppSettingsEntry extends DataClass
           data.routePlannerSkillPromotionDismissed.present
           ? data.routePlannerSkillPromotionDismissed.value
           : this.routePlannerSkillPromotionDismissed,
+      hideImportedPointsOnImportMap: data.hideImportedPointsOnImportMap.present
+          ? data.hideImportedPointsOnImportMap.value
+          : this.hideImportedPointsOnImportMap,
       comparisonExportConfigMigrated:
           data.comparisonExportConfigMigrated.present
           ? data.comparisonExportConfigMigrated.value
@@ -6309,6 +6356,9 @@ class AppSettingsEntry extends DataClass
             'routePlannerSkillPromotionDismissed: $routePlannerSkillPromotionDismissed, ',
           )
           ..write(
+            'hideImportedPointsOnImportMap: $hideImportedPointsOnImportMap, ',
+          )
+          ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
           ..write('customThemeColorName: $customThemeColorName, ')
@@ -6375,6 +6425,7 @@ class AppSettingsEntry extends DataClass
     anitabiRemoteStateJson,
     routePlannerSkillTipShown,
     routePlannerSkillPromotionDismissed,
+    hideImportedPointsOnImportMap,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -6435,6 +6486,8 @@ class AppSettingsEntry extends DataClass
           other.routePlannerSkillTipShown == this.routePlannerSkillTipShown &&
           other.routePlannerSkillPromotionDismissed ==
               this.routePlannerSkillPromotionDismissed &&
+          other.hideImportedPointsOnImportMap ==
+              this.hideImportedPointsOnImportMap &&
           other.comparisonExportConfigMigrated ==
               this.comparisonExportConfigMigrated &&
           other.customThemeColorName == this.customThemeColorName &&
@@ -6495,6 +6548,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> anitabiRemoteStateJson;
   final Value<bool> routePlannerSkillTipShown;
   final Value<bool> routePlannerSkillPromotionDismissed;
+  final Value<bool> hideImportedPointsOnImportMap;
   final Value<bool> comparisonExportConfigMigrated;
   final Value<String> customThemeColorName;
   final Value<int> customThemeColorValue;
@@ -6548,6 +6602,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.anitabiRemoteStateJson = const Value.absent(),
     this.routePlannerSkillTipShown = const Value.absent(),
     this.routePlannerSkillPromotionDismissed = const Value.absent(),
+    this.hideImportedPointsOnImportMap = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6602,6 +6657,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.anitabiRemoteStateJson = const Value.absent(),
     this.routePlannerSkillTipShown = const Value.absent(),
     this.routePlannerSkillPromotionDismissed = const Value.absent(),
+    this.hideImportedPointsOnImportMap = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6656,6 +6712,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? anitabiRemoteStateJson,
     Expression<bool>? routePlannerSkillTipShown,
     Expression<bool>? routePlannerSkillPromotionDismissed,
+    Expression<bool>? hideImportedPointsOnImportMap,
     Expression<bool>? comparisonExportConfigMigrated,
     Expression<String>? customThemeColorName,
     Expression<int>? customThemeColorValue,
@@ -6729,6 +6786,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       if (routePlannerSkillPromotionDismissed != null)
         'route_planner_skill_promotion_dismissed':
             routePlannerSkillPromotionDismissed,
+      if (hideImportedPointsOnImportMap != null)
+        'hide_imported_points_on_import_map': hideImportedPointsOnImportMap,
       if (comparisonExportConfigMigrated != null)
         'comparison_export_config_migrated': comparisonExportConfigMigrated,
       if (customThemeColorName != null)
@@ -6801,6 +6860,7 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? anitabiRemoteStateJson,
     Value<bool>? routePlannerSkillTipShown,
     Value<bool>? routePlannerSkillPromotionDismissed,
+    Value<bool>? hideImportedPointsOnImportMap,
     Value<bool>? comparisonExportConfigMigrated,
     Value<String>? customThemeColorName,
     Value<int>? customThemeColorValue,
@@ -6871,6 +6931,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
       routePlannerSkillPromotionDismissed:
           routePlannerSkillPromotionDismissed ??
           this.routePlannerSkillPromotionDismissed,
+      hideImportedPointsOnImportMap:
+          hideImportedPointsOnImportMap ?? this.hideImportedPointsOnImportMap,
       comparisonExportConfigMigrated:
           comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
       customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -7040,6 +7102,11 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         routePlannerSkillPromotionDismissed.value,
       );
     }
+    if (hideImportedPointsOnImportMap.present) {
+      map['hide_imported_points_on_import_map'] = Variable<bool>(
+        hideImportedPointsOnImportMap.value,
+      );
+    }
     if (comparisonExportConfigMigrated.present) {
       map['comparison_export_config_migrated'] = Variable<bool>(
         comparisonExportConfigMigrated.value,
@@ -7171,6 +7238,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('routePlannerSkillTipShown: $routePlannerSkillTipShown, ')
           ..write(
             'routePlannerSkillPromotionDismissed: $routePlannerSkillPromotionDismissed, ',
+          )
+          ..write(
+            'hideImportedPointsOnImportMap: $hideImportedPointsOnImportMap, ',
           )
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
@@ -10100,6 +10170,7 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> anitabiRemoteStateJson,
       Value<bool> routePlannerSkillTipShown,
       Value<bool> routePlannerSkillPromotionDismissed,
+      Value<bool> hideImportedPointsOnImportMap,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10155,6 +10226,7 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> anitabiRemoteStateJson,
       Value<bool> routePlannerSkillTipShown,
       Value<bool> routePlannerSkillPromotionDismissed,
+      Value<bool> hideImportedPointsOnImportMap,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10346,6 +10418,11 @@ class $$AppSettingsEntriesTableFilterComposer
         column: $table.routePlannerSkillPromotionDismissed,
         builder: (column) => ColumnFilters(column),
       );
+
+  ColumnFilters<bool> get hideImportedPointsOnImportMap => $composableBuilder(
+    column: $table.hideImportedPointsOnImportMap,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<bool> get comparisonExportConfigMigrated => $composableBuilder(
     column: $table.comparisonExportConfigMigrated,
@@ -10613,6 +10690,11 @@ class $$AppSettingsEntriesTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
+  ColumnOrderings<bool> get hideImportedPointsOnImportMap => $composableBuilder(
+    column: $table.hideImportedPointsOnImportMap,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -10875,6 +10957,11 @@ class $$AppSettingsEntriesTableAnnotationComposer
         builder: (column) => column,
       );
 
+  GeneratedColumn<bool> get hideImportedPointsOnImportMap => $composableBuilder(
+    column: $table.hideImportedPointsOnImportMap,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -11050,6 +11137,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<bool> routePlannerSkillTipShown = const Value.absent(),
                 Value<bool> routePlannerSkillPromotionDismissed =
                     const Value.absent(),
+                Value<bool> hideImportedPointsOnImportMap =
+                    const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11108,6 +11197,7 @@ class $$AppSettingsEntriesTableTableManager
                 routePlannerSkillTipShown: routePlannerSkillTipShown,
                 routePlannerSkillPromotionDismissed:
                     routePlannerSkillPromotionDismissed,
+                hideImportedPointsOnImportMap: hideImportedPointsOnImportMap,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,
@@ -11165,6 +11255,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> anitabiRemoteStateJson = const Value.absent(),
                 Value<bool> routePlannerSkillTipShown = const Value.absent(),
                 Value<bool> routePlannerSkillPromotionDismissed =
+                    const Value.absent(),
+                Value<bool> hideImportedPointsOnImportMap =
                     const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
@@ -11224,6 +11316,7 @@ class $$AppSettingsEntriesTableTableManager
                 routePlannerSkillTipShown: routePlannerSkillTipShown,
                 routePlannerSkillPromotionDismissed:
                     routePlannerSkillPromotionDismissed,
+                hideImportedPointsOnImportMap: hideImportedPointsOnImportMap,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,

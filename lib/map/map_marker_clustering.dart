@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import 'map_colors.dart';
+import 'map_marker_scale.dart';
 
 class MapMarkerCluster<T> {
   const MapMarkerCluster({required this.items, required this.position});
@@ -110,11 +111,33 @@ class _WorkingCluster<T> {
   }
 }
 
+/// Size of the cluster circle including its status ring, before the
+/// marker scale is applied.
+const mapClusterBadgeDiameter = 54.0;
+
+/// Marker box for a cluster badge (room for its shadow).
+const mapClusterMarkerExtent = 58.0;
+
+/// Clusters closer than their own badges would draw overlapping rings, so
+/// the effective radius never goes below the scaled badge diameter; the
+/// stored setting is left as it is.
+double effectiveClusterRadius(double settingRadius, double markerScale) {
+  return math.max(
+    settingRadius,
+    mapClusterBadgeDiameter * normalizedMapMarkerScale(markerScale),
+  );
+}
+
+/// A cluster of map points. The ring around the count shows how many of them
+/// are already done (imported into the plan, or visited): a grey arc for that
+/// share, the whole badge grey once every point is done.
 class MapMarkerClusterBadge extends StatelessWidget {
   const MapMarkerClusterBadge({
     required this.count,
     required this.onTap,
     this.opensPointBrowser = false,
+    this.doneCount = 0,
+    this.doneLabel = '已完成',
     super.key,
   });
 
@@ -122,52 +145,80 @@ class MapMarkerClusterBadge extends StatelessWidget {
   final VoidCallback onTap;
   final bool opensPointBrowser;
 
+  /// Points in the cluster that are already done.
+  final int doneCount;
+
+  /// What "done" means here, e.g. 已加入 or 已打卡.
+  final String doneLabel;
+
+  static const _coreDiameter = 44.0;
+  static const _ringWidth = 5.0;
+
   @override
   Widget build(BuildContext context) {
     final label = count > 999 ? '999+' : '$count';
     final fontSize = label.length >= 4 ? 13.0 : 15.0;
     final actionLabel = opensPointBrowser ? '点击浏览' : '点击放大';
+    final done = doneCount.clamp(0, count);
+    final allDone = count > 0 && done == count;
+    final doneColor = AppColors.textSecondary;
+    final coreColor = allDone ? doneColor : MapColors.accent;
+    final doneSummary = done == 0 ? '' : '，其中 $done 个$doneLabel';
+    final tooltip = opensPointBrowser ? '浏览 $count 个重合点位' : '$count 个点位';
 
     return Semantics(
       button: true,
-      label: '$count 个聚合点位，$actionLabel',
+      label: '$count 个聚合点位$doneSummary，$actionLabel',
       child: Tooltip(
-        message: opensPointBrowser ? '浏览 $count 个重合点位' : '$count 个点位',
+        message: done == 0 ? tooltip : '$tooltip · $done 个$doneLabel',
         child: Material(
           color: Colors.transparent,
           child: InkResponse(
             onTap: onTap,
-            radius: 25,
+            radius: mapClusterBadgeDiameter / 2,
             customBorder: const CircleBorder(),
-            child: Container(
-              width: 42,
-              height: 42,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: MapColors.accent,
-                border: Border.all(color: Colors.white, width: 2.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: MapColors.accent.withValues(alpha: 0.28),
-                    blurRadius: 0,
-                    spreadRadius: 4,
+            child: SizedBox.square(
+              dimension: mapClusterBadgeDiameter,
+              child: CustomPaint(
+                key: const ValueKey('map-cluster-status-ring'),
+                painter: _ClusterStatusRingPainter(
+                  doneFraction: count == 0 ? 0 : done / count,
+                  trackColor: MapColors.accent.withValues(alpha: 0.28),
+                  doneColor: doneColor,
+                  width: _ringWidth,
+                ),
+                child: Center(
+                  child: Container(
+                    width: _coreDiameter,
+                    height: _coreDiameter,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: coreColor,
+                      border: Border.all(color: Colors.white, width: 2.5),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        // The done grey is light in dark mode, so it keeps
+                        // the dark on-accent text there.
+                        color: allDone && !AppColors.isDark
+                            ? Colors.white
+                            : MapColors.onAccent,
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
+                      ),
+                    ),
                   ),
-                  const BoxShadow(
-                    color: Color(0x33000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  color: MapColors.onAccent,
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -176,6 +227,48 @@ class MapMarkerClusterBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ClusterStatusRingPainter extends CustomPainter {
+  const _ClusterStatusRingPainter({
+    required this.doneFraction,
+    required this.trackColor,
+    required this.doneColor,
+    required this.width,
+  });
+
+  final double doneFraction;
+  final Color trackColor;
+  final Color doneColor;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(width / 2);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width;
+    canvas.drawOval(rect, paint..color = trackColor);
+    final fraction = doneFraction.clamp(0.0, 1.0);
+    if (fraction <= 0) {
+      return;
+    }
+    // Starts at twelve o'clock and runs clockwise.
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      2 * math.pi * fraction,
+      false,
+      paint..color = doneColor,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ClusterStatusRingPainter oldDelegate) =>
+      oldDelegate.doneFraction != doneFraction ||
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.doneColor != doneColor ||
+      oldDelegate.width != width;
 }
 
 class MapOverlapPointPager extends StatelessWidget {

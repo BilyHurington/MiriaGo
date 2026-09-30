@@ -151,6 +151,7 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       routePlannerSkillTipShown: row.routePlannerSkillTipShown,
       routePlannerSkillPromotionDismissed:
           row.routePlannerSkillPromotionDismissed,
+      hideImportedPointsOnImportMap: row.hideImportedPointsOnImportMap,
       comparisonExportConfigMigrated: row.comparisonExportConfigMigrated,
       customThemeColorName: row.customThemeColorName,
       customThemeColorValue: row.customThemeColorValue,
@@ -1390,6 +1391,9 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             routePlannerSkillPromotionDismissed: Value(
               settings.routePlannerSkillPromotionDismissed ||
                   (existing?.routePlannerSkillPromotionDismissed ?? false),
+            ),
+            hideImportedPointsOnImportMap: Value(
+              settings.hideImportedPointsOnImportMap,
             ),
             comparisonExportConfigMigrated: Value(
               settings.comparisonExportConfigMigrated,
