@@ -137,6 +137,10 @@ void main() {
         anitabiRemoteStateJson: '{"autoUpdate":false}',
         routePlannerSkillTipShown: true,
         hideImportedPointsOnImportMap: true,
+        mapShowThumbnailMarkers: true,
+        mapShowGroupAreas: false,
+        importMapShowThumbnailMarkers: true,
+        importMapShowGroupAreas: true,
         routePlannerSkillPromotionDismissed: true,
         mapThumbnailVisibleThreshold: 55,
         mapThumbnailConcurrentLoads: 12,
@@ -239,6 +243,10 @@ void main() {
     expect(decoded.settings.anitabiRemoteStateJson, '{"autoUpdate":false}');
     expect(decoded.settings.routePlannerSkillTipShown, isTrue);
     expect(decoded.settings.hideImportedPointsOnImportMap, isTrue);
+    expect(decoded.settings.mapShowThumbnailMarkers, isTrue);
+    expect(decoded.settings.mapShowGroupAreas, isFalse);
+    expect(decoded.settings.importMapShowThumbnailMarkers, isTrue);
+    expect(decoded.settings.importMapShowGroupAreas, isTrue);
     expect(decoded.settings.routePlannerSkillPromotionDismissed, isTrue);
     expect(decoded.settings.mapThumbnailVisibleThreshold, 55);
     expect(decoded.settings.mapThumbnailConcurrentLoads, 12);

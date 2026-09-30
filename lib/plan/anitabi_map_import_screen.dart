@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../app_theme.dart';
 import '../map/map_colors.dart';
+import '../map/map_layers_panel.dart';
 import '../map/map_marker_clustering.dart';
 import '../map/map_marker_scale.dart';
 import '../map/map_navigation_launcher.dart';
@@ -39,7 +40,7 @@ import 'nearest_group_assign_screen.dart';
 import 'pilgrimage_models.dart';
 import 'pilgrimage_work_dropdown.dart';
 import 'plan_group_picker_sheet.dart';
-import 'plan_order.dart';
+import 'plan_group_utils.dart';
 import 'work_manager_screen.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
@@ -95,7 +96,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
   bool _isImporting = false;
   _ImportProgress? _importProgress;
   bool _didUpdatePlan = false;
-  bool _showThumbnailMarkers = false;
+  bool get _showThumbnailMarkers => _settings.importMapShowThumbnailMarkers;
   bool _isBoxSelecting = false;
   Offset? _selectionStart;
   Offset? _selectionEnd;
@@ -174,29 +175,45 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     _thumbnailLoadLimiter.maxConcurrent = settings.mapThumbnailConcurrentLoads;
   }
 
-  /// Remembered across visits, like the other map display settings.
-  Future<void> _setHideImported(bool hide) async {
-    setState(() {
-      _settings = _settings.copyWith(hideImportedPointsOnImportMap: hide);
-    });
-    try {
+  /// Applies a map display change right away and remembers it; on failure
+  /// the previous value comes back. Returns whether it was saved.
+  Future<void> _settingsSaveQueue = Future.value();
+
+  Future<bool> _updateSettings(
+    AppSettings Function(AppSettings settings) update,
+  ) async {
+    final previous = _settings;
+    final next = update(_settings);
+    setState(() => _settings = next);
+    if (previous.importMapShowThumbnailMarkers !=
+        next.importMapShowThumbnailMarkers) {
+      _syncThumbnailBounds();
+    }
+    // One save at a time: each reads the stored settings the previous one
+    // wrote, so quick successive switches never overwrite each other.
+    final save = _settingsSaveQueue.then((_) async {
       final latest = await widget.repository.loadAppSettings();
-      await widget.repository.saveAppSettings(
-        latest.copyWith(hideImportedPointsOnImportMap: hide),
-      );
+      await widget.repository.saveAppSettings(update(latest));
+    });
+    _settingsSaveQueue = save.then((_) {}, onError: (Object _) {});
+    try {
+      await save;
+      return true;
     } on Object catch (error) {
-      debugPrint('Failed to save the import map filter: $error');
-      if (!mounted) {
-        return;
+      debugPrint('Failed to save import map settings: $error');
+      if (mounted) {
+        // Only undo this change; a newer one decides for itself.
+        if (identical(_settings, next)) {
+          setState(() => _settings = previous);
+          _syncThumbnailBounds();
+        }
+        ScaffoldMessenger.of(context).showStatusSnack(
+          kind: AppStatusBannerKind.error,
+          title: '设置保存失败',
+          subtitle: '请稍后重试',
+        );
       }
-      setState(() {
-        _settings = _settings.copyWith(hideImportedPointsOnImportMap: !hide);
-      });
-      ScaffoldMessenger.of(context).showStatusSnack(
-        kind: AppStatusBannerKind.error,
-        title: '设置保存失败',
-        subtitle: '请稍后重试',
-      );
+      return false;
     }
   }
 
@@ -1388,20 +1405,68 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     return visiblePoints.map((point) => point.id).toSet();
   }
 
-  void _toggleThumbnailMarkers() {
-    setState(() {
-      _showThumbnailMarkers = !_showThumbnailMarkers;
-      if (!_showThumbnailMarkers) {
-        _thumbnailBoundsDebounce?.cancel();
-        _visibleBoundsNotifier.value = null;
-      } else {
-        try {
-          _visibleBoundsNotifier.value = _mapController.camera.visibleBounds;
-        } catch (_) {
-          _visibleBoundsNotifier.value = null;
-        }
-      }
-    });
+  /// Thumbnails load for the visible area only; start or stop tracking it.
+  void _syncThumbnailBounds() {
+    if (!_showThumbnailMarkers) {
+      _thumbnailBoundsDebounce?.cancel();
+      _visibleBoundsNotifier.value = null;
+      return;
+    }
+    try {
+      _visibleBoundsNotifier.value = _mapController.camera.visibleBounds;
+    } catch (_) {
+      _visibleBoundsNotifier.value = null;
+    }
+  }
+
+  void _openLayers(BuildContext anchorContext) {
+    final settings = _settings;
+    unawaited(
+      showMapLayersPanel(
+        anchorContext,
+        settings: settings,
+        toggles: [
+          MapLayerToggle(
+            id: 'thumbnails',
+            label: '缩略图标记',
+            icon: LucideIcons.image,
+            value: settings.importMapShowThumbnailMarkers,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(importMapShowThumbnailMarkers: value),
+            ),
+          ),
+          MapLayerToggle(
+            id: 'hide-imported',
+            label: '只看未加入',
+            description: '隐藏已加入计划的点位',
+            icon: LucideIcons.eyeOff,
+            value: settings.hideImportedPointsOnImportMap,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(hideImportedPointsOnImportMap: value),
+            ),
+          ),
+          MapLayerToggle(
+            id: 'group-areas',
+            label: '片区范围',
+            description: '显示计划中已有的片区',
+            icon: LucideIcons.pentagon,
+            value: settings.importMapShowGroupAreas,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(importMapShowGroupAreas: value),
+            ),
+          ),
+          MapLayerToggle(
+            id: 'clustering',
+            label: '自动聚合密集点位',
+            icon: LucideIcons.group,
+            value: settings.mapMarkerClusteringEnabled,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(mapMarkerClusteringEnabled: value),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Marker _buildImportPointMarker({
@@ -1513,15 +1578,12 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
               : null,
           title: const Text('从作品地图导入'),
           actions: [
-            Tooltip(
-              message: _showThumbnailMarkers ? '使用图标标记' : '显示缩略图标记',
-              child: IconButton(
-                onPressed: _toggleThumbnailMarkers,
-                icon: Icon(
-                  _showThumbnailMarkers
-                      ? LucideIcons.mapPin
-                      : LucideIcons.image,
-                ),
+            Builder(
+              builder: (buttonContext) => IconButton(
+                key: const ValueKey('map-layers-button'),
+                tooltip: '图层',
+                onPressed: () => _openLayers(buttonContext),
+                icon: const Icon(LucideIcons.layers),
               ),
             ),
             Tooltip(
@@ -1614,6 +1676,19 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                       ),
                       children: [
                         configuredMapTileLayer(_settings),
+                        if (_settings.importMapShowGroupAreas)
+                          PolygonLayer(
+                            simplificationTolerance: 0,
+                            polygons: groupAreaPolygons(
+                              planGroupBuckets(
+                                _importedPlan,
+                                _importedPlan.completedPointIds,
+                              ),
+                              selectedGroupId: '',
+                              radiusMeters: _settings.mapGroupAreaRadiusMeters
+                                  .toDouble(),
+                            ),
+                          ),
                         ValueListenableBuilder<LatLngBounds?>(
                           valueListenable: _visibleBoundsNotifier,
                           builder: (context, visibleBounds, _) {
@@ -1799,10 +1874,7 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
                             )
                             .length,
                         totalCount: shownPoints.length,
-                        hideImported: _settings.hideImportedPointsOnImportMap,
-                        onToggleHideImported: () => _setHideImported(
-                          !_settings.hideImportedPointsOnImportMap,
-                        ),
+
                         expectedCount: _lite?.pointsLength,
                         availableCount: _availablePoints.length,
                         boxSelectionEnabled: _isBoxSelecting,
@@ -2162,12 +2234,7 @@ class _ImportSummary extends StatelessWidget {
     required this.onToggleBoxSelection,
     required this.onImportAll,
     required this.onImportSelection,
-    required this.hideImported,
-    required this.onToggleHideImported,
   });
-
-  final bool hideImported;
-  final VoidCallback onToggleHideImported;
 
   final bool isLoading;
   final bool isImporting;
@@ -2256,20 +2323,7 @@ class _ImportSummary extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                SizedBox(
-                  width: 44,
-                  height: 36,
-                  child: IconButton.outlined(
-                    key: const ValueKey('anitabi-hide-imported-toggle'),
-                    tooltip: hideImported ? '显示已加入的点位' : '只看未加入',
-                    isSelected: hideImported,
-                    onPressed: onToggleHideImported,
-                    icon: const Icon(LucideIcons.eye, size: 18),
-                    selectedIcon: const Icon(LucideIcons.eyeOff, size: 18),
-                    style: _summaryIconButtonStyle(hideImported),
-                  ),
-                ),
-                const SizedBox(width: 8),
+
                 Expanded(
                   child: SizedBox(
                     height: 36,

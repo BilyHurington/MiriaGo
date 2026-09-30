@@ -152,6 +152,10 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       routePlannerSkillPromotionDismissed:
           row.routePlannerSkillPromotionDismissed,
       hideImportedPointsOnImportMap: row.hideImportedPointsOnImportMap,
+      mapShowThumbnailMarkers: row.mapShowThumbnailMarkers,
+      mapShowGroupAreas: row.mapShowGroupAreas,
+      importMapShowThumbnailMarkers: row.importMapShowThumbnailMarkers,
+      importMapShowGroupAreas: row.importMapShowGroupAreas,
       comparisonExportConfigMigrated: row.comparisonExportConfigMigrated,
       customThemeColorName: row.customThemeColorName,
       customThemeColorValue: row.customThemeColorValue,
@@ -1395,6 +1399,12 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             hideImportedPointsOnImportMap: Value(
               settings.hideImportedPointsOnImportMap,
             ),
+            mapShowThumbnailMarkers: Value(settings.mapShowThumbnailMarkers),
+            mapShowGroupAreas: Value(settings.mapShowGroupAreas),
+            importMapShowThumbnailMarkers: Value(
+              settings.importMapShowThumbnailMarkers,
+            ),
+            importMapShowGroupAreas: Value(settings.importMapShowGroupAreas),
             comparisonExportConfigMigrated: Value(
               settings.comparisonExportConfigMigrated,
             ),

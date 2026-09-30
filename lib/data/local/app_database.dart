@@ -163,6 +163,14 @@ class AppSettingsEntries extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get hideImportedPointsOnImportMap =>
       boolean().withDefault(const Constant(false))();
+  BoolColumn get mapShowThumbnailMarkers =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get mapShowGroupAreas =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get importMapShowThumbnailMarkers =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get importMapShowGroupAreas =>
+      boolean().withDefault(const Constant(false))();
   BoolColumn get comparisonExportConfigMigrated =>
       boolean().withDefault(const Constant(true))();
   TextColumn get customThemeColorName =>
@@ -211,7 +219,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 47;
+  int get schemaVersion => 48;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -732,6 +740,24 @@ class AppDatabase extends _$AppDatabase {
         await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.hideImportedPointsOnImportMap,
+        );
+      }
+      if (from < 48) {
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.mapShowThumbnailMarkers,
+        );
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.mapShowGroupAreas,
+        );
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.importMapShowThumbnailMarkers,
+        );
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.importMapShowGroupAreas,
         );
       }
     }),

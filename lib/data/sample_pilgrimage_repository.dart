@@ -922,6 +922,10 @@ class SamplePilgrimageRepository implements PilgrimageRepository {
           settings.routePlannerSkillPromotionDismissed ||
           _settings.routePlannerSkillPromotionDismissed,
       hideImportedPointsOnImportMap: settings.hideImportedPointsOnImportMap,
+      mapShowThumbnailMarkers: settings.mapShowThumbnailMarkers,
+      mapShowGroupAreas: settings.mapShowGroupAreas,
+      importMapShowThumbnailMarkers: settings.importMapShowThumbnailMarkers,
+      importMapShowGroupAreas: settings.importMapShowGroupAreas,
       navigationApp: settings.navigationApp,
       customXyzTileUrl: settings.customXyzTileUrl.trim(),
       customMapLibreStyleUrl: settings.customMapLibreStyleUrl.trim(),

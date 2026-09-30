@@ -458,6 +458,7 @@ class _AppShellState extends State<AppShell> {
                           isActive: _selectedIndex == 1,
                           controller: controller,
                           settings: _settings,
+                          onSettingsChanged: _saveSettings,
                         ),
                       ),
                       RecordsScreen(

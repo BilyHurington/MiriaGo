@@ -4531,6 +4531,66 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _mapShowThumbnailMarkersMeta =
+      const VerificationMeta('mapShowThumbnailMarkers');
+  @override
+  late final GeneratedColumn<bool> mapShowThumbnailMarkers =
+      GeneratedColumn<bool>(
+        'map_show_thumbnail_markers',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("map_show_thumbnail_markers" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _mapShowGroupAreasMeta = const VerificationMeta(
+    'mapShowGroupAreas',
+  );
+  @override
+  late final GeneratedColumn<bool> mapShowGroupAreas = GeneratedColumn<bool>(
+    'map_show_group_areas',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("map_show_group_areas" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _importMapShowThumbnailMarkersMeta =
+      const VerificationMeta('importMapShowThumbnailMarkers');
+  @override
+  late final GeneratedColumn<bool> importMapShowThumbnailMarkers =
+      GeneratedColumn<bool>(
+        'import_map_show_thumbnail_markers',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("import_map_show_thumbnail_markers" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _importMapShowGroupAreasMeta =
+      const VerificationMeta('importMapShowGroupAreas');
+  @override
+  late final GeneratedColumn<bool> importMapShowGroupAreas =
+      GeneratedColumn<bool>(
+        'import_map_show_group_areas',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("import_map_show_group_areas" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _comparisonExportConfigMigratedMeta =
       const VerificationMeta('comparisonExportConfigMigrated');
   @override
@@ -4810,6 +4870,10 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     routePlannerSkillTipShown,
     routePlannerSkillPromotionDismissed,
     hideImportedPointsOnImportMap,
+    mapShowThumbnailMarkers,
+    mapShowGroupAreas,
+    importMapShowThumbnailMarkers,
+    importMapShowGroupAreas,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -5126,6 +5190,42 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         ),
       );
     }
+    if (data.containsKey('map_show_thumbnail_markers')) {
+      context.handle(
+        _mapShowThumbnailMarkersMeta,
+        mapShowThumbnailMarkers.isAcceptableOrUnknown(
+          data['map_show_thumbnail_markers']!,
+          _mapShowThumbnailMarkersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('map_show_group_areas')) {
+      context.handle(
+        _mapShowGroupAreasMeta,
+        mapShowGroupAreas.isAcceptableOrUnknown(
+          data['map_show_group_areas']!,
+          _mapShowGroupAreasMeta,
+        ),
+      );
+    }
+    if (data.containsKey('import_map_show_thumbnail_markers')) {
+      context.handle(
+        _importMapShowThumbnailMarkersMeta,
+        importMapShowThumbnailMarkers.isAcceptableOrUnknown(
+          data['import_map_show_thumbnail_markers']!,
+          _importMapShowThumbnailMarkersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('import_map_show_group_areas')) {
+      context.handle(
+        _importMapShowGroupAreasMeta,
+        importMapShowGroupAreas.isAcceptableOrUnknown(
+          data['import_map_show_group_areas']!,
+          _importMapShowGroupAreasMeta,
+        ),
+      );
+    }
     if (data.containsKey('comparison_export_config_migrated')) {
       context.handle(
         _comparisonExportConfigMigratedMeta,
@@ -5438,6 +5538,22 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.bool,
         data['${effectivePrefix}hide_imported_points_on_import_map'],
       )!,
+      mapShowThumbnailMarkers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}map_show_thumbnail_markers'],
+      )!,
+      mapShowGroupAreas: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}map_show_group_areas'],
+      )!,
+      importMapShowThumbnailMarkers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}import_map_show_thumbnail_markers'],
+      )!,
+      importMapShowGroupAreas: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}import_map_show_group_areas'],
+      )!,
       comparisonExportConfigMigrated: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}comparison_export_config_migrated'],
@@ -5558,6 +5674,10 @@ class AppSettingsEntry extends DataClass
   final bool routePlannerSkillTipShown;
   final bool routePlannerSkillPromotionDismissed;
   final bool hideImportedPointsOnImportMap;
+  final bool mapShowThumbnailMarkers;
+  final bool mapShowGroupAreas;
+  final bool importMapShowThumbnailMarkers;
+  final bool importMapShowGroupAreas;
   final bool comparisonExportConfigMigrated;
   final String customThemeColorName;
   final int customThemeColorValue;
@@ -5611,6 +5731,10 @@ class AppSettingsEntry extends DataClass
     required this.routePlannerSkillTipShown,
     required this.routePlannerSkillPromotionDismissed,
     required this.hideImportedPointsOnImportMap,
+    required this.mapShowThumbnailMarkers,
+    required this.mapShowGroupAreas,
+    required this.importMapShowThumbnailMarkers,
+    required this.importMapShowGroupAreas,
     required this.comparisonExportConfigMigrated,
     required this.customThemeColorName,
     required this.customThemeColorValue,
@@ -5693,6 +5817,14 @@ class AppSettingsEntry extends DataClass
     map['hide_imported_points_on_import_map'] = Variable<bool>(
       hideImportedPointsOnImportMap,
     );
+    map['map_show_thumbnail_markers'] = Variable<bool>(mapShowThumbnailMarkers);
+    map['map_show_group_areas'] = Variable<bool>(mapShowGroupAreas);
+    map['import_map_show_thumbnail_markers'] = Variable<bool>(
+      importMapShowThumbnailMarkers,
+    );
+    map['import_map_show_group_areas'] = Variable<bool>(
+      importMapShowGroupAreas,
+    );
     map['comparison_export_config_migrated'] = Variable<bool>(
       comparisonExportConfigMigrated,
     );
@@ -5770,6 +5902,10 @@ class AppSettingsEntry extends DataClass
         routePlannerSkillPromotionDismissed,
       ),
       hideImportedPointsOnImportMap: Value(hideImportedPointsOnImportMap),
+      mapShowThumbnailMarkers: Value(mapShowThumbnailMarkers),
+      mapShowGroupAreas: Value(mapShowGroupAreas),
+      importMapShowThumbnailMarkers: Value(importMapShowThumbnailMarkers),
+      importMapShowGroupAreas: Value(importMapShowGroupAreas),
       comparisonExportConfigMigrated: Value(comparisonExportConfigMigrated),
       customThemeColorName: Value(customThemeColorName),
       customThemeColorValue: Value(customThemeColorValue),
@@ -5868,6 +6004,16 @@ class AppSettingsEntry extends DataClass
       ),
       hideImportedPointsOnImportMap: serializer.fromJson<bool>(
         json['hideImportedPointsOnImportMap'],
+      ),
+      mapShowThumbnailMarkers: serializer.fromJson<bool>(
+        json['mapShowThumbnailMarkers'],
+      ),
+      mapShowGroupAreas: serializer.fromJson<bool>(json['mapShowGroupAreas']),
+      importMapShowThumbnailMarkers: serializer.fromJson<bool>(
+        json['importMapShowThumbnailMarkers'],
+      ),
+      importMapShowGroupAreas: serializer.fromJson<bool>(
+        json['importMapShowGroupAreas'],
       ),
       comparisonExportConfigMigrated: serializer.fromJson<bool>(
         json['comparisonExportConfigMigrated'],
@@ -5987,6 +6133,16 @@ class AppSettingsEntry extends DataClass
       'hideImportedPointsOnImportMap': serializer.toJson<bool>(
         hideImportedPointsOnImportMap,
       ),
+      'mapShowThumbnailMarkers': serializer.toJson<bool>(
+        mapShowThumbnailMarkers,
+      ),
+      'mapShowGroupAreas': serializer.toJson<bool>(mapShowGroupAreas),
+      'importMapShowThumbnailMarkers': serializer.toJson<bool>(
+        importMapShowThumbnailMarkers,
+      ),
+      'importMapShowGroupAreas': serializer.toJson<bool>(
+        importMapShowGroupAreas,
+      ),
       'comparisonExportConfigMigrated': serializer.toJson<bool>(
         comparisonExportConfigMigrated,
       ),
@@ -6063,6 +6219,10 @@ class AppSettingsEntry extends DataClass
     bool? routePlannerSkillTipShown,
     bool? routePlannerSkillPromotionDismissed,
     bool? hideImportedPointsOnImportMap,
+    bool? mapShowThumbnailMarkers,
+    bool? mapShowGroupAreas,
+    bool? importMapShowThumbnailMarkers,
+    bool? importMapShowGroupAreas,
     bool? comparisonExportConfigMigrated,
     String? customThemeColorName,
     int? customThemeColorValue,
@@ -6131,6 +6291,13 @@ class AppSettingsEntry extends DataClass
         this.routePlannerSkillPromotionDismissed,
     hideImportedPointsOnImportMap:
         hideImportedPointsOnImportMap ?? this.hideImportedPointsOnImportMap,
+    mapShowThumbnailMarkers:
+        mapShowThumbnailMarkers ?? this.mapShowThumbnailMarkers,
+    mapShowGroupAreas: mapShowGroupAreas ?? this.mapShowGroupAreas,
+    importMapShowThumbnailMarkers:
+        importMapShowThumbnailMarkers ?? this.importMapShowThumbnailMarkers,
+    importMapShowGroupAreas:
+        importMapShowGroupAreas ?? this.importMapShowGroupAreas,
     comparisonExportConfigMigrated:
         comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
     customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -6256,6 +6423,18 @@ class AppSettingsEntry extends DataClass
       hideImportedPointsOnImportMap: data.hideImportedPointsOnImportMap.present
           ? data.hideImportedPointsOnImportMap.value
           : this.hideImportedPointsOnImportMap,
+      mapShowThumbnailMarkers: data.mapShowThumbnailMarkers.present
+          ? data.mapShowThumbnailMarkers.value
+          : this.mapShowThumbnailMarkers,
+      mapShowGroupAreas: data.mapShowGroupAreas.present
+          ? data.mapShowGroupAreas.value
+          : this.mapShowGroupAreas,
+      importMapShowThumbnailMarkers: data.importMapShowThumbnailMarkers.present
+          ? data.importMapShowThumbnailMarkers.value
+          : this.importMapShowThumbnailMarkers,
+      importMapShowGroupAreas: data.importMapShowGroupAreas.present
+          ? data.importMapShowGroupAreas.value
+          : this.importMapShowGroupAreas,
       comparisonExportConfigMigrated:
           data.comparisonExportConfigMigrated.present
           ? data.comparisonExportConfigMigrated.value
@@ -6358,6 +6537,12 @@ class AppSettingsEntry extends DataClass
           ..write(
             'hideImportedPointsOnImportMap: $hideImportedPointsOnImportMap, ',
           )
+          ..write('mapShowThumbnailMarkers: $mapShowThumbnailMarkers, ')
+          ..write('mapShowGroupAreas: $mapShowGroupAreas, ')
+          ..write(
+            'importMapShowThumbnailMarkers: $importMapShowThumbnailMarkers, ',
+          )
+          ..write('importMapShowGroupAreas: $importMapShowGroupAreas, ')
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -6426,6 +6611,10 @@ class AppSettingsEntry extends DataClass
     routePlannerSkillTipShown,
     routePlannerSkillPromotionDismissed,
     hideImportedPointsOnImportMap,
+    mapShowThumbnailMarkers,
+    mapShowGroupAreas,
+    importMapShowThumbnailMarkers,
+    importMapShowGroupAreas,
     comparisonExportConfigMigrated,
     customThemeColorName,
     customThemeColorValue,
@@ -6488,6 +6677,11 @@ class AppSettingsEntry extends DataClass
               this.routePlannerSkillPromotionDismissed &&
           other.hideImportedPointsOnImportMap ==
               this.hideImportedPointsOnImportMap &&
+          other.mapShowThumbnailMarkers == this.mapShowThumbnailMarkers &&
+          other.mapShowGroupAreas == this.mapShowGroupAreas &&
+          other.importMapShowThumbnailMarkers ==
+              this.importMapShowThumbnailMarkers &&
+          other.importMapShowGroupAreas == this.importMapShowGroupAreas &&
           other.comparisonExportConfigMigrated ==
               this.comparisonExportConfigMigrated &&
           other.customThemeColorName == this.customThemeColorName &&
@@ -6549,6 +6743,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<bool> routePlannerSkillTipShown;
   final Value<bool> routePlannerSkillPromotionDismissed;
   final Value<bool> hideImportedPointsOnImportMap;
+  final Value<bool> mapShowThumbnailMarkers;
+  final Value<bool> mapShowGroupAreas;
+  final Value<bool> importMapShowThumbnailMarkers;
+  final Value<bool> importMapShowGroupAreas;
   final Value<bool> comparisonExportConfigMigrated;
   final Value<String> customThemeColorName;
   final Value<int> customThemeColorValue;
@@ -6603,6 +6801,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.routePlannerSkillTipShown = const Value.absent(),
     this.routePlannerSkillPromotionDismissed = const Value.absent(),
     this.hideImportedPointsOnImportMap = const Value.absent(),
+    this.mapShowThumbnailMarkers = const Value.absent(),
+    this.mapShowGroupAreas = const Value.absent(),
+    this.importMapShowThumbnailMarkers = const Value.absent(),
+    this.importMapShowGroupAreas = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6658,6 +6860,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.routePlannerSkillTipShown = const Value.absent(),
     this.routePlannerSkillPromotionDismissed = const Value.absent(),
     this.hideImportedPointsOnImportMap = const Value.absent(),
+    this.mapShowThumbnailMarkers = const Value.absent(),
+    this.mapShowGroupAreas = const Value.absent(),
+    this.importMapShowThumbnailMarkers = const Value.absent(),
+    this.importMapShowGroupAreas = const Value.absent(),
     this.comparisonExportConfigMigrated = const Value.absent(),
     this.customThemeColorName = const Value.absent(),
     this.customThemeColorValue = const Value.absent(),
@@ -6713,6 +6919,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<bool>? routePlannerSkillTipShown,
     Expression<bool>? routePlannerSkillPromotionDismissed,
     Expression<bool>? hideImportedPointsOnImportMap,
+    Expression<bool>? mapShowThumbnailMarkers,
+    Expression<bool>? mapShowGroupAreas,
+    Expression<bool>? importMapShowThumbnailMarkers,
+    Expression<bool>? importMapShowGroupAreas,
     Expression<bool>? comparisonExportConfigMigrated,
     Expression<String>? customThemeColorName,
     Expression<int>? customThemeColorValue,
@@ -6788,6 +6998,13 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
             routePlannerSkillPromotionDismissed,
       if (hideImportedPointsOnImportMap != null)
         'hide_imported_points_on_import_map': hideImportedPointsOnImportMap,
+      if (mapShowThumbnailMarkers != null)
+        'map_show_thumbnail_markers': mapShowThumbnailMarkers,
+      if (mapShowGroupAreas != null) 'map_show_group_areas': mapShowGroupAreas,
+      if (importMapShowThumbnailMarkers != null)
+        'import_map_show_thumbnail_markers': importMapShowThumbnailMarkers,
+      if (importMapShowGroupAreas != null)
+        'import_map_show_group_areas': importMapShowGroupAreas,
       if (comparisonExportConfigMigrated != null)
         'comparison_export_config_migrated': comparisonExportConfigMigrated,
       if (customThemeColorName != null)
@@ -6861,6 +7078,10 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<bool>? routePlannerSkillTipShown,
     Value<bool>? routePlannerSkillPromotionDismissed,
     Value<bool>? hideImportedPointsOnImportMap,
+    Value<bool>? mapShowThumbnailMarkers,
+    Value<bool>? mapShowGroupAreas,
+    Value<bool>? importMapShowThumbnailMarkers,
+    Value<bool>? importMapShowGroupAreas,
     Value<bool>? comparisonExportConfigMigrated,
     Value<String>? customThemeColorName,
     Value<int>? customThemeColorValue,
@@ -6933,6 +7154,13 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           this.routePlannerSkillPromotionDismissed,
       hideImportedPointsOnImportMap:
           hideImportedPointsOnImportMap ?? this.hideImportedPointsOnImportMap,
+      mapShowThumbnailMarkers:
+          mapShowThumbnailMarkers ?? this.mapShowThumbnailMarkers,
+      mapShowGroupAreas: mapShowGroupAreas ?? this.mapShowGroupAreas,
+      importMapShowThumbnailMarkers:
+          importMapShowThumbnailMarkers ?? this.importMapShowThumbnailMarkers,
+      importMapShowGroupAreas:
+          importMapShowGroupAreas ?? this.importMapShowGroupAreas,
       comparisonExportConfigMigrated:
           comparisonExportConfigMigrated ?? this.comparisonExportConfigMigrated,
       customThemeColorName: customThemeColorName ?? this.customThemeColorName,
@@ -7107,6 +7335,24 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         hideImportedPointsOnImportMap.value,
       );
     }
+    if (mapShowThumbnailMarkers.present) {
+      map['map_show_thumbnail_markers'] = Variable<bool>(
+        mapShowThumbnailMarkers.value,
+      );
+    }
+    if (mapShowGroupAreas.present) {
+      map['map_show_group_areas'] = Variable<bool>(mapShowGroupAreas.value);
+    }
+    if (importMapShowThumbnailMarkers.present) {
+      map['import_map_show_thumbnail_markers'] = Variable<bool>(
+        importMapShowThumbnailMarkers.value,
+      );
+    }
+    if (importMapShowGroupAreas.present) {
+      map['import_map_show_group_areas'] = Variable<bool>(
+        importMapShowGroupAreas.value,
+      );
+    }
     if (comparisonExportConfigMigrated.present) {
       map['comparison_export_config_migrated'] = Variable<bool>(
         comparisonExportConfigMigrated.value,
@@ -7242,6 +7488,12 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write(
             'hideImportedPointsOnImportMap: $hideImportedPointsOnImportMap, ',
           )
+          ..write('mapShowThumbnailMarkers: $mapShowThumbnailMarkers, ')
+          ..write('mapShowGroupAreas: $mapShowGroupAreas, ')
+          ..write(
+            'importMapShowThumbnailMarkers: $importMapShowThumbnailMarkers, ',
+          )
+          ..write('importMapShowGroupAreas: $importMapShowGroupAreas, ')
           ..write(
             'comparisonExportConfigMigrated: $comparisonExportConfigMigrated, ',
           )
@@ -10171,6 +10423,10 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<bool> routePlannerSkillTipShown,
       Value<bool> routePlannerSkillPromotionDismissed,
       Value<bool> hideImportedPointsOnImportMap,
+      Value<bool> mapShowThumbnailMarkers,
+      Value<bool> mapShowGroupAreas,
+      Value<bool> importMapShowThumbnailMarkers,
+      Value<bool> importMapShowGroupAreas,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10227,6 +10483,10 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<bool> routePlannerSkillTipShown,
       Value<bool> routePlannerSkillPromotionDismissed,
       Value<bool> hideImportedPointsOnImportMap,
+      Value<bool> mapShowThumbnailMarkers,
+      Value<bool> mapShowGroupAreas,
+      Value<bool> importMapShowThumbnailMarkers,
+      Value<bool> importMapShowGroupAreas,
       Value<bool> comparisonExportConfigMigrated,
       Value<String> customThemeColorName,
       Value<int> customThemeColorValue,
@@ -10421,6 +10681,26 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<bool> get hideImportedPointsOnImportMap => $composableBuilder(
     column: $table.hideImportedPointsOnImportMap,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mapShowThumbnailMarkers => $composableBuilder(
+    column: $table.mapShowThumbnailMarkers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mapShowGroupAreas => $composableBuilder(
+    column: $table.mapShowGroupAreas,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get importMapShowThumbnailMarkers => $composableBuilder(
+    column: $table.importMapShowThumbnailMarkers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get importMapShowGroupAreas => $composableBuilder(
+    column: $table.importMapShowGroupAreas,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10695,6 +10975,26 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get mapShowThumbnailMarkers => $composableBuilder(
+    column: $table.mapShowThumbnailMarkers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get mapShowGroupAreas => $composableBuilder(
+    column: $table.mapShowGroupAreas,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get importMapShowThumbnailMarkers => $composableBuilder(
+    column: $table.importMapShowThumbnailMarkers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get importMapShowGroupAreas => $composableBuilder(
+    column: $table.importMapShowGroupAreas,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -10962,6 +11262,26 @@ class $$AppSettingsEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get mapShowThumbnailMarkers => $composableBuilder(
+    column: $table.mapShowThumbnailMarkers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get mapShowGroupAreas => $composableBuilder(
+    column: $table.mapShowGroupAreas,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get importMapShowThumbnailMarkers => $composableBuilder(
+    column: $table.importMapShowThumbnailMarkers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get importMapShowGroupAreas => $composableBuilder(
+    column: $table.importMapShowGroupAreas,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get comparisonExportConfigMigrated =>
       $composableBuilder(
         column: $table.comparisonExportConfigMigrated,
@@ -11139,6 +11459,11 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<bool> hideImportedPointsOnImportMap =
                     const Value.absent(),
+                Value<bool> mapShowThumbnailMarkers = const Value.absent(),
+                Value<bool> mapShowGroupAreas = const Value.absent(),
+                Value<bool> importMapShowThumbnailMarkers =
+                    const Value.absent(),
+                Value<bool> importMapShowGroupAreas = const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11198,6 +11523,10 @@ class $$AppSettingsEntriesTableTableManager
                 routePlannerSkillPromotionDismissed:
                     routePlannerSkillPromotionDismissed,
                 hideImportedPointsOnImportMap: hideImportedPointsOnImportMap,
+                mapShowThumbnailMarkers: mapShowThumbnailMarkers,
+                mapShowGroupAreas: mapShowGroupAreas,
+                importMapShowThumbnailMarkers: importMapShowThumbnailMarkers,
+                importMapShowGroupAreas: importMapShowGroupAreas,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,
@@ -11258,6 +11587,11 @@ class $$AppSettingsEntriesTableTableManager
                     const Value.absent(),
                 Value<bool> hideImportedPointsOnImportMap =
                     const Value.absent(),
+                Value<bool> mapShowThumbnailMarkers = const Value.absent(),
+                Value<bool> mapShowGroupAreas = const Value.absent(),
+                Value<bool> importMapShowThumbnailMarkers =
+                    const Value.absent(),
+                Value<bool> importMapShowGroupAreas = const Value.absent(),
                 Value<bool> comparisonExportConfigMigrated =
                     const Value.absent(),
                 Value<String> customThemeColorName = const Value.absent(),
@@ -11317,6 +11651,10 @@ class $$AppSettingsEntriesTableTableManager
                 routePlannerSkillPromotionDismissed:
                     routePlannerSkillPromotionDismissed,
                 hideImportedPointsOnImportMap: hideImportedPointsOnImportMap,
+                mapShowThumbnailMarkers: mapShowThumbnailMarkers,
+                mapShowGroupAreas: mapShowGroupAreas,
+                importMapShowThumbnailMarkers: importMapShowThumbnailMarkers,
+                importMapShowGroupAreas: importMapShowGroupAreas,
                 comparisonExportConfigMigrated: comparisonExportConfigMigrated,
                 customThemeColorName: customThemeColorName,
                 customThemeColorValue: customThemeColorValue,

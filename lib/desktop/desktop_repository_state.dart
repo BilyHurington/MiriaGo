@@ -100,6 +100,10 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'routePlannerSkillPromotionDismissed':
         settings.routePlannerSkillPromotionDismissed,
     'hideImportedPointsOnImportMap': settings.hideImportedPointsOnImportMap,
+    'mapShowThumbnailMarkers': settings.mapShowThumbnailMarkers,
+    'mapShowGroupAreas': settings.mapShowGroupAreas,
+    'importMapShowThumbnailMarkers': settings.importMapShowThumbnailMarkers,
+    'importMapShowGroupAreas': settings.importMapShowGroupAreas,
     'comparisonExportConfigMigrated': settings.comparisonExportConfigMigrated,
     'customThemeColorName': settings.customThemeColorName,
     'customThemeColorValue': settings.customThemeColorValue,
@@ -221,6 +225,13 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         _boolValue(json['routePlannerSkillPromotionDismissed']) ?? false,
     hideImportedPointsOnImportMap:
         _boolValue(json['hideImportedPointsOnImportMap']) ?? false,
+    mapShowThumbnailMarkers:
+        _boolValue(json['mapShowThumbnailMarkers']) ?? false,
+    mapShowGroupAreas: _boolValue(json['mapShowGroupAreas']) ?? true,
+    importMapShowThumbnailMarkers:
+        _boolValue(json['importMapShowThumbnailMarkers']) ?? false,
+    importMapShowGroupAreas:
+        _boolValue(json['importMapShowGroupAreas']) ?? false,
     comparisonExportConfigMigrated:
         _boolValue(json['comparisonExportConfigMigrated']) ?? false,
     customThemeColorName: _stringValue(

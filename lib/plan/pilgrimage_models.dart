@@ -227,6 +227,10 @@ class AppSettings {
     this.routePlannerSkillTipShown = false,
     this.routePlannerSkillPromotionDismissed = false,
     this.hideImportedPointsOnImportMap = false,
+    this.mapShowThumbnailMarkers = false,
+    this.mapShowGroupAreas = true,
+    this.importMapShowThumbnailMarkers = false,
+    this.importMapShowGroupAreas = false,
   });
 
   final double uiScale;
@@ -289,6 +293,18 @@ class AppSettings {
   /// 只看未加入 on the Anitabi map import page.
   final bool hideImportedPointsOnImportMap;
 
+  /// 主地图显示缩略图标记。
+  final bool mapShowThumbnailMarkers;
+
+  /// 主地图显示片区范围。
+  final bool mapShowGroupAreas;
+
+  /// 作品地图导入页显示缩略图标记。
+  final bool importMapShowThumbnailMarkers;
+
+  /// 作品地图导入页显示计划已有的片区范围。
+  final bool importMapShowGroupAreas;
+
   AppSettings copyWith({
     double? uiScale,
     double? fontScale,
@@ -341,6 +357,10 @@ class AppSettings {
     bool? routePlannerSkillTipShown,
     bool? routePlannerSkillPromotionDismissed,
     bool? hideImportedPointsOnImportMap,
+    bool? mapShowThumbnailMarkers,
+    bool? mapShowGroupAreas,
+    bool? importMapShowThumbnailMarkers,
+    bool? importMapShowGroupAreas,
   }) {
     return AppSettings(
       uiScale: uiScale ?? this.uiScale,
@@ -426,6 +446,13 @@ class AppSettings {
           this.routePlannerSkillPromotionDismissed,
       hideImportedPointsOnImportMap:
           hideImportedPointsOnImportMap ?? this.hideImportedPointsOnImportMap,
+      mapShowThumbnailMarkers:
+          mapShowThumbnailMarkers ?? this.mapShowThumbnailMarkers,
+      mapShowGroupAreas: mapShowGroupAreas ?? this.mapShowGroupAreas,
+      importMapShowThumbnailMarkers:
+          importMapShowThumbnailMarkers ?? this.importMapShowThumbnailMarkers,
+      importMapShowGroupAreas:
+          importMapShowGroupAreas ?? this.importMapShowGroupAreas,
     );
   }
 }

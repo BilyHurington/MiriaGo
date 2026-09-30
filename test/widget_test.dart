@@ -4086,11 +4086,24 @@ void main() {
     final secondMarker = find.byKey(
       const ValueKey('anitabi-import-marker-p2'),
     );
-    final toggle = find.byKey(const ValueKey('anitabi-hide-imported-toggle'));
+    Future<void> setOnlyUnimported(bool expected) async {
+      await tester.tap(find.byKey(const ValueKey('map-layers-button')));
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(
+        const ValueKey('map-layer-toggle-hide-imported'),
+      );
+      expect(tester.widget<SwitchListTile>(toggle).value, !expected);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(toggle).value, expected);
+      // Close the panel.
+      await tester.tapAt(const Offset(20, 580));
+      await tester.pumpAndSettle();
+    }
+
     expect(secondMarker, findsOneWidget);
 
-    await tester.tap(toggle);
-    await tester.pumpAndSettle();
+    await setOnlyUnimported(true);
     expect(secondMarker, findsNothing);
     expect(
       find.byKey(const ValueKey('anitabi-import-marker-p1')),
@@ -4101,8 +4114,7 @@ void main() {
       isTrue,
     );
 
-    await tester.tap(toggle);
-    await tester.pumpAndSettle();
+    await setOnlyUnimported(false);
     expect(secondMarker, findsOneWidget);
     expect(
       (await repository.loadAppSettings()).hideImportedPointsOnImportMap,

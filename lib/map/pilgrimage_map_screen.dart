@@ -29,6 +29,7 @@ import '../widgets/image_load_limiter.dart';
 import '../widgets/map_thumbnail_marker.dart';
 import 'navigation_route_confirm_screen.dart';
 import 'map_navigation_launcher.dart';
+import 'map_layers_panel.dart';
 import 'map_marker_clustering.dart';
 import 'map_tile_config.dart';
 import 'map_location_tracker.dart';
@@ -41,6 +42,7 @@ class PilgrimageMapScreen extends StatefulWidget {
     required this.settings,
     this.isActive = true,
     this.locationTracker,
+    this.onSettingsChanged,
     super.key,
   });
 
@@ -48,6 +50,10 @@ class PilgrimageMapScreen extends StatefulWidget {
   final AppSettings settings;
   final bool isActive;
   final MapLocationTracker? locationTracker;
+
+  /// Stores settings changed from the 图层 panel; resolves to false when
+  /// they could not be saved.
+  final Future<bool> Function(AppSettings settings)? onSettingsChanged;
 
   @override
   State<PilgrimageMapScreen> createState() => _PilgrimageMapScreenState();
@@ -108,7 +114,7 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
     });
   }
 
-  bool _showThumbnailMarkers = false;
+  bool get _showThumbnailMarkers => widget.settings.mapShowThumbnailMarkers;
   int _selectedGroupIndex = 0;
   _OverlapPointBrowser? _overlapPointBrowser;
   final ValueNotifier<LatLngBounds?> _visibleBoundsNotifier = ValueNotifier(
@@ -125,11 +131,96 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
   void didUpdateWidget(covariant PilgrimageMapScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     syncLocationActivity(force: true);
+    if (oldWidget.settings.mapShowThumbnailMarkers !=
+        widget.settings.mapShowThumbnailMarkers) {
+      _syncThumbnailBounds();
+    }
     if (oldWidget.settings.mapThumbnailConcurrentLoads !=
         widget.settings.mapThumbnailConcurrentLoads) {
       _thumbnailLoadLimiter.maxConcurrent =
           widget.settings.mapThumbnailConcurrentLoads;
     }
+  }
+
+  /// Thumbnails load for the visible area only; start or stop tracking it.
+  void _syncThumbnailBounds() {
+    if (!_showThumbnailMarkers) {
+      _thumbnailBoundsDebounce?.cancel();
+      _visibleBoundsNotifier.value = null;
+      return;
+    }
+    try {
+      _visibleBoundsNotifier.value = _mapController.camera.visibleBounds;
+    } catch (_) {
+      _visibleBoundsNotifier.value = null;
+    }
+  }
+
+  Future<bool> _updateSettings(
+    AppSettings Function(AppSettings settings) update,
+  ) async {
+    final save = widget.onSettingsChanged;
+    if (save == null) {
+      return false;
+    }
+    return save(update(widget.settings));
+  }
+
+  void _openLayers(BuildContext anchorContext) {
+    final settings = widget.settings;
+    unawaited(
+      showMapLayersPanel(
+        anchorContext,
+        settings: settings,
+        toggles: [
+          MapLayerToggle(
+            id: 'thumbnails',
+            label: '缩略图标记',
+            icon: LucideIcons.image,
+            value: settings.mapShowThumbnailMarkers,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(mapShowThumbnailMarkers: value),
+            ),
+          ),
+          MapLayerToggle(
+            id: 'group-areas',
+            label: '片区范围',
+            icon: LucideIcons.pentagon,
+            value: settings.mapShowGroupAreas,
+            onChanged: (value) =>
+                _updateSettings((s) => s.copyWith(mapShowGroupAreas: value)),
+          ),
+          MapLayerToggle(
+            id: 'hide-completed',
+            label: '隐藏已完成点位',
+            icon: LucideIcons.circleCheck,
+            value: settings.hideCompletedPointsOnMap,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(hideCompletedPointsOnMap: value),
+            ),
+          ),
+          MapLayerToggle(
+            id: 'clustering',
+            label: '自动聚合密集点位',
+            icon: LucideIcons.group,
+            value: settings.mapMarkerClusteringEnabled,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(mapMarkerClusteringEnabled: value),
+            ),
+          ),
+          MapLayerToggle(
+            id: 'continuous-location',
+            label: '持续更新当前位置',
+            description: '关闭后只在点定位时获取一次位置，更省电',
+            icon: LucideIcons.locateFixed,
+            value: settings.continuousMapLocation,
+            onChanged: (value) => _updateSettings(
+              (s) => s.copyWith(continuousMapLocation: value),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -612,15 +703,16 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
             ),
             children: [
               configuredMapTileLayer(widget.settings),
-              PolygonLayer(
-                simplificationTolerance: 0,
-                polygons: groupAreaPolygons(
-                  groups,
-                  selectedGroupId: selectedGroupId,
-                  radiusMeters: widget.settings.mapGroupAreaRadiusMeters
-                      .toDouble(),
+              if (widget.settings.mapShowGroupAreas)
+                PolygonLayer(
+                  simplificationTolerance: 0,
+                  polygons: groupAreaPolygons(
+                    groups,
+                    selectedGroupId: selectedGroupId,
+                    radiusMeters: widget.settings.mapGroupAreaRadiusMeters
+                        .toDouble(),
+                  ),
                 ),
-              ),
               ValueListenableBuilder<LatLngBounds?>(
                 valueListenable: _visibleBoundsNotifier,
                 builder: (context, visibleBounds, _) {
@@ -828,30 +920,12 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
                     child: const Icon(LucideIcons.flag, size: 20),
                   ),
                   const SizedBox(height: 8),
-                  _MapFloatingIconButton(
-                    tooltip: _showThumbnailMarkers ? '使用图标标记' : '显示缩略图标记',
-                    selected: _showThumbnailMarkers,
-                    onTap: () {
-                      setState(() {
-                        _showThumbnailMarkers = !_showThumbnailMarkers;
-                        if (!_showThumbnailMarkers) {
-                          _thumbnailBoundsDebounce?.cancel();
-                          _visibleBoundsNotifier.value = null;
-                        } else {
-                          try {
-                            _visibleBoundsNotifier.value =
-                                _mapController.camera.visibleBounds;
-                          } catch (_) {
-                            _visibleBoundsNotifier.value = null;
-                          }
-                        }
-                      });
-                    },
-                    child: Icon(
-                      _showThumbnailMarkers
-                          ? LucideIcons.mapPin
-                          : LucideIcons.image,
-                      size: 20,
+                  Builder(
+                    builder: (buttonContext) => _MapFloatingIconButton(
+                      key: const ValueKey('map-layers-button'),
+                      tooltip: '图层',
+                      onTap: () => _openLayers(buttonContext),
+                      child: const Icon(LucideIcons.layers, size: 20),
                     ),
                   ),
                 ],
@@ -975,30 +1049,25 @@ class _MapFloatingIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.child,
-    this.selected = false,
+    super.key,
   });
 
   final String tooltip;
   final VoidCallback? onTap;
   final Widget child;
-  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: selected
-            ? MapColors.accent.withValues(alpha: 0.95)
-            : MapColors.surface.withValues(alpha: 0.94),
+        color: MapColors.surface.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: IconTheme(
-            data: IconThemeData(
-              color: selected ? MapColors.onAccent : AppColors.textPrimary,
-            ),
+            data: IconThemeData(color: AppColors.textPrimary),
             child: SizedBox(width: 38, height: 38, child: Center(child: child)),
           ),
         ),

@@ -92,7 +92,7 @@ void main() {
   });
 
   test(
-    'schema 44 to 47 add remote, skill promotion and import filter settings',
+    'schema 44 to 48 add remote, skill promotion and map display settings',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'miriago-anitabi-remote-',
@@ -118,6 +118,22 @@ void main() {
         'ALTER TABLE app_settings_entries '
         'DROP COLUMN hide_imported_points_on_import_map',
       );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN map_show_thumbnail_markers',
+      );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN map_show_group_areas',
+      );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN import_map_show_thumbnail_markers',
+      );
+      await oldDatabase.customStatement(
+        'ALTER TABLE app_settings_entries '
+        'DROP COLUMN import_map_show_group_areas',
+      );
       await oldDatabase.customStatement('PRAGMA user_version = 43');
       await oldDatabase.close();
 
@@ -129,12 +145,18 @@ void main() {
       expect(settings.routePlannerSkillTipShown, isFalse);
       expect(settings.routePlannerSkillPromotionDismissed, isFalse);
       expect(settings.hideImportedPointsOnImportMap, isFalse);
+      expect(settings.mapShowThumbnailMarkers, isFalse);
+      expect(settings.mapShowGroupAreas, isTrue);
+      expect(settings.importMapShowThumbnailMarkers, isFalse);
+      expect(settings.importMapShowGroupAreas, isFalse);
       await repository.saveAppSettings(
         settings.copyWith(
           anitabiRemoteStateJson: '{"autoUpdate":false}',
           routePlannerSkillTipShown: true,
           routePlannerSkillPromotionDismissed: true,
           hideImportedPointsOnImportMap: true,
+          mapShowThumbnailMarkers: true,
+          mapShowGroupAreas: false,
         ),
       );
       final stalePromotionState = await repository.loadAppSettings();
@@ -155,6 +177,8 @@ void main() {
       expect(reopenedSettings.anitabiRemoteState.autoUpdate, isFalse);
       expect(reopenedSettings.routePlannerSkillTipShown, isTrue);
       expect(reopenedSettings.hideImportedPointsOnImportMap, isTrue);
+      expect(reopenedSettings.mapShowThumbnailMarkers, isTrue);
+      expect(reopenedSettings.mapShowGroupAreas, isFalse);
       expect(reopenedSettings.routePlannerSkillPromotionDismissed, isTrue);
     },
   );
