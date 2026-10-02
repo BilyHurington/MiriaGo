@@ -50,7 +50,10 @@ fn main() {
             commands::read_asset,
             commands::inspect_reference_cache_asset,
             commands::delete_reference_cache_asset,
-            commands::fetch_anitabi_static_json
+            commands::fetch_anitabi_static_json,
+            commands::download_plan_package,
+            commands::plan_download_progress,
+            commands::cancel_plan_download
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

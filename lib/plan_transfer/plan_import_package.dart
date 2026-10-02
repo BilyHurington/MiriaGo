@@ -319,6 +319,196 @@ PlanImportPackage readPlanImportPackageFromBytes(
   );
 }
 
+/// A plan file inside a downloaded archive.
+class PlanArchiveEntry {
+  const PlanArchiveEntry({required this.name, required this.size});
+
+  /// Path inside the archive.
+  final String name;
+
+  /// Uncompressed size in bytes.
+  final int size;
+
+  String get fileName => name.split('/').last;
+}
+
+/// The downloaded archive holds several plan files; the user picks one and
+/// the read is repeated with its [PlanArchiveEntry.name].
+class PlanArchiveChoiceRequired implements Exception {
+  const PlanArchiveChoiceRequired(this.entries);
+
+  final List<PlanArchiveEntry> entries;
+
+  @override
+  String toString() => 'PlanArchiveChoiceRequired(${entries.length})';
+}
+
+/// The downloaded archive is a ZIP without a plan package in it.
+class PlanArchiveHasNoPlanException implements Exception {
+  const PlanArchiveHasNoPlanException();
+
+  @override
+  String toString() => 'PlanArchiveHasNoPlanException';
+}
+
+/// Reads a downloaded plan: a .sjhplan (or legacy JSON) as is, or a ZIP
+/// that carries .sjhplan files next to other material (e.g. a release
+/// "full pack" with notes). [entryName] picks one of several; without it a
+/// [PlanArchiveChoiceRequired] lists them.
+PlanImportPackage readPlanImportPackageFromDownload(
+  List<int> bytes, {
+  required String sourceName,
+  String? entryName,
+  PlanImportLimits limits = const PlanImportLimits(),
+  bool Function()? isCancelled,
+}) {
+  if (bytes.length > limits.maxCompressedBytes) {
+    throw PlanImportLimitException(
+      '压缩包字节数',
+      bytes.length,
+      limits.maxCompressedBytes,
+    );
+  }
+  if (!_looksLikeZip(bytes)) {
+    return readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: sourceName,
+      limits: limits,
+      isCancelled: isCancelled,
+    );
+  }
+  void checkCancellation() {
+    if (isCancelled?.call() ?? false) {
+      throw const FormatException('Import cancelled.');
+    }
+  }
+
+  final directory = _LimitedZipDirectory(limits.maxEntries, checkCancellation);
+  directory.read(InputMemoryStream(bytes));
+  final headers = directory.fileHeaders;
+  if (headers.any(
+    (header) =>
+        normalizeAssetPathSeparators(header.filename) == 'manifest.json',
+  )) {
+    // A MiriaGo package itself.
+    return readPlanImportPackageFromBytes(
+      bytes,
+      sourceName: sourceName,
+      limits: limits,
+      isCancelled: isCancelled,
+    );
+  }
+  final plans = [
+    for (final header in headers)
+      if (_isPlanArchiveEntryName(
+        normalizeAssetPathSeparators(header.filename),
+      ))
+        header,
+  ];
+  if (plans.isEmpty) {
+    throw const PlanArchiveHasNoPlanException();
+  }
+  final ZipFileHeader chosen;
+  if (entryName != null) {
+    chosen = plans.firstWhere(
+      (header) => normalizeAssetPathSeparators(header.filename) == entryName,
+      orElse: () => throw const PlanArchiveHasNoPlanException(),
+    );
+  } else if (plans.length == 1) {
+    chosen = plans.single;
+  } else {
+    throw PlanArchiveChoiceRequired([
+      for (final header in plans)
+        PlanArchiveEntry(
+          name: normalizeAssetPathSeparators(header.filename),
+          size: header.uncompressedSize,
+        ),
+    ]);
+  }
+  final inner = _readSinglePlanEntry(chosen, limits, checkCancellation);
+  return readPlanImportPackageFromBytes(
+    inner,
+    sourceName: normalizeAssetPathSeparators(chosen.filename).split('/').last,
+    limits: limits,
+    isCancelled: isCancelled,
+  );
+}
+
+bool _isPlanArchiveEntryName(String name) {
+  final lower = name.toLowerCase();
+  final fileName = lower.split('/').last;
+  return lower.endsWith('.$seichiPlanFileExtension') &&
+      !lower.startsWith('__macosx/') &&
+      !lower.contains('/__macosx/') &&
+      !fileName.startsWith('.');
+}
+
+Uint8List _readSinglePlanEntry(
+  ZipFileHeader header,
+  PlanImportLimits limits,
+  void Function() checkCancellation,
+) {
+  final file = header.file!;
+  if (file.filename != header.filename ||
+      (header.generalPurposeBitFlag | file.flags) & 0x41 != 0 ||
+      ![0, 8].contains(header.compressionMethod) ||
+      header.uncompressedSize < 0) {
+    throw const FormatException('Ambiguous or unsupported ZIP entry.');
+  }
+  if (header.uncompressedSize > limits.maxCompressedBytes) {
+    throw PlanImportLimitException(
+      '计划文件字节数',
+      header.uncompressedSize,
+      limits.maxCompressedBytes,
+    );
+  }
+  final output = _CappedOutput(limits.maxCompressedBytes, checkCancellation);
+  final input = file.getStream(decompress: false);
+  if (header.compressionMethod == 8) {
+    Inflate.stream(input, output: output);
+  } else {
+    output.writeStream(input);
+  }
+  final content = output.getBytes();
+  if (content.length != header.uncompressedSize ||
+      getCrc32(content) != header.crc32) {
+    throw const FormatException('Invalid ZIP size or checksum.');
+  }
+  return content;
+}
+
+class _CappedOutput extends OutputMemoryStream {
+  _CappedOutput(this.limit, this.check) : super(size: 1024);
+
+  final int limit;
+  final void Function() check;
+
+  void _reserve(int count) {
+    check();
+    if (length + count > limit) {
+      throw PlanImportLimitException('计划文件字节数', length + count, limit);
+    }
+  }
+
+  @override
+  void writeByte(int value) {
+    _reserve(1);
+    super.writeByte(value);
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    _reserve(length ?? bytes.length);
+    super.writeBytes(bytes, length: length);
+  }
+
+  @override
+  void writeStream(InputStream stream) {
+    _reserve(stream.length);
+    super.writeStream(stream);
+  }
+}
+
 /// Parses [bytes] in a worker isolate on native platforms so ZIP inflate,
 /// CRC and JSON work cannot stall the UI isolate. All limits of
 /// [readPlanImportPackageFromBytes] still apply inside the worker.

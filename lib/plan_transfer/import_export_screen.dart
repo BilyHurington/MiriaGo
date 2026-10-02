@@ -20,6 +20,7 @@ import 'plan_import_file_stub.dart'
     if (dart.library.io) 'plan_import_file_io.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
+import 'plan_link_import_screen.dart';
 import 'plan_import_stream.dart';
 import 'plan_package.dart' show seichiPlanFileExtension, seichiPlanMimeType;
 import 'plan_transfer_background.dart';
@@ -113,6 +114,14 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
               onTap: _usesExternalIosImport
                   ? _showExternalIosImportHelp
                   : _importFromFile,
+            ),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: LucideIcons.link,
+              title: '从链接导入',
+              subtitle: '粘贴 GitHub 发布或 .sjhplan / .zip 下载链接，下载后预览导入。',
+              enabled: !_exporting && !_importing,
+              onTap: _importFromLink,
             ),
             const SizedBox(height: 10),
             RoutePlannerSkillCard(repository: widget.repository),
@@ -269,6 +278,17 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       if (mounted) {
         setState(() => _importing = false);
       }
+    }
+  }
+
+  Future<void> _importFromLink() async {
+    final imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => PlanLinkImportScreen(repository: widget.repository),
+      ),
+    );
+    if (imported == true && mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 

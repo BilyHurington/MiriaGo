@@ -1,6 +1,6 @@
 # MiriaGo Privacy Policy
 
-Last updated: September 22, 2026
+Last updated: October 1, 2026
 
 MiriaGo is an app for anime pilgrimage planning, location reference, camera-assisted shooting, visit record management, and local data import/export.
 
@@ -32,7 +32,7 @@ MiriaGo may request the following system permissions:
 - Camera: used to take pilgrimage photos and compare them with reference images.
 - Photo Library / Photos: used to import images, choose reference photos, and save visit photos or exported comparison images.
 - Location: used to show your current position on the pilgrimage map and help you navigate or record locations.
-- Microphone: may be requested by the system because camera-related APIs or platform libraries can reference audio capture capabilities. MiriaGo does not use microphone audio for account tracking or analytics.
+- Microphone: MiriaGo does not record sound. The system requires a microphone description because the camera component also supports video recording; MiriaGo only takes photos.
 - Files / Documents: used when you import or export MiriaGo plan packages, CSV files, or related resources.
 
 You can manage these permissions in your device settings.
@@ -52,6 +52,9 @@ MiriaGo may access third-party services or public data sources when you use rela
 - Anime pilgrimage point/reference data may be imported from user-selected or supported sources such as Anitabi.
 - Work metadata may be searched or imported from Bangumi-related APIs when you choose to use those features.
 - In-app walking route previews and navigation use a Valhalla routing service, by default `https://valhalla1.openstreetmap.de`, or the service address you configure. Route requests send the start, destination, and intermediate stop coordinates. Rerouting can send your current position and the remaining stops. The connection-test button requests service status without sending route coordinates.
+- To keep the Anitabi service addresses current, MiriaGo can read a small configuration file published in the MiriaGo GitHub repository, from `raw.githubusercontent.com` or the jsDelivr CDN (`cdn.jsdelivr.net`, `fastly.jsdelivr.net`). This happens when Anitabi requests fail (at most a few times a day) or when you choose "立即检查" in settings, and can be switched off there. The request contains no plan or location data.
+- "从链接导入" downloads the plan file from the link you enter. For GitHub release or repository links, MiriaGo first asks the GitHub API (`api.github.com`) which files the release contains, then downloads the file you choose from GitHub. The desktop app performs this download through its own launcher. The link's server receives ordinary network information such as your IP address.
+- Links such as the route planner skill guide open GitHub in your browser, where GitHub's own policies apply.
 - External navigation can open Google Maps, Apple Maps, Amap, or Baidu Maps. MiriaGo passes destination coordinates, and for some providers also a destination name. The external app or website then handles navigation under its own settings and permissions.
 
 When these services are used, your device may connect directly to those third parties. Selected map, routing, data, and image services can receive ordinary network information such as your IP address, along with requested tiles, style URLs, image URLs, search terms, or route coordinates as applicable. Custom service addresses change the recipient of the corresponding requests; configuring one does not make those requests private or offline. Some supported service or navigation URLs use HTTP rather than HTTPS. The recipients' own privacy policies and terms apply. MiriaGo does not specify or guarantee their retention periods or subsequent use of this data.
@@ -70,7 +73,7 @@ MiriaGo does not automatically upload these exports. You control where exported 
 
 Comparison images are generated locally and may visibly include selected fields such as point name, work title, capture time, coordinates, or a configured pilgrim name. Generation or plan-package export may need to download remote reference images when those resources are not available locally or are requested by the export options. This is a reference-resource request, not an upload of your captured photo, but it means that exporting is not always fully offline.
 
-When you import a data package, MiriaGo reads the package contents and may restore included images or resources into local app storage.
+Importing from a link downloads the file first (see above); the downloaded copy is deleted once it has been read. When you import a data package, MiriaGo reads the package contents and may restore included images or resources into local app storage.
 
 ## Analytics And Advertising
 
@@ -98,7 +101,7 @@ https://github.com/BilyHurington/MiriaGo/issues
 
 # MiriaGo 隐私政策
 
-最后更新：2026 年 9 月 22 日
+最后更新：2026 年 10 月 1 日
 
 MiriaGo 是一款用于动漫圣地巡礼计划、地图点位参考、拍摄辅助、巡礼记录整理以及本地数据导入导出的应用。
 
@@ -130,7 +133,7 @@ MiriaGo 可能请求以下系统权限：
 - 相机：用于拍摄巡礼照片，并与参考图进行对照。
 - 照片/相册：用于导入图片、选择参考图，以及保存巡礼照片或导出的对比图。
 - 定位：用于在巡礼地图中显示当前位置，并辅助导航或记录地点。
-- 麦克风：系统可能因为相机相关 API 或平台库引用了音频采集能力而要求该权限说明。MiriaGo 不会将麦克风音频用于账号追踪或分析。
+- 麦克风：MiriaGo 拍摄巡礼照片时不会录制声音。此说明仅因相机组件包含录像能力而必须提供，MiriaGo 只拍摄照片。
 - 文件/文档：用于导入或导出 MiriaGo 计划包、CSV 文件和相关资源。
 
 你可以在设备系统设置中管理这些权限。
@@ -150,6 +153,9 @@ MiriaGo 可能请求以下系统权限：
 - 动漫巡礼点位和参考图数据可能来自你选择或应用支持的数据源，例如 Anitabi。
 - 作品元数据可能在你使用相关功能时通过 Bangumi 相关 API 搜索或导入。
 - 应用内步行路线预览与导航使用 Valhalla 路线服务，默认地址为 `https://valhalla1.openstreetmap.de`，也可以使用你配置的服务地址。路线请求会发送起点、终点及途经点坐标；重新规划时可能发送当前位置及剩余站点。连接测试按钮仅请求服务状态，不发送路线坐标。
+- 为保持 Anitabi 服务地址可用，MiriaGo 可能从 MiriaGo GitHub 仓库读取一个小型配置文件，来源为 `raw.githubusercontent.com` 或 jsDelivr CDN（`cdn.jsdelivr.net`、`fastly.jsdelivr.net`）。这会在 Anitabi 请求失败时（每天最多几次）或你在设置中点击“立即检查”时进行，并可在设置中关闭。该请求不包含计划或位置数据。
+- “从链接导入”会从你输入的链接下载计划文件。对于 GitHub 发布或仓库链接，MiriaGo 会先向 GitHub API（`api.github.com`）查询该发布包含的文件，再从 GitHub 下载你选择的文件。桌面版通过其启动器完成下载。链接所在服务器可收到 IP 地址等常规网络信息。
+- 路线规划 Skill 使用说明等链接会在浏览器中打开 GitHub，适用 GitHub 自身的政策。
 - 外部导航可以打开 Google Maps、Apple Maps、高德地图或百度地图。MiriaGo 会传递目的地坐标，部分服务还会收到目的地名称；外部应用或网站随后按其自身设置和权限处理导航。
 
 使用这些服务时，你的设备可能会直接连接到第三方服务。所选地图、路线、数据或图片服务可收到 IP 地址等常规网络信息，以及对应功能请求的瓦片、地图样式 URL、图片 URL、搜索词或路线坐标。自定义服务地址会改变对应请求的接收方，并不意味着请求成为私密或离线操作。部分支持的服务或导航 URL 使用 HTTP 而非 HTTPS。接收方自身的隐私政策和使用条款适用；MiriaGo 不说明或保证其数据留存期限及后续用途。
@@ -168,7 +174,7 @@ MiriaGo 不会自动上传这些导出文件。你可以自行控制导出文件
 
 对比图在本地生成，画面可能包含你选择显示的点位名称、作品标题、拍摄时间、坐标或配置的巡礼者名称。生成对比图或导出计划包时，如果所需参考图不在本地，或导出选项要求包含相应资源，可能需要联网下载远端参考图。这是参考资源请求，并非上传你的拍摄照片，但意味着导出并不总是完全离线。
 
-当你导入数据包时，MiriaGo 会读取包内内容，并可能将其中包含的图片或资源恢复到本地应用存储中。
+从链接导入时会先下载文件（见上文），读取完成后即删除下载的临时副本。当你导入数据包时，MiriaGo 会读取包内内容，并可能将其中包含的图片或资源恢复到本地应用存储中。
 
 ## 分析和广告
 

@@ -828,23 +828,7 @@ const MAX_ANITABI_STATIC_BYTES: u64 = 16 * 1024 * 1024;
 fn fetch_text(url: &str) -> Result<String, String> {
     use std::io::Read as _;
 
-    let response = reqwest::blocking::Client::builder()
-        .user_agent("MiriaGo desktop launcher")
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .timeout(std::time::Duration::from_secs(120))
-        // Every hop must stay on a public HTTPS host, so a public address
-        // cannot bounce the request into the local network.
-        .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= 5 {
-                attempt.error("too many redirects")
-            } else if check_public_https_url(attempt.url()).is_err() {
-                attempt.error("redirect to a non-public address")
-            } else {
-                attempt.follow()
-            }
-        }))
-        .build()
-        .map_err(|error| error.to_string())?
+    let response = public_https_client(std::time::Duration::from_secs(120))?
         .get(url)
         .send()
         .map_err(|error| error.to_string())?;
@@ -868,6 +852,125 @@ fn fetch_text(url: &str) -> Result<String, String> {
     String::from_utf8(body).map_err(|error| error.to_string())
 }
 
+/// Largest plan file downloaded from a link; the same as a picked file.
+const MAX_PLAN_DOWNLOAD_BYTES: u64 = 128 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanDownloadProgress {
+    pub received: u64,
+    pub total: Option<u64>,
+    #[serde(skip)]
+    cancelled: bool,
+}
+
+/// Downloads in flight, by the id the Flutter side chose: it polls the
+/// progress and can cancel.
+static PLAN_DOWNLOADS: LazyLock<Mutex<HashMap<String, PlanDownloadProgress>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn plan_downloads() -> std::sync::MutexGuard<'static, HashMap<String, PlanDownloadProgress>> {
+    PLAN_DOWNLOADS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadPlanPackageRequest {
+    pub url: String,
+    pub download_id: String,
+}
+
+/// Downloads a plan file for "从链接导入". The web view cannot read GitHub
+/// release downloads itself (no CORS headers), so the launcher fetches them,
+/// with the same public-HTTPS checks on every redirect as other fetches.
+#[tauri::command]
+pub async fn download_plan_package(
+    request: DownloadPlanPackageRequest,
+) -> Result<tauri::ipc::Response, String> {
+    let id = request.download_id.clone();
+    plan_downloads().insert(id.clone(), PlanDownloadProgress::default());
+    let result = run_blocking(move || download_plan_package_blocking(&request)).await;
+    plan_downloads().remove(&id);
+    result.map(tauri::ipc::Response::new)
+}
+
+#[tauri::command]
+pub fn plan_download_progress(download_id: String) -> Option<PlanDownloadProgress> {
+    plan_downloads().get(&download_id).copied()
+}
+
+#[tauri::command]
+pub fn cancel_plan_download(download_id: String) {
+    if let Some(progress) = plan_downloads().get_mut(&download_id) {
+        progress.cancelled = true;
+    }
+}
+
+fn download_plan_package_blocking(request: &DownloadPlanPackageRequest) -> Result<Vec<u8>, String> {
+    use std::io::Read as _;
+
+    let url = reqwest::Url::parse(request.url.trim()).map_err(|_| "invalid HTTPS URL")?;
+    check_public_https_url(&url)?;
+    let mut response = public_https_client(std::time::Duration::from_secs(30 * 60))?
+        .get(url)
+        .send()
+        .map_err(|error| error.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("request failed: {}", response.status()));
+    }
+    let total = response.content_length();
+    if total.is_some_and(|length| length > MAX_PLAN_DOWNLOAD_BYTES) {
+        return Err("response too large".to_string());
+    }
+    let mut body = Vec::with_capacity(total.unwrap_or(0).min(MAX_PLAN_DOWNLOAD_BYTES) as usize);
+    let mut buffer = vec![0u8; 64 * 1024];
+    loop {
+        if plan_downloads()
+            .get(&request.download_id)
+            .is_none_or(|progress| progress.cancelled)
+        {
+            return Err("download cancelled".to_string());
+        }
+        let read = response
+            .read(&mut buffer)
+            .map_err(|error| error.to_string())?;
+        if read == 0 {
+            break;
+        }
+        if (body.len() + read) as u64 > MAX_PLAN_DOWNLOAD_BYTES {
+            return Err("response too large".to_string());
+        }
+        body.extend_from_slice(&buffer[..read]);
+        if let Some(progress) = plan_downloads().get_mut(&request.download_id) {
+            progress.received = body.len() as u64;
+            progress.total = total;
+        }
+    }
+    Ok(body)
+}
+
+/// A client whose every redirect must stay on a public HTTPS host, so a
+/// public address cannot bounce the request into the local network.
+fn public_https_client(timeout: std::time::Duration) -> Result<reqwest::blocking::Client, String> {
+    reqwest::blocking::Client::builder()
+        .user_agent("MiriaGo desktop launcher")
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 5 {
+                attempt.error("too many redirects")
+            } else if check_public_https_url(attempt.url()).is_err() {
+                attempt.error("redirect to a non-public address")
+            } else {
+                attempt.follow()
+            }
+        }))
+        .build()
+        .map_err(|error| error.to_string())
+}
+
 fn mime_type_for_path(path: &std::path::Path) -> String {
     match path
         .extension()
@@ -888,9 +991,31 @@ fn mime_type_for_path(path: &std::path::Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
+        cancel_plan_download, download_plan_package_blocking, plan_download_progress,
         safe_asset_path, safe_local_asset_path, safe_public_https_base_url,
-        safe_reclaimable_asset_path, safe_reference_cache_path,
+        safe_reclaimable_asset_path, safe_reference_cache_path, DownloadPlanPackageRequest,
     };
+
+    #[test]
+    fn plan_downloads_refuse_non_public_or_plain_http_links() {
+        for url in [
+            "http://example.com/plan.sjhplan",
+            "https://127.0.0.1/plan.sjhplan",
+            "https://localhost/plan.sjhplan",
+            "https://192.168.1.2/plan.sjhplan",
+            "file:///etc/passwd",
+            "not a url",
+        ] {
+            let request = DownloadPlanPackageRequest {
+                url: url.to_string(),
+                download_id: "test".to_string(),
+            };
+            assert!(download_plan_package_blocking(&request).is_err(), "{url}");
+        }
+        // Unknown downloads have no progress and cancel quietly.
+        assert!(plan_download_progress("missing".to_string()).is_none());
+        cancel_plan_download("missing".to_string());
+    }
 
     #[test]
     fn reclaimable_assets_are_limited_to_app_created_folders() {

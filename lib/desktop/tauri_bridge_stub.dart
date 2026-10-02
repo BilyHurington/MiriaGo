@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class DesktopLauncherInfo {
   const DesktopLauncherInfo({
     required this.appVersion,
@@ -192,3 +194,20 @@ Future<String> fetchDesktopAnitabiStaticJson({
 }) async {
   throw UnsupportedError('Tauri desktop launcher is not available.');
 }
+
+/// Downloads a plan file through the launcher (the browser view cannot read
+/// GitHub release downloads itself). Polled with [desktopPlanDownloadProgress].
+Future<Uint8List> downloadDesktopPlanPackage({
+  required String url,
+  required String downloadId,
+}) async {
+  throw UnsupportedError('Tauri desktop launcher is not available.');
+}
+
+Future<({int received, int? total})?> desktopPlanDownloadProgress(
+  String downloadId,
+) async {
+  return null;
+}
+
+Future<void> cancelDesktopPlanDownload(String downloadId) async {}

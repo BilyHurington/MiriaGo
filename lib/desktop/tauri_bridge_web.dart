@@ -1,5 +1,7 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import 'dart:typed_data';
+
 import '../data/bounded_image_decoder.dart';
 import 'desktop_asset_data_url_cache.dart';
 
@@ -466,4 +468,46 @@ int? _intProperty(JSObject object, String name) {
     return null;
   }
   return (value as JSNumber).toDartInt;
+}
+
+Future<Uint8List> downloadDesktopPlanPackage({
+  required String url,
+  required String downloadId,
+}) async {
+  final core = _tauriCore();
+  if (core == null) {
+    throw StateError('Tauri launcher is not available.');
+  }
+  final promise = core.callMethod<JSPromise<JSAny?>>(
+    'invoke'.toJS,
+    'download_plan_package'.toJS,
+    _jsObjectFromMap({
+      'request': {'url': url, 'downloadId': downloadId},
+    }),
+  );
+  final result = await promise.toDart;
+  if (result == null || result.isUndefinedOrNull) {
+    throw StateError('Tauri download_plan_package returned no data.');
+  }
+  // A raw IPC response arrives as an ArrayBuffer.
+  return (result as JSArrayBuffer).toDart.asUint8List();
+}
+
+Future<({int received, int? total})?> desktopPlanDownloadProgress(
+  String downloadId,
+) async {
+  final result = await _invokeObject('plan_download_progress', {
+    'downloadId': downloadId,
+  });
+  if (result == null) {
+    return null;
+  }
+  return (
+    received: _intProperty(result, 'received') ?? 0,
+    total: _intProperty(result, 'total'),
+  );
+}
+
+Future<void> cancelDesktopPlanDownload(String downloadId) {
+  return _invokeVoid('cancel_plan_download', {'downloadId': downloadId});
 }
