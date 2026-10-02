@@ -38,6 +38,7 @@ import 'reference_image_bytes_stub.dart'
     if (dart.library.io) 'reference_image_bytes_io.dart'
     as reference_image_bytes;
 import 'visit_record_confirmation_screen.dart';
+import '../settings/app_settings_updater.dart';
 
 enum AwesomeReferenceMode { overlay, split, pinned }
 
@@ -511,20 +512,13 @@ class _CamerawesomeReferenceScreenState
     }
 
     setState(() => _photoLocationStrategy = selected);
-    final repository = widget.controller?.repository;
-    if (repository != null) {
-      try {
-        // widget.settings is the snapshot from when the camera opened; only
-        // the strategy may change on top of the persisted settings.
-        await repository.saveAppSettings(
-          (persistedSettings ?? widget.settings).copyWith(
-            photoLocationStrategy: selected,
-          ),
-        );
-      } catch (error) {
-        debugPrint('Could not persist photo location strategy: $error');
-      }
-    }
+    // widget.settings is the snapshot from when the camera opened; only the
+    // strategy may change on top of the current settings.
+    await AppSettingsUpdater.update(
+      widget.controller?.repository,
+      (settings) => settings.copyWith(photoLocationStrategy: selected),
+      fallbackBase: persistedSettings ?? widget.settings,
+    );
     return selected;
   }
 

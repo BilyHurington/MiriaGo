@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
+import '../settings/app_settings_updater.dart';
 import 'confirm_action_dialog.dart';
 import 'snackbar_helper.dart';
 
@@ -21,12 +22,11 @@ const routePlannerSkillDescription =
 Future<void> _saveRoutePlannerSkillDismissal(
   PilgrimageRepository repository,
 ) async {
-  final settings = await repository.loadAppSettings();
-  if (!settings.routePlannerSkillPromotionDismissed) {
-    await repository.saveAppSettings(
-      settings.copyWith(routePlannerSkillPromotionDismissed: true),
-    );
-  }
+  final saved = await AppSettingsUpdater.update(
+    repository,
+    (settings) => settings.copyWith(routePlannerSkillPromotionDismissed: true),
+  );
+  if (!saved) throw StateError('settings not saved');
 }
 
 Future<void> openRoutePlannerSkillGuide(BuildContext context) async {

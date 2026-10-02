@@ -72,6 +72,7 @@ class _AppShellState extends State<AppShell> {
     AnitabiEndpointSync.active = _anitabiSync;
     AnitabiEndpointRecovery.handler = _anitabiSync.recoverAfterFailure;
     AppSettingsUpdater.handler = _updateSettings;
+    AppSettingsUpdater.currentSettings = _currentSettings;
     _incomingPlanFiles.listen(
       _importPlanFromPath,
       onError: _showIncomingPlanFileError,
@@ -90,6 +91,7 @@ class _AppShellState extends State<AppShell> {
     }
     if (AppSettingsUpdater.handler == _updateSettings) {
       AppSettingsUpdater.handler = null;
+      AppSettingsUpdater.currentSettings = null;
     }
     _planController?.dispose();
     super.dispose();
@@ -279,7 +281,14 @@ class _AppShellState extends State<AppShell> {
 
   Future<bool> _updateSettings(
     AppSettings Function(AppSettings current) update,
-  ) => _saveSettings(update(_settings));
+  ) async {
+    // Nothing can change a setting before they are loaded; never store an
+    // update on top of the defaults.
+    if (!_settingsLoaded) return false;
+    return _saveSettings(update(_settings));
+  }
+
+  AppSettings? _currentSettings() => _settingsLoaded ? _settings : null;
 
   var _settingsRevision = 0;
 

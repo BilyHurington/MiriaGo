@@ -35,6 +35,7 @@ import 'pilgrimage_models.dart';
 import 'pilgrimage_work_cover.dart';
 import 'reference_image_status.dart';
 import 'work_manager_screen.dart';
+import '../settings/app_settings_updater.dart';
 
 InputDecoration stableInputDecoration({
   required String labelText,
@@ -267,17 +268,14 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     }
     // Mark it first so the introduction never repeats, whatever happens
     // while it is open.
-    try {
-      final latest = await widget.repository.loadAppSettings();
-      if (latest.routePlannerSkillTipShown ||
-          latest.routePlannerSkillPromotionDismissed) {
-        return;
-      }
-      await widget.repository.saveAppSettings(
-        latest.copyWith(routePlannerSkillTipShown: true),
-      );
-    } on Object catch (error) {
-      debugPrint('Failed to record the route planner skill tip: $error');
+    var alreadyShown = false;
+    final saved = await AppSettingsUpdater.update(widget.repository, (latest) {
+      alreadyShown =
+          latest.routePlannerSkillTipShown ||
+          latest.routePlannerSkillPromotionDismissed;
+      return latest.copyWith(routePlannerSkillTipShown: true);
+    });
+    if (!saved || alreadyShown) {
       return;
     }
     if (!mounted) {

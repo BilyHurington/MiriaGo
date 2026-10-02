@@ -42,6 +42,7 @@ import 'pilgrimage_work_dropdown.dart';
 import 'plan_group_picker_sheet.dart';
 import 'plan_group_utils.dart';
 import 'work_manager_screen.dart';
+import '../settings/app_settings_updater.dart';
 
 class AnitabiMapImportScreen extends StatefulWidget {
   const AnitabiMapImportScreen({
@@ -192,8 +193,9 @@ class _AnitabiMapImportScreenState extends State<AnitabiMapImportScreen> {
     // One save at a time: each reads the stored settings the previous one
     // wrote, so quick successive switches never overwrite each other.
     final save = _settingsSaveQueue.then((_) async {
-      final latest = await widget.repository.loadAppSettings();
-      await widget.repository.saveAppSettings(update(latest));
+      if (!await AppSettingsUpdater.update(widget.repository, update)) {
+        throw StateError('settings not saved');
+      }
     });
     _settingsSaveQueue = save.then((_) {}, onError: (Object _) {});
     try {

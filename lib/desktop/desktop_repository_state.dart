@@ -236,8 +236,9 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
     recordCompareMode:
         _enumByName(RecordCompareMode.values, json['recordCompareMode']) ??
         RecordCompareMode.stacked,
+    // Matches the desktop database, where a missing value means migrated.
     comparisonExportConfigMigrated:
-        _boolValue(json['comparisonExportConfigMigrated']) ?? false,
+        _boolValue(json['comparisonExportConfigMigrated']) ?? true,
     customThemeColorName: _stringValue(
       json['customThemeColorName'],
       fallback: '\u81ea\u5b9a\u4e49',

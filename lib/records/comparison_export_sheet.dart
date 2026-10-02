@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -5,6 +7,7 @@ import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../data/anitabi_image_source_scope.dart';
 import '../plan/pilgrimage_models.dart';
+import '../settings/app_settings_updater.dart';
 import '../widgets/image_viewer_screen.dart';
 import '../widgets/responsive_button.dart';
 import '../widgets/snackbar_helper.dart';
@@ -87,6 +90,10 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
 
   @override
   void dispose() {
+    if (_nameSaveTimer?.isActive ?? false) {
+      unawaited(_persistConfig(_config).catchError((Object _) {}));
+    }
+    _nameSaveTimer?.cancel();
     _pilgrimNameController.dispose();
     super.dispose();
   }
@@ -110,12 +117,32 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
     }
   }
 
-  Future<void> _persistSettings(AppSettings settings) {
-    final write = _settingsWrite.then(
-      (_) => widget.repository.saveAppSettings(settings),
-    );
+  /// Typing the pilgrim name saves once the typing pauses.
+  Timer? _nameSaveTimer;
+
+  /// Stores [config] on top of the app's current settings (through the app
+  /// shell, so its copy never rolls this back). Writes run one at a time.
+  Future<void> _persistConfig(ComparisonExportConfig config) {
+    _nameSaveTimer?.cancel();
+    final write = _settingsWrite.then((_) async {
+      final saved = await AppSettingsUpdater.update(
+        widget.repository,
+        config.applyToSettings,
+      );
+      if (!saved) throw StateError('settings not saved');
+    });
     _settingsWrite = write.catchError((Object _) {});
     return write;
+  }
+
+  Future<void> _persistConfigReportingFailure(
+    ComparisonExportConfig config,
+  ) async {
+    try {
+      await _persistConfig(config);
+    } catch (_) {
+      _showFailure('导出设置保存失败，导出时将重试。');
+    }
   }
 
   void _showFailure(String message) {
@@ -127,15 +154,19 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
 
   Future<void> _updateConfig(ComparisonExportConfig config) async {
     if (_exporting || !_settingsLoaded || _isExiting) return;
+    final previous = _config;
     setState(() => _config = config);
     ComparisonExportConfig.lastUsed = config;
-    final settings = config.applyToSettings(_settings);
-    _settings = settings;
-    try {
-      await _persistSettings(settings);
-    } catch (_) {
-      _showFailure('导出设置保存失败，导出时将重试。');
+    _settings = config.applyToSettings(_settings);
+    if (config.pilgrimName != previous.pilgrimName) {
+      _nameSaveTimer?.cancel();
+      _nameSaveTimer = Timer(
+        const Duration(milliseconds: 600),
+        () => _persistConfigReportingFailure(config),
+      );
+      return;
     }
+    await _persistConfigReportingFailure(config);
   }
 
   @override
@@ -187,8 +218,7 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
       if (!mounted || !_settingsLoaded) return;
       final config = _config;
       ComparisonExportConfig.lastUsed = config;
-      final settings = config.applyToSettings(_settings);
-      await _persistSettings(settings);
+      await _persistConfig(config);
       if (!mounted) return;
       final result = await widget.exporter(
         referenceImagePath: widget.referenceImagePath,

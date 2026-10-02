@@ -25,6 +25,7 @@ import '../widgets/snackbar_helper.dart';
 import '../widgets/app_back_button.dart';
 import 'pilgrimage_models.dart';
 import 'plan_group_utils.dart';
+import '../settings/app_settings_updater.dart';
 
 class NearestGroupAssignScreen extends StatefulWidget {
   const NearestGroupAssignScreen({
@@ -361,15 +362,11 @@ class _NearestGroupAssignScreenState extends State<NearestGroupAssignScreen> {
     }
 
     // The distance is remembered only after the assignment was stored.
-    var settingsSaved = true;
-    try {
-      final settings = await widget.repository.loadAppSettings();
-      await widget.repository.saveAppSettings(
-        settings.copyWith(nearestAssignDistanceMeters: _distanceMeters),
-      );
-    } catch (_) {
-      settingsSaved = false;
-    }
+    final distance = _distanceMeters;
+    final settingsSaved = await AppSettingsUpdater.update(
+      widget.repository,
+      (settings) => settings.copyWith(nearestAssignDistanceMeters: distance),
+    );
     if (!mounted) {
       return;
     }

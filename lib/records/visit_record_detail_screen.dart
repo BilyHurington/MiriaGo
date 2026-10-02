@@ -495,7 +495,9 @@ class _RecordComparisonPanel extends StatefulWidget {
 }
 
 class _RecordComparisonPanelState extends State<_RecordComparisonPanel> {
-  late RecordCompareMode _mode = widget.settings.recordCompareMode;
+  late RecordCompareMode _mode = AppSettingsUpdater.latest(
+    widget.settings,
+  ).recordCompareMode;
 
   bool get _hasReference =>
       referenceImageLocalPathCanDisplay(widget.referenceImagePath) ||
