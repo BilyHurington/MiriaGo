@@ -146,6 +146,19 @@ void main() {
     expect(toggle(tester).value, isTrue);
   });
 
+  testWidgets('two failed saves go back to the stored value', (tester) async {
+    await openPanel(
+      tester,
+      size: const Size(390, 800),
+      onChanged: (_) async => false,
+    );
+    final demo = find.byKey(const ValueKey('map-layer-toggle-demo'));
+    await tester.tap(demo);
+    await tester.tap(demo);
+    await tester.pumpAndSettle();
+    expect(toggle(tester).value, isFalse);
+  });
+
   testWidgets('main map layers are stored and applied', (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;

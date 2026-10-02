@@ -73,10 +73,12 @@ Future<void> showMapLayersPanel(
       final left = anchor.center.dx > size.width / 2
           ? anchor.left - gap - width
           : anchor.right + gap;
-      final top = anchor.top.clamp(
-        padding.top + gap,
-        math.max(padding.top + gap, size.height - 120),
-      ).toDouble();
+      final top = anchor.top
+          .clamp(
+            padding.top + gap,
+            math.max(padding.top + gap, size.height - 120),
+          )
+          .toDouble();
       return Stack(
         children: [
           Positioned(
@@ -159,13 +161,21 @@ class _MapLayersPanelState extends State<MapLayersPanel> {
   /// when no newer change was made to it since.
   final Map<String, int> _changeSerial = {};
 
+  /// The last value stored per switch, which a failed save goes back to.
+  late final Map<String, bool> _stored = {
+    for (final toggle in widget.toggles) toggle.id: toggle.value,
+  };
+
   Future<void> _change(MapLayerToggle toggle, bool value) async {
     final serial = (_changeSerial[toggle.id] ?? 0) + 1;
     _changeSerial[toggle.id] = serial;
     setState(() => _values[toggle.id] = value);
     final saved = await toggle.onChanged(value);
+    if (saved) {
+      _stored[toggle.id] = value;
+    }
     if (!saved && mounted && _changeSerial[toggle.id] == serial) {
-      setState(() => _values[toggle.id] = !value);
+      setState(() => _values[toggle.id] = _stored[toggle.id] ?? !value);
     }
   }
 

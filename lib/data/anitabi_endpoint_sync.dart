@@ -114,6 +114,7 @@ class AnitabiEndpointSync {
   Future<AnitabiSyncOutcome>? _running;
   DateTime? _lastManualCheck;
   DateTime? _lastOfflineAt;
+  var _runningAutomatic = false;
 
   /// Called after an Anitabi request failed in a way that suggests the
   /// address changed. Rate limited; returns whether addresses changed.
@@ -129,13 +130,23 @@ class AnitabiEndpointSync {
   }
 
   /// "立即检查" in settings: ignores the daily limit but has a short cooldown.
-  Future<AnitabiSyncOutcome> checkNow() {
+  Future<AnitabiSyncOutcome> checkNow() async {
     final last = _lastManualCheck;
     if (last != null && _now().difference(last) < manualCooldown) {
-      return Future.value(AnitabiSyncOutcome.rateLimited);
+      return AnitabiSyncOutcome.rateLimited;
     }
     _lastManualCheck = _now();
-    return _runOnce(automatic: false);
+    final joinsAutomatic = _running != null && _runningAutomatic;
+    final outcome = await _runOnce(automatic: false);
+    if (joinsAutomatic && outcome == AnitabiSyncOutcome.offline) {
+      // The automatic run it joined does not record being offline; the
+      // settings page shows this check's result.
+      final now = _now().toUtc();
+      await _saveState(
+        (latest) => latest.copyWith(lastCheckAt: now, lastResult: 'offline'),
+      );
+    }
+    return outcome;
   }
 
   Future<void> setAutoUpdate(bool enabled) =>
@@ -143,6 +154,7 @@ class AnitabiEndpointSync {
 
   /// Concurrent failures share one check.
   Future<AnitabiSyncOutcome> _runOnce({required bool automatic}) {
+    if (_running == null) _runningAutomatic = automatic;
     return _running ??= _run(
       automatic: automatic,
     ).whenComplete(() => _running = null);

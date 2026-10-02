@@ -73,7 +73,6 @@ class _PhotoCompareSliderState extends State<PhotoCompareSlider> {
 
   @override
   Widget build(BuildContext context) {
-    final percent = (_split * 100).round();
     return AspectRatio(
       aspectRatio: widget.aspectRatio,
       child: ClipRRect(
@@ -85,19 +84,19 @@ class _PhotoCompareSliderState extends State<PhotoCompareSlider> {
             _minSplit = minSplit;
             final split = _split.clamp(minSplit, 1 - minSplit);
             final dividerX = width * split;
+            String percentOf(double value) =>
+                '${(value.clamp(minSplit, 1 - minSplit) * 100).round()}%';
             return Semantics(
               key: const ValueKey('photo-compare-slider'),
               slider: true,
               label: '滑动对比，左侧参考图，右侧巡礼图',
-              value: '$percent%',
-              increasedValue:
-                  '${((_split + _keyboardStep).clamp(0.0, 1.0) * 100).round()}%',
-              decreasedValue:
-                  '${((_split - _keyboardStep).clamp(0.0, 1.0) * 100).round()}%',
+              value: percentOf(split),
+              increasedValue: percentOf(split + _keyboardStep),
+              decreasedValue: percentOf(split - _keyboardStep),
               onIncrease: () => _moveTo(_split + _keyboardStep),
               onDecrease: () => _moveTo(_split - _keyboardStep),
-              // Tapping each side opens that image; offer the same to
-              // screen readers, where a tap moves the slider instead.
+              // Tapping each side opens that image; offer both to screen
+              // readers, whose tap lands on one fixed side.
               customSemanticsActions: {
                 if (widget.onTapReference != null)
                   _viewReferenceAction: widget.onTapReference!,

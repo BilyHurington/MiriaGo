@@ -389,12 +389,16 @@ class _AppShellState extends State<AppShell> {
             duration: const Duration(minutes: 5),
           )
         : null;
+    // Another snack may have replaced it (or the user swiped it away);
+    // closing then would hide that one instead.
+    var readingShown = reading != null;
+    reading?.closed.whenComplete(() => readingShown = false);
     try {
       final PlanImportPackage importPackage;
       try {
         importPackage = await readPlanImportPackageFromPath(path);
       } finally {
-        reading?.close();
+        if (readingShown) reading?.close();
         // The package is fully in memory now (or failed); drop the native
         // temporary copy so incoming files do not pile up in the cache.
         unawaited(_incomingPlanFiles.release(path));

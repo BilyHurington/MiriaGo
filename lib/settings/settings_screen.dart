@@ -1662,7 +1662,15 @@ class _ComparisonStyleSettingsPageState
   @override
   void dispose() {
     if (_saveTimer?.isActive ?? false) {
-      unawaited(_save(_config, _settings));
+      // Only this page's fields, on top of the app's current settings, and
+      // after this frame: the tree is locked while the page is disposed.
+      final config = _config;
+      final repository = widget.repository;
+      unawaited(
+        Future(
+          () => AppSettingsUpdater.update(repository, config.applyToSettings),
+        ),
+      );
     }
     _saveTimer?.cancel();
     _pilgrimNameController.dispose();

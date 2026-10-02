@@ -38,6 +38,8 @@ Switch _switchFor(WidgetTester tester, String title) => tester.widget<Switch>(
 );
 
 void main() {
+  _comparisonFlushTest();
+
   testWidgets('a failed settings save is reported and rolled back', (
     tester,
   ) async {
@@ -99,5 +101,35 @@ void main() {
 
     expect(_switchFor(tester, '照片备份').value, isTrue);
     expect(_switchFor(tester, '自动保存对比图').value, isFalse);
+  });
+}
+
+void _comparisonFlushTest() {
+  testWidgets('closing 对比图设置 right after typing keeps the name', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(
+      settings: const AppSettings(comparisonShowPilgrimName: true),
+    );
+    await tester.pumpWidget(MiriaGoApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('对比图设置').first);
+    await tester.pumpAndSettle();
+
+    final name = find.byKey(const ValueKey('comparison-pilgrim-name'));
+    await tester.ensureVisible(name);
+    await tester.pumpAndSettle();
+    await tester.enterText(name, 'Closing');
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(
+      (await repository.loadAppSettings()).comparisonPilgrimName,
+      'Closing',
+    );
   });
 }
