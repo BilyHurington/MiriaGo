@@ -623,6 +623,7 @@ class _RoutePreviewMapState extends State<_RoutePreviewMap> {
                 ),
           ],
         ),
+        configuredMapAttribution(settings),
       ],
     );
   }

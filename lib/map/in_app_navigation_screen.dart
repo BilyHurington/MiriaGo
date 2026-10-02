@@ -792,6 +792,11 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                         ),
                   ],
                 ),
+                // Above the bottom panel, which covers the map's lower edge.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 200),
+                  child: configuredMapAttribution(widget.settings),
+                ),
               ],
             ),
             Positioned(

@@ -5,7 +5,11 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>zh-Hans</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh-Hans</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>MiriaGo</string>
 	<key>CFBundleDocumentTypes</key>
@@ -39,6 +43,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -47,15 +55,13 @@
 	<string>MiriaGo 需要使用相机来拍摄巡礼照片。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MiriaGo 使用定位在地图上显示当前位置，并可按你的选择写入巡礼照片。</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>MiriaGo 可能需要定位权限来在巡礼地图中显示当前位置和辅助记录巡礼地点。</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
 	<dict>
 		<key>MiriaGoNavigation</key>
 		<string>应用内步行导航需要精确位置来判断是否到达点位和是否偏离路线。</string>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MiriaGo 可能需要使用麦克风来支持拍摄相关功能中的声音采集。</string>
+	<string>MiriaGo 拍摄巡礼照片时不会录制声音。此说明仅因相机组件包含录像能力而必须提供。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MiriaGo 需要保存巡礼对比图到相册。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
