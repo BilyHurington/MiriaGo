@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -33,14 +34,23 @@ class PhotoCompareSlider extends StatefulWidget {
 }
 
 class _PhotoCompareSliderState extends State<PhotoCompareSlider> {
+  static const _viewReferenceAction = CustomSemanticsAction(label: '查看参考图');
+  static const _viewPhotoAction = CustomSemanticsAction(label: '查看巡礼图');
   static const _keyboardStep = 0.05;
   static const _handleHitWidth = 44.0;
 
+  /// The handle never sits closer than this to the frame's edge, where it
+  /// would be cut off and hard to grab back.
+  static const _edgeInset = 24.0;
+
   late double _split = widget.initialSplit.clamp(0.0, 1.0);
+
+  /// Smallest split for the current width (see [_edgeInset]).
+  var _minSplit = 0.0;
   var _focused = false;
 
   void _moveTo(double split) {
-    final next = split.clamp(0.0, 1.0);
+    final next = split.clamp(_minSplit, 1 - _minSplit);
     if (next != _split) {
       setState(() => _split = next);
     }
@@ -71,7 +81,10 @@ class _PhotoCompareSliderState extends State<PhotoCompareSlider> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            final dividerX = width * _split;
+            final minSplit = width <= _edgeInset * 2 ? 0.5 : _edgeInset / width;
+            _minSplit = minSplit;
+            final split = _split.clamp(minSplit, 1 - minSplit);
+            final dividerX = width * split;
             return Semantics(
               key: const ValueKey('photo-compare-slider'),
               slider: true,
@@ -83,6 +96,14 @@ class _PhotoCompareSliderState extends State<PhotoCompareSlider> {
                   '${((_split - _keyboardStep).clamp(0.0, 1.0) * 100).round()}%',
               onIncrease: () => _moveTo(_split + _keyboardStep),
               onDecrease: () => _moveTo(_split - _keyboardStep),
+              // Tapping each side opens that image; offer the same to
+              // screen readers, where a tap moves the slider instead.
+              customSemanticsActions: {
+                if (widget.onTapReference != null)
+                  _viewReferenceAction: widget.onTapReference!,
+                if (widget.onTapPhoto != null)
+                  _viewPhotoAction: widget.onTapPhoto!,
+              },
               child: Focus(
                 onKeyEvent: _handleKey,
                 onFocusChange: (focused) => setState(() => _focused = focused),
@@ -101,7 +122,7 @@ class _PhotoCompareSliderState extends State<PhotoCompareSlider> {
                       ColoredBox(color: AppColors.surfaceMuted),
                       widget.reference,
                       ClipRect(
-                        clipper: _SplitClipper(_split),
+                        clipper: _SplitClipper(split),
                         child: widget.photo,
                       ),
                       const Positioned(

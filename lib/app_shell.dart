@@ -381,11 +381,20 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _importPlanFromPath(String path) async {
+    // Large plans take a few seconds to read; say something is happening.
+    final reading = mounted
+        ? ScaffoldMessenger.of(context).showStatusSnack(
+            kind: AppStatusBannerKind.running,
+            title: '正在读取计划文件…',
+            duration: const Duration(minutes: 5),
+          )
+        : null;
     try {
       final PlanImportPackage importPackage;
       try {
         importPackage = await readPlanImportPackageFromPath(path);
       } finally {
+        reading?.close();
         // The package is fully in memory now (or failed); drop the native
         // temporary copy so incoming files do not pile up in the cache.
         unawaited(_incomingPlanFiles.release(path));

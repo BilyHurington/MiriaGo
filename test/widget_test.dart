@@ -234,6 +234,28 @@ void main() {
     expect(find.byKey(const ValueKey('plan-meta-text')), findsNothing);
   });
 
+  testWidgets('plan actions use two rows at large text', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('plan-actions-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('plan-actions-two-rows')), findsOneWidget);
+    final memo = tester.getRect(
+      find.byKey(const ValueKey('plan-action-memo')),
+    );
+    final cache = tester.getRect(
+      find.byKey(const ValueKey('plan-action-cache-references')),
+    );
+    expect(memo.top, greaterThanOrEqualTo(cache.bottom));
+    expect(memo.width, closeTo(cache.width, 1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('plan actions expand inline and keep five actions', (
     tester,
   ) async {

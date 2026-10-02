@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miriago/app_theme.dart';
@@ -71,7 +72,30 @@ void main() {
         const Offset(-500, 0),
       );
       await tester.pump();
-      expect(value(tester), '0%');
+      // Stops 24 px from the edge, where the handle can still be grabbed.
+      expect(value(tester), '6%');
+      handle.dispose();
+    });
+
+    testWidgets('screen readers can open either image', (tester) async {
+      final handle = tester.ensureSemantics();
+      final taps = await pumpSlider(tester);
+      final node = tester.getSemantics(
+        find.byKey(const ValueKey('photo-compare-slider')),
+      );
+      final ids = node.getSemanticsData().customSemanticsActionIds!;
+      expect(ids, hasLength(2));
+      for (final label in ['查看参考图', '查看巡礼图']) {
+        final id = ids.firstWhere(
+          (id) => CustomSemanticsAction.getAction(id)!.label == label,
+        );
+        tester
+            .renderObject(find.byKey(const ValueKey('photo-compare-slider')))
+            .owner!
+            .semanticsOwner!
+            .performAction(node.id, SemanticsAction.customAction, id);
+      }
+      expect(taps, ['reference', 'photo']);
       handle.dispose();
     });
 

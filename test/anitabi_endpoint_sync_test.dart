@@ -219,12 +219,22 @@ void main() {
         unreachable: {'https://a.example/c.json', 'https://b.example/c.json'},
       );
 
+      final before = harness.state.lastResult;
       for (var i = 0; i < 5; i++) {
         expect(await harness.sync.recoverAfterFailure(), isFalse);
       }
 
-      expect(harness.requests, hasLength(10));
+      // Offline: one check, then a pause instead of a check per failure.
+      expect(harness.requests, hasLength(2));
+      harness.now = harness.now.add(const Duration(minutes: 11));
+      expect(await harness.sync.recoverAfterFailure(), isFalse);
+      expect(harness.requests, hasLength(4));
       expect(harness.state.recentAutoChecks, isEmpty);
+      // Automatic offline checks are not stored (no settings rebuild).
+      expect(harness.state.lastResult, before);
+
+      // A manual check reports and records it.
+      expect(await harness.sync.checkNow(), AnitabiSyncOutcome.offline);
       expect(harness.state.lastResult, 'offline');
     });
 

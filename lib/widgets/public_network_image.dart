@@ -14,19 +14,24 @@ import '../data/public_http.dart';
 /// unchecked). Browsers apply their own rules, so the web keeps
 /// [NetworkImage].
 ImageProvider publicNetworkImage(String url, {int? cacheWidth}) {
-  final ImageProvider provider = kIsWeb
-      ? NetworkImage(url)
-      : PublicNetworkImage(url);
-  return ResizeImage.resizeIfNeeded(cacheWidth, null, provider);
+  if (kIsWeb) {
+    return ResizeImage.resizeIfNeeded(cacheWidth, null, NetworkImage(url));
+  }
+  return PublicNetworkImage(url, cacheWidth: cacheWidth);
 }
 
 @immutable
 class PublicNetworkImage extends ImageProvider<PublicNetworkImage> {
-  const PublicNetworkImage(this.url);
+  const PublicNetworkImage(this.url, {this.cacheWidth});
 
   static const timeout = Duration(seconds: 20);
 
   final String url;
+
+  /// Decodes at most this wide (keeping the aspect ratio). Handled here
+  /// rather than by wrapping in [ResizeImage], so a failed load evicts the
+  /// very cache entry it was stored under.
+  final int? cacheWidth;
 
   @override
   Future<PublicNetworkImage> obtainKey(ImageConfiguration configuration) =>
@@ -65,7 +70,18 @@ class PublicNetworkImage extends ImageProvider<PublicNetworkImage> {
         response.stream.timeout(timeout),
         declaredLength: response.contentLength,
       );
-      return decode(await ui.ImmutableBuffer.fromUint8List(bytes));
+      final width = cacheWidth;
+      return decode(
+        await ui.ImmutableBuffer.fromUint8List(bytes),
+        getTargetSize: width == null
+            ? null
+            : (intrinsicWidth, intrinsicHeight) => width >= intrinsicWidth
+                  ? ui.TargetImageSize(
+                      width: intrinsicWidth,
+                      height: intrinsicHeight,
+                    )
+                  : ui.TargetImageSize(width: width),
+      );
     } catch (_) {
       // Let a later build try again instead of caching the failure.
       scheduleMicrotask(() {
@@ -79,12 +95,15 @@ class PublicNetworkImage extends ImageProvider<PublicNetworkImage> {
 
   @override
   bool operator ==(Object other) =>
-      other is PublicNetworkImage && other.url == url;
+      other is PublicNetworkImage &&
+      other.url == url &&
+      other.cacheWidth == cacheWidth;
 
   @override
-  int get hashCode => url.hashCode;
+  int get hashCode => Object.hash(url, cacheWidth);
 
   @override
   String toString() =>
-      '${objectRuntimeType(this, 'PublicNetworkImage')}("$url")';
+      '${objectRuntimeType(this, 'PublicNetworkImage')}("$url", '
+      'cacheWidth: $cacheWidth)';
 }

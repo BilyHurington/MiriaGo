@@ -68,22 +68,37 @@ Future<void> showMapLayersPanel(
       const width = 300.0;
       const gap = 8.0;
       final size = MediaQuery.sizeOf(context);
+      final padding = MediaQuery.paddingOf(context);
       // Opens towards the middle of the screen, next to the button.
       final left = anchor.center.dx > size.width / 2
           ? anchor.left - gap - width
           : anchor.right + gap;
+      final top = anchor.top.clamp(
+        padding.top + gap,
+        math.max(padding.top + gap, size.height - 120),
+      ).toDouble();
       return Stack(
         children: [
           Positioned(
             left: left.clamp(gap, math.max(gap, size.width - width - gap)),
-            top: anchor.top.clamp(gap, math.max(gap, size.height - 120)),
+            top: top,
             width: width,
-            child: _PanelTextScale(
-              settings: settings,
-              child: MapLayersPanel(
-                title: title,
-                toggles: toggles,
-                framed: true,
+            // Short windows and large text: the card scrolls instead of
+            // running off the bottom of the screen.
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: math.max(
+                  120,
+                  size.height - top - padding.bottom - gap,
+                ),
+              ),
+              child: _PanelTextScale(
+                settings: settings,
+                child: MapLayersPanel(
+                  title: title,
+                  toggles: toggles,
+                  framed: true,
+                ),
               ),
             ),
           ),
@@ -140,10 +155,16 @@ class _MapLayersPanelState extends State<MapLayersPanel> {
     for (final toggle in widget.toggles) toggle.id: toggle.value,
   };
 
+  /// Latest change per switch: a failed save only flips the switch back
+  /// when no newer change was made to it since.
+  final Map<String, int> _changeSerial = {};
+
   Future<void> _change(MapLayerToggle toggle, bool value) async {
+    final serial = (_changeSerial[toggle.id] ?? 0) + 1;
+    _changeSerial[toggle.id] = serial;
     setState(() => _values[toggle.id] = value);
     final saved = await toggle.onChanged(value);
-    if (!saved && mounted) {
+    if (!saved && mounted && _changeSerial[toggle.id] == serial) {
       setState(() => _values[toggle.id] = !value);
     }
   }
@@ -209,7 +230,7 @@ class _MapLayersPanelState extends State<MapLayersPanel> {
         side: BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: content,
+      child: SingleChildScrollView(child: content),
     );
   }
 }

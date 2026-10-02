@@ -97,6 +97,10 @@ class AnitabiEndpointSync {
   static const minAutoCheckInterval = Duration(hours: 1);
   static const quietAfterSuccess = Duration(hours: 24);
   static const manualCooldown = Duration(minutes: 1);
+
+  /// Automatic checks pause this long after finding no source reachable:
+  /// offline, every failed request would otherwise start another check.
+  static const offlineCooldown = Duration(minutes: 10);
   static const maxConfigBytes = 16 * 1024;
 
   final AnitabiSettingsLoader loadSettings;
@@ -109,6 +113,7 @@ class AnitabiEndpointSync {
 
   Future<AnitabiSyncOutcome>? _running;
   DateTime? _lastManualCheck;
+  DateTime? _lastOfflineAt;
 
   /// Called after an Anitabi request failed in a way that suggests the
   /// address changed. Rate limited; returns whether addresses changed.
@@ -153,6 +158,10 @@ class AnitabiEndpointSync {
     ];
     if (automatic) {
       if (!state.autoUpdate) return AnitabiSyncOutcome.disabled;
+      final offlineAt = _lastOfflineAt;
+      if (offlineAt != null && _now().difference(offlineAt) < offlineCooldown) {
+        return AnitabiSyncOutcome.rateLimited;
+      }
       final lastSuccess = state.lastSuccessAt;
       final lastAttempt = recent.isEmpty ? null : recent.last;
       if ((lastSuccess != null &&
@@ -166,12 +175,18 @@ class AnitabiEndpointSync {
 
     final fetched = await _fetchRemote();
     if (fetched.outcome == AnitabiSyncOutcome.offline) {
-      // Not counted: an offline device should not use up its checks.
-      await _saveState(
-        (latest) => latest.copyWith(lastCheckAt: now, lastResult: 'offline'),
-      );
+      // Not counted: an offline device should not use up its checks. Only a
+      // manual check records it (settings shows the result); an automatic
+      // one would store the settings and rebuild the app for nothing.
+      _lastOfflineAt = _now();
+      if (!automatic) {
+        await _saveState(
+          (latest) => latest.copyWith(lastCheckAt: now, lastResult: 'offline'),
+        );
+      }
       return AnitabiSyncOutcome.offline;
     }
+    _lastOfflineAt = null;
     AnitabiRemoteState attempted(AnitabiRemoteState latest) => latest.copyWith(
       lastCheckAt: now,
       recentAutoChecks: automatic ? [...recent, now] : recent,

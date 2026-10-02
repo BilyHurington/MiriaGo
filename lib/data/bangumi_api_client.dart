@@ -14,6 +14,8 @@ class BangumiApiClient {
   final http.Client _httpClient;
   final bool _ownsHttpClient;
 
+  static const searchTimeout = Duration(seconds: 15);
+
   void close() {
     if (_ownsHttpClient) {
       _httpClient.close();
@@ -32,23 +34,26 @@ class BangumiApiClient {
     final uri = Uri.parse(
       '${BangumiConfig.apiBaseUrl}/v0/search/subjects',
     ).replace(queryParameters: const {'limit': '12'});
-    final response = await _httpClient.post(
-      uri,
-      headers: {
-        'Authorization': 'Bearer ${BangumiConfig.apiToken}',
-        'Content-Type': 'application/json',
-        if (!kIsWeb) 'User-Agent': BangumiConfig.userAgent,
-      },
-      body: jsonEncode({
-        'keyword': query,
-        'sort': 'match',
-        'filter': {
-          'nsfw': false,
-          if (types.isNotEmpty)
-            'type': types.map((type) => type.code).toList(growable: false),
-        },
-      }),
-    );
+    final response = await _httpClient
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer ${BangumiConfig.apiToken}',
+            'Content-Type': 'application/json',
+            if (!kIsWeb) 'User-Agent': BangumiConfig.userAgent,
+          },
+          body: jsonEncode({
+            'keyword': query,
+            'sort': 'match',
+            'filter': {
+              'nsfw': false,
+              if (types.isNotEmpty)
+                'type': types.map((type) => type.code).toList(growable: false),
+            },
+          }),
+        )
+        // A stalled search would otherwise spin until the OS gives up.
+        .timeout(searchTimeout);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw BangumiApiException(response.statusCode, response.body);

@@ -101,6 +101,51 @@ void main() {
     expect(toggle(tester).value, isFalse);
   });
 
+  testWidgets('a short wide window scrolls the card', (tester) async {
+    await openPanel(
+      tester,
+      size: const Size(1200, 260),
+      onChanged: (_) async => true,
+    );
+    expect(tester.takeException(), isNull);
+    final card = find.byKey(const ValueKey('map-layers-panel'));
+    expect(
+      find.ancestor(of: card, matching: find.byType(SingleChildScrollView)),
+      findsOneWidget,
+    );
+    expect(tester.getBottomLeft(find.byType(Material).last).dy, lessThan(260));
+  });
+
+  testWidgets('a late failed save does not undo a newer change', (
+    tester,
+  ) async {
+    final saves = <Completer<bool>>[];
+    await openPanel(
+      tester,
+      size: const Size(390, 800),
+      onChanged: (_) {
+        final save = Completer<bool>();
+        saves.add(save);
+        return save.future;
+      },
+    );
+    final demo = find.byKey(const ValueKey('map-layer-toggle-demo'));
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(demo);
+      await tester.pump();
+    }
+    expect(toggle(tester).value, isTrue);
+
+    // The first change (to on) fails after the user has moved on.
+    saves.first.complete(false);
+    await tester.pump();
+    expect(toggle(tester).value, isTrue);
+    saves[1].complete(true);
+    saves.last.complete(true);
+    await tester.pump();
+    expect(toggle(tester).value, isTrue);
+  });
+
   testWidgets('main map layers are stored and applied', (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;

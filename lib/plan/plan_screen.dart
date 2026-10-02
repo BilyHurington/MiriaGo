@@ -860,12 +860,33 @@ class _PlanActionsPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: _planActionRow(items),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Large text: five labels no longer fit in one row; 3 + 2 keeps
+          // them readable instead of cutting them off.
+          final textScale = MediaQuery.textScalerOf(context).scale(11) / 11;
+          final perItem = constraints.maxWidth / items.length;
+          if (items.length <= 3 || perItem >= 58 * textScale) {
+            return _planActionRow(items);
+          }
+          return Column(
+            key: const ValueKey('plan-actions-two-rows'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _planActionRow(items.sublist(0, 3)),
+              Divider(height: 1, color: AppColors.border),
+              // Same item width as the first row.
+              _planActionRow(items.sublist(3), slots: 3),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-Widget _planActionRow(List<Widget> items) {
+/// [slots] (at least the number of items) leaves empty room at the end.
+Widget _planActionRow(List<Widget> items, {int? slots}) {
   return IntrinsicHeight(
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -874,6 +895,8 @@ Widget _planActionRow(List<Widget> items) {
           if (i > 0) const _PlanActionDivider(),
           Expanded(child: items[i]),
         ],
+        for (var i = items.length; i < (slots ?? 0); i++)
+          const Expanded(child: SizedBox.shrink()),
       ],
     ),
   );
