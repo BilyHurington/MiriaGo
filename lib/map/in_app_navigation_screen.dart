@@ -218,6 +218,28 @@ class InAppNavigationScreen extends StatefulWidget {
 class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     with MapLocationLifecycle<InAppNavigationScreen> {
   final MapController _mapController = MapController();
+
+  /// The panel, warnings and recenter button over the map's lower edge;
+  /// measured so the map attribution stays visible above them.
+  final _bottomOverlayKey = GlobalKey();
+  double _bottomOverlayHeight = 200;
+  var _bottomOverlayMeasureScheduled = false;
+
+  void _scheduleBottomOverlayMeasure() {
+    if (_bottomOverlayMeasureScheduled) return;
+    _bottomOverlayMeasureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bottomOverlayMeasureScheduled = false;
+      final box =
+          _bottomOverlayKey.currentContext?.findRenderObject() as RenderBox?;
+      if (!mounted || box == null || !box.hasSize) return;
+      final height = box.size.height;
+      if ((height - _bottomOverlayHeight).abs() > 1) {
+        setState(() => _bottomOverlayHeight = height);
+      }
+    });
+  }
+
   late final PageController _stepController = PageController(
     initialPage: _stepIndex,
   );
@@ -690,6 +712,8 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Also catches the first layout, which SizeChangedLayoutNotifier skips.
+    _scheduleBottomOverlayMeasure();
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final platformBrightness = MediaQuery.platformBrightnessOf(context);
     applyAppColorsFromSettings(
@@ -792,9 +816,10 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
                         ),
                   ],
                 ),
-                // Above the bottom panel, which covers the map's lower edge.
+                // Above the bottom panel and warnings, which cover the map's
+                // lower edge.
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 200),
+                  padding: EdgeInsets.only(bottom: _bottomOverlayHeight + 4),
                   child: configuredMapAttribution(widget.settings),
                 ),
               ],
@@ -827,73 +852,90 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
               left: 0,
               right: 0,
               bottom: 0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_preciseLocation == false)
-                    Material(
-                      key: const ValueKey(
-                        'navigation-precise-location-warning',
-                      ),
-                      color: chrome.panel,
-                      child: ListTile(
-                        dense: true,
-                        title: const Text('精确位置已关闭，到达提醒和偏航判断可能不准确。'),
-                        trailing: TextButton(
-                          // The state is re-checked when the app returns to the
-                          // foreground (onLocationActivityChanged).
-                          onPressed: Geolocator.openAppSettings,
-                          child: const Text('去设置'),
+              child: NotificationListener<SizeChangedLayoutNotification>(
+                onNotification: (_) {
+                  _scheduleBottomOverlayMeasure();
+                  return true;
+                },
+                child: SizeChangedLayoutNotifier(
+                  child: KeyedSubtree(
+                    key: _bottomOverlayKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_preciseLocation == false)
+                          Material(
+                            key: const ValueKey(
+                              'navigation-precise-location-warning',
+                            ),
+                            color: chrome.panel,
+                            child: ListTile(
+                              dense: true,
+                              title: const Text('精确位置已关闭，到达提醒和偏航判断可能不准确。'),
+                              trailing: TextButton(
+                                // The state is re-checked when the app returns to the
+                                // foreground (onLocationActivityChanged).
+                                onPressed: Geolocator.openAppSettings,
+                                child: const Text('去设置'),
+                              ),
+                            ),
+                          ),
+                        if (_locationError != null)
+                          Material(
+                            color: chrome.panel,
+                            child: ListTile(
+                              dense: true,
+                              title: Text(_locationError!),
+                              trailing: IconButton(
+                                key: const ValueKey(
+                                  'navigation-location-retry',
+                                ),
+                                tooltip: '重试定位',
+                                icon: const Icon(LucideIcons.refreshCw),
+                                onPressed: () =>
+                                    syncLocationActivity(force: true),
+                              ),
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: _RecenterButton(
+                            chrome: chrome,
+                            onTap: () {
+                              setState(() => _followLocation = true);
+                              _mapController.move(
+                                _currentLocation,
+                                math.min(
+                                  17.0,
+                                  widget.settings.mapMaxZoom.toDouble(),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ),
-                  if (_locationError != null)
-                    Material(
-                      color: chrome.panel,
-                      child: ListTile(
-                        dense: true,
-                        title: Text(_locationError!),
-                        trailing: IconButton(
-                          key: const ValueKey('navigation-location-retry'),
-                          tooltip: '重试定位',
-                          icon: const Icon(LucideIcons.refreshCw),
-                          onPressed: () => syncLocationActivity(force: true),
+                        _BottomPanel(
+                          chrome: chrome,
+                          point: _currentTarget,
+                          currentIsLast: _currentIsLast,
+                          stops: _stops,
+                          metrics: _tripMetricsForLeg(
+                            _currentLeg,
+                            remainingDistanceMeters: _legRemainingMeters,
+                          ),
+                          expanded: _sheetExpanded,
+                          bottomInset: bottomInset,
+                          onToggleExpanded: () {
+                            setState(() => _sheetExpanded = !_sheetExpanded);
+                          },
+                          onShowAllStops: () => _showAllStops(context, chrome),
+                          onArrive: () => _showArrival(context, chrome),
+                          onEndRoute: () => Navigator.of(context).maybePop(),
                         ),
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _RecenterButton(
-                      chrome: chrome,
-                      onTap: () {
-                        setState(() => _followLocation = true);
-                        _mapController.move(
-                          _currentLocation,
-                          math.min(17.0, widget.settings.mapMaxZoom.toDouble()),
-                        );
-                      },
+                      ],
                     ),
                   ),
-                  _BottomPanel(
-                    chrome: chrome,
-                    point: _currentTarget,
-                    currentIsLast: _currentIsLast,
-                    stops: _stops,
-                    metrics: _tripMetricsForLeg(
-                      _currentLeg,
-                      remainingDistanceMeters: _legRemainingMeters,
-                    ),
-                    expanded: _sheetExpanded,
-                    bottomInset: bottomInset,
-                    onToggleExpanded: () {
-                      setState(() => _sheetExpanded = !_sheetExpanded);
-                    },
-                    onShowAllStops: () => _showAllStops(context, chrome),
-                    onArrive: () => _showArrival(context, chrome),
-                    onEndRoute: () => Navigator.of(context).maybePop(),
-                  ),
-                ],
+                ),
               ),
             ),
           ],

@@ -302,6 +302,37 @@ void main() {
     );
   });
 
+  testWidgets('map attribution stays above the warnings and panel', (
+    tester,
+  ) async {
+    await pumpScreen(
+      tester,
+      preciseLocationCheck: ({required mayRequest}) async => false,
+    );
+    await tester.pumpAndSettle();
+    final warning = find.byKey(
+      const ValueKey('navigation-precise-location-warning'),
+    );
+    expect(warning, findsOneWidget);
+    final attribution = find.byType(RichAttributionWidget);
+    expect(attribution, findsOneWidget);
+    final button = find.descendant(
+      of: attribution,
+      matching: find.byType(IconButton),
+    );
+    expect(
+      tester.getRect(button.first).bottom,
+      lessThanOrEqualTo(tester.getRect(warning).top),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('in-app-navigation-expand')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(button.first).bottom,
+      lessThanOrEqualTo(tester.getRect(warning).top),
+    );
+  });
+
   testWidgets('expanded sheet can mark arrival manually', (tester) async {
     const lastPoint = PilgrimagePoint(
       id: 'point-2',

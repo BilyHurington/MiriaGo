@@ -44,6 +44,9 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var planFileChannel: FlutterMethodChannel?
   private var pendingPlanPath: String?
+  /// A plan file that could not be taken in before Dart asked for the
+  /// initial path; reported by getInitialPath.
+  private var pendingPlanError: PlanFileCopyError?
   // Until Dart asks for the initial path, incoming files are only queued so a
   // file is never delivered twice (once via openPath, once via getInitialPath).
   private var initialPlanPathDelivered = false
@@ -82,12 +85,18 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       switch call.method {
       case "getInitialPath":
         let path = self?.pendingPlanPath
+        let error = self?.pendingPlanError
         self?.pendingPlanPath = nil
+        self?.pendingPlanError = nil
         self?.initialPlanPathDelivered = true
         // Every file opened before this point has already been copied out,
         // so whatever remains in Inbox or our tmp directory is stale.
         self?.removeStaleIncomingPlanFiles(keeping: path)
-        result(path)
+        if path == nil, let error = error {
+          result(FlutterError(code: error.code, message: error.message, details: nil))
+        } else {
+          result(path)
+        }
       case "releasePath":
         if let path = call.arguments as? String {
           self?.removeIncomingPlanCopy(atPath: path)
@@ -191,6 +200,8 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
     )
   }
 
+  // Not called while the app uses scenes (SceneDelegate forwards file URLs
+  // instead); kept for a launch without a scene configuration.
   override func application(
     _ app: UIApplication,
     open url: URL,
@@ -201,9 +212,22 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
 
   @discardableResult
   func handleIncomingPlanFile(url: URL) -> Bool {
-    guard let copiedPath = copyPlanFileToInbox(url: url) else {
+    let copiedPath: String
+    switch copyPlanFileToInbox(url: url) {
+    case .success(let path):
+      copiedPath = path
+    case .failure(let error):
+      if initialPlanPathDelivered, let channel = planFileChannel {
+        channel.invokeMethod(
+          "openPathFailed",
+          arguments: ["code": error.code, "message": error.message]
+        )
+      } else if pendingPlanPath == nil {
+        pendingPlanError = error
+      }
       return false
     }
+    pendingPlanError = nil
 
     if initialPlanPathDelivered, let channel = planFileChannel {
       channel.invokeMethod("openPath", arguments: copiedPath)
@@ -291,12 +315,27 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
     ])
   }
 
-  private func copyPlanFileToInbox(url: URL) -> String? {
+  private func copyPlanFileToInbox(url: URL) -> Result<String, PlanFileCopyError> {
     let shouldStopAccessing = url.startAccessingSecurityScopedResource()
     defer {
       if shouldStopAccessing {
         url.stopAccessingSecurityScopedResource()
       }
+    }
+
+    // Same limit as the Dart importer (PlanImportLimits.maxCompressedBytes)
+    // and Android; checked before copying so an oversized file is never
+    // duplicated.
+    if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+      size > maxIncomingPlanBytes
+    {
+      removeIfInInbox(url)
+      return .failure(
+        PlanFileCopyError(
+          code: "PLAN_FILE_TOO_LARGE",
+          message: "Plan file exceeds \(maxIncomingPlanBytes) bytes."
+        )
+      )
     }
 
     do {
@@ -316,9 +355,11 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       // With LSSupportsOpeningDocumentsInPlace=false iOS hands us a copy in
       // Documents/Inbox; drop it once we have our own temporary copy.
       removeIfInInbox(url)
-      return destination.path
+      return .success(destination.path)
     } catch {
-      return nil
+      return .failure(
+        PlanFileCopyError(code: "COPY_FAILED", message: error.localizedDescription)
+      )
     }
   }
 
@@ -411,6 +452,13 @@ private func nativeCameraDisplayZoomMultiplier(for device: AVCaptureDevice) -> C
       }
     }
   }
+}
+
+private let maxIncomingPlanBytes = 128 * 1024 * 1024
+
+private struct PlanFileCopyError: Error {
+  let code: String
+  let message: String
 }
 
 private final class MapHeadingStream: NSObject, FlutterStreamHandler, CLLocationManagerDelegate {
