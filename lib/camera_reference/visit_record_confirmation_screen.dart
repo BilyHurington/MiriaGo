@@ -598,13 +598,10 @@ Future<void> _showGallerySaveSheet(
 
   if (action != 'save' || !context.mounted) return;
 
-  final success = await saveImageToGallery(photoPath);
+  final result = await saveImageToGalleryWithResult(photoPath);
   if (!context.mounted) return;
 
-  ScaffoldMessenger.of(context).showStatusSnack(
-    kind: success ? AppStatusBannerKind.success : AppStatusBannerKind.error,
-    title: success ? '已保存到相册' : '保存失败，请稍后重试。',
-  );
+  showGallerySaveResult(ScaffoldMessenger.of(context), result);
 }
 
 class _ComparisonPanel extends StatelessWidget {

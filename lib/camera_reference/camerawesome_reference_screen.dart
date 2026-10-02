@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../app_theme.dart';
 import '../data/anitabi_image_fetcher.dart';
@@ -72,7 +73,8 @@ class CamerawesomeReferenceScreen extends StatefulWidget {
 }
 
 class _CamerawesomeReferenceScreenState
-    extends State<CamerawesomeReferenceScreen> {
+    extends State<CamerawesomeReferenceScreen>
+    with WidgetsBindingObserver {
   final ImagePicker _imagePicker = ImagePicker();
   late final ValueNotifier<double> _overlayOpacity;
   late final ValueNotifier<double> _zoom;
@@ -84,6 +86,12 @@ class _CamerawesomeReferenceScreenState
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   bool _nativeCameraFailed = false;
   String? _nativeCameraError;
+
+  /// Camera access was refused; shows a panel instead of the preview.
+  bool _cameraPermissionDenied = false;
+
+  /// The user went to system settings from that panel; try again on return.
+  bool _openedCameraSettings = false;
   double? _referenceAspectRatio;
   bool _referenceAspectRatioLoading = false;
   int _referenceAspectRatioRequest = 0;
@@ -103,6 +111,7 @@ class _CamerawesomeReferenceScreenState
     _nativeCameraController =
         widget.nativeCameraController ?? NativeCameraController();
     _photoLocationStrategy = widget.settings.photoLocationStrategy;
+    WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -134,7 +143,25 @@ class _CamerawesomeReferenceScreenState
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _cameraPermissionDenied &&
+        _openedCameraSettings) {
+      _nativeCameraController.clearError();
+      setState(() {
+        _openedCameraSettings = false;
+        _cameraPermissionDenied = false;
+      });
+    }
+  }
+
+  Future<void> _openCameraSettings() async {
+    _openedCameraSettings = await openAppSettings();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _overlayOpacity.dispose();
     _zoom.dispose();
@@ -565,6 +592,8 @@ class _CamerawesomeReferenceScreenState
               onPickReference: _pickReferenceImage,
               onPickGallery: _pickGalleryImage,
             )
+          : _cameraPermissionDenied
+          ? _CameraPermissionDeniedMessage(onOpenSettings: _openCameraSettings)
           : _shouldUseNativeCamera
           ? _NativeReferenceCameraBody(
               point: widget.point,
@@ -578,9 +607,16 @@ class _CamerawesomeReferenceScreenState
               referenceImageScale: widget.settings.referenceImageScale,
               cropCaptureToAspectRatio: shouldCropNativeCapture,
               onNativeUnavailable: () {
+                if (!mounted || _nativeCameraController.error == null) return;
                 setState(() {
-                  _nativeCameraFailed = true;
-                  _nativeCameraError = _nativeCameraController.error;
+                  if (_nativeCameraController.permissionDenied) {
+                    // The fallback camera would only ask again (or wait
+                    // forever on Android).
+                    _cameraPermissionDenied = true;
+                  } else {
+                    _nativeCameraFailed = true;
+                    _nativeCameraError = _nativeCameraController.error;
+                  }
                 });
               },
               onModeChanged: (mode) => setState(() => _mode = mode),
@@ -3579,6 +3615,81 @@ class _FallbackPreview extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CameraPermissionDeniedMessage extends StatelessWidget {
+  const _CameraPermissionDeniedMessage({required this.onOpenSettings});
+
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      key: const ValueKey('camera-permission-denied'),
+      color: const Color(0xFF090A0D),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  LucideIcons.cameraOff,
+                  color: Colors.white70,
+                  size: 36,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '需要相机权限',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '请在系统设置中允许 MiriaGo 使用相机，用于拍摄巡礼照片。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const ValueKey('camera-permission-back'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white54),
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(LucideIcons.arrowLeft),
+                      label: const Text('返回'),
+                    ),
+                    FilledButton.icon(
+                      key: const ValueKey('camera-permission-settings'),
+                      onPressed: onOpenSettings,
+                      icon: const Icon(LucideIcons.settings),
+                      label: const Text('打开设置'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

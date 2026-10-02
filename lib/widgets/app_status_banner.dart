@@ -70,6 +70,8 @@ SnackBar appStatusSnackBar({
   String? subtitle,
   IconData? icon,
   Duration duration = appStatusSnackDuration,
+  String? actionLabel,
+  VoidCallback? onAction,
 }) {
   return SnackBar(
     backgroundColor: Colors.transparent,
@@ -83,6 +85,8 @@ SnackBar appStatusSnackBar({
       title: title,
       subtitle: subtitle,
       icon: icon,
+      actionLabel: actionLabel,
+      onAction: onAction,
     ),
   );
 }

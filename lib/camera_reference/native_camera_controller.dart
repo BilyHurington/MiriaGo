@@ -34,6 +34,9 @@ Future<bool> writePhotoLocationWithAppChannel(
 /// when the view was disposed (for example a capture during a layout change).
 const nativeCameraDisposedErrorCode = 'camera_disposed';
 
+/// Error code the iOS preview uses when camera access is denied.
+const nativeCameraPermissionDeniedErrorCode = 'camera_permission_denied';
+
 MethodChannel _defaultChannel(int viewId) =>
     MethodChannel('seichi/native_camera_preview_$viewId');
 
@@ -74,6 +77,7 @@ class NativeCameraController extends ChangeNotifier {
   var _busy = false;
   var _captureInProgress = false;
   String? _error;
+  var _permissionDenied = false;
   var _minZoomRatio = 1.0;
   var _maxZoomRatio = 1.0;
   var _zoomRatio = 1.0;
@@ -94,6 +98,9 @@ class NativeCameraController extends ChangeNotifier {
   bool get ready => _ready;
   bool get busy => _busy;
   String? get error => _error;
+
+  /// Whether [error] is because camera access was refused.
+  bool get permissionDenied => _permissionDenied;
   double get minZoomRatio => _minZoomRatio;
   double get maxZoomRatio => _maxZoomRatio;
   double get zoomRatio => _zoomRatio;
@@ -109,6 +116,15 @@ class NativeCameraController extends ChangeNotifier {
   /// Whether the shutter must look busy and ignore taps.
   bool get shutterBusy => _busy || _configuringCapture || _captureInProgress;
 
+  /// Forgets a previous failure before the preview is shown again, e.g.
+  /// after the user returns from granting camera access in settings.
+  void clearError() {
+    if (_error == null && !_permissionDenied) return;
+    _error = null;
+    _permissionDenied = false;
+    _notify();
+  }
+
   Future<void> attach(int viewId) async {
     if (_disposed || (_channel != null && _viewId == viewId)) {
       return;
@@ -119,6 +135,8 @@ class NativeCameraController extends ChangeNotifier {
     _channel = null;
     _viewId = viewId;
     _ready = false;
+    _error = null;
+    _permissionDenied = false;
     _configuringCapture = false;
     _configurationFuture = null;
     // A new native view starts from its own defaults; nothing applied to the
@@ -149,6 +167,7 @@ class NativeCameraController extends ChangeNotifier {
     }
     if (!granted) {
       _error = '需要相机权限';
+      _permissionDenied = true;
       _notify();
       return;
     }
@@ -169,7 +188,12 @@ class NativeCameraController extends ChangeNotifier {
       await _restoreFlashMode(channel);
     } on PlatformException catch (error) {
       if (isStale()) return;
-      _error = error.message ?? '原生相机初始化失败';
+      if (error.code == nativeCameraPermissionDeniedErrorCode) {
+        _error = '需要相机权限';
+        _permissionDenied = true;
+      } else {
+        _error = error.message ?? '原生相机初始化失败';
+      }
     } catch (error) {
       if (isStale()) return;
       _error = '原生相机初始化失败：$error';

@@ -33,6 +33,7 @@ void main() {
     ),
     PilgrimagePlanController? controller,
     Size size = const Size(400, 800),
+    Future<bool> Function()? requestCameraPermission,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -40,7 +41,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final nativeController = NativeCameraController(
       channelFactory: cameras.channel,
-      requestCameraPermission: () async => true,
+      requestCameraPermission: requestCameraPermission ?? () async => true,
     );
     addTearDown(nativeController.dispose);
     final plan = await SamplePilgrimageRepository().loadActivePlan();
@@ -88,6 +89,59 @@ void main() {
     expect(cameras.calls[viewId]!.where((call) => call == 'initialize'), [
       'initialize',
     ]);
+  });
+
+  testWidgets('denied camera access shows the settings panel and retries '
+      'after returning from settings', (tester) async {
+    var granted = false;
+    const permissions = MethodChannel(
+      'flutter.baseflow.com/permissions/methods',
+    );
+    var settingsOpened = 0;
+    messenger.setMockMethodCallHandler(permissions, (call) async {
+      if (call.method == 'openAppSettings') {
+        settingsOpened += 1;
+        return true;
+      }
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(permissions, null));
+
+    final controller = await pumpScreen(
+      tester,
+      requestCameraPermission: () async => granted,
+    );
+    await tester.pump();
+    expect(controller.permissionDenied, isTrue);
+    expect(find.byKey(const ValueKey('camera-permission-denied')), findsOne);
+    expect(find.text('需要相机权限'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('camera-permission-settings')));
+    await tester.pump();
+    expect(settingsOpened, 1);
+
+    granted = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('camera-permission-denied')),
+      findsNothing,
+    );
+    expect(controller.ready, isTrue);
+    expect(controller.error, isNull);
+  });
+
+  testWidgets('iOS permission error shows the settings panel', (tester) async {
+    cameras.denyCamera = true;
+    final controller = await pumpScreen(tester);
+    await tester.pump();
+    expect(controller.permissionDenied, isTrue);
+    expect(find.byKey(const ValueKey('camera-permission-denied')), findsOne);
+    expect(find.textContaining('Camera permission'), findsNothing);
   });
 
   testWidgets('shutter ignores a second tap and surfaces capture errors', (
@@ -267,6 +321,7 @@ class _FakeCameraChannels {
   final _channels = <int, MethodChannel>{};
   Future<String?> Function()? takePicture;
   var takePictureCalls = 0;
+  var denyCamera = false;
 
   MethodChannel channel(int viewId) {
     return _channels.putIfAbsent(viewId, () {
@@ -275,6 +330,11 @@ class _FakeCameraChannels {
       messenger.setMockMethodCallHandler(channel, (call) async {
         log.add(call.method);
         switch (call.method) {
+          case 'initialize' when denyCamera:
+            throw PlatformException(
+              code: nativeCameraPermissionDeniedErrorCode,
+              message: 'Camera permission is not granted.',
+            );
           case 'initialize':
           case 'setZoomRatio':
           case 'setFlashMode':

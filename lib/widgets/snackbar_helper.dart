@@ -18,6 +18,8 @@ extension ShowReplacingSnackBar on ScaffoldMessengerState {
     String? subtitle,
     IconData? icon,
     Duration duration = appStatusSnackDuration,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     return showReplacingSnackBar(
       appStatusSnackBar(
@@ -26,6 +28,8 @@ extension ShowReplacingSnackBar on ScaffoldMessengerState {
         subtitle: subtitle,
         icon: icon,
         duration: duration,
+        actionLabel: actionLabel,
+        onAction: onAction,
       ),
     );
   }

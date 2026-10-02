@@ -122,6 +122,12 @@ class ImageViewerScreen extends StatelessWidget {
           : _MobileSaveSheet(
               onShare: () async {
                 Navigator.of(ctx).pop();
+                // iPad shows the share sheet as a popover, which needs an
+                // anchor; the viewer fills the screen.
+                final box = context.findRenderObject() as RenderBox?;
+                final origin = box != null && box.hasSize
+                    ? box.localToGlobal(Offset.zero) & box.size
+                    : null;
                 final savePath = await _resolveLocalImagePath(context);
                 if (savePath == null) {
                   _showSnackBar(
@@ -131,7 +137,14 @@ class ImageViewerScreen extends StatelessWidget {
                   );
                   return;
                 }
-                Share.shareXFiles([XFile(savePath)]);
+                try {
+                  await Share.shareXFiles([
+                    XFile(savePath),
+                  ], sharePositionOrigin: origin);
+                } on Object catch (error) {
+                  debugPrint('Image share failed: $error');
+                  _showSnackBar(messenger, '无法打开分享');
+                }
               },
               onSaveToGallery: () async {
                 Navigator.of(ctx).pop();
@@ -144,14 +157,8 @@ class ImageViewerScreen extends StatelessWidget {
                   );
                   return;
                 }
-                final success = await saveImageToGallery(savePath);
-                _showSnackBar(
-                  messenger,
-                  success ? '已保存到相册' : '保存失败',
-                  kind: success
-                      ? AppStatusBannerKind.success
-                      : AppStatusBannerKind.error,
-                );
+                final result = await saveImageToGalleryWithResult(savePath);
+                showGallerySaveResult(messenger, result, failedTitle: '保存失败');
               },
             ),
       backgroundColor: const Color(0xFF2C2C2E),
