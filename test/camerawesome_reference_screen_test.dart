@@ -103,6 +103,9 @@ void main() {
         settingsOpened += 1;
         return true;
       }
+      if (call.method == 'checkPermissionStatus') {
+        return granted ? 1 : 0;
+      }
       return null;
     });
     addTearDown(() => messenger.setMockMethodCallHandler(permissions, null));
@@ -115,6 +118,18 @@ void main() {
     expect(controller.permissionDenied, isTrue);
     expect(find.byKey(const ValueKey('camera-permission-denied')), findsOne);
     expect(find.text('需要相机权限'), findsOneWidget);
+
+    expect(
+      find.byKey(const ValueKey('camera-permission-gallery')),
+      findsOneWidget,
+    );
+
+    // Still refused: coming back leaves the panel.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('camera-permission-denied')), findsOne);
 
     await tester.tap(find.byKey(const ValueKey('camera-permission-settings')));
     await tester.pump();
@@ -133,6 +148,27 @@ void main() {
     );
     expect(controller.ready, isTrue);
     expect(controller.error, isNull);
+  });
+
+  testWidgets('重试 tries the camera again', (tester) async {
+    var granted = false;
+    final controller = await pumpScreen(
+      tester,
+      requestCameraPermission: () async => granted,
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('camera-permission-denied')), findsOne);
+
+    granted = true;
+    await tester.tap(find.byKey(const ValueKey('camera-permission-retry')));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('camera-permission-denied')),
+      findsNothing,
+    );
+    expect(controller.ready, isTrue);
   });
 
   testWidgets('iOS permission error shows the settings panel', (tester) async {

@@ -123,11 +123,14 @@ class ImageViewerScreen extends StatelessWidget {
               onShare: () async {
                 Navigator.of(ctx).pop();
                 // iPad shows the share sheet as a popover, which needs an
-                // anchor; the viewer fills the screen.
-                final box = context.findRenderObject() as RenderBox?;
-                final origin = box != null && box.hasSize
-                    ? box.localToGlobal(Offset.zero) & box.size
-                    : null;
+                // anchor: the download button in the top right corner.
+                final screen = MediaQuery.sizeOf(context);
+                final origin = Rect.fromLTWH(
+                  screen.width - 8 - kMinInteractiveDimension,
+                  MediaQuery.paddingOf(context).top + 8,
+                  kMinInteractiveDimension,
+                  kMinInteractiveDimension,
+                );
                 final savePath = await _resolveLocalImagePath(context);
                 if (savePath == null) {
                   _showSnackBar(

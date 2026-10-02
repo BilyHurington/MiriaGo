@@ -33,9 +33,13 @@ void showGallerySaveResult(
         actionLabel: '设置',
         onAction: () {
           messenger.hideCurrentSnackBar();
-          openAppSettings();
+          openAppSettings().catchError((Object _) => false);
         },
-        duration: const Duration(seconds: 6),
+        // Screen reader users need time to reach the action.
+        duration:
+            MediaQuery.maybeAccessibleNavigationOf(messenger.context) ?? false
+            ? const Duration(seconds: 30)
+            : const Duration(seconds: 6),
       );
     case GallerySaveResult.failed:
       messenger.showStatusSnack(

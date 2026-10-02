@@ -145,19 +145,43 @@ class _CamerawesomeReferenceScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        _cameraPermissionDenied &&
-        _openedCameraSettings) {
-      _nativeCameraController.clearError();
-      setState(() {
-        _openedCameraSettings = false;
-        _cameraPermissionDenied = false;
-      });
+    if (state == AppLifecycleState.resumed && _cameraPermissionDenied) {
+      unawaited(_retryCameraIfAllowed());
     }
   }
 
+  /// Back from settings (or anywhere else) with the panel showing: try the
+  /// camera again if access may have been granted. Android grants without
+  /// restarting the app; on iOS a change in Settings restarts it, so only
+  /// a return from the settings this panel opened is worth a try.
+  Future<void> _retryCameraIfAllowed() async {
+    var retry = _openedCameraSettings;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        retry = await Permission.camera.status.isGranted;
+      } on Object catch (error) {
+        debugPrint('Could not read camera permission: $error');
+      }
+    }
+    if (!retry || !mounted || !_cameraPermissionDenied) return;
+    _retryCamera();
+  }
+
+  void _retryCamera() {
+    _nativeCameraController.clearError();
+    setState(() {
+      _openedCameraSettings = false;
+      _cameraPermissionDenied = false;
+    });
+  }
+
   Future<void> _openCameraSettings() async {
-    _openedCameraSettings = await openAppSettings();
+    try {
+      _openedCameraSettings = await openAppSettings();
+    } on Object catch (error) {
+      debugPrint('Could not open app settings: $error');
+      _openedCameraSettings = false;
+    }
   }
 
   @override
@@ -587,7 +611,11 @@ class _CamerawesomeReferenceScreenState
               onPickGallery: _pickGalleryImage,
             )
           : _cameraPermissionDenied
-          ? _CameraPermissionDeniedMessage(onOpenSettings: _openCameraSettings)
+          ? _CameraPermissionDeniedMessage(
+              onOpenSettings: _openCameraSettings,
+              onRetry: _retryCamera,
+              onPickGallery: _pickGalleryImage,
+            )
           : _shouldUseNativeCamera
           ? _NativeReferenceCameraBody(
               point: widget.point,
@@ -608,6 +636,10 @@ class _CamerawesomeReferenceScreenState
                     // forever on Android).
                     _cameraPermissionDenied = true;
                   } else {
+                    debugPrint(
+                      'Native camera unavailable: '
+                      '${_nativeCameraController.error}',
+                    );
                     _nativeCameraFailed = true;
                     _nativeCameraError = _nativeCameraController.error;
                   }
@@ -636,7 +668,7 @@ class _CamerawesomeReferenceScreenState
                 if (_nativeCameraError != null &&
                     defaultTargetPlatform == TargetPlatform.iOS) {
                   return _NativeCameraUnavailableMessage(
-                    message: _nativeCameraError!,
+                    onPickGallery: _pickGalleryImage,
                   );
                 }
                 return _ReferenceCameraOverlay(
@@ -3616,9 +3648,17 @@ class _FallbackPreview extends StatelessWidget {
 }
 
 class _CameraPermissionDeniedMessage extends StatelessWidget {
-  const _CameraPermissionDeniedMessage({required this.onOpenSettings});
+  const _CameraPermissionDeniedMessage({
+    required this.onOpenSettings,
+    required this.onRetry,
+    required this.onPickGallery,
+  });
 
   final VoidCallback onOpenSettings;
+  final VoidCallback onRetry;
+
+  /// The visit photo can still come from the photo library.
+  final VoidCallback onPickGallery;
 
   @override
   Widget build(BuildContext context) {
@@ -3681,6 +3721,31 @@ class _CameraPermissionDeniedMessage extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 4,
+                  children: [
+                    TextButton.icon(
+                      key: const ValueKey('camera-permission-gallery'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: onPickGallery,
+                      icon: const Icon(LucideIcons.images),
+                      label: const Text('从相册选择照片'),
+                    ),
+                    TextButton.icon(
+                      key: const ValueKey('camera-permission-retry'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                      ),
+                      onPressed: onRetry,
+                      icon: const Icon(LucideIcons.refreshCw),
+                      label: const Text('重试'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -3691,9 +3756,9 @@ class _CameraPermissionDeniedMessage extends StatelessWidget {
 }
 
 class _NativeCameraUnavailableMessage extends StatelessWidget {
-  const _NativeCameraUnavailableMessage({required this.message});
+  const _NativeCameraUnavailableMessage({required this.onPickGallery});
 
-  final String message;
+  final VoidCallback onPickGallery;
 
   @override
   Widget build(BuildContext context) {
@@ -3713,7 +3778,7 @@ class _NativeCameraUnavailableMessage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'iOS 原生相机未启动',
+                  '相机无法启动',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -3722,10 +3787,12 @@ class _NativeCameraUnavailableMessage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  message,
+                // The native error text is English and technical; it goes
+                // to the log instead.
+                const Text(
+                  '相机暂时无法使用，请稍后重试。如果问题持续，请重启 MiriaGo。',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     letterSpacing: 0,
@@ -3736,6 +3803,13 @@ class _NativeCameraUnavailableMessage extends StatelessWidget {
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(LucideIcons.arrowLeft),
                   label: const Text('返回'),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                  onPressed: onPickGallery,
+                  icon: const Icon(LucideIcons.images),
+                  label: const Text('从相册选择照片'),
                 ),
               ],
             ),
