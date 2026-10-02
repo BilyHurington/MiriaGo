@@ -104,11 +104,17 @@ class _AppShellState extends State<AppShell> {
 
     try {
       final plan = await widget.repository.loadActivePlan();
-      final loadedSettings = await widget.repository.loadAppSettings();
-      final settings = await migrateComparisonExportConfigSettings(
-        repository: widget.repository,
-        settings: loadedSettings,
-      );
+      // Reloading after a page closed: the shell's settings are the newest,
+      // since every change goes through it, while the repository may still
+      // be storing the latest one (the desktop store answers with the last
+      // committed state).
+      final reloading = _settingsLoaded;
+      final settings = reloading
+          ? _settings
+          : await migrateComparisonExportConfigSettings(
+              repository: widget.repository,
+              settings: await widget.repository.loadAppSettings(),
+            );
       if (!mounted) {
         return;
       }
@@ -130,9 +136,11 @@ class _AppShellState extends State<AppShell> {
           plan: plan,
           visitRepository: widget.repository,
         );
-        _settings = settings;
-        _storedSettings = settings;
-        _settingsLoaded = true;
+        if (!reloading) {
+          _settings = settings;
+          _storedSettings = settings;
+          _settingsLoaded = true;
+        }
       });
     } catch (error, stackTrace) {
       debugPrint('Failed to load active pilgrimage plan: $error');
@@ -339,7 +347,8 @@ class _AppShellState extends State<AppShell> {
       if (!mounted) {
         return;
       }
-      callback(settings);
+      // The newest settings, should one have changed before this frame.
+      callback(_settingsLoaded ? _settings : settings);
     });
   }
 

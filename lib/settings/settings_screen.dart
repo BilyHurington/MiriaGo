@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,7 @@ import '../map/map_tile_config.dart';
 import '../map/valhalla_route_client.dart';
 import '../plan/pilgrimage_models.dart';
 import '../records/comparison_export_config.dart';
+import 'app_settings_updater.dart';
 import '../records/comparison_export_config_editor.dart';
 import '../records/comparison_export_config_storage_stub.dart'
     if (dart.library.io) '../records/comparison_export_config_storage_io.dart';
@@ -1659,12 +1661,20 @@ class _ComparisonStyleSettingsPageState
 
   @override
   void dispose() {
+    if (_saveTimer?.isActive ?? false) {
+      unawaited(_save(_config, _settings));
+    }
+    _saveTimer?.cancel();
     _pilgrimNameController.dispose();
     super.dispose();
   }
 
   Future<void> _loadSavedConfig() async {
-    final settings = await widget.repository.loadAppSettings();
+    // The app's settings when it runs: the repository may still be storing
+    // the latest change.
+    final settings =
+        AppSettingsUpdater.currentSettings?.call() ??
+        await widget.repository.loadAppSettings();
     if (!mounted) {
       return;
     }
@@ -1684,14 +1694,33 @@ class _ComparisonStyleSettingsPageState
   /// fails.
   ({ComparisonExportConfig config, AppSettings settings})? _stored;
 
+  /// Changes are saved once they pause: typing the pilgrim name or dragging
+  /// the border slider would otherwise store (and rebuild the app) per step.
+  Timer? _saveTimer;
+
   Future<void> _updateConfig(ComparisonExportConfig config) async {
-    final stored = _stored ??= (config: _config, settings: _settings);
+    _stored ??= (config: _config, settings: _settings);
+    final previous = _config;
     final settings = config.applyToSettings(_settings);
     setState(() {
       _config = config;
       _settings = settings;
     });
     ComparisonExportConfig.lastUsed = config;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(
+      config.pilgrimName != previous.pilgrimName
+          ? const Duration(milliseconds: 600)
+          : const Duration(milliseconds: 300),
+      () => _save(config, settings),
+    );
+  }
+
+  Future<void> _save(
+    ComparisonExportConfig config,
+    AppSettings settings,
+  ) async {
+    final stored = _stored ?? (config: config, settings: settings);
     if (await widget.onChanged(settings)) {
       _stored = (config: config, settings: settings);
       return;

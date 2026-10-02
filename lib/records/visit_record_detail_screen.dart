@@ -507,25 +507,10 @@ class _RecordComparisonPanelState extends State<_RecordComparisonPanel> {
   Future<void> _setMode(RecordCompareMode mode) async {
     final previous = _mode;
     setState(() => _mode = mode);
-    AppSettings update(AppSettings current) =>
-        current.copyWith(recordCompareMode: mode);
-    var saved = false;
-    final handler = AppSettingsUpdater.handler;
-    if (handler != null) {
-      saved = await handler(update);
-    } else {
-      final repository = widget.controller.repository;
-      try {
-        if (repository != null) {
-          await repository.saveAppSettings(
-            update(await repository.loadAppSettings()),
-          );
-          saved = true;
-        }
-      } on Object catch (error) {
-        debugPrint('Failed to save the record compare mode: $error');
-      }
-    }
+    final saved = await AppSettingsUpdater.update(
+      widget.controller.repository,
+      (current) => current.copyWith(recordCompareMode: mode),
+    );
     if (!saved && mounted && _mode == mode) {
       setState(() => _mode = previous);
     }

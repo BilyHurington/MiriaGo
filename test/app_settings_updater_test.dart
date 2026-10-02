@@ -160,4 +160,55 @@ void main() {
     final stored = await repository.loadAppSettings();
     expect(stored.comparisonPilgrimName, 'Miria');
   });
+
+  testWidgets('closing the export sheet keeps a name still being typed', (
+    tester,
+  ) async {
+    final repository = _Repository(
+      settings: const AppSettings(comparisonShowPilgrimName: true),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => ComparisonExportSheet.show(
+                context,
+                referenceImagePath: null,
+                referenceImageUrl: null,
+                capturedPath: 'missing.png',
+                metadata: const {},
+                colorGradingSummary: null,
+                repository: repository,
+                exporter:
+                    ({
+                      required referenceImagePath,
+                      required referenceImageUrl,
+                      required capturedPath,
+                      required config,
+                      required metadata,
+                      required colorGradingSummary,
+                    }) async => const ComparisonExportImageResult.canceled(),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    final name = find.byKey(const ValueKey('comparison-pilgrim-name'));
+    await tester.ensureVisible(name);
+    await tester.pumpAndSettle();
+    await tester.enterText(name, 'Late');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(repository.writes, 0);
+
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(find.byType(ComparisonExportSheet), findsNothing);
+    expect(repository.writes, 1);
+    expect((await repository.loadAppSettings()).comparisonPilgrimName, 'Late');
+  });
 }

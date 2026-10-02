@@ -262,8 +262,9 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
   }
 
   Future<void> _introduceRoutePlannerSkill() async {
-    if (widget.settings.routePlannerSkillTipShown ||
-        widget.settings.routePlannerSkillPromotionDismissed) {
+    final current = AppSettingsUpdater.latest(widget.settings);
+    if (current.routePlannerSkillTipShown ||
+        current.routePlannerSkillPromotionDismissed) {
       return;
     }
     // Mark it first so the introduction never repeats, whatever happens

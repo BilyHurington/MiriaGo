@@ -35,6 +35,7 @@ import 'map_tile_config.dart';
 import 'map_location_tracker.dart';
 import '../widgets/reference_thumbnail_stub.dart'
     if (dart.library.io) '../widgets/reference_thumbnail_io.dart';
+import '../settings/app_settings_updater.dart';
 
 class PilgrimageMapScreen extends StatefulWidget {
   const PilgrimageMapScreen({
@@ -159,6 +160,12 @@ class _PilgrimageMapScreenState extends State<PilgrimageMapScreen>
   Future<bool> _updateSettings(
     AppSettings Function(AppSettings settings) update,
   ) async {
+    // Through the shell, on its current settings: two quick switches in
+    // one frame would otherwise both start from the same widget.settings.
+    final shell = AppSettingsUpdater.handler;
+    if (shell != null) {
+      return shell(update);
+    }
     final save = widget.onSettingsChanged;
     if (save == null) {
       return false;

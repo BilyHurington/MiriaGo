@@ -72,7 +72,6 @@ class ComparisonExportSheet extends StatefulWidget {
 
 class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   var _config = ComparisonExportConfig.lastUsed;
-  var _settings = const AppSettings();
   late final TextEditingController _pilgrimNameController;
   var _exporting = false;
   var _loading = true;
@@ -83,28 +82,31 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
   @override
   void initState() {
     super.initState();
-    _config = ComparisonExportConfig.lastUsed.withSettings(_settings);
+    _config = ComparisonExportConfig.lastUsed.withSettings(const AppSettings());
     _pilgrimNameController = TextEditingController(text: _config.pilgrimName);
     _loadSavedConfig();
   }
 
   @override
   void dispose() {
-    if (_nameSaveTimer?.isActive ?? false) {
+    if (_saveTimer?.isActive ?? false) {
       unawaited(_persistConfig(_config).catchError((Object _) {}));
     }
-    _nameSaveTimer?.cancel();
+    _saveTimer?.cancel();
     _pilgrimNameController.dispose();
     super.dispose();
   }
 
   Future<void> _loadSavedConfig() async {
     try {
-      final settings = await widget.repository.loadAppSettings();
+      // The app's settings when it runs: the repository may still be
+      // storing a change made by the previous sheet.
+      final settings =
+          AppSettingsUpdater.currentSettings?.call() ??
+          await widget.repository.loadAppSettings();
       if (!mounted) return;
       final config = ComparisonExportConfig.fromSettings(settings);
       setState(() {
-        _settings = settings;
         _config = config;
         _settingsLoaded = true;
         ComparisonExportConfig.lastUsed = config;
@@ -117,13 +119,14 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
     }
   }
 
-  /// Typing the pilgrim name saves once the typing pauses.
-  Timer? _nameSaveTimer;
+  /// Changes are saved once they pause: typing the pilgrim name or dragging
+  /// the border slider would otherwise store (and rebuild the app) per step.
+  Timer? _saveTimer;
 
   /// Stores [config] on top of the app's current settings (through the app
   /// shell, so its copy never rolls this back). Writes run one at a time.
   Future<void> _persistConfig(ComparisonExportConfig config) {
-    _nameSaveTimer?.cancel();
+    _saveTimer?.cancel();
     final write = _settingsWrite.then((_) async {
       final saved = await AppSettingsUpdater.update(
         widget.repository,
@@ -157,16 +160,13 @@ class _ComparisonExportSheetState extends State<ComparisonExportSheet> {
     final previous = _config;
     setState(() => _config = config);
     ComparisonExportConfig.lastUsed = config;
-    _settings = config.applyToSettings(_settings);
-    if (config.pilgrimName != previous.pilgrimName) {
-      _nameSaveTimer?.cancel();
-      _nameSaveTimer = Timer(
-        const Duration(milliseconds: 600),
-        () => _persistConfigReportingFailure(config),
-      );
-      return;
-    }
-    await _persistConfigReportingFailure(config);
+    _saveTimer?.cancel();
+    _saveTimer = Timer(
+      config.pilgrimName != previous.pilgrimName
+          ? const Duration(milliseconds: 600)
+          : const Duration(milliseconds: 300),
+      () => _persistConfigReportingFailure(config),
+    );
   }
 
   @override
