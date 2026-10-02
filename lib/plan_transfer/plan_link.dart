@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../data/public_http.dart';
 import 'plan_import_package.dart';
 import 'plan_package.dart' show seichiPlanFileExtension;
 import 'plan_transfer_background.dart';
@@ -30,6 +31,9 @@ sealed class PlanLink {
     if (uri.host.isEmpty || uri.userInfo.isNotEmpty) {
       throw const PlanLinkException('无法识别这个链接');
     }
+    if (!isPublicWebUri(uri)) {
+      throw planLinkNotPublic;
+    }
     final host = uri.host.toLowerCase();
     if (host == 'github.com' || host == 'www.github.com') {
       return _parseGitHub(uri) ?? PlanFileLink(uri);
@@ -50,9 +54,27 @@ sealed class PlanLink {
         ? segments[1].substring(0, segments[1].length - 4)
         : segments[1];
     final rest = segments.sublist(2);
-    // github.com/o/r/releases/download/<tag>/<file>: the file itself.
-    if (rest.length >= 4 && rest[0] == 'releases' && rest[1] == 'download') {
+    // github.com/o/r/releases/download/<tag>/<file> and
+    // github.com/o/r/releases/latest/download/<file>: the file itself.
+    if ((rest.length >= 4 && rest[0] == 'releases' && rest[1] == 'download') ||
+        (rest.length >= 4 &&
+            rest[0] == 'releases' &&
+            rest[1] == 'latest' &&
+            rest[2] == 'download')) {
       return PlanFileLink(uri);
+    }
+    // A file in the repository: github.com/o/r/raw/<ref>/<path> redirects to
+    // its contents; the blob page is HTML, so fetch the raw file instead.
+    if (rest.length >= 3 && rest[0] == 'raw') {
+      return PlanFileLink(uri);
+    }
+    if (rest.length >= 3 && rest[0] == 'blob') {
+      return PlanFileLink(
+        Uri.https(
+          'raw.githubusercontent.com',
+          [owner, repo, ...rest.sublist(1)].join('/'),
+        ),
+      );
     }
     if (rest.length >= 3 && rest[0] == 'releases' && rest[1] == 'tag') {
       return GitHubReleaseLink(
@@ -89,11 +111,17 @@ class GitHubReleaseLink extends PlanLink {
   /// Null for the latest release.
   final String? tag;
 
-  Uri get apiUri => Uri.https(
-    'api.github.com',
-    tag == null
-        ? '/repos/$owner/$repo/releases/latest'
-        : '/repos/$owner/$repo/releases/tags/$tag',
+  Uri get apiUri => Uri(
+    scheme: 'https',
+    host: 'api.github.com',
+    // Segments, so a tag containing "/" is encoded as one segment.
+    pathSegments: [
+      'repos',
+      owner,
+      repo,
+      'releases',
+      ...tag == null ? ['latest'] : ['tags', tag!],
+    ],
   );
 
   String get label => tag == null ? '$owner/$repo 最新发布' : '$owner/$repo $tag';
@@ -221,7 +249,16 @@ abstract class PlanLinkService {
 
   /// Deletes a temporary download.
   Future<void> discard(DownloadedPlanFile file);
+
+  /// Deletes downloads left behind by an import that never finished (the
+  /// app was closed during it).
+  Future<void> sweep();
 }
+
+/// A download larger than [maxPlanLinkDownloadBytes].
+const planLinkTooLarge = PlanLinkException('文件超过 128 MB 上限，无法导入');
+
+const planLinkNotPublic = PlanLinkException('不支持本机或局域网地址');
 
 /// The largest download accepted, same as a picked plan file.
 int get maxPlanLinkDownloadBytes => const PlanImportLimits().maxCompressedBytes;
@@ -236,7 +273,7 @@ PlanLinkException planLinkHttpError(int statusCode) => PlanLinkException(
 
 PlanLinkException gitHubReleaseError(int statusCode) => PlanLinkException(
   statusCode == 404
-      ? '没有找到这个发布：仓库可能是私有的，或还没有发布版本'
+      ? '没有找到这个发布：仓库可能是私有的、还没有发布版本，或只有预发布版本（请粘贴具体发布页链接）'
       : statusCode == 403 || statusCode == 429
       ? 'GitHub 请求过于频繁，请稍后再试'
       : 'GitHub 发布信息读取失败（HTTP $statusCode）',

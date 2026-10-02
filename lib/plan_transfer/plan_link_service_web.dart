@@ -101,6 +101,9 @@ class _WebPlanLinkService implements PlanLinkService {
 
   @override
   Future<void> discard(DownloadedPlanFile file) async {}
+
+  @override
+  Future<void> sweep() async {}
 }
 
 Exception _launcherError(String message) {
@@ -111,14 +114,10 @@ Exception _launcherError(String message) {
     return planLinkHttpError(int.parse(status));
   }
   if (message.contains('response too large')) {
-    return PlanImportLimitException(
-      '下载文件字节数',
-      maxPlanLinkDownloadBytes + 1,
-      maxPlanLinkDownloadBytes,
-    );
+    return planLinkTooLarge;
   }
   if (message.contains('non-public') || message.contains('not allowed')) {
-    return const PlanLinkException('不支持本机或局域网地址');
+    return planLinkNotPublic;
   }
   return const PlanLinkException('下载失败，请检查网络后重试');
 }

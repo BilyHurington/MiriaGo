@@ -81,6 +81,54 @@ void main() {
       }
     });
 
+    test('repository files and latest downloads are files', () {
+      expect(
+        (PlanLink.parse('https://github.com/o/r/blob/main/plans/a b.sjhplan')
+                as PlanFileLink)
+            .uri
+            .toString(),
+        'https://raw.githubusercontent.com/o/r/main/plans/a%20b.sjhplan',
+      );
+      for (final url in [
+        'https://github.com/o/r/raw/main/a.sjhplan',
+        'https://github.com/o/r/releases/latest/download/a.sjhplan',
+      ]) {
+        expect(PlanLink.parse(url), isA<PlanFileLink>(), reason: url);
+      }
+      expect(
+        (PlanLink.parse('https://github.com/o/r/releases/tag/team/v1')
+                as GitHubReleaseLink)
+            .apiUri
+            .toString(),
+        'https://api.github.com/repos/o/r/releases/tags/team%2Fv1',
+      );
+      expect(
+        (PlanLink.parse('https://example.com/100%25.sjhplan') as PlanFileLink)
+            .fileName,
+        '100%.sjhplan',
+      );
+    });
+
+    test('refuses local network addresses', () {
+      for (final input in [
+        'https://localhost/a.sjhplan',
+        'https://192.168.1.2/a.sjhplan',
+        'https://[::1]/a.sjhplan',
+      ]) {
+        expect(
+          () => PlanLink.parse(input),
+          throwsA(
+            isA<PlanLinkException>().having(
+              (error) => error.message,
+              'message',
+              '不支持本机或局域网地址',
+            ),
+          ),
+          reason: input,
+        );
+      }
+    });
+
     test('refuses empty and non-HTTPS links', () {
       for (final input in [
         '',
@@ -179,6 +227,19 @@ void main() {
         entryName: 'two.SJHPLAN',
       );
       expect(package.sourceName, 'two.SJHPLAN');
+    });
+
+    test('a zip with two entries of the same name is refused', () {
+      final archive = Archive()
+        ..addFile(ArchiveFile.bytes('a.sjhplan', _legacyPlan()))
+        ..addFile(ArchiveFile.bytes('A.sjhplan', _legacyPlan()));
+      expect(
+        () => readPlanImportPackageFromDownload(
+          ZipEncoder().encode(archive),
+          sourceName: 'x.zip',
+        ),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('a zip without a plan is reported', () {
@@ -313,6 +374,61 @@ void main() {
       expect(find.text('只支持 https:// 开头的链接'), findsOneWidget);
     });
 
+    testWidgets('a % in the file name downloads normally', (tester) async {
+      final service = await pumpScreen(tester);
+      await submit(tester, 'https://example.com/100%25.sjhplan');
+      await tester.pumpAndSettle();
+      expect(service.downloads.single.path, '/100%25.sjhplan');
+      expect(find.byType(PlanImportPreviewScreen), findsOneWidget);
+    });
+
+    testWidgets('a cancelled attempt never touches the next one', (
+      tester,
+    ) async {
+      final service = _FakeService()..releaseGate = Completer<String>();
+      final stale = service.releaseGate!;
+      await pumpScreen(tester, service: service);
+      await submit(tester, 'https://github.com/o/r');
+      await tester.tap(find.byKey(const ValueKey('plan-link-cancel')));
+      await tester.pump();
+
+      // A new attempt is reading when the old one fails late.
+      service
+        ..downloadGate = null
+        ..choice = const [
+          PlanArchiveEntry(name: 'a.sjhplan', size: 1),
+          PlanArchiveEntry(name: 'b.sjhplan', size: 1),
+        ];
+      await submit(tester, _zipUrl);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('plan-link-entry-sheet')), findsOne);
+      stale.completeError(const PlanLinkException('late'));
+      await tester.pumpAndSettle();
+      expect(service.discarded, 0);
+      expect(find.text('late'), findsNothing);
+
+      await tester.tap(find.text('b.sjhplan'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PlanImportPreviewScreen), findsOneWidget);
+      expect(service.discarded, 1);
+    });
+
+    testWidgets('closing the choice discards the download', (tester) async {
+      final service = _FakeService()
+        ..choice = const [
+          PlanArchiveEntry(name: 'a.sjhplan', size: 1),
+          PlanArchiveEntry(name: 'b.sjhplan', size: 1),
+        ];
+      await pumpScreen(tester, service: service);
+      expect(service.swept, 1);
+      await submit(tester, _zipUrl);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(service.discarded, 1);
+      expect(find.byType(PlanImportPreviewScreen), findsNothing);
+    });
+
     testWidgets('cancel stops the download', (tester) async {
       final service = _FakeService()..downloadGate = Completer<void>();
       await pumpScreen(tester, service: service);
@@ -348,6 +464,9 @@ class _FakeService implements PlanLinkService {
   final downloads = <Uri>[];
   final readEntries = <String?>[];
   var discarded = 0;
+  final discardedFiles = <DownloadedPlanFile>[];
+  var swept = 0;
+  Completer<String>? releaseGate;
   Completer<void>? downloadGate;
   PlanTransferCancellation? cancellation;
   List<PlanArchiveEntry>? choice;
@@ -359,6 +478,11 @@ class _FakeService implements PlanLinkService {
   @override
   Future<String> fetchRelease(GitHubReleaseLink link) async {
     releaseRequests.add(link);
+    final gate = releaseGate;
+    if (gate != null) {
+      releaseGate = null;
+      return gate.future;
+    }
     return jsonEncode({
       'name': 'v1.0.2',
       'assets': [
@@ -412,5 +536,11 @@ class _FakeService implements PlanLinkService {
   @override
   Future<void> discard(DownloadedPlanFile file) async {
     discarded++;
+    discardedFiles.add(file);
+  }
+
+  @override
+  Future<void> sweep() async {
+    swept++;
   }
 }

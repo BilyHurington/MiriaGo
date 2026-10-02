@@ -54,6 +54,8 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
   void initState() {
     super.initState();
     _link.addListener(_onLinkChanged);
+    // Downloads left behind when the app was closed mid-import.
+    widget.service.sweep();
   }
 
   @override
@@ -66,12 +68,16 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
 
   void _onLinkChanged() => setState(() {});
 
+  /// The current attempt's download, deleted on cancel or close.
   void _discardFile() {
     final file = _file;
-    _file = null;
-    if (file != null) {
-      widget.service.discard(file);
-    }
+    if (file != null) _discard(file);
+  }
+
+  /// Deletes one attempt's download; never another attempt's.
+  void _discard(DownloadedPlanFile file) {
+    if (identical(_file, file)) _file = null;
+    widget.service.discard(file);
   }
 
   Future<void> _paste() async {
@@ -151,34 +157,46 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
     String fileName,
     PlanTransferCancellation cancellation,
   ) async {
+    // Link and GitHub file names are already decoded.
     setState(() {
       _phase = _Phase.downloading;
-      _downloadName = Uri.decodeComponent(fileName);
+      _downloadName = fileName;
       _received = 0;
       _total = null;
     });
+    var lastProgress = DateTime.fromMillisecondsSinceEpoch(0);
+    final DownloadedPlanFile file;
     try {
-      final file = await widget.service.download(
+      file = await widget.service.download(
         uri,
-        fileName: _downloadName,
+        fileName: fileName,
         cancellation: cancellation,
         onProgress: (received, total) {
           if (!mounted || cancellation.isCancelled) return;
+          // A rebuild per network chunk would be thousands for a large plan.
+          final now = DateTime.now();
+          if (now.difference(lastProgress) <
+                  const Duration(milliseconds: 100) &&
+              received != total) {
+            return;
+          }
+          lastProgress = now;
           setState(() {
             _received = received;
             _total = total;
           });
         },
       );
-      if (!mounted || cancellation.isCancelled) {
-        await widget.service.discard(file);
-        return;
-      }
-      _file = file;
-      await _read(file, cancellation);
     } on Object catch (error) {
       _fail(error, cancellation);
+      return;
     }
+    if (!mounted || cancellation.isCancelled) {
+      await widget.service.discard(file);
+      return;
+    }
+    _file = file;
+    await _read(file, cancellation);
   }
 
   Future<void> _read(
@@ -201,18 +219,19 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
       final chosen = await _chooseEntry(choice.entries);
       if (!mounted || cancellation.isCancelled) return;
       if (chosen == null) {
-        _discardFile();
+        _discard(file);
         setState(() => _phase = _Phase.idle);
         return;
       }
       await _read(file, cancellation, entryName: chosen);
       return;
     } on Object catch (error) {
+      _discard(file);
       _fail(error, cancellation);
       return;
     }
     // Everything needed is in memory now.
-    _discardFile();
+    _discard(file);
     if (!mounted || cancellation.isCancelled) return;
     setState(() => _phase = _Phase.idle);
     final imported = await Navigator.of(context).push<bool>(
@@ -265,8 +284,9 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
     );
   }
 
+  /// Reports a failure of the attempt [cancellation] belongs to; a
+  /// cancelled (older) attempt stays silent.
   void _fail(Object error, PlanTransferCancellation cancellation) {
-    _discardFile();
     if (!mounted || cancellation.isCancelled) return;
     if (error is PlanTransferCancelledException) {
       setState(() => _phase = _Phase.idle);
@@ -367,7 +387,8 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
               '• GitHub 发布中的文件下载链接\n'
               '• 其他 https:// 开头的 .sjhplan 或 .zip 直链\n'
               '.zip 中可以带说明等其他文件，MiriaGo 只读取其中的 .sjhplan。'
-              '下载只连接你输入的地址；GitHub 链接还会向 api.github.com 查询发布内容。',
+              '下载会连接你输入的地址（以及它跳转到的下载服务器）；'
+              'GitHub 发布或仓库链接还会向 api.github.com 查询发布中的文件。',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,

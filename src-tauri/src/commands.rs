@@ -890,7 +890,8 @@ pub async fn download_plan_package(
     request: DownloadPlanPackageRequest,
 ) -> Result<tauri::ipc::Response, String> {
     let id = request.download_id.clone();
-    plan_downloads().insert(id.clone(), PlanDownloadProgress::default());
+    // A cancel that arrived first has already created the entry.
+    plan_downloads().entry(id.clone()).or_default();
     let result = run_blocking(move || download_plan_package_blocking(&request)).await;
     plan_downloads().remove(&id);
     result.map(tauri::ipc::Response::new)
@@ -903,9 +904,7 @@ pub fn plan_download_progress(download_id: String) -> Option<PlanDownloadProgres
 
 #[tauri::command]
 pub fn cancel_plan_download(download_id: String) {
-    if let Some(progress) = plan_downloads().get_mut(&download_id) {
-        progress.cancelled = true;
-    }
+    plan_downloads().entry(download_id).or_default().cancelled = true;
 }
 
 fn download_plan_package_blocking(request: &DownloadPlanPackageRequest) -> Result<Vec<u8>, String> {
@@ -913,10 +912,18 @@ fn download_plan_package_blocking(request: &DownloadPlanPackageRequest) -> Resul
 
     let url = reqwest::Url::parse(request.url.trim()).map_err(|_| "invalid HTTPS URL")?;
     check_public_https_url(&url)?;
-    let mut response = public_https_client(std::time::Duration::from_secs(30 * 60))?
+    // The blocking client's timeout applies to each read, so this is how
+    // long a stalled transfer (or a cancel during one) waits.
+    let mut response = public_https_client(std::time::Duration::from_secs(60))?
         .get(url)
         .send()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            if error.is_redirect() {
+                "redirect to a non-public address".to_string()
+            } else {
+                error.to_string()
+            }
+        })?;
     if !response.status().is_success() {
         return Err(format!("request failed: {}", response.status()));
     }

@@ -51,13 +51,16 @@ class _IoPlanLinkService implements PlanLinkService {
     PlanLinkProgress? onProgress,
     PlanTransferCancellation? cancellation,
   }) async {
+    final Directory directory;
+    try {
+      directory = await _downloadDirectory();
+      await directory.create(recursive: true);
+    } on Object {
+      throw const PlanLinkException('无法创建临时文件，请检查存储空间');
+    }
     final client = http.Client();
     // Closing the client aborts the transfer at once.
     unawaited(cancellation?.whenCancelled.then((_) => client.close()));
-    final directory = Directory(
-      '${(await getTemporaryDirectory()).path}/link_imports',
-    );
-    await directory.create(recursive: true);
     final file = File(
       '${directory.path}/download_${DateTime.now().microsecondsSinceEpoch}',
     );
@@ -76,7 +79,7 @@ class _IoPlanLinkService implements PlanLinkService {
       final limit = maxPlanLinkDownloadBytes;
       if (total != null && total > limit) {
         await response.stream.listen(null).cancel();
-        throw PlanImportLimitException('下载文件字节数', total, limit);
+        throw planLinkTooLarge;
       }
       sink = file.openWrite();
       var received = 0;
@@ -87,7 +90,7 @@ class _IoPlanLinkService implements PlanLinkService {
         cancellation?.throwIfCancelled();
         received += chunk.length;
         if (received > limit) {
-          throw PlanImportLimitException('下载文件字节数', received, limit);
+          throw planLinkTooLarge;
         }
         sink.add(chunk);
         onProgress?.call(received, total);
@@ -103,9 +106,15 @@ class _IoPlanLinkService implements PlanLinkService {
         throw const PlanTransferCancelledException();
       }
       if (error is PlanLinkException ||
-          error is PlanImportLimitException ||
           error is PlanTransferCancelledException) {
         rethrow;
+      }
+      if (error is http.ClientException &&
+          error.message.contains('non-public')) {
+        throw planLinkNotPublic;
+      }
+      if (error is FileSystemException) {
+        throw const PlanLinkException('无法保存下载的文件，请检查存储空间');
       }
       throw const PlanLinkException('下载失败，请检查网络后重试');
     } finally {
@@ -128,6 +137,19 @@ class _IoPlanLinkService implements PlanLinkService {
   }
 
   @override
+  Future<void> sweep() async {
+    try {
+      final directory = await _downloadDirectory();
+      if (!await directory.exists()) return;
+      await for (final entry in directory.list()) {
+        if (entry is File) await _deleteQuietly(entry);
+      }
+    } on Object {
+      // Best effort; the system clears the temporary directory eventually.
+    }
+  }
+
+  @override
   Future<void> discard(DownloadedPlanFile file) async {
     final path = file.path;
     if (path != null) {
@@ -135,6 +157,9 @@ class _IoPlanLinkService implements PlanLinkService {
     }
   }
 }
+
+Future<Directory> _downloadDirectory() async =>
+    Directory('${(await getTemporaryDirectory()).path}/link_imports');
 
 Future<PlanImportPackage> _readDownload(
   String path,

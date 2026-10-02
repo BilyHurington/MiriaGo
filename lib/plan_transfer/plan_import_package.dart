@@ -386,6 +386,18 @@ PlanImportPackage readPlanImportPackageFromDownload(
   final directory = _LimitedZipDirectory(limits.maxEntries, checkCancellation);
   directory.read(InputMemoryStream(bytes));
   final headers = directory.fileHeaders;
+  if (directory.filePosition < 0 ||
+      directory.numberOfThisDisk != 0 ||
+      directory.diskWithTheStartOfTheCentralDirectory != 0 ||
+      directory.totalCentralDirectoryEntries != headers.length) {
+    throw const FormatException('Invalid ZIP directory.');
+  }
+  final names = <String>{};
+  for (final header in headers) {
+    if (!names.add(normalizeAssetPathSeparators(header.filename).toLowerCase())) {
+      throw const FormatException('Ambiguous or unsupported ZIP entry.');
+    }
+  }
   if (headers.any(
     (header) =>
         normalizeAssetPathSeparators(header.filename) == 'manifest.json',
@@ -462,7 +474,13 @@ Uint8List _readSinglePlanEntry(
       limits.maxCompressedBytes,
     );
   }
-  final output = _CappedOutput(limits.maxCompressedBytes, checkCancellation);
+  // Sized up front (the size is checked above and verified below): growing
+  // by doubling would briefly hold several copies of a large plan.
+  final output = _CappedOutput(
+    limits.maxCompressedBytes,
+    checkCancellation,
+    header.uncompressedSize,
+  );
   final input = file.getStream(decompress: false);
   if (header.compressionMethod == 8) {
     Inflate.stream(input, output: output);
@@ -478,7 +496,8 @@ Uint8List _readSinglePlanEntry(
 }
 
 class _CappedOutput extends OutputMemoryStream {
-  _CappedOutput(this.limit, this.check) : super(size: 1024);
+  _CappedOutput(this.limit, this.check, int expectedSize)
+    : super(size: expectedSize < 1024 ? 1024 : expectedSize);
 
   final int limit;
   final void Function() check;
