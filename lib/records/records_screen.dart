@@ -662,7 +662,7 @@ class _RecordScopeFilterSheetState extends State<_RecordScopeFilterSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
                 child: Text(
-                  '可多选。',
+                  '可多选',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
