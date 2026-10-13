@@ -257,43 +257,53 @@ class _RoutePlannerSkillLinkState extends State<RoutePlannerSkillLink> {
     );
     return InkWell(
       key: const ValueKey('route-planner-skill-link'),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.zero,
       onTap: () => openRoutePlannerSkillGuide(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.sparkles, size: 14, color: AppColors.accentDark),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  style: style,
-                  children: [
-                    TextSpan(text: widget.lead),
-                    TextSpan(
-                      text: '用 AI 一键规划行程并生成计划包',
-                      style: TextStyle(
-                        color: AppColors.accentDark,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                        decorationColor: AppColors.accentDark,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 40),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(LucideIcons.sparkles, size: 14, color: AppColors.accentDark),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: style,
+                    children: [
+                      TextSpan(text: widget.lead),
+                      TextSpan(
+                        text: '用 AI 一键规划行程并生成计划包',
+                        style: TextStyle(
+                          color: AppColors.accentDark,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.accentDark,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            IconButton(
-              key: const ValueKey('route-planner-skill-link-dismiss'),
-              tooltip: '关闭',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-              onPressed: _saving ? null : _dismiss,
-              icon: const Icon(LucideIcons.x, size: 16),
-            ),
-          ],
+              IconButton(
+                key: const ValueKey('route-planner-skill-link-dismiss'),
+                tooltip: '关闭',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 28,
+                ),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: const RoundedRectangleBorder(),
+                ),
+                onPressed: _saving ? null : _dismiss,
+                icon: const Icon(LucideIcons.x, size: 16),
+              ),
+            ],
+          ),
         ),
       ),
     );

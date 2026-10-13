@@ -9,6 +9,7 @@ import 'package:miriago/app_theme.dart';
 import 'package:miriago/data/sample_pilgrimage_repository.dart';
 import 'package:miriago/plan/pilgrimage_models.dart';
 import 'package:miriago/settings/reference_cache_cleanup_page.dart';
+import 'package:miriago/widgets/confirm_action_dialog.dart';
 
 void main() {
   testWidgets('selection estimates exclude retained and duplicate files', (
@@ -125,6 +126,18 @@ void main() {
     expect(find.text('12 KB'), findsOneWidget);
     expect(find.text('14 KB'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    final selectButton = find.widgetWithText(TextButton, '取消全选');
+    final header = find.ancestor(
+      of: selectButton,
+      matching: find.byType(IntrinsicHeight),
+    );
+    expect(tester.getSize(selectButton).height, tester.getSize(header).height);
+    expect(
+      (tester.widget<TextButton>(selectButton).style!.shape!.resolve({})!
+              as RoundedRectangleBorder)
+          .borderRadius,
+      BorderRadius.zero,
+    );
     final footer = find.ancestor(
       of: find.text('清理缓存'),
       matching: find.byType(FilledButton),
@@ -132,17 +145,40 @@ void main() {
     expect(tester.getBottomRight(footer).dy, greaterThan(800));
 
     final screenshot = Platform.environment['MIRIAGO_CACHE_PAGE_SCREENSHOT'];
-    if (screenshot != null) {
+    Future<void> capture(String suffix) async {
+      if (screenshot == null) return;
       final boundary =
           boundaryKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
       await tester.runAsync(() async {
         final image = await boundary.toImage(pixelRatio: 2);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-        await File(screenshot).writeAsBytes(bytes!.buffer.asUint8List());
+        await File(
+          '$screenshot$suffix',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
       });
     }
+
+    await capture('');
+
+    await tester.runAsync(() async {
+      tester.widget<FilledButton>(footer).onPressed!();
+    });
+    await settleFileReads();
+    expect(find.byType(ConfirmActionDialog), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      tester
+          .widget<ConfirmActionDialog>(find.byType(ConfirmActionDialog))
+          .destructive,
+      isFalse,
+    );
+    await capture('.dialog.png');
+    tester
+        .widget<AppDialogActionRow>(find.byType(AppDialogActionRow))
+        .onCancel();
+    await tester.pumpAndSettle();
 
     // Call callbacks directly; no pointer or mouse input is used.
     await tester.runAsync(() async {

@@ -5,6 +5,7 @@ import '../data/pilgrimage_repository.dart';
 import '../data/reference_cache_cleanup.dart';
 import '../plan/pilgrimage_models.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/confirm_action_dialog.dart';
 import '../widgets/snackbar_helper.dart';
 
 class ReferenceCacheCleanupPage extends StatefulWidget {
@@ -137,21 +138,28 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                 ),
                 child: Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+                    IntrinsicHeight(
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('选择计划', style: _text(18, bold: true)),
-                                Text(
-                                  '已选 ${_selectedPlanIds.length} 个，共 ${plans.length} 个',
-                                  style: _text(14, secondary: true),
-                                ),
-                              ],
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                16,
+                                12,
+                                14,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('选择计划', style: _text(18, bold: true)),
+                                  Text(
+                                    '已选 ${_selectedPlanIds.length} 个，共 ${plans.length} 个',
+                                    style: _text(14, secondary: true),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           TextButton(
@@ -167,9 +175,12 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                                   }),
                             style: TextButton.styleFrom(
                               foregroundColor: _accent,
-                              padding: EdgeInsets.zero,
-                              minimumSize: const Size(0, 28),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: const RoundedRectangleBorder(),
                             ),
                             child: Text(
                               allSelected ? '取消全选' : '全选',
@@ -388,25 +399,14 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
       );
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('清除参考图缓存？'),
-        content: Text(
-          '将删除 ${scan.fileCount} 个下载缓存，约 ${_formatByteSize(scan.byteCount)}。'
-          '本地上传图片和计划包导入图片不会被删除。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('清除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmActionDialog(
+      context,
+      title: '清理参考图缓存？',
+      message:
+          '将删除 ${scan.fileCount} 个完整参考图缓存，约 ${_formatByteSize(scan.byteCount)}。',
+      notice: '保留缩略图、本地上传图片和计划包导入图片。完整参考图可重新下载。',
+      emphasizedValues: ['${scan.fileCount}', _formatByteSize(scan.byteCount)],
+      confirmLabel: '清理缓存',
     );
     if (confirmed != true || !mounted) return;
     setState(() {
