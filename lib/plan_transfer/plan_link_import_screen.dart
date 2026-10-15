@@ -6,6 +6,7 @@ import '../app_theme.dart';
 import '../data/pilgrimage_repository.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/app_status_banner.dart';
+import '../widgets/input_dialog.dart';
 import 'plan_import_package.dart';
 import 'plan_import_preview_screen.dart';
 import 'plan_link.dart';
@@ -29,6 +30,100 @@ class PlanLinkImportScreen extends StatefulWidget {
 
   @override
   State<PlanLinkImportScreen> createState() => _PlanLinkImportScreenState();
+}
+
+class _LinkImportAction extends StatelessWidget {
+  const _LinkImportAction({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    this.primary = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final foreground = enabled && primary
+        ? AppColors.onAccent
+        : enabled
+        ? AppColors.textPrimary
+        : AppColors.textSecondary;
+    final radius = BorderRadius.circular(8);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: Material(
+        color: enabled && primary
+            ? AppColors.accent
+            : enabled
+            ? AppColors.surface
+            : AppColors.surfaceMuted,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(
+            color: enabled && primary ? AppColors.accent : AppColors.border,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: enabled && !primary
+                      ? AppColors.accentForeground
+                      : foreground,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(LucideIcons.chevronRight, size: 18, color: foreground),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 enum _Phase { idle, resolving, choosingAsset, downloading, reading }
@@ -251,15 +346,22 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
     return showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      backgroundColor: AppColors.overlaySurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        side: AppColors.isDark
+            ? BorderSide(color: AppColors.border)
+            : BorderSide.none,
+      ),
       isScrollControlled: true,
       builder: (context) => SafeArea(
         child: ListView(
           key: const ValueKey('plan-link-entry-sheet'),
           shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 '压缩包里有多个计划，选择要导入的一个',
                 style: TextStyle(
@@ -271,12 +373,15 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
               ),
             ),
             for (final entry in entries)
-              ListTile(
-                key: ValueKey('plan-link-entry-${entry.name}'),
-                leading: Icon(LucideIcons.package, color: AppColors.accentDark),
-                title: Text(entry.fileName),
-                subtitle: Text(formatPlanLinkBytes(entry.size)),
-                onTap: () => Navigator.of(context).pop(entry.name),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _LinkImportAction(
+                  key: ValueKey('plan-link-entry-${entry.name}'),
+                  icon: LucideIcons.package,
+                  title: entry.fileName,
+                  subtitle: formatPlanLinkBytes(entry.size),
+                  onTap: () => Navigator.of(context).pop(entry.name),
+                ),
               ),
           ],
         ),
@@ -329,65 +434,208 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            Text(
-              '粘贴 GitHub 发布页面或计划文件的下载链接，MiriaGo 会下载计划并打开导入预览。',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.45,
-                letterSpacing: 0,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
               ),
-            ),
-            const SizedBox(height: 14),
-            if (!available) ...[
-              const AppStatusBanner(
-                kind: AppStatusBannerKind.warning,
-                title: '网页版无法直接下载',
-                subtitle:
-                    '请先在浏览器中下载 .sjhplan 或 .zip，再回到“导入导出”，用“导入 MiriaGo 文件”导入。',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '通过链接获取计划',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '粘贴 GitHub 发布页面或计划文件的下载链接。',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.35,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            LucideIcons.eye,
+                            size: 16,
+                            color: AppColors.accentForeground,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '下载后先预览，再选择导入内容。',
+                              style: TextStyle(
+                                color: AppColors.accentForeground,
+                                fontSize: 12,
+                                height: 1.3,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (!available) ...[
+                    const AppStatusBanner(
+                      kind: AppStatusBannerKind.warning,
+                      title: '网页版无法直接下载',
+                      subtitle:
+                          '请先在浏览器中下载 .sjhplan 或 .zip，再回到“导入导出”，用“导入 MiriaGo 文件”导入。',
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  AppDialogField(
+                    label: '链接',
+                    child: TextField(
+                      key: const ValueKey('plan-link-input'),
+                      controller: _link,
+                      enabled: available && !_busy,
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textInputAction: TextInputAction.go,
+                      onSubmitted: available && !_busy ? (_) => _start() : null,
+                      onTapOutside: dismissKeyboardOnTapOutside,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                      ),
+                      decoration:
+                          appDialogInputDecoration(
+                            hintText: 'https://github.com/…/releases/…',
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              key: const ValueKey('plan-link-paste'),
+                              tooltip: '粘贴',
+                              onPressed: available && !_busy ? _paste : null,
+                              icon: const Icon(LucideIcons.clipboardPaste),
+                              style: IconButton.styleFrom(
+                                foregroundColor: AppColors.accentForeground,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _LinkImportAction(
+                    key: const ValueKey('plan-link-start'),
+                    primary: true,
+                    onTap: available && !_busy && _link.text.trim().isNotEmpty
+                        ? _start
+                        : null,
+                    icon: LucideIcons.download,
+                    title: '读取链接',
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
-            ],
-            TextField(
-              key: const ValueKey('plan-link-input'),
-              controller: _link,
-              enabled: available && !_busy,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.go,
-              onSubmitted: (_) => _start(),
-              decoration: InputDecoration(
-                labelText: '链接',
-                hintText: 'https://github.com/…/releases/…',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  key: const ValueKey('plan-link-paste'),
-                  tooltip: '粘贴',
-                  onPressed: available && !_busy ? _paste : null,
-                  icon: const Icon(LucideIcons.clipboardPaste),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              key: const ValueKey('plan-link-start'),
-              onPressed: available && !_busy && _link.text.trim().isNotEmpty
-                  ? _start
-                  : null,
-              icon: const Icon(LucideIcons.download),
-              label: const Text('读取链接'),
             ),
             const SizedBox(height: 16),
             ..._status(),
             const SizedBox(height: 16),
             Text(
-              '支持：\n'
-              '• GitHub 发布页面或仓库链接（自动列出最新发布中的计划文件）\n'
-              '• GitHub 发布中的文件下载链接\n'
-              '• 其他 https:// 开头的 .sjhplan 或 .zip 直链\n'
-              '.zip 中可以带说明等其他文件，MiriaGo 只读取其中的 .sjhplan。'
-              '下载会连接你输入的地址（以及它跳转到的下载服务器）；'
+              '支持的链接类型',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  for (final (index, (icon, title, description)) in const [
+                    (LucideIcons.package, 'GitHub 发布页面或仓库', '自动列出最新发布中的计划文件'),
+                    (LucideIcons.download, 'GitHub 文件下载链接', '直接读取发布中的计划文件'),
+                    (
+                      LucideIcons.link,
+                      'HTTPS 文件直链',
+                      '支持 .sjhplan 计划包和 .zip 压缩包',
+                    ),
+                  ].indexed) ...[
+                    if (index > 0) const AppHairline(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 18,
+                              color: AppColors.accentForeground,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  description,
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    height: 1.3,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '.zip 中可以带说明等其他文件，MiriaGo 只读取其中的 .sjhplan。\n'
+              '下载会连接你输入的地址及其跳转到的下载服务器；'
               'GitHub 发布或仓库链接还会向 api.github.com 查询发布中的文件。',
               style: TextStyle(
                 color: AppColors.textSecondary,
@@ -446,22 +694,17 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
           ),
           const SizedBox(height: 8),
           for (var i = 0; i < _assets.length; i++)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _LinkImportAction(
                 key: ValueKey('plan-link-asset-$i'),
-                leading: Icon(
-                  _assets[i].isPlan
-                      ? LucideIcons.package
-                      : LucideIcons.fileArchive,
-                  color: AppColors.accentDark,
-                ),
-                title: Text(_assets[i].name),
-                subtitle: Text(
-                  '${formatPlanLinkBytes(_assets[i].size)}'
-                  '${_assets[i].isPlan ? '' : ' · 压缩包'}',
-                ),
-                trailing: const Icon(LucideIcons.download),
+                icon: _assets[i].isPlan
+                    ? LucideIcons.package
+                    : LucideIcons.fileArchive,
+                title: _assets[i].name,
+                subtitle:
+                    '${formatPlanLinkBytes(_assets[i].size)}'
+                    '${_assets[i].isPlan ? '' : ' · 压缩包'}',
                 onTap: () => _downloadAsset(_assets[i]),
               ),
             ),

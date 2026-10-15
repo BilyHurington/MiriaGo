@@ -450,8 +450,13 @@ void main() {
       expect(find.text('网页版无法直接下载'), findsOneWidget);
       expect(
         tester
-            .widget<FilledButton>(find.byKey(const ValueKey('plan-link-start')))
-            .onPressed,
+            .widget<InkWell>(
+              find.descendant(
+                of: find.byKey(const ValueKey('plan-link-start')),
+                matching: find.byType(InkWell),
+              ),
+            )
+            .onTap,
         isNull,
       );
     });

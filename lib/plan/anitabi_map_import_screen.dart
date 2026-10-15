@@ -2048,8 +2048,13 @@ class _ImportOrganizeDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.overlaySurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: AppColors.isDark
+            ? BorderSide(color: AppColors.border)
+            : BorderSide.none,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -2727,7 +2732,7 @@ class _AnitabiPointDetailSheet extends StatelessWidget {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.overlaySurface,
       builder: (context) => _AnitabiPointDetailSheet(
         point: point,
         imageUrl: imageUrl,

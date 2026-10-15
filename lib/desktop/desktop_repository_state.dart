@@ -74,6 +74,8 @@ Map<String, Object?> _settingsJson(AppSettings settings) {
     'cameraFallbackAspectRatio': settings.cameraFallbackAspectRatio.name,
     'cameraMinZoom': settings.cameraMinZoom,
     'cameraMaxZoom': settings.cameraMaxZoom,
+    'cameraGridEnabled': settings.cameraGridEnabled,
+    'cameraDiagonalsEnabled': settings.cameraDiagonalsEnabled,
     'referenceImageScale': settings.referenceImageScale,
     'photoLocationStrategy': settings.photoLocationStrategy.name,
     'nearestAssignDistanceMeters': settings.nearestAssignDistanceMeters,
@@ -150,6 +152,8 @@ AppSettings _settingsFromJson(Map<String, Object?> json) {
         CameraPhotoAspectRatio.native,
     cameraMinZoom: _doubleValue(json['cameraMinZoom']) ?? 0.6,
     cameraMaxZoom: _doubleValue(json['cameraMaxZoom']) ?? 5,
+    cameraGridEnabled: json['cameraGridEnabled'] == true,
+    cameraDiagonalsEnabled: json['cameraDiagonalsEnabled'] == true,
     referenceImageScale: _doubleValue(json['referenceImageScale']) ?? 1,
     photoLocationStrategy:
         _enumByName(

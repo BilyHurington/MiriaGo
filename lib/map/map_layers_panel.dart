@@ -46,7 +46,7 @@ Future<void> showMapLayersPanel(
       context: anchorContext,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.overlaySurface,
       builder: (context) => _PanelTextScale(
         settings: settings,
         child: MapLayersPanel(title: title, toggles: toggles),
@@ -232,7 +232,7 @@ class _MapLayersPanelState extends State<MapLayersPanel> {
       return SingleChildScrollView(child: content);
     }
     return Material(
-      color: AppColors.surface,
+      color: AppColors.overlaySurface,
       elevation: 6,
       shadowColor: Colors.black.withValues(alpha: 0.18),
       shape: RoundedRectangleBorder(

@@ -4212,6 +4212,36 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(5.0),
   );
+  static const VerificationMeta _cameraGridEnabledMeta = const VerificationMeta(
+    'cameraGridEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> cameraGridEnabled = GeneratedColumn<bool>(
+    'camera_grid_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("camera_grid_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _cameraDiagonalsEnabledMeta =
+      const VerificationMeta('cameraDiagonalsEnabled');
+  @override
+  late final GeneratedColumn<bool> cameraDiagonalsEnabled =
+      GeneratedColumn<bool>(
+        'camera_diagonals_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("camera_diagonals_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _referenceImageScaleMeta =
       const VerificationMeta('referenceImageScale');
   @override
@@ -4858,6 +4888,8 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
     cameraCaptureAspectRatio,
     cameraMinZoom,
     cameraMaxZoom,
+    cameraGridEnabled,
+    cameraDiagonalsEnabled,
     referenceImageScale,
     photoLocationStrategy,
     nearestAssignDistanceMeters,
@@ -4976,6 +5008,24 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         cameraMaxZoom.isAcceptableOrUnknown(
           data['camera_max_zoom']!,
           _cameraMaxZoomMeta,
+        ),
+      );
+    }
+    if (data.containsKey('camera_grid_enabled')) {
+      context.handle(
+        _cameraGridEnabledMeta,
+        cameraGridEnabled.isAcceptableOrUnknown(
+          data['camera_grid_enabled']!,
+          _cameraGridEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('camera_diagonals_enabled')) {
+      context.handle(
+        _cameraDiagonalsEnabledMeta,
+        cameraDiagonalsEnabled.isAcceptableOrUnknown(
+          data['camera_diagonals_enabled']!,
+          _cameraDiagonalsEnabledMeta,
         ),
       );
     }
@@ -5461,6 +5511,14 @@ class $AppSettingsEntriesTable extends AppSettingsEntries
         DriftSqlType.double,
         data['${effectivePrefix}camera_max_zoom'],
       )!,
+      cameraGridEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}camera_grid_enabled'],
+      )!,
+      cameraDiagonalsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}camera_diagonals_enabled'],
+      )!,
       referenceImageScale: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}reference_image_scale'],
@@ -5676,6 +5734,8 @@ class AppSettingsEntry extends DataClass
   final String cameraCaptureAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final bool cameraGridEnabled;
+  final bool cameraDiagonalsEnabled;
   final double referenceImageScale;
   final String photoLocationStrategy;
   final double nearestAssignDistanceMeters;
@@ -5734,6 +5794,8 @@ class AppSettingsEntry extends DataClass
     required this.cameraCaptureAspectRatio,
     required this.cameraMinZoom,
     required this.cameraMaxZoom,
+    required this.cameraGridEnabled,
+    required this.cameraDiagonalsEnabled,
     required this.referenceImageScale,
     required this.photoLocationStrategy,
     required this.nearestAssignDistanceMeters,
@@ -5797,6 +5859,8 @@ class AppSettingsEntry extends DataClass
     );
     map['camera_min_zoom'] = Variable<double>(cameraMinZoom);
     map['camera_max_zoom'] = Variable<double>(cameraMaxZoom);
+    map['camera_grid_enabled'] = Variable<bool>(cameraGridEnabled);
+    map['camera_diagonals_enabled'] = Variable<bool>(cameraDiagonalsEnabled);
     map['reference_image_scale'] = Variable<double>(referenceImageScale);
     map['photo_location_strategy'] = Variable<String>(photoLocationStrategy);
     map['nearest_assign_distance_meters'] = Variable<double>(
@@ -5905,6 +5969,8 @@ class AppSettingsEntry extends DataClass
       cameraCaptureAspectRatio: Value(cameraCaptureAspectRatio),
       cameraMinZoom: Value(cameraMinZoom),
       cameraMaxZoom: Value(cameraMaxZoom),
+      cameraGridEnabled: Value(cameraGridEnabled),
+      cameraDiagonalsEnabled: Value(cameraDiagonalsEnabled),
       referenceImageScale: Value(referenceImageScale),
       photoLocationStrategy: Value(photoLocationStrategy),
       nearestAssignDistanceMeters: Value(nearestAssignDistanceMeters),
@@ -5975,6 +6041,10 @@ class AppSettingsEntry extends DataClass
       ),
       cameraMinZoom: serializer.fromJson<double>(json['cameraMinZoom']),
       cameraMaxZoom: serializer.fromJson<double>(json['cameraMaxZoom']),
+      cameraGridEnabled: serializer.fromJson<bool>(json['cameraGridEnabled']),
+      cameraDiagonalsEnabled: serializer.fromJson<bool>(
+        json['cameraDiagonalsEnabled'],
+      ),
       referenceImageScale: serializer.fromJson<double>(
         json['referenceImageScale'],
       ),
@@ -6114,6 +6184,8 @@ class AppSettingsEntry extends DataClass
       ),
       'cameraMinZoom': serializer.toJson<double>(cameraMinZoom),
       'cameraMaxZoom': serializer.toJson<double>(cameraMaxZoom),
+      'cameraGridEnabled': serializer.toJson<bool>(cameraGridEnabled),
+      'cameraDiagonalsEnabled': serializer.toJson<bool>(cameraDiagonalsEnabled),
       'referenceImageScale': serializer.toJson<double>(referenceImageScale),
       'photoLocationStrategy': serializer.toJson<String>(photoLocationStrategy),
       'nearestAssignDistanceMeters': serializer.toJson<double>(
@@ -6227,6 +6299,8 @@ class AppSettingsEntry extends DataClass
     String? cameraCaptureAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    bool? cameraGridEnabled,
+    bool? cameraDiagonalsEnabled,
     double? referenceImageScale,
     String? photoLocationStrategy,
     double? nearestAssignDistanceMeters,
@@ -6286,6 +6360,9 @@ class AppSettingsEntry extends DataClass
         cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
     cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
     cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+    cameraGridEnabled: cameraGridEnabled ?? this.cameraGridEnabled,
+    cameraDiagonalsEnabled:
+        cameraDiagonalsEnabled ?? this.cameraDiagonalsEnabled,
     referenceImageScale: referenceImageScale ?? this.referenceImageScale,
     photoLocationStrategy: photoLocationStrategy ?? this.photoLocationStrategy,
     nearestAssignDistanceMeters:
@@ -6382,6 +6459,12 @@ class AppSettingsEntry extends DataClass
       cameraMaxZoom: data.cameraMaxZoom.present
           ? data.cameraMaxZoom.value
           : this.cameraMaxZoom,
+      cameraGridEnabled: data.cameraGridEnabled.present
+          ? data.cameraGridEnabled.value
+          : this.cameraGridEnabled,
+      cameraDiagonalsEnabled: data.cameraDiagonalsEnabled.present
+          ? data.cameraDiagonalsEnabled.value
+          : this.cameraDiagonalsEnabled,
       referenceImageScale: data.referenceImageScale.present
           ? data.referenceImageScale.value
           : this.referenceImageScale,
@@ -6546,6 +6629,8 @@ class AppSettingsEntry extends DataClass
           ..write('cameraCaptureAspectRatio: $cameraCaptureAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
+          ..write('cameraGridEnabled: $cameraGridEnabled, ')
+          ..write('cameraDiagonalsEnabled: $cameraDiagonalsEnabled, ')
           ..write('referenceImageScale: $referenceImageScale, ')
           ..write('photoLocationStrategy: $photoLocationStrategy, ')
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
@@ -6625,6 +6710,8 @@ class AppSettingsEntry extends DataClass
     cameraCaptureAspectRatio,
     cameraMinZoom,
     cameraMaxZoom,
+    cameraGridEnabled,
+    cameraDiagonalsEnabled,
     referenceImageScale,
     photoLocationStrategy,
     nearestAssignDistanceMeters,
@@ -6687,6 +6774,8 @@ class AppSettingsEntry extends DataClass
           other.cameraCaptureAspectRatio == this.cameraCaptureAspectRatio &&
           other.cameraMinZoom == this.cameraMinZoom &&
           other.cameraMaxZoom == this.cameraMaxZoom &&
+          other.cameraGridEnabled == this.cameraGridEnabled &&
+          other.cameraDiagonalsEnabled == this.cameraDiagonalsEnabled &&
           other.referenceImageScale == this.referenceImageScale &&
           other.photoLocationStrategy == this.photoLocationStrategy &&
           other.nearestAssignDistanceMeters ==
@@ -6759,6 +6848,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
   final Value<String> cameraCaptureAspectRatio;
   final Value<double> cameraMinZoom;
   final Value<double> cameraMaxZoom;
+  final Value<bool> cameraGridEnabled;
+  final Value<bool> cameraDiagonalsEnabled;
   final Value<double> referenceImageScale;
   final Value<String> photoLocationStrategy;
   final Value<double> nearestAssignDistanceMeters;
@@ -6818,6 +6909,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraCaptureAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
+    this.cameraGridEnabled = const Value.absent(),
+    this.cameraDiagonalsEnabled = const Value.absent(),
     this.referenceImageScale = const Value.absent(),
     this.photoLocationStrategy = const Value.absent(),
     this.nearestAssignDistanceMeters = const Value.absent(),
@@ -6878,6 +6971,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     this.cameraCaptureAspectRatio = const Value.absent(),
     this.cameraMinZoom = const Value.absent(),
     this.cameraMaxZoom = const Value.absent(),
+    this.cameraGridEnabled = const Value.absent(),
+    this.cameraDiagonalsEnabled = const Value.absent(),
     this.referenceImageScale = const Value.absent(),
     this.photoLocationStrategy = const Value.absent(),
     this.nearestAssignDistanceMeters = const Value.absent(),
@@ -6938,6 +7033,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Expression<String>? cameraCaptureAspectRatio,
     Expression<double>? cameraMinZoom,
     Expression<double>? cameraMaxZoom,
+    Expression<bool>? cameraGridEnabled,
+    Expression<bool>? cameraDiagonalsEnabled,
     Expression<double>? referenceImageScale,
     Expression<String>? photoLocationStrategy,
     Expression<double>? nearestAssignDistanceMeters,
@@ -6999,6 +7096,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
         'camera_capture_aspect_ratio': cameraCaptureAspectRatio,
       if (cameraMinZoom != null) 'camera_min_zoom': cameraMinZoom,
       if (cameraMaxZoom != null) 'camera_max_zoom': cameraMaxZoom,
+      if (cameraGridEnabled != null) 'camera_grid_enabled': cameraGridEnabled,
+      if (cameraDiagonalsEnabled != null)
+        'camera_diagonals_enabled': cameraDiagonalsEnabled,
       if (referenceImageScale != null)
         'reference_image_scale': referenceImageScale,
       if (photoLocationStrategy != null)
@@ -7099,6 +7199,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     Value<String>? cameraCaptureAspectRatio,
     Value<double>? cameraMinZoom,
     Value<double>? cameraMaxZoom,
+    Value<bool>? cameraGridEnabled,
+    Value<bool>? cameraDiagonalsEnabled,
     Value<double>? referenceImageScale,
     Value<String>? photoLocationStrategy,
     Value<double>? nearestAssignDistanceMeters,
@@ -7160,6 +7262,9 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      cameraGridEnabled: cameraGridEnabled ?? this.cameraGridEnabled,
+      cameraDiagonalsEnabled:
+          cameraDiagonalsEnabled ?? this.cameraDiagonalsEnabled,
       referenceImageScale: referenceImageScale ?? this.referenceImageScale,
       photoLocationStrategy:
           photoLocationStrategy ?? this.photoLocationStrategy,
@@ -7275,6 +7380,14 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
     }
     if (cameraMaxZoom.present) {
       map['camera_max_zoom'] = Variable<double>(cameraMaxZoom.value);
+    }
+    if (cameraGridEnabled.present) {
+      map['camera_grid_enabled'] = Variable<bool>(cameraGridEnabled.value);
+    }
+    if (cameraDiagonalsEnabled.present) {
+      map['camera_diagonals_enabled'] = Variable<bool>(
+        cameraDiagonalsEnabled.value,
+      );
     }
     if (referenceImageScale.present) {
       map['reference_image_scale'] = Variable<double>(
@@ -7510,6 +7623,8 @@ class AppSettingsEntriesCompanion extends UpdateCompanion<AppSettingsEntry> {
           ..write('cameraCaptureAspectRatio: $cameraCaptureAspectRatio, ')
           ..write('cameraMinZoom: $cameraMinZoom, ')
           ..write('cameraMaxZoom: $cameraMaxZoom, ')
+          ..write('cameraGridEnabled: $cameraGridEnabled, ')
+          ..write('cameraDiagonalsEnabled: $cameraDiagonalsEnabled, ')
           ..write('referenceImageScale: $referenceImageScale, ')
           ..write('photoLocationStrategy: $photoLocationStrategy, ')
           ..write('nearestAssignDistanceMeters: $nearestAssignDistanceMeters, ')
@@ -10450,6 +10565,8 @@ typedef $$AppSettingsEntriesTableCreateCompanionBuilder =
       Value<String> cameraCaptureAspectRatio,
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
+      Value<bool> cameraGridEnabled,
+      Value<bool> cameraDiagonalsEnabled,
       Value<double> referenceImageScale,
       Value<String> photoLocationStrategy,
       Value<double> nearestAssignDistanceMeters,
@@ -10511,6 +10628,8 @@ typedef $$AppSettingsEntriesTableUpdateCompanionBuilder =
       Value<String> cameraCaptureAspectRatio,
       Value<double> cameraMinZoom,
       Value<double> cameraMaxZoom,
+      Value<bool> cameraGridEnabled,
+      Value<bool> cameraDiagonalsEnabled,
       Value<double> referenceImageScale,
       Value<String> photoLocationStrategy,
       Value<double> nearestAssignDistanceMeters,
@@ -10609,6 +10728,16 @@ class $$AppSettingsEntriesTableFilterComposer
 
   ColumnFilters<double> get cameraMaxZoom => $composableBuilder(
     column: $table.cameraMaxZoom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get cameraGridEnabled => $composableBuilder(
+    column: $table.cameraGridEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get cameraDiagonalsEnabled => $composableBuilder(
+    column: $table.cameraDiagonalsEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10908,6 +11037,16 @@ class $$AppSettingsEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get cameraGridEnabled => $composableBuilder(
+    column: $table.cameraGridEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get cameraDiagonalsEnabled => $composableBuilder(
+    column: $table.cameraDiagonalsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get referenceImageScale => $composableBuilder(
     column: $table.referenceImageScale,
     builder: (column) => ColumnOrderings(column),
@@ -11197,6 +11336,16 @@ class $$AppSettingsEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get cameraMaxZoom => $composableBuilder(
     column: $table.cameraMaxZoom,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get cameraGridEnabled => $composableBuilder(
+    column: $table.cameraGridEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get cameraDiagonalsEnabled => $composableBuilder(
+    column: $table.cameraDiagonalsEnabled,
     builder: (column) => column,
   );
 
@@ -11499,6 +11648,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> cameraCaptureAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
+                Value<bool> cameraGridEnabled = const Value.absent(),
+                Value<bool> cameraDiagonalsEnabled = const Value.absent(),
                 Value<double> referenceImageScale = const Value.absent(),
                 Value<String> photoLocationStrategy = const Value.absent(),
                 Value<double> nearestAssignDistanceMeters =
@@ -11567,6 +11718,8 @@ class $$AppSettingsEntriesTableTableManager
                 cameraCaptureAspectRatio: cameraCaptureAspectRatio,
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
+                cameraGridEnabled: cameraGridEnabled,
+                cameraDiagonalsEnabled: cameraDiagonalsEnabled,
                 referenceImageScale: referenceImageScale,
                 photoLocationStrategy: photoLocationStrategy,
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,
@@ -11629,6 +11782,8 @@ class $$AppSettingsEntriesTableTableManager
                 Value<String> cameraCaptureAspectRatio = const Value.absent(),
                 Value<double> cameraMinZoom = const Value.absent(),
                 Value<double> cameraMaxZoom = const Value.absent(),
+                Value<bool> cameraGridEnabled = const Value.absent(),
+                Value<bool> cameraDiagonalsEnabled = const Value.absent(),
                 Value<double> referenceImageScale = const Value.absent(),
                 Value<String> photoLocationStrategy = const Value.absent(),
                 Value<double> nearestAssignDistanceMeters =
@@ -11697,6 +11852,8 @@ class $$AppSettingsEntriesTableTableManager
                 cameraCaptureAspectRatio: cameraCaptureAspectRatio,
                 cameraMinZoom: cameraMinZoom,
                 cameraMaxZoom: cameraMaxZoom,
+                cameraGridEnabled: cameraGridEnabled,
+                cameraDiagonalsEnabled: cameraDiagonalsEnabled,
                 referenceImageScale: referenceImageScale,
                 photoLocationStrategy: photoLocationStrategy,
                 nearestAssignDistanceMeters: nearestAssignDistanceMeters,

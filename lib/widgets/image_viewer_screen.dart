@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../app_theme.dart';
 import '../data/anitabi_image_fetcher.dart';
 import '../data/bounded_image_decoder.dart';
 import '../data/image_bytes.dart';
@@ -164,7 +165,9 @@ class ImageViewerScreen extends StatelessWidget {
                 showGallerySaveResult(messenger, result, failedTitle: '保存失败');
               },
             ),
-      backgroundColor: const Color(0xFF2C2C2E),
+      backgroundColor: AppColors.isDark
+          ? AppColors.overlaySurface
+          : const Color(0xFF2C2C2E),
     );
   }
 

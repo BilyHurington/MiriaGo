@@ -996,7 +996,7 @@ class _BoxAssignGroupPickerState extends State<_BoxAssignGroupPicker> {
             backgroundColor: WidgetStatePropertyAll(AppColors.surface),
             elevation: const WidgetStatePropertyAll(8),
             shadowColor: WidgetStatePropertyAll(
-              AppColors.textPrimary.withValues(alpha: 0.16),
+              Colors.black.withValues(alpha: 0.16),
             ),
             side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
             shape: const WidgetStatePropertyAll(

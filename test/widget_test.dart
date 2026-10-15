@@ -245,9 +245,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('plan-actions-two-rows')), findsOneWidget);
-    final memo = tester.getRect(
-      find.byKey(const ValueKey('plan-action-memo')),
-    );
+    final memo = tester.getRect(find.byKey(const ValueKey('plan-action-memo')));
     final cache = tester.getRect(
       find.byKey(const ValueKey('plan-action-cache-references')),
     );
@@ -438,9 +436,7 @@ void main() {
     expect(find.text('备份迁移计划'), findsNothing);
   });
 
-  testWidgets('plan actions keep one row on a wider screen', (
-    tester,
-  ) async {
+  testWidgets('plan actions keep one row on a wider screen', (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpApp(tester);
@@ -956,9 +952,7 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<IconButton>(
-          find.widgetWithIcon(IconButton, LucideIcons.mapPin),
-        )
+        .widget<IconButton>(find.widgetWithIcon(IconButton, LucideIcons.mapPin))
         .onPressed!();
     await tester.pumpAndSettle();
     expect(find.text('宇治上神社参道'), findsWidgets);
@@ -967,42 +961,48 @@ void main() {
     expect(find.text('在最大距离范围内'), findsNothing);
   });
 
-  testWidgets('nearest assign keeps distance status and puts assign beside slider', (
-    tester,
-  ) async {
-    final repository = SamplePilgrimageRepository();
-    final plan = await repository.loadActivePlan();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: NearestGroupAssignScreen(
-          plan: plan,
-          repository: repository,
-          settings: const AppSettings(),
+  testWidgets(
+    'nearest assign keeps distance status and puts assign beside slider',
+    (tester) async {
+      final repository = SamplePilgrimageRepository();
+      final plan = await repository.loadActivePlan();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: NearestGroupAssignScreen(
+            plan: plan,
+            repository: repository,
+            settings: const AppSettings(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    final sliderRect = tester.getRect(find.byType(Slider));
-    final assignRect = tester.getRect(find.widgetWithText(FilledButton, '分配'));
-    expect(assignRect.left, greaterThan(sliderRect.center.dx));
-    expect(assignRect.top, closeTo(sliderRect.center.dy - assignRect.height / 2, 8));
+      final sliderRect = tester.getRect(find.byType(Slider));
+      final assignRect = tester.getRect(
+        find.widgetWithText(FilledButton, '分配'),
+      );
+      expect(assignRect.left, greaterThan(sliderRect.center.dx));
+      expect(
+        assignRect.top,
+        closeTo(sliderRect.center.dy - assignRect.height / 2, 8),
+      );
 
-    tester
-        .widget<IconButton>(
-          find.widgetWithIcon(IconButton, LucideIcons.mapPin),
-        )
-        .onPressed!();
-    await tester.pumpAndSettle();
-    expect(find.text('未框选'), findsNothing);
-    expect(find.text('已框选'), findsNothing);
-    expect(
-      find.text('超出最大距离').evaluate().isNotEmpty ||
-          find.text('在最大距离范围内').evaluate().isNotEmpty,
-      isTrue,
-    );
-  });
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, LucideIcons.mapPin),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+      expect(find.text('未框选'), findsNothing);
+      expect(find.text('已框选'), findsNothing);
+      expect(
+        find.text('超出最大距离').evaluate().isNotEmpty ||
+            find.text('在最大距离范围内').evaluate().isNotEmpty,
+        isTrue,
+      );
+    },
+  );
 
   testWidgets('app shell uses the Lucide bottom navigation icons', (
     tester,
@@ -1391,111 +1391,74 @@ void main() {
     },
   );
 
-  testWidgets('records can filter by work and plan group', (tester) async {
+  testWidgets('records scope tabs keep drafts and footer fixed until apply', (
+    tester,
+  ) async {
     await _pumpApp(tester);
-
     await tester.tap(find.text('记录').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('records-scope-filter-button')));
-    await tester.pumpAndSettle();
-
-    expect(
-      tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
-      isTrue,
+    final open = find.byKey(const ValueKey('records-scope-filter-button'));
+    final workTab = find.byKey(const ValueKey('records-scope-work-tab'));
+    final groupTab = find.byKey(const ValueKey('records-scope-group-tab'));
+    final workOption = find.byKey(
+      const ValueKey('records-scope-option-work-hibike-euphonium'),
     );
-    expect(find.text('筛选记录'), findsOneWidget);
-    expect(find.text('作品'), findsOneWidget);
-    expect(find.text('片区'), findsOneWidget);
-    expect(find.text('已选：作品 0 · 片区 0'), findsOneWidget);
-    expect(find.text('全部作品'), findsOneWidget);
-    expect(find.text('全部片区'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('records-scope-work-entry')));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<BottomSheet>(find.byType(BottomSheet).last).showDragHandle,
-      isTrue,
-    );
-    expect(
-      find.byKey(const ValueKey('records-scope-secondary-confirm-work')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('records-scope-secondary-top-confirm-work')),
-      findsNothing,
-    );
-    expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey('records-scope-secondary-confirm-work')),
-          )
-          .width,
-      176,
-    );
-    final workOptionDecoration = tester.widget<AnimatedContainer>(
-      find.byKey(
-        const ValueKey('records-scope-option-decoration-work-hibike-euphonium'),
-      ),
-    );
-    final unselectedDecoration =
-        workOptionDecoration.decoration! as BoxDecoration;
-    expect(unselectedDecoration.border, isNull);
-    expect(unselectedDecoration.borderRadius, BorderRadius.circular(6));
-    expect(unselectedDecoration.color!.a, 0);
-    expect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey('records-scope-option-work-hibike-euphonium'),
-        ),
-        matching: find.text('作品'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.byType(Checkbox), findsWidgets);
-    await tester.tap(find.byKey(const ValueKey('records-scope-back-work')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('records-scope-group-entry')));
-    await tester.pumpAndSettle();
-    final daikichiyamaOption = find.byKey(
+    final groupOption = find.byKey(
       const ValueKey('records-scope-option-group-sample-group-daikichiyama'),
     );
-    expect(daikichiyamaOption, findsOneWidget);
-    await tester.tap(daikichiyamaOption);
-    await tester.pump();
+    final apply = find.byKey(const ValueKey('records-scope-apply'));
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.text('作品 · 不限'), findsOneWidget);
+    expect(find.text('片区 · 不限'), findsOneWidget);
     expect(
-      tester
-          .widget<Checkbox>(
-            find.descendant(
-              of: daikichiyamaOption,
-              matching: find.byType(Checkbox),
-            ),
-          )
-          .value,
-      isTrue,
+      tester.widget<BottomSheet>(find.byType(BottomSheet)).enableDrag,
+      isFalse,
     );
-    final selectedDecoration =
-        tester
-                .widget<AnimatedContainer>(
-                  find.byKey(
-                    const ValueKey(
-                      'records-scope-option-decoration-group-sample-group-daikichiyama',
-                    ),
-                  ),
-                )
-                .decoration!
-            as BoxDecoration;
-    expect(selectedDecoration.border, isNull);
-    expect(selectedDecoration.color!.a, greaterThan(0));
-    await tester.tap(
-      find.byKey(const ValueKey('records-scope-secondary-confirm-group')),
+    final panelHeight = tester.getSize(find.byType(BottomSheet)).height;
+    expect(
+      panelHeight,
+      greaterThan(
+        tester.view.physicalSize.height / tester.view.devicePixelRatio * 0.85,
+      ),
+    );
+    await tester.tap(workOption);
+    await tester.pumpAndSettle();
+    await tester.tap(groupTab);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(BottomSheet)).height, panelHeight);
+    expect(find.text('作品 · 已选 1'), findsOneWidget);
+    await tester.tap(groupOption);
+    await tester.pumpAndSettle();
+    expect(find.text('作品已选 1 部 · 片区已选 1 个'), findsOneWidget);
+    final footerPosition = tester.getTopLeft(apply);
+    await tester.drag(
+      find.byKey(const PageStorageKey('records-scope-list-group')),
+      const Offset(0, -500),
     );
     await tester.pumpAndSettle();
-    expect(find.text('已选：作品 0 · 片区 1'), findsOneWidget);
-    expect(find.text('已选 1 个片区'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('records-scope-apply')));
+    expect(tester.getTopLeft(apply), footerPosition);
+    await tester.tap(workTab);
     await tester.pumpAndSettle();
-
+    expect(tester.widget<CheckboxListTile>(workOption).value, isTrue);
+    expect(find.text('片区 · 已选 1'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('records-scope-clear')));
+    await tester.pumpAndSettle();
+    expect(find.text('作品 · 不限'), findsOneWidget);
+    expect(find.text('片区 · 不限'), findsOneWidget);
+    await tester.tap(workOption);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.text('作品 · 不限'), findsOneWidget);
+    await tester.tap(groupTab);
+    await tester.pumpAndSettle();
+    await tester.tap(groupOption);
+    await tester.pumpAndSettle();
+    await tester.tap(apply);
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('records-group-sample-group-daikichiyama')),
       findsOneWidget,
@@ -1504,6 +1467,16 @@ void main() {
       find.byKey(const ValueKey('records-group-sample-group-uji-station')),
       findsNothing,
     );
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.text('片区 · 已选 1'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('records-scope-clear')));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.text('片区 · 已选 1'), findsOneWidget);
   });
 
   testWidgets('records clear stale scope filters when the plan changes', (
@@ -1529,13 +1502,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('records-scope-filter-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('records-scope-work-entry')));
+    await tester.tap(find.byKey(const ValueKey('records-scope-work-tab')));
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('records-scope-option-work-hibike-euphonium')),
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('records-scope-secondary-confirm-work')),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('records-scope-apply')));
@@ -1549,9 +1519,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('records-scope-filter-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('已选：作品 0 · 片区 0'), findsOneWidget);
-    expect(find.text('全部作品'), findsOneWidget);
-    expect(find.text('全部片区'), findsOneWidget);
+    expect(find.text('作品 · 不限'), findsOneWidget);
+    expect(find.text('片区 · 不限'), findsOneWidget);
   });
 
   testWidgets('records app bar toggles all group sections', (tester) async {
@@ -2000,7 +1969,10 @@ void main() {
     final deleteIcon = tester.widget<Icon>(
       find.descendant(of: deleteButton, matching: find.byType(Icon)),
     );
-    expect(deleteIcon.size, lessThanOrEqualTo(tester.getSize(deleteButton).height));
+    expect(
+      deleteIcon.size,
+      lessThanOrEqualTo(tester.getSize(deleteButton).height),
+    );
     expect(
       tester.getCenter(find.text('待访问')).dy,
       closeTo(tester.getCenter(deleteButton).dy, 0.1),
@@ -3420,10 +3392,7 @@ void main() {
     await tester.pumpAndSettle();
     // Added points and the work's Anitabi total are told apart.
     final pointCount = plan.points.where((p) => p.work.id == work.id).length;
-    expect(
-      find.text('已加入 $pointCount · 共 582 点位'),
-      findsOneWidget,
-    );
+    expect(find.text('已加入 $pointCount · 共 582 点位'), findsOneWidget);
 
     final moreButton = find.byKey(ValueKey('work-manage-more-${work.id}'));
     expect(moreButton, findsOneWidget);
@@ -4056,9 +4025,7 @@ void main() {
     }
   });
 
-  testWidgets('import map can hide points already in the plan', (
-    tester,
-  ) async {
+  testWidgets('import map can hide points already in the plan', (tester) async {
     AnitabiPoint point(String id, double lat) => AnitabiPoint(
       bangumiId: 12345,
       id: id,
@@ -4105,9 +4072,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final secondMarker = find.byKey(
-      const ValueKey('anitabi-import-marker-p2'),
-    );
+    final secondMarker = find.byKey(const ValueKey('anitabi-import-marker-p2'));
     Future<void> setOnlyUnimported(bool expected) async {
       await tester.tap(find.byKey(const ValueKey('map-layers-button')));
       await tester.pumpAndSettle();

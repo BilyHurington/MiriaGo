@@ -19,7 +19,7 @@ Future<void> showPlanGroupPickerSheet({
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.overlaySurface,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setSheetState) {
@@ -374,7 +374,7 @@ Future<String?> showPlanGroupSelectionSheet({
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.overlaySurface,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setSheetState) {

@@ -127,9 +127,9 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             RoutePlannerSkillCard(repository: widget.repository),
             const SizedBox(height: 20),
             _SectionTitle(
-              icon: LucideIcons.package,
-              title: 'MiriaGo 数据包',
-              subtitle: '新版 .sjhplan，内部为 zip，包含 manifest.json。',
+              icon: LucideIcons.share2,
+              title: '导出',
+              subtitle: '保存 MiriaGo 数据包，或导出 Google My Maps CSV。',
             ),
             const SizedBox(height: 10),
             _BackupOptions(
@@ -148,17 +148,11 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
               },
               onExport: _exportV2,
             ),
-            const SizedBox(height: 20),
-            _SectionTitle(
-              icon: LucideIcons.map,
-              title: 'Google My Maps',
-              subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
-            ),
             const SizedBox(height: 10),
             _ActionTile(
               icon: _exporting ? LucideIcons.hourglass : LucideIcons.table2,
               title: '导出 My Maps CSV',
-              subtitle: '前 6 列贴近示例格式，作品、集数、来源等拆成独立列。',
+              subtitle: '导出点位 CSV。图片写成链接，可按 Type 列设置样式。',
               enabled: !_exporting && !_importing,
               onTap: _exportMyMapsCsv,
             ),
@@ -742,6 +736,12 @@ class _BackupOptions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const _SectionTitle(
+            icon: LucideIcons.package,
+            title: 'MiriaGo 数据包',
+            subtitle: '新版 .sjhplan，内部为 zip，包含 manifest.json。',
+          ),
+          const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
               final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -887,7 +887,9 @@ class _ActionTile extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: enabled ? AppColors.accentDark : AppColors.textSecondary,
+                color: enabled
+                    ? AppColors.accentStrongForeground
+                    : AppColors.textSecondary,
               ),
               const SizedBox(width: 12),
               Expanded(

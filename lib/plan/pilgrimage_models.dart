@@ -192,6 +192,8 @@ class AppSettings {
     this.cameraFallbackAspectRatio = CameraPhotoAspectRatio.native,
     this.cameraMinZoom = 0.6,
     this.cameraMaxZoom = 5,
+    this.cameraGridEnabled = false,
+    this.cameraDiagonalsEnabled = false,
     this.referenceImageScale = 1,
     this.photoLocationStrategy = PhotoLocationStrategy.askOnFirstCapture,
     this.nearestAssignDistanceMeters = 350,
@@ -250,6 +252,8 @@ class AppSettings {
   final CameraPhotoAspectRatio cameraFallbackAspectRatio;
   final double cameraMinZoom;
   final double cameraMaxZoom;
+  final bool cameraGridEnabled;
+  final bool cameraDiagonalsEnabled;
   final double referenceImageScale;
   final PhotoLocationStrategy photoLocationStrategy;
   final double nearestAssignDistanceMeters;
@@ -326,6 +330,8 @@ class AppSettings {
     CameraPhotoAspectRatio? cameraFallbackAspectRatio,
     double? cameraMinZoom,
     double? cameraMaxZoom,
+    bool? cameraGridEnabled,
+    bool? cameraDiagonalsEnabled,
     double? referenceImageScale,
     PhotoLocationStrategy? photoLocationStrategy,
     double? nearestAssignDistanceMeters,
@@ -386,6 +392,9 @@ class AppSettings {
           cameraFallbackAspectRatio ?? this.cameraFallbackAspectRatio,
       cameraMinZoom: cameraMinZoom ?? this.cameraMinZoom,
       cameraMaxZoom: cameraMaxZoom ?? this.cameraMaxZoom,
+      cameraGridEnabled: cameraGridEnabled ?? this.cameraGridEnabled,
+      cameraDiagonalsEnabled:
+          cameraDiagonalsEnabled ?? this.cameraDiagonalsEnabled,
       referenceImageScale: referenceImageScale ?? this.referenceImageScale,
       photoLocationStrategy:
           photoLocationStrategy ?? this.photoLocationStrategy,

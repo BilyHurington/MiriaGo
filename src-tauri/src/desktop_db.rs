@@ -216,6 +216,8 @@ impl DesktopDatabase {
                   camera_fallback_aspect_ratio TEXT NOT NULL DEFAULT 'native',
                   camera_min_zoom REAL NOT NULL DEFAULT 0.6,
                   camera_max_zoom REAL NOT NULL DEFAULT 5.0,
+                  camera_grid_enabled INTEGER NOT NULL DEFAULT 0,
+                  camera_diagonals_enabled INTEGER NOT NULL DEFAULT 0,
                   reference_image_scale REAL NOT NULL DEFAULT 1.0,
                   nearest_assign_distance_meters REAL NOT NULL DEFAULT 350.0,
                   theme_palette TEXT NOT NULL DEFAULT 'classicGreen',
@@ -447,6 +449,8 @@ impl DesktopDatabase {
                 "INTEGER NOT NULL DEFAULT 0",
             ),
             ("import_map_show_group_areas", "INTEGER NOT NULL DEFAULT 0"),
+            ("camera_grid_enabled", "INTEGER NOT NULL DEFAULT 0"),
+            ("camera_diagonals_enabled", "INTEGER NOT NULL DEFAULT 0"),
             ("record_compare_mode", "TEXT NOT NULL DEFAULT 'stacked'"),
             (
                 "comparison_export_config_migrated",
@@ -668,7 +672,7 @@ impl DesktopDatabase {
                         map_show_group_areas,
                         import_map_show_thumbnail_markers,
                         import_map_show_group_areas,
-                        record_compare_mode
+                        record_compare_mode, camera_grid_enabled, camera_diagonals_enabled
                  FROM app_settings WHERE id = 'default'",
                 [],
                 |row| {
@@ -739,6 +743,8 @@ impl DesktopDatabase {
                     settings["importMapShowThumbnailMarkers"] = json!(row.get::<_, bool>(53)?);
                     settings["importMapShowGroupAreas"] = json!(row.get::<_, bool>(54)?);
                     settings["recordCompareMode"] = json!(row.get::<_, String>(55)?);
+                    settings["cameraGridEnabled"] = json!(row.get::<_, bool>(56)?);
+                    settings["cameraDiagonalsEnabled"] = json!(row.get::<_, bool>(57)?);
                     Ok(settings)
                 },
             )
@@ -1100,8 +1106,8 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
            map_show_group_areas,
            import_map_show_thumbnail_markers,
            import_map_show_group_areas,
-           record_compare_mode
-         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54, ?55, ?56)",
+           record_compare_mode, camera_grid_enabled, camera_diagonals_enabled
+         ) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54, ?55, ?56, ?57, ?58)",
         params![
             f64_value(settings, "uiScale", 1.0),
             string_value(settings, "cameraCaptureAspectRatio", "auto"),
@@ -1176,6 +1182,8 @@ fn insert_settings(tx: &Transaction<'_>, settings: Option<&Value>) -> Result<(),
             bool_value(settings, "importMapShowThumbnailMarkers", false),
             bool_value(settings, "importMapShowGroupAreas", false),
             string_value(settings, "recordCompareMode", "stacked"),
+            bool_value(settings, "cameraGridEnabled", false),
+            bool_value(settings, "cameraDiagonalsEnabled", false),
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -1375,6 +1383,8 @@ fn default_settings_json() -> Value {
         "cameraFallbackAspectRatio": "native",
         "cameraMinZoom": 0.6,
         "cameraMaxZoom": 5.0,
+        "cameraGridEnabled": false,
+        "cameraDiagonalsEnabled": false,
         "referenceImageScale": 1.0,
         "nearestAssignDistanceMeters": 350.0,
         "themePalette": "classicGreen",
@@ -1543,6 +1553,8 @@ mod tests {
                 "cameraMinZoom": 0.8,
                 "cameraMaxZoom": 4.0,
                 "referenceImageScale": 1.2,
+                "cameraGridEnabled": true,
+                "cameraDiagonalsEnabled": true,
                 "photoLocationStrategy": "waitOnConfirmation",
                 "nearestAssignDistanceMeters": 420.0,
                 "themePalette": "aurora",

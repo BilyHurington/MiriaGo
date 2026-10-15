@@ -86,8 +86,13 @@ class ConfirmActionDialog extends StatelessWidget {
     final maxHeight = _availableDialogHeight(context);
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.overlaySurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: AppColors.isDark
+            ? BorderSide(color: AppColors.border)
+            : BorderSide.none,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
         child: SingleChildScrollView(
@@ -176,8 +181,13 @@ class InfoActionDialog extends StatelessWidget {
     final maxHeight = _availableDialogHeight(context);
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.overlaySurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: AppColors.isDark
+            ? BorderSide(color: AppColors.border)
+            : BorderSide.none,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
         child: SingleChildScrollView(
@@ -243,8 +253,13 @@ class _StandardConfirmDialog extends StatelessWidget {
     final maxHeight = _availableDialogHeight(context);
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.overlaySurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: AppColors.isDark
+            ? BorderSide(color: AppColors.border)
+            : BorderSide.none,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
         child: SingleChildScrollView(
@@ -344,7 +359,7 @@ class AppDialogActionRow extends StatelessWidget {
         onPressed: onCancel,
         style: FilledButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
-          backgroundColor: AppColors.surfaceMuted,
+          backgroundColor: AppColors.secondaryButtonSurface,
           minimumSize: const Size.fromHeight(48),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(

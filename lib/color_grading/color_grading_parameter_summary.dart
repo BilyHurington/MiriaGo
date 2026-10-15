@@ -94,7 +94,7 @@ class ColorGradingParameterSummary extends StatelessWidget {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.overlaySurface,
       builder: (context) =>
           _ColorGradingParameterSheet(activeParams: activeParams),
     );

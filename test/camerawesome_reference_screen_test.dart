@@ -64,6 +64,130 @@ void main() {
     return nativeController;
   }
 
+  testWidgets('composition guides toggle independently and survive rotation', (
+    tester,
+  ) async {
+    final repository = SamplePilgrimageRepository(
+      settings: const AppSettings(
+        photoLocationStrategy: PhotoLocationStrategy.disabled,
+        mapThumbnailConcurrentLoads: 4,
+      ),
+    );
+    final planController = PilgrimagePlanController(
+      plan: await repository.loadActivePlan(),
+      visitRepository: repository,
+    );
+    addTearDown(planController.dispose);
+    await pumpScreen(tester, controller: planController);
+    await tester.pumpAndSettle();
+    dynamic painter() => tester
+        .widget<CustomPaint>(
+          find.byKey(const ValueKey('camera-composition-guides')),
+        )
+        .painter;
+    expect(painter().grid, isFalse);
+    expect(painter().diagonals, isFalse);
+    await tester.tap(find.byTooltip('九宫格'));
+    await tester.pumpAndSettle();
+    expect(painter().grid, isTrue);
+    expect(painter().diagonals, isFalse);
+    await tester.tap(find.byTooltip('对角线'));
+    await tester.pumpAndSettle();
+    expect(painter().grid, isTrue);
+    expect(painter().diagonals, isTrue);
+    final saved = await repository.loadAppSettings();
+    expect(saved.cameraGridEnabled, isTrue);
+    expect(saved.cameraDiagonalsEnabled, isTrue);
+    expect(saved.mapThumbnailConcurrentLoads, 4);
+    tester.view.physicalSize = const Size(800, 400);
+    await tester.pumpAndSettle();
+    expect(painter().grid, isTrue);
+    expect(painter().diagonals, isTrue);
+    final overlayRect = tester.getRect(find.byTooltip('叠影'));
+    final splitRect = tester.getRect(find.byTooltip('上下'));
+    final gridRect = tester.getRect(
+      find.byKey(const ValueKey('camera-guide-九宫格')),
+    );
+    final diagonalRect = tester.getRect(
+      find.byKey(const ValueKey('camera-guide-对角线')),
+    );
+    expect(gridRect.width, overlayRect.width);
+    expect(gridRect.height, gridRect.width);
+    expect(diagonalRect.width, closeTo(gridRect.width, 0.01));
+    expect(diagonalRect.height, closeTo(gridRect.height, 0.01));
+    expect(
+      diagonalRect.top - gridRect.bottom,
+      closeTo(splitRect.top - overlayRect.bottom, 0.01),
+    );
+    expect(
+      gridRect.top - splitRect.bottom,
+      closeTo(splitRect.top - overlayRect.bottom, 0.01),
+    );
+    expect(platformViews.created, hasLength(1));
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('九宫格'));
+    await tester.pumpAndSettle();
+    expect(painter().grid, isFalse);
+    expect(painter().diagonals, isTrue);
+  });
+
+  testWidgets('saving one guide keeps the other button visually enabled', (
+    tester,
+  ) async {
+    final repository = _DelayedGuideSettingsRepository();
+    final planController = PilgrimagePlanController(
+      plan: await repository.loadActivePlan(),
+      visitRepository: repository,
+    );
+    addTearDown(planController.dispose);
+    await pumpScreen(tester, controller: planController);
+    await tester.pumpAndSettle();
+    final diagonalFinder = find.byKey(const ValueKey('camera-guide-对角线'));
+    final before = tester.widget<IconButton>(diagonalFinder);
+    final beforeColor = before.style!.backgroundColor!.resolve({});
+    await tester.tap(find.byTooltip('九宫格'));
+    await tester.pump();
+    final during = tester.widget<IconButton>(diagonalFinder);
+    expect(during.onPressed, isNotNull);
+    expect(during.style!.backgroundColor!.resolve({}), beforeColor);
+    // A second tap while storage is pending must not change either guide.
+    await tester.tap(diagonalFinder);
+    await tester.pump();
+    final dynamic painter = tester
+        .widget<CustomPaint>(
+          find.byKey(const ValueKey('camera-composition-guides')),
+        )
+        .painter;
+    expect(painter.grid, isTrue);
+    expect(painter.diagonals, isFalse);
+    repository.gate.complete();
+    await tester.pumpAndSettle();
+    expect(tester.widget<IconButton>(diagonalFinder).onPressed, isNotNull);
+    expect((await repository.loadAppSettings()).cameraGridEnabled, isTrue);
+  });
+
+  testWidgets('failed guide save restores the previous overlay', (
+    tester,
+  ) async {
+    final repository = _FailingGuideSettingsRepository();
+    final planController = PilgrimagePlanController(
+      plan: await repository.loadActivePlan(),
+      visitRepository: repository,
+    );
+    addTearDown(planController.dispose);
+    await pumpScreen(tester, controller: planController);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('九宫格'));
+    await tester.pumpAndSettle();
+    final dynamic painter = tester
+        .widget<CustomPaint>(
+          find.byKey(const ValueKey('camera-composition-guides')),
+        )
+        .painter;
+    expect(painter.grid, isFalse);
+    expect(find.text('构图辅助设置保存失败，请重试'), findsOneWidget);
+  });
+
   testWidgets('orientation changes keep the same native preview view', (
     tester,
   ) async {
@@ -393,5 +517,22 @@ class _FakeCameraChannels {
     for (final channel in _channels.values) {
       messenger.setMockMethodCallHandler(channel, null);
     }
+  }
+}
+
+class _FailingGuideSettingsRepository extends SamplePilgrimageRepository {
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    throw StateError('settings write failed');
+  }
+}
+
+class _DelayedGuideSettingsRepository extends SamplePilgrimageRepository {
+  final gate = Completer<void>();
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    await gate.future;
+    await super.saveAppSettings(settings);
   }
 }

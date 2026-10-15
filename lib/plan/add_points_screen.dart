@@ -1543,8 +1543,13 @@ class ManualWorkFormScreenState extends State<ManualWorkFormScreen> {
       context: context,
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: AppColors.overlaySurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: AppColors.isDark
+              ? BorderSide(color: AppColors.border)
+              : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: SizedBox(
           height: _guideDialogHeight(context, 540),
@@ -2349,8 +2354,13 @@ class _QuickManualPointFormScreenState
       context: context,
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: AppColors.overlaySurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: AppColors.isDark
+              ? BorderSide(color: AppColors.border)
+              : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: SizedBox(
           height: _guideDialogHeight(context, 500),
@@ -3115,8 +3125,13 @@ class _ManualPointFormScreenState extends State<_ManualPointFormScreen> {
       context: context,
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: AppColors.overlaySurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: AppColors.isDark
+              ? BorderSide(color: AppColors.border)
+              : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: AppScaledOverlayContent(
           settings: widget.settings ?? const AppSettings(),

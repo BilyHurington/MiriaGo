@@ -264,6 +264,13 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
         leading: appBackButtonIfCanPop(context),
         title: Text(_sorting ? '调整计划顺序' : '切换计划'),
         actions: [
+          IconButton(
+            tooltip: '导入导出',
+            onPressed: _activePlan == null || _sorting || _savingOrder
+                ? null
+                : () => _openImportExport(_activePlan!),
+            icon: const Icon(LucideIcons.import),
+          ),
           if (plans != null && plans.length > 1)
             IconButton(
               key: const ValueKey('plan-order-toggle'),
@@ -996,13 +1003,24 @@ class _PlanMenuSurfacePainter extends CustomPainter {
       ..quadraticBezierTo(0, _pointerHeight, _cornerRadius, _pointerHeight)
       ..close();
 
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = AppColors.textPrimary.withValues(alpha: 0.16)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
-    );
+    if (!AppColors.isDark) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.16)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+      );
+    }
     canvas.drawPath(path, Paint()..color = AppColors.surface);
+    if (AppColors.isDark) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = AppColors.border
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
   }
 
   @override

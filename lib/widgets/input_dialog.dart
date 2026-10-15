@@ -40,8 +40,13 @@ class AppInputDialog extends StatelessWidget {
     );
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.overlaySurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: AppColors.isDark
+            ? BorderSide(color: AppColors.border)
+            : BorderSide.none,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
         child: Padding(

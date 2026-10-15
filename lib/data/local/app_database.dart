@@ -114,6 +114,10 @@ class AppSettingsEntries extends Table {
       text().withDefault(const Constant('auto'))();
   RealColumn get cameraMinZoom => real().withDefault(const Constant(0.6))();
   RealColumn get cameraMaxZoom => real().withDefault(const Constant(5.0))();
+  BoolColumn get cameraGridEnabled =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get cameraDiagonalsEnabled =>
+      boolean().withDefault(const Constant(false))();
   RealColumn get referenceImageScale =>
       real().withDefault(const Constant(1.0))();
   TextColumn get photoLocationStrategy =>
@@ -221,7 +225,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 49;
+  int get schemaVersion => 50;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -760,6 +764,16 @@ class AppDatabase extends _$AppDatabase {
         await addColumnIfMissing(
           appSettingsEntries,
           appSettingsEntries.importMapShowGroupAreas,
+        );
+      }
+      if (from < 50) {
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.cameraGridEnabled,
+        );
+        await addColumnIfMissing(
+          appSettingsEntries,
+          appSettingsEntries.cameraDiagonalsEnabled,
         );
       }
       if (from < 49) {

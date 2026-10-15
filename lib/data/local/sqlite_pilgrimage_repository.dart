@@ -106,6 +106,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
       ),
       cameraMinZoom: row.cameraMinZoom.clamp(0.1, 20.0),
       cameraMaxZoom: row.cameraMaxZoom.clamp(1.0, 20.0),
+      cameraGridEnabled: row.cameraGridEnabled,
+      cameraDiagonalsEnabled: row.cameraDiagonalsEnabled,
       referenceImageScale: row.referenceImageScale.clamp(0.8, 1.0),
       photoLocationStrategy: _photoLocationStrategyFromName(
         row.photoLocationStrategy,
@@ -1351,6 +1353,8 @@ class SqlitePilgrimageRepository implements PilgrimageRepository {
             ),
             cameraMinZoom: Value(settings.cameraMinZoom.clamp(0.1, 20.0)),
             cameraMaxZoom: Value(settings.cameraMaxZoom.clamp(1.0, 20.0)),
+            cameraGridEnabled: Value(settings.cameraGridEnabled),
+            cameraDiagonalsEnabled: Value(settings.cameraDiagonalsEnabled),
             referenceImageScale: Value(
               settings.referenceImageScale.clamp(0.8, 1.0),
             ),

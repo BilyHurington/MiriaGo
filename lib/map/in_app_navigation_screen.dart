@@ -653,7 +653,15 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
     var advanced = false;
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: chrome.panel,
+      backgroundColor: chrome.brightness == Brightness.dark
+          ? const Color(0xFF121417)
+          : chrome.panel,
+      shape: chrome.brightness == Brightness.dark
+          ? const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              side: BorderSide(color: Color(0xFF2C2C2E)),
+            )
+          : null,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) {
@@ -696,7 +704,15 @@ class _InAppNavigationScreenState extends State<InAppNavigationScreen>
   Future<void> _showAllStops(BuildContext context, _NavigationChrome chrome) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: chrome.panel,
+      backgroundColor: chrome.brightness == Brightness.dark
+          ? const Color(0xFF121417)
+          : chrome.panel,
+      shape: chrome.brightness == Brightness.dark
+          ? const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              side: BorderSide(color: Color(0xFF2C2C2E)),
+            )
+          : null,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) {

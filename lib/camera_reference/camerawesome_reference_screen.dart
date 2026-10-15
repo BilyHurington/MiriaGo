@@ -85,6 +85,9 @@ class _CamerawesomeReferenceScreenState
   Uint8List? _localReferenceBytes;
   XFile? _galleryImage;
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
+  late bool _gridEnabled;
+  late bool _diagonalsEnabled;
+  bool _savingGuides = false;
   bool _nativeCameraFailed = false;
   String? _nativeCameraError;
 
@@ -111,6 +114,9 @@ class _CamerawesomeReferenceScreenState
     _ownsNativeCameraController = widget.nativeCameraController == null;
     _nativeCameraController =
         widget.nativeCameraController ?? NativeCameraController();
+    final settings = AppSettingsUpdater.latest(widget.settings);
+    _gridEnabled = settings.cameraGridEnabled;
+    _diagonalsEnabled = settings.cameraDiagonalsEnabled;
     _photoLocationStrategy = widget.settings.photoLocationStrategy;
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([
@@ -567,6 +573,42 @@ class _CamerawesomeReferenceScreenState
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
+  Future<void> _toggleGuide({required bool grid}) async {
+    if (_savingGuides) return;
+    final previousGrid = _gridEnabled;
+    final previousDiagonals = _diagonalsEnabled;
+    setState(() {
+      if (grid) {
+        _gridEnabled = !_gridEnabled;
+      } else {
+        _diagonalsEnabled = !_diagonalsEnabled;
+      }
+      _savingGuides = true;
+    });
+    final repository = widget.controller?.repository;
+    final saved = await AppSettingsUpdater.update(
+      repository,
+      (current) => current.copyWith(
+        cameraGridEnabled: _gridEnabled,
+        cameraDiagonalsEnabled: _diagonalsEnabled,
+      ),
+      fallbackBase: widget.settings,
+    );
+    if (!mounted) return;
+    setState(() {
+      _savingGuides = false;
+      if (!saved) {
+        _gridEnabled = previousGrid;
+        _diagonalsEnabled = previousDiagonals;
+      }
+    });
+    if (!saved) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('构图辅助设置保存失败，请重试')));
+    }
+  }
+
   bool get _shouldUseNativeCamera {
     return !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
@@ -595,99 +637,105 @@ class _CamerawesomeReferenceScreenState
       settings: widget.settings,
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: kIsWeb
-          ? _WebCameraFallback(
-              point: widget.point,
-              reference: reference,
-              galleryImage: _galleryImage,
-              mode: _mode,
-              overlayOpacity: _overlayOpacity.value,
-              referenceImageScale: widget.settings.referenceImageScale,
-              onModeChanged: (mode) => setState(() => _mode = mode),
-              onOpacityChanged: (value) => _overlayOpacity.value = value,
-              onPickReference: _pickReferenceImage,
-              onPickGallery: _pickGalleryImage,
-            )
-          : _cameraPermissionDenied
-          ? _CameraPermissionDeniedMessage(
-              onOpenSettings: _openCameraSettings,
-              onRetry: _retryCamera,
-              onPickGallery: _pickGalleryImage,
-            )
-          : _shouldUseNativeCamera
-          ? _NativeReferenceCameraBody(
-              point: widget.point,
-              controller: _nativeCameraController,
-              reference: reference,
-              galleryImage: _galleryImage,
-              mode: _mode,
-              overlayOpacity: _overlayOpacity,
-              settings: widget.settings,
-              captureAspectRatio: captureAspectRatio,
-              referenceImageScale: widget.settings.referenceImageScale,
-              cropCaptureToAspectRatio: shouldCropNativeCapture,
-              onNativeUnavailable: () {
-                if (!mounted || _nativeCameraController.error == null) return;
-                setState(() {
-                  if (_nativeCameraController.permissionDenied) {
-                    // The fallback camera would only ask again (or wait
-                    // forever on Android).
-                    _cameraPermissionDenied = true;
-                  } else {
-                    debugPrint(
-                      'Native camera unavailable: '
-                      '${_nativeCameraController.error}',
+    return _CameraGuidesScope(
+      grid: _gridEnabled,
+      diagonals: _diagonalsEnabled,
+      onGrid: () => _toggleGuide(grid: true),
+      onDiagonals: () => _toggleGuide(grid: false),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: kIsWeb
+            ? _WebCameraFallback(
+                point: widget.point,
+                reference: reference,
+                galleryImage: _galleryImage,
+                mode: _mode,
+                overlayOpacity: _overlayOpacity.value,
+                referenceImageScale: widget.settings.referenceImageScale,
+                onModeChanged: (mode) => setState(() => _mode = mode),
+                onOpacityChanged: (value) => _overlayOpacity.value = value,
+                onPickReference: _pickReferenceImage,
+                onPickGallery: _pickGalleryImage,
+              )
+            : _cameraPermissionDenied
+            ? _CameraPermissionDeniedMessage(
+                onOpenSettings: _openCameraSettings,
+                onRetry: _retryCamera,
+                onPickGallery: _pickGalleryImage,
+              )
+            : _shouldUseNativeCamera
+            ? _NativeReferenceCameraBody(
+                point: widget.point,
+                controller: _nativeCameraController,
+                reference: reference,
+                galleryImage: _galleryImage,
+                mode: _mode,
+                overlayOpacity: _overlayOpacity,
+                settings: widget.settings,
+                captureAspectRatio: captureAspectRatio,
+                referenceImageScale: widget.settings.referenceImageScale,
+                cropCaptureToAspectRatio: shouldCropNativeCapture,
+                onNativeUnavailable: () {
+                  if (!mounted || _nativeCameraController.error == null) return;
+                  setState(() {
+                    if (_nativeCameraController.permissionDenied) {
+                      // The fallback camera would only ask again (or wait
+                      // forever on Android).
+                      _cameraPermissionDenied = true;
+                    } else {
+                      debugPrint(
+                        'Native camera unavailable: '
+                        '${_nativeCameraController.error}',
+                      );
+                      _nativeCameraFailed = true;
+                      _nativeCameraError = _nativeCameraController.error;
+                    }
+                  });
+                },
+                onModeChanged: (mode) => setState(() => _mode = mode),
+                onOpacityChanged: (value) => _overlayOpacity.value = value,
+                onCapture: () => _captureWithNativeCamera(reference),
+                onPickReference: _pickReferenceImage,
+                onPickGallery: _pickGalleryImage,
+                onPreferPortraitUi: _preferPortraitCameraUi,
+              )
+            : CameraAwesomeBuilder.custom(
+                saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
+                sensorConfig: SensorConfig.single(
+                  sensor: Sensor.position(SensorPosition.back),
+                  flashMode: FlashMode.auto,
+                  aspectRatio: _cameraAspectRatioFromDouble(captureAspectRatio),
+                  zoom: _zoom.value,
+                ),
+                previewFit: CameraPreviewFit.contain,
+                previewAlignment: Alignment.center,
+                enablePhysicalButton: true,
+                onMediaCaptureEvent: _handleCaptureEvent,
+                builder: (cameraState, preview) {
+                  if (_nativeCameraError != null &&
+                      defaultTargetPlatform == TargetPlatform.iOS) {
+                    return _NativeCameraUnavailableMessage(
+                      onPickGallery: _pickGalleryImage,
                     );
-                    _nativeCameraFailed = true;
-                    _nativeCameraError = _nativeCameraController.error;
                   }
-                });
-              },
-              onModeChanged: (mode) => setState(() => _mode = mode),
-              onOpacityChanged: (value) => _overlayOpacity.value = value,
-              onCapture: () => _captureWithNativeCamera(reference),
-              onPickReference: _pickReferenceImage,
-              onPickGallery: _pickGalleryImage,
-              onPreferPortraitUi: _preferPortraitCameraUi,
-            )
-          : CameraAwesomeBuilder.custom(
-              saveConfig: SaveConfig.photo(pathBuilder: _buildPhotoPath),
-              sensorConfig: SensorConfig.single(
-                sensor: Sensor.position(SensorPosition.back),
-                flashMode: FlashMode.auto,
-                aspectRatio: _cameraAspectRatioFromDouble(captureAspectRatio),
-                zoom: _zoom.value,
-              ),
-              previewFit: CameraPreviewFit.contain,
-              previewAlignment: Alignment.center,
-              enablePhysicalButton: true,
-              onMediaCaptureEvent: _handleCaptureEvent,
-              builder: (cameraState, preview) {
-                if (_nativeCameraError != null &&
-                    defaultTargetPlatform == TargetPlatform.iOS) {
-                  return _NativeCameraUnavailableMessage(
+                  return _ReferenceCameraOverlay(
+                    point: widget.point,
+                    state: cameraState,
+                    reference: reference,
+                    galleryImage: _galleryImage,
+                    mode: _mode,
+                    overlayOpacity: _overlayOpacity,
+                    zoom: _zoom,
+                    settings: widget.settings,
+                    onModeChanged: (mode) => setState(() => _mode = mode),
+                    onOpacityChanged: (value) => _overlayOpacity.value = value,
+                    onZoomChanged: (value) => _setZoom(cameraState, value),
+                    onPickReference: _pickReferenceImage,
                     onPickGallery: _pickGalleryImage,
                   );
-                }
-                return _ReferenceCameraOverlay(
-                  point: widget.point,
-                  state: cameraState,
-                  reference: reference,
-                  galleryImage: _galleryImage,
-                  mode: _mode,
-                  overlayOpacity: _overlayOpacity,
-                  zoom: _zoom,
-                  settings: widget.settings,
-                  onModeChanged: (mode) => setState(() => _mode = mode),
-                  onOpacityChanged: (value) => _overlayOpacity.value = value,
-                  onZoomChanged: (value) => _setZoom(cameraState, value),
-                  onPickReference: _pickReferenceImage,
-                  onPickGallery: _pickGalleryImage,
-                );
-              },
-            ),
+                },
+              ),
+      ),
     );
   }
 }
@@ -1036,9 +1084,15 @@ class _NativeCameraStage extends StatelessWidget {
                           height: frameHeight,
                           child: _AspectStageFrame(
                             aspectRatio: captureAspectRatio,
-                            child: _NativeCameraPreview(
-                              key: controller.previewKey,
-                              controller: controller,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                _NativeCameraPreview(
+                                  key: controller.previewKey,
+                                  controller: controller,
+                                ),
+                                const _CompositionOverlay(),
+                              ],
                             ),
                           ),
                         ),
@@ -1075,6 +1129,7 @@ class _NativeCameraStage extends StatelessWidget {
                       ),
                     ),
                   ),
+                const _CompositionOverlay(),
               ],
             ),
           ),
@@ -2035,6 +2090,16 @@ class _ReferenceCameraOverlay extends StatelessWidget {
             );
           },
         ),
+        Center(
+          child: AspectRatio(
+            aspectRatio: resolveCameraCaptureAspectRatio(
+              referenceAspectRatio: null,
+              settings: settings,
+              orientation: MediaQuery.orientationOf(context),
+            ),
+            child: const _CompositionOverlay(),
+          ),
+        ),
         SafeArea(
           child: usesLandscapeUi
               ? _LandscapeCameraLayout(
@@ -2689,6 +2754,142 @@ class _CameraBottomPanel extends StatelessWidget {
   }
 }
 
+class _CameraGuidesScope extends InheritedWidget {
+  const _CameraGuidesScope({
+    required this.grid,
+    required this.diagonals,
+    required this.onGrid,
+    required this.onDiagonals,
+    required super.child,
+  });
+
+  final bool grid;
+  final bool diagonals;
+  final VoidCallback? onGrid;
+  final VoidCallback? onDiagonals;
+
+  static _CameraGuidesScope of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_CameraGuidesScope>()!;
+
+  @override
+  bool updateShouldNotify(_CameraGuidesScope oldWidget) =>
+      grid != oldWidget.grid ||
+      diagonals != oldWidget.diagonals ||
+      onGrid != oldWidget.onGrid ||
+      onDiagonals != oldWidget.onDiagonals;
+}
+
+class _GuideButtons extends StatelessWidget {
+  const _GuideButtons({this.metrics});
+  final _CameraLayoutMetrics? metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final guides = _CameraGuidesScope.of(context);
+    final vertical = metrics != null;
+    final size = metrics?.modeButtonWidth ?? 36;
+    final gap = metrics?.modeGap ?? 6;
+    return Flex(
+      direction: vertical ? Axis.vertical : Axis.horizontal,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final entry in [
+          ('九宫格', LucideIcons.grid3X3, guides.grid, guides.onGrid),
+          (
+            '对角线',
+            LucideIcons.moveDiagonal,
+            guides.diagonals,
+            guides.onDiagonals,
+          ),
+        ]) ...[
+          if (entry.$1 == '对角线')
+            SizedBox(width: vertical ? 0 : gap, height: vertical ? gap : 0),
+          Semantics(
+            toggled: entry.$3,
+            child: SizedBox.square(
+              dimension: size,
+              child: IconButton(
+                key: ValueKey('camera-guide-${entry.$1}'),
+                tooltip: entry.$1,
+                onPressed: entry.$4,
+                icon: Icon(entry.$2, size: metrics?.controlIconSize ?? 19),
+                style: IconButton.styleFrom(
+                  fixedSize: Size.square(size),
+                  minimumSize: Size.square(size),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.all(8),
+                  foregroundColor: entry.$3
+                      ? const Color(0xFF111827)
+                      : Colors.white70,
+                  backgroundColor: entry.$3 ? Colors.white : Colors.white12,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CompositionOverlay extends StatelessWidget {
+  const _CompositionOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final guides = _CameraGuidesScope.of(context);
+    return IgnorePointer(
+      child: CustomPaint(
+        key: const ValueKey('camera-composition-guides'),
+        painter: _CompositionGuidePainter(
+          grid: guides.grid,
+          diagonals: guides.diagonals,
+        ),
+        size: Size.infinite,
+      ),
+    );
+  }
+}
+
+class _CompositionGuidePainter extends CustomPainter {
+  const _CompositionGuidePainter({required this.grid, required this.diagonals});
+  final bool grid;
+  final bool diagonals;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    if (grid) {
+      for (final fraction in [1 / 3, 2 / 3]) {
+        path.moveTo(size.width * fraction, 0);
+        path.lineTo(size.width * fraction, size.height);
+        path.moveTo(0, size.height * fraction);
+        path.lineTo(size.width, size.height * fraction);
+      }
+    }
+    if (diagonals) {
+      path.moveTo(0, 0);
+      path.lineTo(size.width, size.height);
+      path.moveTo(size.width, 0);
+      path.lineTo(0, size.height);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0xFFD1D5DB),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CompositionGuidePainter oldDelegate) =>
+      grid != oldDelegate.grid || diagonals != oldDelegate.diagonals;
+}
+
 class _ModeSelector extends StatelessWidget {
   const _ModeSelector({required this.mode, required this.onChanged});
 
@@ -2702,34 +2903,42 @@ class _ModeSelector extends StatelessWidget {
       (AwesomeReferenceMode.split, LucideIcons.panelsTopLeft, '上下'),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 136;
-        return Container(
-          height: compact ? 70 : 34,
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(compact ? 12 : 999),
-          ),
-          child: Flex(
-            direction: compact ? Axis.vertical : Axis.horizontal,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final entry in modes)
-                Expanded(
-                  child: _ModeChip(
-                    selected: mode == entry.$1,
-                    icon: entry.$2,
-                    label: entry.$3,
-                    compact: compact,
-                    onTap: () => onChanged(entry.$1),
-                  ),
+    return Row(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 136;
+              return Container(
+                height: compact ? 70 : 34,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(compact ? 12 : 999),
                 ),
-            ],
+                child: Flex(
+                  direction: compact ? Axis.vertical : Axis.horizontal,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final entry in modes)
+                      Expanded(
+                        child: _ModeChip(
+                          selected: mode == entry.$1,
+                          icon: entry.$2,
+                          label: entry.$3,
+                          compact: compact,
+                          onTap: () => onChanged(entry.$1),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
-        );
-      },
+        ),
+        const SizedBox(width: 6),
+        const _GuideButtons(),
+      ],
     );
   }
 }
@@ -2764,6 +2973,7 @@ class _ModeColumnSelector extends StatelessWidget {
           ),
           SizedBox(height: metrics.modeGap),
         ],
+        _GuideButtons(metrics: metrics),
       ],
     );
   }
@@ -2810,13 +3020,13 @@ class _ModeIconButton extends StatelessWidget {
               Icon(
                 icon,
                 size: metrics.controlIconSize - 3,
-                color: selected ? AppColors.textPrimary : Colors.white70,
+                color: selected ? const Color(0xFF111827) : Colors.white70,
               ),
               const SizedBox(height: 1),
               Text(
                 label,
                 style: TextStyle(
-                  color: selected ? AppColors.textPrimary : Colors.white70,
+                  color: selected ? const Color(0xFF111827) : Colors.white70,
                   fontSize: 10 * metrics.textScale,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0,
@@ -2866,14 +3076,14 @@ class _ModeChip extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: selected ? AppColors.textPrimary : Colors.white70,
+              color: selected ? const Color(0xFF111827) : Colors.white70,
             ),
             SizedBox(width: compact ? 3 : 5),
             Text(
               label,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? AppColors.textPrimary : Colors.white70,
+                color: selected ? const Color(0xFF111827) : Colors.white70,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
@@ -3524,6 +3734,7 @@ class _WebCameraFallback extends StatelessWidget {
                     isLandscape: false,
                     referenceImageScale: referenceImageScale,
                   ),
+                  const _CompositionOverlay(),
                 ],
               ),
             ),

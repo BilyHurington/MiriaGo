@@ -375,6 +375,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      enableDrag: false,
+      useSafeArea: true,
       builder: (context) => _RecordScopeFilterSheet(
         works: widget.controller.plan.works,
         groups: widget.controller.plan.groups,
@@ -548,197 +550,241 @@ class _RecordScopeFilterSheet extends StatefulWidget {
 class _RecordScopeFilterSheetState extends State<_RecordScopeFilterSheet> {
   late Set<String>? _workIds = _copyFilter(widget.selectedWorkIds);
   late Set<String>? _groupIds = _copyFilter(widget.selectedGroupFilterIds);
+  var _isWork = true;
+  final _workScroll = ScrollController(keepScrollOffset: false);
+  final _groupScroll = ScrollController(keepScrollOffset: false);
 
-  static Set<String>? _copyFilter(Set<String>? value) {
-    return value == null ? null : {...value};
+  @override
+  void dispose() {
+    _workScroll.dispose();
+    _groupScroll.dispose();
+    super.dispose();
   }
 
-  Future<void> _openWorkFilters() async {
-    final selectedIds = await showModalBottomSheet<Set<String>>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: AppColors.surface,
-      builder: (context) => _RecordScopeOptionSheet(
-        kind: 'work',
-        title: '作品',
-        options: [
-          for (final work in widget.works)
-            _RecordScopeOption(id: work.id, label: work.title),
-        ],
-        selectedIds: _workIds ?? const {},
-      ),
-    );
-    if (selectedIds == null || !mounted) {
-      return;
-    }
-    setState(() => _workIds = selectedIds.isEmpty ? null : selectedIds);
-  }
+  static Set<String>? _copyFilter(Set<String>? value) =>
+      value == null ? null : {...value};
 
-  Future<void> _openGroupFilters() async {
-    final groups = sortGroupsByPlanOrder(widget.groups);
-    final selectedIds = await showModalBottomSheet<Set<String>>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: AppColors.surface,
-      builder: (context) => _RecordScopeOptionSheet(
-        kind: 'group',
-        title: '片区',
-        options: [
-          for (final group in groups)
-            _RecordScopeOption(id: group.id, label: group.name),
-          const _RecordScopeOption(id: _ungroupedRecordFilterId, label: '未分组'),
-          const _RecordScopeOption(id: _orphanRecordFilterId, label: '孤立记录'),
-        ],
-        selectedIds: _groupIds ?? const {},
-      ),
-    );
-    if (selectedIds == null || !mounted) {
-      return;
-    }
-    setState(() => _groupIds = selectedIds.isEmpty ? null : selectedIds);
-  }
+  String _tabLabel(String title, Set<String>? ids) =>
+      '$title · ${ids == null ? '不限' : '已选 ${ids.length}'}';
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+    final kind = _isWork ? 'work' : 'group';
+    final selectedIds = (_isWork ? _workIds : _groupIds) ?? const <String>{};
+    final options = _isWork
+        ? [
+            for (final work in widget.works)
+              _RecordScopeOption(id: work.id, label: work.title),
+          ]
+        : [
+            for (final group in sortGroupsByPlanOrder(widget.groups))
+              _RecordScopeOption(id: group.id, label: group.name),
+            const _RecordScopeOption(
+              id: _ungroupedRecordFilterId,
+              label: '未分组',
+            ),
+            const _RecordScopeOption(id: _orphanRecordFilterId, label: '孤立记录'),
+          ];
+    return FractionallySizedBox(
+      heightFactor: 0.94,
+      child: SafeArea(
+        top: false,
+        child: DefaultTabController(
+          length: 2,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '筛选记录',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '筛选记录',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                  TextButton(
-                    key: const ValueKey('records-scope-clear'),
-                    onPressed: () => setState(() {
-                      _workIds = null;
-                      _groupIds = null;
-                    }),
-                    child: const Text('清除'),
-                  ),
-                ],
-              ),
-              Text(
-                '已选：作品 ${_workIds?.length ?? 0} · 片区 ${_groupIds?.length ?? 0}',
-                key: const ValueKey('records-scope-summary'),
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
+                    TextButton(
+                      key: const ValueKey('records-scope-clear'),
+                      onPressed: () => setState(() {
+                        _workIds = null;
+                        _groupIds = null;
+                      }),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(48, 44),
+                        foregroundColor: AppColors.accentForeground,
+                      ),
+                      child: const Text(
+                        '重置',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 18),
-              const Text('作品', style: TextStyle(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              _RecordScopeEntry(
-                key: const ValueKey('records-scope-work-entry'),
-                label: _scopeLabel(_workIds, allLabel: '全部作品', noun: '作品'),
-                onTap: _openWorkFilters,
-              ),
-              const SizedBox(height: 16),
-              const Text('片区', style: TextStyle(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              _RecordScopeEntry(
-                key: const ValueKey('records-scope-group-entry'),
-                label: _scopeLabel(_groupIds, allLabel: '全部片区', noun: '片区'),
-                onTap: _openGroupFilters,
-              ),
-              const SizedBox(height: 28),
-              FilledButton(
-                key: const ValueKey('records-scope-apply'),
-                onPressed: () => Navigator.of(context).pop(
-                  _RecordScopeSelection(
-                    workIds: _copyFilter(_workIds),
-                    groupIds: _copyFilter(_groupIds),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TabBar(
+                  onTap: (index) => setState(() => _isWork = index == 0),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorWeight: 3,
+                  labelColor: AppColors.accentForeground,
+                  unselectedLabelColor: AppColors.textSecondary,
+                  labelStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                  tabs: [
+                    Tab(
+                      key: const ValueKey('records-scope-work-tab'),
+                      text: _tabLabel('作品', _workIds),
+                    ),
+                    Tab(
+                      key: const ValueKey('records-scope-group-tab'),
+                      text: _tabLabel('片区', _groupIds),
+                    ),
+                  ],
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
                 child: Text(
-                  '应用筛选（${_workIds == null && _groupIds == null ? '全部点位' : '已选择'}）',
+                  '可多选',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: options.isEmpty
+                    ? const Center(child: Text('暂无可筛选项'))
+                    : ListView.separated(
+                        key: PageStorageKey('records-scope-list-$kind'),
+                        controller: _isWork ? _workScroll : _groupScroll,
+                        separatorBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          child: Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: AppColors.border.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        padding: EdgeInsets.zero,
+                        itemCount: options.length,
+                        itemBuilder: (context, index) {
+                          final option = options[index];
+                          final selected = selectedIds.contains(option.id);
+                          return Material(
+                            color: selected
+                                ? AppColors.accent.withValues(alpha: 0.10)
+                                : Colors.transparent,
+                            clipBehavior: Clip.antiAlias,
+                            child: CheckboxListTile(
+                              key: ValueKey(
+                                'records-scope-option-$kind-${option.id}',
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                              ),
+                              visualDensity: VisualDensity.standard,
+                              minTileHeight: 52,
+                              checkboxScaleFactor: 1.2,
+                              side: BorderSide(
+                                color: AppColors.textSecondary.withValues(
+                                  alpha: 0.8,
+                                ),
+                                width: 1.5,
+                              ),
+                              title: Text(
+                                option.label,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.35,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              value: selected,
+                              checkboxShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              onChanged: (value) => setState(() {
+                                final next = {...selectedIds};
+                                if (value == true) {
+                                  next.add(option.id);
+                                } else {
+                                  next.remove(option.id);
+                                }
+                                if (_isWork) {
+                                  _workIds = next.isEmpty ? null : next;
+                                } else {
+                                  _groupIds = next.isEmpty ? null : next;
+                                }
+                              }),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${_workIds == null ? '作品不限' : '作品已选 ${_workIds!.length} 部'} · '
+                      '${_groupIds == null ? '片区不限' : '片区已选 ${_groupIds!.length} 个'}',
+                      key: const ValueKey('records-scope-summary'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      key: const ValueKey('records-scope-apply'),
+                      onPressed: () => Navigator.of(context).pop(
+                        _RecordScopeSelection(
+                          workIds: _copyFilter(_workIds),
+                          groupIds: _copyFilter(_groupIds),
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: const Text(
+                        '应用筛选',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _scopeLabel(
-    Set<String>? ids, {
-    required String allLabel,
-    required String noun,
-  }) {
-    return ids == null ? allLabel : '已选 ${ids.length} 个$noun';
-  }
-}
-
-class _RecordScopeEntry extends StatelessWidget {
-  const _RecordScopeEntry({
-    required this.label,
-    required this.onTap,
-    super.key,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppColors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 48,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.checkCircle,
-                  color: AppColors.accentForeground,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-                Icon(LucideIcons.chevronRight, color: AppColors.textSecondary),
-              ],
-            ),
           ),
         ),
       ),
@@ -748,334 +794,8 @@ class _RecordScopeEntry extends StatelessWidget {
 
 class _RecordScopeOption {
   const _RecordScopeOption({required this.id, required this.label});
-
   final String id;
   final String label;
-}
-
-class _RecordScopeOptionSheet extends StatefulWidget {
-  const _RecordScopeOptionSheet({
-    required this.kind,
-    required this.title,
-    required this.options,
-    required this.selectedIds,
-  });
-
-  final String kind;
-  final String title;
-  final List<_RecordScopeOption> options;
-  final Set<String> selectedIds;
-
-  @override
-  State<_RecordScopeOptionSheet> createState() =>
-      _RecordScopeOptionSheetState();
-}
-
-class _RecordScopeOptionSheetState extends State<_RecordScopeOptionSheet> {
-  late final Set<String> _selectedIds = {...widget.selectedIds};
-  var _scrolling = false;
-
-  void _toggleOption(String id, bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedIds.add(id);
-      } else {
-        _selectedIds.remove(id);
-      }
-    });
-  }
-
-  void _confirm() {
-    Navigator.of(context).pop({..._selectedIds});
-  }
-
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification is ScrollStartNotification && !_scrolling) {
-      setState(() => _scrolling = true);
-    } else if (notification is ScrollEndNotification && _scrolling) {
-      setState(() => _scrolling = false);
-    }
-    return false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
-    final desiredHeight = 52.0 + 40.0 + widget.options.length * 48.0 + 78.0;
-    final sheetHeight = desiredHeight
-        .clamp(190.0, maxHeight > 560 ? 560.0 : maxHeight)
-        .toDouble();
-    final noun = widget.kind == 'work' ? '作品' : '片区';
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: sheetHeight,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 52,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 64,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton(
-                          key: ValueKey('records-scope-back-${widget.kind}'),
-                          tooltip: '返回筛选记录',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(LucideIcons.chevronLeft),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '选择${widget.title}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 64),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-              child: Text(
-                '全部${widget.title}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
-            ),
-            Expanded(
-              child: widget.options.isEmpty
-                  ? Center(
-                      child: Text(
-                        '暂无可筛选项',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    )
-                  : NotificationListener<ScrollNotification>(
-                      onNotification: _handleScrollNotification,
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        itemCount: widget.options.length,
-                        itemBuilder: (context, index) {
-                          final option = widget.options[index];
-                          final selected = _selectedIds.contains(option.id);
-                          return _RecordScopeOptionTile(
-                            key: ValueKey(
-                              'records-scope-option-${widget.kind}-${option.id}',
-                            ),
-                            decorationKey: ValueKey(
-                              'records-scope-option-decoration-${widget.kind}-${option.id}',
-                            ),
-                            option: option,
-                            badgeLabel: noun,
-                            selected: selected,
-                            hoverEnabled: !_scrolling,
-                            onChanged: (value) =>
-                                _toggleOption(option.id, value),
-                          );
-                        },
-                      ),
-                    ),
-            ),
-            ColoredBox(
-              color: AppColors.background,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '已选择 ${_selectedIds.length} 个$noun',
-                        key: ValueKey(
-                          'records-scope-secondary-count-${widget.kind}',
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 176,
-                      child: FilledButton(
-                        key: ValueKey(
-                          'records-scope-secondary-confirm-${widget.kind}',
-                        ),
-                        onPressed: _confirm,
-                        child: Text(
-                          _selectedIds.isEmpty
-                              ? '确定'
-                              : '确定（${_selectedIds.length}）',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecordScopeOptionTile extends StatefulWidget {
-  const _RecordScopeOptionTile({
-    required this.decorationKey,
-    required this.option,
-    required this.badgeLabel,
-    required this.selected,
-    required this.hoverEnabled,
-    required this.onChanged,
-    super.key,
-  });
-
-  final Key decorationKey;
-  final _RecordScopeOption option;
-  final String badgeLabel;
-  final bool selected;
-  final bool hoverEnabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  State<_RecordScopeOptionTile> createState() => _RecordScopeOptionTileState();
-}
-
-class _RecordScopeOptionTileState extends State<_RecordScopeOptionTile> {
-  var _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final showHover = widget.hoverEnabled && _hovered;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: MouseRegion(
-        onEnter: (_) {
-          if (!_hovered) {
-            setState(() => _hovered = true);
-          }
-        },
-        onExit: (_) {
-          if (_hovered) {
-            setState(() => _hovered = false);
-          }
-        },
-        child: SizedBox(
-          height: 48,
-          child: Stack(
-            clipBehavior: Clip.none,
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                left: 0,
-                top: 6,
-                right: 0,
-                bottom: 6,
-                child: AnimatedContainer(
-                  key: widget.decorationKey,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(
-                      alpha: widget.selected ? 0.10 : (showHover ? 0.05 : 0),
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => widget.onChanged(!widget.selected),
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOutCubic,
-                    transform: Matrix4.translationValues(
-                      showHover && !widget.selected ? 12 : 0,
-                      0,
-                      0,
-                    ),
-                    transformAlignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent.withValues(alpha: 0.08),
-                            border: Border.all(
-                              color: AppColors.accent.withValues(alpha: 0.42),
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            widget.badgeLabel,
-                            style: TextStyle(
-                              color: AppColors.accentForeground,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              height: 1.15,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.option.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 14,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Checkbox(
-                          value: widget.selected,
-                          onChanged: (value) =>
-                              widget.onChanged(value ?? false),
-                          shape: const CircleBorder(),
-                          side: BorderSide(color: AppColors.border, width: 1.5),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _RecordStatusPicker extends StatefulWidget {
@@ -1116,7 +836,7 @@ class _RecordStatusPickerState extends State<_RecordStatusPicker> {
         backgroundColor: WidgetStatePropertyAll(AppColors.surface),
         elevation: const WidgetStatePropertyAll(8),
         shadowColor: WidgetStatePropertyAll(
-          AppColors.textPrimary.withValues(alpha: 0.14),
+          Colors.black.withValues(alpha: 0.14),
         ),
         side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
         shape: const WidgetStatePropertyAll(

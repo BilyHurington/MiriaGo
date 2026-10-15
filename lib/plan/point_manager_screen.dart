@@ -1572,7 +1572,7 @@ class _GroupOrderModeButtonState extends State<_GroupOrderModeButton> {
         backgroundColor: WidgetStatePropertyAll(AppColors.surface),
         elevation: const WidgetStatePropertyAll(8),
         shadowColor: WidgetStatePropertyAll(
-          AppColors.textPrimary.withValues(alpha: 0.14),
+          Colors.black.withValues(alpha: 0.14),
         ),
         side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
         minimumSize: const WidgetStatePropertyAll(Size.zero),

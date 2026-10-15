@@ -53,7 +53,7 @@ class ComparisonExportSheet extends StatefulWidget {
       enableDrag: false,
       isDismissible: true,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.overlaySurface,
       builder: (context) => ComparisonExportSheet(
         referenceImagePath: referenceImagePath,
         referenceImageUrl: referenceImageUrl,
