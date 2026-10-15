@@ -186,7 +186,9 @@ InputDecoration appDialogInputDecoration({
     helperText: helperText,
     errorText: errorText,
     filled: true,
-    fillColor: AppColors.background,
+    // Dark dialogs use the background colour themselves; the field takes
+    // the card colour so it stands out from them.
+    fillColor: AppColors.isDark ? AppColors.surface : AppColors.background,
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
     border: border,

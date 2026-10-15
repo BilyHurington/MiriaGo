@@ -1973,6 +1973,8 @@ mod tests {
                 ),
                 ("import_map_show_group_areas", "importMapShowGroupAreas"),
                 ("record_compare_mode", "recordCompareMode"),
+                ("camera_grid_enabled", "cameraGridEnabled"),
+                ("camera_diagonals_enabled", "cameraDiagonalsEnabled"),
             ] {
                 database
                     .connection

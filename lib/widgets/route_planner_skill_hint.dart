@@ -262,7 +262,8 @@ class _RoutePlannerSkillLinkState extends State<RoutePlannerSkillLink> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 40),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          // The close button sets the row's 40 px height.
+          padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -291,9 +292,10 @@ class _RoutePlannerSkillLinkState extends State<RoutePlannerSkillLink> {
                 key: const ValueKey('route-planner-skill-link-dismiss'),
                 tooltip: '关闭',
                 padding: EdgeInsets.zero,
+                // Small icon, finger-sized target.
                 constraints: const BoxConstraints.tightFor(
-                  width: 28,
-                  height: 28,
+                  width: 44,
+                  height: 40,
                 ),
                 style: IconButton.styleFrom(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,

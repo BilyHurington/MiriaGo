@@ -44,6 +44,13 @@ void main() {
       (close.style!.shape!.resolve({})! as RoundedRectangleBorder).borderRadius,
       BorderRadius.zero,
     );
+    // A finger-sized target even though the icon is small.
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('route-planner-skill-link-dismiss')),
+      ),
+      const Size(44, 40),
+    );
     expect(tester.takeException(), isNull);
     await render(230, 2);
     expect(tester.takeException(), isNull);
