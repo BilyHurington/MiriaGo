@@ -121,6 +121,28 @@ void main() {
 
     await settleFileReads();
     expect(find.text('清理参考图缓存'), findsOneWidget);
+    // Nothing is selected until the user chooses: cleaning deletes files.
+    expect(find.text('已选 0 个，共 2 个'), findsOneWidget);
+    expect(find.text('6 KB'), findsOneWidget);
+    expect(find.text('12 KB'), findsOneWidget);
+    expect(find.text('0 B'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.ancestor(
+              of: find.text('清理缓存'),
+              matching: find.byType(FilledButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.runAsync(() async {
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, '全选'))
+          .onPressed!();
+    });
+    await settleFileReads();
     expect(find.text('已选 2 个，共 2 个'), findsOneWidget);
     expect(find.text('6 KB'), findsOneWidget);
     expect(find.text('12 KB'), findsOneWidget);
@@ -208,6 +230,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('清理缓存'), findsOneWidget);
+  });
+
+  testWidgets('cleanup button follows the theme in dark mode', (tester) async {
+    for (final palette in AppThemePalette.values) {
+      final theme = AppTheme.dark(palette: palette);
+      await tester.pumpWidget(
+        MaterialApp(
+          key: UniqueKey(),
+          theme: theme,
+          home: ReferenceCacheCleanupPage(
+            repository: SamplePilgrimageRepository(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final style = tester
+          .widget<FilledButton>(find.byType(FilledButton))
+          .style!;
+      final fill = style.backgroundColor!.resolve({})!;
+      final label = style.foregroundColor!.resolve({})!;
+      expect(fill, AppColors.accent, reason: '$palette');
+      final hi = [
+        label,
+        fill,
+      ].map((c) => c.computeLuminance()).reduce((a, b) => a > b ? a : b);
+      final lo = [
+        label,
+        fill,
+      ].map((c) => c.computeLuminance()).reduce((a, b) => a < b ? a : b);
+      expect(
+        (hi + 0.05) / (lo + 0.05),
+        greaterThanOrEqualTo(4.5),
+        reason: '$palette',
+      );
+    }
   });
 
   testWidgets('empty plan list keeps cleanup disabled', (tester) async {

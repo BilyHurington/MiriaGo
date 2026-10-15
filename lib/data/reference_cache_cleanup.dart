@@ -58,32 +58,63 @@ class ReferenceCacheCleanupResult {
 Future<Set<String>> referenceCachePathsInUseElsewhere({
   required PilgrimageRepository repository,
   required Iterable<String> planIds,
-}) async {
-  final selected = planIds.toSet();
-  final inUse = <String>{};
-  void add(String? path) {
-    if (isDownloadedReferenceCachePath(path)) {
-      inUse.add(backend.referenceCacheIdentity(path!));
-    }
+}) async => (await loadReferenceCacheUsage(repository)).retainedFor(planIds);
+
+/// Which plans and visit records use each downloaded cache file. Loaded once,
+/// it answers [referenceCachePathsInUseElsewhere] for any selection without
+/// reading every plan and record again.
+class ReferenceCacheUsage {
+  const ReferenceCacheUsage._(this._planIdsByPath, this._recordPaths);
+
+  final Map<String, Set<String>> _planIdsByPath;
+  final Set<String> _recordPaths;
+
+  /// Files the plans [planIds] must keep: used by another plan's points or by
+  /// any visit record.
+  Set<String> retainedFor(Iterable<String> planIds) {
+    final selected = planIds.toSet();
+    return {
+      ..._recordPaths,
+      for (final entry in _planIdsByPath.entries)
+        if (entry.value.any((id) => !selected.contains(id))) entry.key,
+    };
   }
+}
+
+Future<ReferenceCacheUsage> loadReferenceCacheUsage(
+  PilgrimageRepository repository,
+) async {
+  final planIdsByPath = <String, Set<String>>{};
+  final recordPaths = <String>{};
+  String? identity(String? path) => isDownloadedReferenceCachePath(path)
+      ? backend.referenceCacheIdentity(path!)
+      : null;
 
   for (final plan in await repository.loadPlans()) {
-    if (!selected.contains(plan.id)) {
-      for (final point in plan.points) {
-        add(point.referenceFullImagePath);
-        add(point.referenceThumbnailPath);
+    for (final point in plan.points) {
+      for (final path in [
+        point.referenceFullImagePath,
+        point.referenceThumbnailPath,
+      ]) {
+        final id = identity(path);
+        if (id != null) (planIdsByPath[id] ??= {}).add(plan.id);
       }
     }
     for (final record in await repository.loadVisitRecords(plan.id)) {
-      add(record.referenceImagePath);
+      final id = identity(record.referenceImagePath);
+      if (id != null) recordPaths.add(id);
     }
   }
-  return inUse;
+  return ReferenceCacheUsage._(planIdsByPath, recordPaths);
 }
 
+/// [sizeCache] keeps file sizes between scans of the same page, so changing
+/// a selection does not read every file again (one launcher call per file on
+/// the desktop).
 Future<ReferenceCacheScan> scanDownloadedReferenceCaches(
   Iterable<PilgrimagePlan> plans, {
   Set<String> retainedPaths = const {},
+  Map<String, int>? sizeCache,
 }) async {
   final paths = _deletableCachePaths(plans, retainedPaths);
   var bytes = 0;
@@ -91,7 +122,9 @@ Future<ReferenceCacheScan> scanDownloadedReferenceCaches(
   for (final path in paths) {
     files++;
     try {
-      final size = await backend.referenceCacheFileSize(path);
+      final size =
+          sizeCache?[path] ?? await backend.referenceCacheFileSize(path);
+      sizeCache?[path] = size;
       if (size > 0) {
         bytes += size;
       }

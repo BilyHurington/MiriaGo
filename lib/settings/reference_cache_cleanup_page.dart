@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
@@ -19,56 +21,78 @@ class ReferenceCacheCleanupPage extends StatefulWidget {
 }
 
 class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
+  /// Nothing is selected at first: cleaning deletes files, so the user
+  /// chooses what to include.
   final _selectedPlanIds = <String>{};
+
+  /// Cache size per plan, filled in the background after the list shows.
   final _planBytes = <String, int>{};
+
+  /// File sizes read so far; selection changes reuse them.
+  final _fileSizes = <String, int>{};
   late Future<List<PilgrimagePlan>> _plansFuture;
+  Future<ReferenceCacheUsage>? _usage;
   Future<ReferenceCacheScan>? _selectionScan;
   List<PilgrimagePlan> _plans = [];
   var _loading = true;
   var _busy = false;
   var _completed = 0;
   var _total = 0;
+  var _loadGeneration = 0;
 
-  Color get _accent =>
-      AppColors.isDark ? AppColors.accent : const Color(0xFF009BA5);
-  Color get _secondary =>
-      AppColors.isDark ? AppColors.textSecondary : const Color(0xFF7B8495);
+  Color get _accent => AppColors.accent;
+  Color get _secondary => AppColors.textSecondary;
 
   @override
   void initState() {
     super.initState();
-    _plansFuture = _loadPlans(selectAll: true);
+    _plansFuture = _loadPlans();
   }
 
-  Future<List<PilgrimagePlan>> _loadPlans({bool selectAll = false}) async {
+  Future<List<PilgrimagePlan>> _loadPlans() async {
+    final generation = ++_loadGeneration;
     final plans = await widget.repository.loadPlans();
-    final sizes = <String, int>{};
-    for (final plan in plans) {
-      sizes[plan.id] = (await scanDownloadedReferenceCaches([plan])).byteCount;
-    }
     if (!mounted) return plans;
+    // After a cleanup the files on disk changed; read sizes and usage again.
+    _fileSizes.clear();
+    final usage = loadReferenceCacheUsage(widget.repository);
     setState(() {
       _plans = plans;
-      _planBytes
-        ..clear()
-        ..addAll(sizes);
-      _selectedPlanIds.removeWhere((id) => !sizes.containsKey(id));
-      if (selectAll) _selectedPlanIds.addAll(sizes.keys);
+      _planBytes.clear();
+      final ids = plans.map((plan) => plan.id).toSet();
+      _selectedPlanIds.removeWhere((id) => !ids.contains(id));
       _loading = false;
+      _usage = usage;
       _selectionScan = _scanSelection();
     });
+    unawaited(_measurePlans(plans, generation));
     return plans;
+  }
+
+  /// Fills in each plan's cache size without holding up the list.
+  Future<void> _measurePlans(List<PilgrimagePlan> plans, int generation) async {
+    for (final plan in plans) {
+      final scan = await scanDownloadedReferenceCaches([
+        plan,
+      ], sizeCache: _fileSizes);
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _planBytes[plan.id] = scan.byteCount);
+    }
   }
 
   Future<ReferenceCacheScan> _scanSelection() async {
     final selected = _plans
         .where((plan) => _selectedPlanIds.contains(plan.id))
         .toList();
-    final retained = await referenceCachePathsInUseElsewhere(
-      repository: widget.repository,
-      planIds: selected.map((plan) => plan.id),
+    if (selected.isEmpty) {
+      return const ReferenceCacheScan(fileCount: 0, byteCount: 0, paths: {});
+    }
+    final usage = await _usage!;
+    return scanDownloadedReferenceCaches(
+      selected,
+      retainedPaths: usage.retainedFor(selected.map((plan) => plan.id)),
+      sizeCache: _fileSizes,
     );
-    return scanDownloadedReferenceCaches(selected, retainedPaths: retained);
   }
 
   void _select(void Function() change) {
@@ -113,7 +137,7 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                   TextButton(
                     onPressed: () => setState(() {
                       _loading = true;
-                      _plansFuture = _loadPlans(selectAll: _plans.isEmpty);
+                      _plansFuture = _loadPlans();
                     }),
                     child: const Text('重试'),
                   ),
@@ -174,7 +198,7 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                                     }
                                   }),
                             style: TextButton.styleFrom(
-                              foregroundColor: _accent,
+                              foregroundColor: AppColors.accentForeground,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                               ),
@@ -266,7 +290,7 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           backgroundColor: _accent,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onAccent,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -326,7 +350,7 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                     value: selected,
                     onChanged: _busy ? null : (_) => toggle(),
                     activeColor: _accent,
-                    checkColor: Colors.white,
+                    checkColor: AppColors.onAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -353,8 +377,14 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // The plan's whole cache; files shared with other plans
+                    // are counted here but only freed when all their plans
+                    // are cleaned (the total below).
+                    Text('已缓存 ', style: _text(13, secondary: true)),
                     Text(
-                      _formatByteSize(_planBytes[plan.id] ?? 0),
+                      _planBytes.containsKey(plan.id)
+                          ? _formatByteSize(_planBytes[plan.id]!)
+                          : '…',
                       style: _text(16, bold: true),
                     ),
                   ],
