@@ -50,6 +50,10 @@ class AppColors {
   static const miriaYellow = Color(0xFFFFCE00);
   static const miriaYellowDark = Color(0xFFB77C00);
   static const classicGreen = Color(0xFF0F8B8D);
+
+  /// Classic green as a dark-mode fill: 7% darker, so its white labels reach
+  /// 4.5:1 (the light-mode shade gives 4.1:1).
+  static const classicGreenDarkFill = Color(0xFF0E8183);
   static const classicGreenDark = Color(0xFF0B6F72);
   static const deepBlue = Color(0xFF1C2B78);
   static const deepBlueDark = Color(0xFF111B52);
@@ -67,6 +71,9 @@ class AppColors {
   static Color get accent {
     if (isDark && palette == AppThemePalette.graphite) {
       return const Color(0xFFD1D5DB);
+    }
+    if (isDark && palette == AppThemePalette.classicGreen) {
+      return classicGreenDarkFill;
     }
     return switch (palette) {
       AppThemePalette.classicGreen => classicGreen,
@@ -98,7 +105,7 @@ class AppColors {
     if (isDark && palette == AppThemePalette.aurora) {
       return foregroundOn(accent);
     }
-    return switch (palette) {
+    final label = switch (palette) {
       AppThemePalette.classicGreen => Colors.white,
       AppThemePalette.deepBlue => Colors.white,
       AppThemePalette.cherryPink => Colors.white,
@@ -107,6 +114,13 @@ class AppColors {
       AppThemePalette.graphite => isDark ? _lightTextPrimary : Colors.white,
       AppThemePalette.aurora => _foregroundFor(Color(customAccentValue)),
     };
+    // Dark mode keeps the palette's label colour where it stays readable
+    // (4.5:1) on the fill, and otherwise picks the readable one (cherry pink
+    // is too light for white labels).
+    if (isDark && _contrast(label, accent) < 4.5) {
+      return foregroundOn(accent);
+    }
+    return label;
   }
 
   /// Foregrounds on neutral or lightly tinted surfaces, not brand fills.

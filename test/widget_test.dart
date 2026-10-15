@@ -2062,7 +2062,21 @@ void main() {
     expect(find.textContaining('宇治站附近'), findsWidgets);
     expect(find.byTooltip('当前目标'), findsOneWidget);
     expect(find.text('井用机前步行道'), findsWidgets);
-    expect(find.text('吹响吧！上低音号 / EP 1 / 2:08'), findsOneWidget);
+    // Work title and episode sit on their own rows of the point card.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-point-card-work-title')),
+        matching: find.text('吹响吧！上低音号'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-point-card-episode')),
+        matching: find.text('EP 1 · 2:08'),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('あじろぎの道 / 34.'), findsNothing);
     expect(find.text('已拍 2'), findsNothing);
     expect(find.byKey(const ValueKey('map-point-shot-badge')), findsOneWidget);
