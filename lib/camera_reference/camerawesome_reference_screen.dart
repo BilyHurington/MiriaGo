@@ -87,7 +87,13 @@ class _CamerawesomeReferenceScreenState
   AwesomeReferenceMode _mode = AwesomeReferenceMode.overlay;
   late bool _gridEnabled;
   late bool _diagonalsEnabled;
-  bool _savingGuides = false;
+
+  /// Guide settings last stored, which a failed save goes back to.
+  late bool _storedGrid;
+  late bool _storedDiagonals;
+
+  /// Latest guide change; a failed save only reverts when none came after.
+  var _guideSerial = 0;
   bool _nativeCameraFailed = false;
   String? _nativeCameraError;
 
@@ -115,8 +121,8 @@ class _CamerawesomeReferenceScreenState
     _nativeCameraController =
         widget.nativeCameraController ?? NativeCameraController();
     final settings = AppSettingsUpdater.latest(widget.settings);
-    _gridEnabled = settings.cameraGridEnabled;
-    _diagonalsEnabled = settings.cameraDiagonalsEnabled;
+    _gridEnabled = _storedGrid = settings.cameraGridEnabled;
+    _diagonalsEnabled = _storedDiagonals = settings.cameraDiagonalsEnabled;
     _photoLocationStrategy = widget.settings.photoLocationStrategy;
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([
@@ -573,39 +579,44 @@ class _CamerawesomeReferenceScreenState
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
+  /// Applies a guide switch right away and stores it. Quick taps are not
+  /// dropped: each save carries the values at that moment, and a failed save
+  /// only reverts when no newer change was made since.
   Future<void> _toggleGuide({required bool grid}) async {
-    if (_savingGuides) return;
-    final previousGrid = _gridEnabled;
-    final previousDiagonals = _diagonalsEnabled;
+    final serial = ++_guideSerial;
     setState(() {
       if (grid) {
         _gridEnabled = !_gridEnabled;
       } else {
         _diagonalsEnabled = !_diagonalsEnabled;
       }
-      _savingGuides = true;
     });
-    final repository = widget.controller?.repository;
+    final gridValue = _gridEnabled;
+    final diagonalsValue = _diagonalsEnabled;
     final saved = await AppSettingsUpdater.update(
-      repository,
+      widget.controller?.repository,
       (current) => current.copyWith(
-        cameraGridEnabled: _gridEnabled,
-        cameraDiagonalsEnabled: _diagonalsEnabled,
+        cameraGridEnabled: gridValue,
+        cameraDiagonalsEnabled: diagonalsValue,
       ),
       fallbackBase: widget.settings,
     );
-    if (!mounted) return;
+    if (saved) {
+      _storedGrid = gridValue;
+      _storedDiagonals = diagonalsValue;
+      return;
+    }
+    if (!mounted || serial != _guideSerial) return;
     setState(() {
-      _savingGuides = false;
-      if (!saved) {
-        _gridEnabled = previousGrid;
-        _diagonalsEnabled = previousDiagonals;
-      }
+      _gridEnabled = _storedGrid;
+      _diagonalsEnabled = _storedDiagonals;
     });
-    if (!saved) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('构图辅助设置保存失败，请重试')));
+    // The app shell already reports its own failed saves.
+    if (AppSettingsUpdater.handler == null) {
+      ScaffoldMessenger.of(context).showStatusSnack(
+        kind: AppStatusBannerKind.error,
+        title: '构图辅助设置保存失败，请重试',
+      );
     }
   }
 
@@ -638,6 +649,9 @@ class _CamerawesomeReferenceScreenState
     );
 
     return _CameraGuidesScope(
+      // Only the native preview knows where the photo frame is; the fallback
+      // camera and the web preview have no guides.
+      available: _shouldUseNativeCamera && !_cameraPermissionDenied,
       grid: _gridEnabled,
       diagonals: _diagonalsEnabled,
       onGrid: () => _toggleGuide(grid: true),
@@ -2090,16 +2104,6 @@ class _ReferenceCameraOverlay extends StatelessWidget {
             );
           },
         ),
-        Center(
-          child: AspectRatio(
-            aspectRatio: resolveCameraCaptureAspectRatio(
-              referenceAspectRatio: null,
-              settings: settings,
-              orientation: MediaQuery.orientationOf(context),
-            ),
-            child: const _CompositionOverlay(),
-          ),
-        ),
         SafeArea(
           child: usesLandscapeUi
               ? _LandscapeCameraLayout(
@@ -2485,9 +2489,14 @@ class _LandscapeControlPanel extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
         child: Row(
           children: [
-            _ModeSelector(mode: mode, onChanged: onModeChanged),
+            // _ModeSelector expands to its width; a Row gives it none.
+            Flexible(
+              flex: 2,
+              child: _ModeSelector(mode: mode, onChanged: onModeChanged),
+            ),
             const SizedBox(width: 14),
             Expanded(
+              flex: 3,
               child: _ZoomAndOpacityControls(
                 state: state,
                 zoom: zoom,
@@ -2756,6 +2765,7 @@ class _CameraBottomPanel extends StatelessWidget {
 
 class _CameraGuidesScope extends InheritedWidget {
   const _CameraGuidesScope({
+    required this.available,
     required this.grid,
     required this.diagonals,
     required this.onGrid,
@@ -2763,6 +2773,7 @@ class _CameraGuidesScope extends InheritedWidget {
     required super.child,
   });
 
+  final bool available;
   final bool grid;
   final bool diagonals;
   final VoidCallback? onGrid;
@@ -2773,6 +2784,7 @@ class _CameraGuidesScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_CameraGuidesScope oldWidget) =>
+      available != oldWidget.available ||
       grid != oldWidget.grid ||
       diagonals != oldWidget.diagonals ||
       onGrid != oldWidget.onGrid ||
@@ -2786,6 +2798,7 @@ class _GuideButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final guides = _CameraGuidesScope.of(context);
+    if (!guides.available) return const SizedBox.shrink();
     final vertical = metrics != null;
     final size = metrics?.modeButtonWidth ?? 36;
     final gap = metrics?.modeGap ?? 6;
@@ -3734,7 +3747,6 @@ class _WebCameraFallback extends StatelessWidget {
                     isLandscape: false,
                     referenceImageScale: referenceImageScale,
                   ),
-                  const _CompositionOverlay(),
                 ],
               ),
             ),

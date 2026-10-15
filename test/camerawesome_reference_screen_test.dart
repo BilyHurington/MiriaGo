@@ -150,7 +150,7 @@ void main() {
     final during = tester.widget<IconButton>(diagonalFinder);
     expect(during.onPressed, isNotNull);
     expect(during.style!.backgroundColor!.resolve({}), beforeColor);
-    // A second tap while storage is pending must not change either guide.
+    // A second tap while storage is pending applies too (it is not dropped).
     await tester.tap(diagonalFinder);
     await tester.pump();
     final dynamic painter = tester
@@ -159,11 +159,13 @@ void main() {
         )
         .painter;
     expect(painter.grid, isTrue);
-    expect(painter.diagonals, isFalse);
+    expect(painter.diagonals, isTrue);
     repository.gate.complete();
     await tester.pumpAndSettle();
     expect(tester.widget<IconButton>(diagonalFinder).onPressed, isNotNull);
-    expect((await repository.loadAppSettings()).cameraGridEnabled, isTrue);
+    final stored = await repository.loadAppSettings();
+    expect(stored.cameraGridEnabled, isTrue);
+    expect(stored.cameraDiagonalsEnabled, isTrue);
   });
 
   testWidgets('failed guide save restores the previous overlay', (
