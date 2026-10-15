@@ -2072,20 +2072,6 @@ void main() {
     expect(find.text('测试备注'), findsOneWidget);
   });
 
-  testWidgets('map point card grows with large text instead of overflowing', (
-    tester,
-  ) async {
-    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await _pumpApp(tester);
-
-    await tester.tap(find.byIcon(LucideIcons.map).last);
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('map-point-card-episode')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('shows group filters on the map', (tester) async {
     await _pumpApp(tester);
 

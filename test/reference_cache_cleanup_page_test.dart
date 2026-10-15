@@ -267,6 +267,29 @@ void main() {
     }
   });
 
+  testWidgets('a failed usage read can be retried', (tester) async {
+    final repository = _FlakyRecordsRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: ReferenceCacheCleanupPage(repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.widgetWithText(TextButton, '全选'));
+    await tester.pumpAndSettle();
+    expect(find.text('空间计算失败'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    repository.fail = false;
+    await tester.tap(find.byKey(const ValueKey('cache-cleanup-retry')));
+    await tester.pumpAndSettle();
+    expect(find.text('空间计算失败'), findsNothing);
+    expect(find.text('可释放约 '), findsOneWidget);
+  });
+
   testWidgets('empty plan list keeps cleanup disabled', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -285,4 +308,14 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+}
+
+class _FlakyRecordsRepository extends SamplePilgrimageRepository {
+  var fail = true;
+
+  @override
+  Future<List<PilgrimageVisitRecord>> loadVisitRecords(String planId) async {
+    if (fail) throw StateError('records unavailable');
+    return super.loadVisitRecords(planId);
+  }
 }

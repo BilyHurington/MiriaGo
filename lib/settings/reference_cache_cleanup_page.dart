@@ -28,10 +28,12 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
   /// Cache size per plan, filled in the background after the list shows.
   final _planBytes = <String, int>{};
 
-  /// File sizes read so far; selection changes reuse them.
-  final _fileSizes = <String, int>{};
+  /// File size reads of this load, finished or not; selection changes reuse
+  /// them. A new map per load, so a read from before a cleanup cannot land
+  /// in it.
+  var _fileSizes = <String, Future<int>>{};
   late Future<List<PilgrimagePlan>> _plansFuture;
-  Future<ReferenceCacheUsage>? _usage;
+  Future<ReferenceCacheUsage?>? _usage;
   Future<ReferenceCacheScan>? _selectionScan;
   List<PilgrimagePlan> _plans = [];
   var _loading = true;
@@ -54,8 +56,8 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
     final plans = await widget.repository.loadPlans();
     if (!mounted) return plans;
     // After a cleanup the files on disk changed; read sizes and usage again.
-    _fileSizes.clear();
-    final usage = loadReferenceCacheUsage(widget.repository);
+    _fileSizes = {};
+    final usage = _loadUsage();
     setState(() {
       _plans = plans;
       _planBytes.clear();
@@ -63,7 +65,7 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
       _selectedPlanIds.removeWhere((id) => !ids.contains(id));
       _loading = false;
       _usage = usage;
-      _selectionScan = _scanSelection();
+      _selectionScan = _startSelectionScan();
     });
     unawaited(_measurePlans(plans, generation));
     return plans;
@@ -80,6 +82,27 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
     }
   }
 
+  /// Which plans and records use each cache file; null when it could not be
+  /// read. Nothing may be waiting for it yet (nothing is selected at first),
+  /// so it never fails itself: the selection scan reports the failure.
+  Future<ReferenceCacheUsage?> _loadUsage() async {
+    try {
+      return await loadReferenceCacheUsage(widget.repository);
+    } on Object catch (error) {
+      debugPrint('Reading reference cache usage failed: $error');
+      return null;
+    }
+  }
+
+  /// The footer's FutureBuilder only listens from the next frame, and a scan
+  /// can fail before that; a handler is attached at once so the failure is
+  /// not reported as unhandled. The footer still shows it.
+  Future<ReferenceCacheScan> _startSelectionScan() {
+    final scan = _scanSelection();
+    unawaited(scan.then((_) {}, onError: (Object _) {}));
+    return scan;
+  }
+
   Future<ReferenceCacheScan> _scanSelection() async {
     final selected = _plans
         .where((plan) => _selectedPlanIds.contains(plan.id))
@@ -87,7 +110,13 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
     if (selected.isEmpty) {
       return const ReferenceCacheScan(fileCount: 0, byteCount: 0, paths: {});
     }
-    final usage = await _usage!;
+    final pending = _usage ??= _loadUsage();
+    final usage = await pending;
+    if (usage == null) {
+      // Read it again on the next change or retry.
+      if (identical(_usage, pending)) _usage = null;
+      throw StateError('Reference cache usage could not be read.');
+    }
     return scanDownloadedReferenceCaches(
       selected,
       retainedPaths: usage.retainedFor(selected.map((plan) => plan.id)),
@@ -98,7 +127,7 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
   void _select(void Function() change) {
     setState(() {
       change();
-      _selectionScan = _scanSelection();
+      _selectionScan = _startSelectionScan();
     });
   }
 
@@ -269,6 +298,15 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                           snapshot.hasError ? '空间计算失败' : '可释放约 ',
                           style: _text(14),
                         ),
+                        if (snapshot.hasError)
+                          TextButton(
+                            key: const ValueKey('cache-cleanup-retry'),
+                            onPressed: _busy ? null : () => _select(() {}),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.accentForeground,
+                            ),
+                            child: const Text('重试'),
+                          ),
                         if (!snapshot.hasError)
                           Text(
                             ready
@@ -377,10 +415,11 @@ class _ReferenceCacheCleanupPageState extends State<ReferenceCacheCleanupPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // The plan's whole cache; files shared with other plans
-                    // are counted here but only freed when all their plans
-                    // are cleaned (the total below).
-                    Text('已缓存 ', style: _text(13, secondary: true)),
+                    // The plan's downloaded full-size references (what
+                    // cleaning removes; thumbnails stay). Files shared with
+                    // other plans count here but are only freed when all
+                    // their plans are cleaned (the total below).
+                    Text('完整图 ', style: _text(13, secondary: true)),
                     Text(
                       _planBytes.containsKey(plan.id)
                           ? _formatByteSize(_planBytes[plan.id]!)

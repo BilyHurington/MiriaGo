@@ -108,13 +108,13 @@ Future<ReferenceCacheUsage> loadReferenceCacheUsage(
   return ReferenceCacheUsage._(planIdsByPath, recordPaths);
 }
 
-/// [sizeCache] keeps file sizes between scans of the same page, so changing
-/// a selection does not read every file again (one launcher call per file on
-/// the desktop).
+/// [sizeCache] keeps file size reads between scans of the same page, so
+/// changing a selection does not read every file again (one launcher call per
+/// file on the desktop); a read still in progress is shared too.
 Future<ReferenceCacheScan> scanDownloadedReferenceCaches(
   Iterable<PilgrimagePlan> plans, {
   Set<String> retainedPaths = const {},
-  Map<String, int>? sizeCache,
+  Map<String, Future<int>>? sizeCache,
 }) async {
   final paths = _deletableCachePaths(plans, retainedPaths);
   var bytes = 0;
@@ -122,9 +122,9 @@ Future<ReferenceCacheScan> scanDownloadedReferenceCaches(
   for (final path in paths) {
     files++;
     try {
-      final size =
-          sizeCache?[path] ?? await backend.referenceCacheFileSize(path);
-      sizeCache?[path] = size;
+      final size = await (sizeCache == null
+          ? backend.referenceCacheFileSize(path)
+          : sizeCache[path] ??= backend.referenceCacheFileSize(path));
       if (size > 0) {
         bytes += size;
       }
