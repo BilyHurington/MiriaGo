@@ -470,7 +470,7 @@ class AppStatusBannerProgressLine extends StatelessWidget {
         Text(
           percentLabel,
           style: TextStyle(
-            color: AppColors.accent,
+            color: AppColors.accentForeground,
             fontSize: 13,
             fontWeight: FontWeight.w800,
             letterSpacing: 0,

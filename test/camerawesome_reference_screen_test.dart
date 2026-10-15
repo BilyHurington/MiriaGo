@@ -168,6 +168,33 @@ void main() {
     expect(stored.cameraDiagonalsEnabled, isTrue);
   });
 
+  testWidgets('an older failed save does not undo a newer one', (tester) async {
+    final repository = _FirstGuideSaveFailsLateRepository();
+    final planController = PilgrimagePlanController(
+      plan: await repository.loadActivePlan(),
+      visitRepository: repository,
+    );
+    addTearDown(planController.dispose);
+    await pumpScreen(tester, controller: planController);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('九宫格'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('对角线'));
+    await tester.pumpAndSettle();
+    repository.firstSave.complete();
+    await tester.pumpAndSettle();
+    final dynamic painter = tester
+        .widget<CustomPaint>(
+          find.byKey(const ValueKey('camera-composition-guides')),
+        )
+        .painter;
+    expect(painter.grid, isTrue);
+    expect(painter.diagonals, isTrue);
+    final stored = await repository.loadAppSettings();
+    expect(stored.cameraGridEnabled, isTrue);
+    expect(stored.cameraDiagonalsEnabled, isTrue);
+  });
+
   testWidgets('failed guide save restores the previous overlay', (
     tester,
   ) async {
@@ -526,6 +553,20 @@ class _FailingGuideSettingsRepository extends SamplePilgrimageRepository {
   @override
   Future<void> saveAppSettings(AppSettings settings) async {
     throw StateError('settings write failed');
+  }
+}
+
+class _FirstGuideSaveFailsLateRepository extends SamplePilgrimageRepository {
+  final firstSave = Completer<void>();
+  var _saves = 0;
+
+  @override
+  Future<void> saveAppSettings(AppSettings settings) async {
+    if (++_saves == 1) {
+      await firstSave.future;
+      throw StateError('disk busy');
+    }
+    await super.saveAppSettings(settings);
   }
 }
 

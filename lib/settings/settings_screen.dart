@@ -3387,7 +3387,8 @@ class _AspectRatioOption extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: selected
-                    ? AppColors.onAccent.withValues(alpha: 0.86)
+                    // Full strength: small text on the accent fill.
+                    ? AppColors.onAccent
                     : AppColors.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -4647,7 +4648,8 @@ class _MapSourceOptionCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: selected
-                          ? AppColors.onAccent.withValues(alpha: 0.82)
+                          // Full strength: small text on the accent fill.
+                          ? AppColors.onAccent
                           : AppColors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -4759,7 +4761,8 @@ class _NavigationAppOptionCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: selected
-                          ? AppColors.onAccent.withValues(alpha: 0.82)
+                          // Full strength: small text on the accent fill.
+                          ? AppColors.onAccent
                           : AppColors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,

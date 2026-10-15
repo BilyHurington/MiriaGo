@@ -521,6 +521,9 @@ class _PlanLinkImportScreenState extends State<PlanLinkImportScreen> {
                           appDialogInputDecoration(
                             hintText: 'https://github.com/…/releases/…',
                           ).copyWith(
+                            // On a card, the field is inset in the page
+                            // colour (the dialog default is the card colour).
+                            fillColor: AppColors.background,
                             suffixIcon: IconButton(
                               key: const ValueKey('plan-link-paste'),
                               tooltip: '粘贴',

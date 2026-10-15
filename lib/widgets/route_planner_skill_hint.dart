@@ -270,21 +270,25 @@ class _RoutePlannerSkillLinkState extends State<RoutePlannerSkillLink> {
               Icon(LucideIcons.sparkles, size: 14, color: AppColors.accentDark),
               const SizedBox(width: 6),
               Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    style: style,
-                    children: [
-                      TextSpan(text: widget.lead),
-                      TextSpan(
-                        text: '用 AI 一键规划行程并生成计划包',
-                        style: TextStyle(
-                          color: AppColors.accentDark,
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppColors.accentDark,
+                // Keeps wrapped text off the row's edges.
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text.rich(
+                    TextSpan(
+                      style: style,
+                      children: [
+                        TextSpan(text: widget.lead),
+                        TextSpan(
+                          text: '用 AI 一键规划行程并生成计划包',
+                          style: TextStyle(
+                            color: AppColors.accentDark,
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.underline,
+                            decorationColor: AppColors.accentDark,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

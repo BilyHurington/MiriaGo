@@ -94,6 +94,10 @@ class _CamerawesomeReferenceScreenState
 
   /// Latest guide change; a failed save only reverts when none came after.
   var _guideSerial = 0;
+
+  /// The change [_storedGrid] and [_storedDiagonals] come from, so a save
+  /// finishing late never replaces a newer stored value.
+  var _storedSerial = 0;
   bool _nativeCameraFailed = false;
   String? _nativeCameraError;
 
@@ -602,8 +606,11 @@ class _CamerawesomeReferenceScreenState
       fallbackBase: widget.settings,
     );
     if (saved) {
-      _storedGrid = gridValue;
-      _storedDiagonals = diagonalsValue;
+      if (serial > _storedSerial) {
+        _storedSerial = serial;
+        _storedGrid = gridValue;
+        _storedDiagonals = diagonalsValue;
+      }
       return;
     }
     if (!mounted || serial != _guideSerial) return;
@@ -2792,8 +2799,11 @@ class _CameraGuidesScope extends InheritedWidget {
 }
 
 class _GuideButtons extends StatelessWidget {
-  const _GuideButtons({this.metrics});
+  const _GuideButtons({this.metrics, this.leadingGap = 0});
   final _CameraLayoutMetrics? metrics;
+
+  /// Space before the buttons; none when they are not shown.
+  final double leadingGap;
 
   @override
   Widget build(BuildContext context) {
@@ -2802,48 +2812,53 @@ class _GuideButtons extends StatelessWidget {
     final vertical = metrics != null;
     final size = metrics?.modeButtonWidth ?? 36;
     final gap = metrics?.modeGap ?? 6;
-    return Flex(
-      direction: vertical ? Axis.vertical : Axis.horizontal,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final entry in [
-          ('九宫格', LucideIcons.grid3X3, guides.grid, guides.onGrid),
-          (
-            '对角线',
-            LucideIcons.moveDiagonal,
-            guides.diagonals,
-            guides.onDiagonals,
-          ),
-        ]) ...[
-          if (entry.$1 == '对角线')
-            SizedBox(width: vertical ? 0 : gap, height: vertical ? gap : 0),
-          Semantics(
-            toggled: entry.$3,
-            child: SizedBox.square(
-              dimension: size,
-              child: IconButton(
-                key: ValueKey('camera-guide-${entry.$1}'),
-                tooltip: entry.$1,
-                onPressed: entry.$4,
-                icon: Icon(entry.$2, size: metrics?.controlIconSize ?? 19),
-                style: IconButton.styleFrom(
-                  fixedSize: Size.square(size),
-                  minimumSize: Size.square(size),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.all(8),
-                  foregroundColor: entry.$3
-                      ? const Color(0xFF111827)
-                      : Colors.white70,
-                  backgroundColor: entry.$3 ? Colors.white : Colors.white12,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: vertical
+          ? EdgeInsets.only(top: leadingGap)
+          : EdgeInsets.only(left: leadingGap),
+      child: Flex(
+        direction: vertical ? Axis.vertical : Axis.horizontal,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final entry in [
+            ('九宫格', LucideIcons.grid3X3, guides.grid, guides.onGrid),
+            (
+              '对角线',
+              LucideIcons.moveDiagonal,
+              guides.diagonals,
+              guides.onDiagonals,
+            ),
+          ]) ...[
+            if (entry.$1 == '对角线')
+              SizedBox(width: vertical ? 0 : gap, height: vertical ? gap : 0),
+            Semantics(
+              toggled: entry.$3,
+              child: SizedBox.square(
+                dimension: size,
+                child: IconButton(
+                  key: ValueKey('camera-guide-${entry.$1}'),
+                  tooltip: entry.$1,
+                  onPressed: entry.$4,
+                  icon: Icon(entry.$2, size: metrics?.controlIconSize ?? 19),
+                  style: IconButton.styleFrom(
+                    fixedSize: Size.square(size),
+                    minimumSize: Size.square(size),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.all(8),
+                    foregroundColor: entry.$3
+                        ? const Color(0xFF111827)
+                        : Colors.white70,
+                    backgroundColor: entry.$3 ? Colors.white : Colors.white12,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -2949,8 +2964,7 @@ class _ModeSelector extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(width: 6),
-        const _GuideButtons(),
+        const _GuideButtons(leadingGap: 6),
       ],
     );
   }
@@ -2977,6 +2991,7 @@ class _ModeColumnSelector extends StatelessWidget {
     return Column(
       children: [
         for (final entry in modes) ...[
+          if (entry != modes.first) SizedBox(height: metrics.modeGap),
           _ModeIconButton(
             metrics: metrics,
             selected: mode == entry.$1,
@@ -2984,9 +2999,8 @@ class _ModeColumnSelector extends StatelessWidget {
             label: entry.$3,
             onTap: () => onChanged(entry.$1),
           ),
-          SizedBox(height: metrics.modeGap),
         ],
-        _GuideButtons(metrics: metrics),
+        _GuideButtons(metrics: metrics, leadingGap: metrics.modeGap),
       ],
     );
   }
