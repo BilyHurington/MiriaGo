@@ -1249,11 +1249,16 @@ class _PointCard extends StatelessWidget {
                 Expanded(
                   child: AppContentFade(
                     revision: (point.id, status),
-                    child: SizedBox(
-                      height:
-                          64 *
-                          (MediaQuery.textScalerOf(context).scale(18) / 18)
-                              .clamp(1.0, double.infinity),
+                    // At least the thumbnail's height; taller when large text
+                    // needs it (small labels grow faster than 18 px text
+                    // under non-linear system scaling).
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight:
+                            64 *
+                            (MediaQuery.textScalerOf(context).scale(18) / 18)
+                                .clamp(1.0, double.infinity),
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1311,7 +1316,9 @@ class _PointCard extends StatelessWidget {
                                   key: const ValueKey('map-point-card-episode'),
                                   text: point.displayEpisodeLabel
                                       .trim()
-                                      .replaceAll(RegExp(r'\s*/\s*'), ' · '),
+                                      // Only the spaced separator: a date such
+                                      // as 2024/05/01 keeps its slashes.
+                                      .replaceAll(RegExp(r'\s+/\s+'), ' · '),
                                   copyLabel: '集数与时间',
                                   onTap: onOpenDetail,
                                   maxLines: 1,

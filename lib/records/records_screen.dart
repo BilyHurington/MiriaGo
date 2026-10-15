@@ -375,7 +375,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      enableDrag: false,
       useSafeArea: true,
       builder: (context) => _RecordScopeFilterSheet(
         works: widget.controller.plan.works,
@@ -551,8 +550,10 @@ class _RecordScopeFilterSheetState extends State<_RecordScopeFilterSheet> {
   late Set<String>? _workIds = _copyFilter(widget.selectedWorkIds);
   late Set<String>? _groupIds = _copyFilter(widget.selectedGroupFilterIds);
   var _isWork = true;
-  final _workScroll = ScrollController(keepScrollOffset: false);
-  final _groupScroll = ScrollController(keepScrollOffset: false);
+  // Each list keeps its offset (under its PageStorageKey) while the other
+  // tab is shown.
+  final _workScroll = ScrollController();
+  final _groupScroll = ScrollController();
 
   @override
   void dispose() {
@@ -607,6 +608,12 @@ class _RecordScopeFilterSheetState extends State<_RecordScopeFilterSheet> {
                         ),
                       ),
                     ),
+                    IconButton(
+                      key: const ValueKey('records-scope-close'),
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(LucideIcons.x),
+                    ),
                     TextButton(
                       key: const ValueKey('records-scope-clear'),
                       onPressed: () => setState(() {
@@ -648,13 +655,20 @@ class _RecordScopeFilterSheetState extends State<_RecordScopeFilterSheet> {
                     letterSpacing: 0,
                   ),
                   tabs: [
+                    // Large text shrinks a label to fit instead of fading it.
                     Tab(
                       key: const ValueKey('records-scope-work-tab'),
-                      text: _tabLabel('作品', _workIds),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(_tabLabel('作品', _workIds)),
+                      ),
                     ),
                     Tab(
                       key: const ValueKey('records-scope-group-tab'),
-                      text: _tabLabel('片区', _groupIds),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(_tabLabel('片区', _groupIds)),
+                      ),
                     ),
                   ],
                 ),

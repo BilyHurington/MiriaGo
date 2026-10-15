@@ -1411,10 +1411,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('作品 · 不限'), findsOneWidget);
     expect(find.text('片区 · 不限'), findsOneWidget);
+    // The drag handle works: the panel can be swiped down to close.
     expect(
       tester.widget<BottomSheet>(find.byType(BottomSheet)).enableDrag,
-      isFalse,
+      isTrue,
     );
+    expect(find.byKey(const ValueKey('records-scope-close')), findsOneWidget);
     final panelHeight = tester.getSize(find.byType(BottomSheet)).height;
     expect(
       panelHeight,
@@ -1438,6 +1440,22 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(apply), footerPosition);
+    double groupOffset() => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(const PageStorageKey('records-scope-list-group')),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position
+        .pixels;
+    final scrolled = groupOffset();
+    await tester.tap(workTab);
+    await tester.pumpAndSettle();
+    await tester.tap(groupTab);
+    await tester.pumpAndSettle();
+    // Each tab keeps its own scroll position.
+    expect(groupOffset(), scrolled);
     await tester.tap(workTab);
     await tester.pumpAndSettle();
     expect(tester.widget<CheckboxListTile>(workOption).value, isTrue);
@@ -1448,7 +1466,8 @@ void main() {
     expect(find.text('片区 · 不限'), findsOneWidget);
     await tester.tap(workOption);
     await tester.pumpAndSettle();
-    await tester.binding.handlePopRoute();
+    // Closing discards the draft.
+    await tester.tap(find.byKey(const ValueKey('records-scope-close')));
     await tester.pumpAndSettle();
     await tester.tap(open);
     await tester.pumpAndSettle();
@@ -2051,6 +2070,20 @@ void main() {
     await tester.tap(find.text('井用机前步行道 改').first);
     await tester.pumpAndSettle();
     expect(find.text('测试备注'), findsOneWidget);
+  });
+
+  testWidgets('map point card grows with large text instead of overflowing', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpApp(tester);
+
+    await tester.tap(find.byIcon(LucideIcons.map).last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('map-point-card-episode')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('shows group filters on the map', (tester) async {
